@@ -2,6 +2,8 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import GoogleMaps
+import Auth0
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -14,6 +16,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+
+    // Initialize Google Maps
+    GMSServices.provideAPIKey("AIzaSyDbCCPsto9OSDAYX7D9vm1ibB1VKVOoTeI")
+
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -30,6 +36,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     )
 
     return true
+  }
+
+  // Handle Auth0 Redirect
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+      return RCTLinkingManager.application(app, open: url, options: options)
   }
 }
 
