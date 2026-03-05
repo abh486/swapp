@@ -16,10 +16,10 @@ export const useImageSelection = () => useContext(ImageSelectionContext);
 export const ImageSelectionProvider = ({ children }) => {
   const [isImageSelectionInProgress, setIsImageSelectionInProgress] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
-  
+
   return (
-    <ImageSelectionContext.Provider value={{ 
-      isImageSelectionInProgress, 
+    <ImageSelectionContext.Provider value={{
+      isImageSelectionInProgress,
       setIsImageSelectionInProgress,
       pendingImage,
       setPendingImage
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       console.log("[DEBUG] Skipping authentication check during image selection");
       return;
     }
-    
+
     console.log("------------------------------------------");
     console.log("[DEBUG] 1. Starting checkAuthStatus...");
     setLoading(true);
@@ -67,9 +67,9 @@ export const AuthProvider = ({ children }) => {
       console.log("[DEBUG] 3. Received response from backend.");
 
       if (resp.data?.success && resp.data.data) {
-       const userObject = resp.data.data.user; 
+        const userObject = resp.data.data.user;
         console.log("[DEBUG] 4. Backend verification SUCCESS. Full user object received:", JSON.stringify(userObject, null, 2));
-        
+
         setUserProfile(userObject);
         setIsAuthenticated(true);
         await AsyncStorage.setItem("userProfile", JSON.stringify(userObject));
@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }) => {
       console.log("[DEBUG] Skipping authentication refresh during image selection");
       return;
     }
-    
+
     console.log("🔄 [DEBUG] Refresh triggered after profile update.");
     await checkAuthStatus();
   };
@@ -128,12 +128,21 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const creds = await authorize({
-        scope: "openid profile email",
+        scope: "openid profile email offline_access",
         audience: "https://api.fitnessclub.com",
         redirectUri: getRedirectUri(),
       });
 
       if (creds?.accessToken) {
+        // Save credentials to Auth0 Manager (required for persistent login)
+        const { credentialsManager } = require('react-native-auth0');
+        const Auth0 = require('react-native-auth0').default;
+        const auth0Instance = new Auth0({
+          domain: "dev-1de0bowjvfbbcx7q.us.auth0.com",
+          clientId: "rwah022fY6bSPr5gstiKqPAErQjgynT2",
+        });
+        await auth0Instance.credentialsManager.saveCredentials(creds);
+
         await AsyncStorage.setItem("accessToken", creds.accessToken);
         await checkAuthStatus();
       } else {
@@ -164,6 +173,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         userProfile,
+        user: userProfile, // Alias for compatibility
         isAuthenticated,
         hasProfile,
         loading,

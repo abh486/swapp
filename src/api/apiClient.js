@@ -23,12 +23,13 @@ const apiClient = axios.create({
 
 export async function getToken() {
   try {
-    const creds = await auth0.credentialsManager.getCredentials();
+    const creds = await auth0.credentialsManager.getCredentials("openid profile email offline_access");
     if (creds?.accessToken) {
       await AsyncStorage.setItem("accessToken", creds.accessToken);
       return creds.accessToken;
     }
   } catch (e) {
+    console.log("[apiClient] getToken error, falling back to AsyncStorage:", e.message);
     return await AsyncStorage.getItem("accessToken");
   }
   return null;

@@ -15,13 +15,15 @@ LogBox.ignoreLogs([
 
 const App = () => {
   console.log('App: Initializing with Auth0 configuration');
-  
+
   return (
     <Provider store={store}>
       <ImageSelectionProvider>
-        <Auth0Provider 
+        <Auth0Provider
           domain="dev-1de0bowjvfbbcx7q.us.auth0.com"
           clientId="rwah022fY6bSPr5gstiKqPAErQjgynT2"
+          audience="https://api.fitnessclub.com"
+          scope="openid profile email offline_access"
         >
           <AuthProvider>
             <AppNavigator />

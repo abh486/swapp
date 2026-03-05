@@ -39,7 +39,7 @@ const MemberProfile = () => {
 
   const steps = [
     { title: "WHAT'S YOUR NAME?", field: 'name', type: 'text' },
-    { title: "WHAT'S YOUR EMAIL?", field: 'email', type: 'email' }, // Added email step
+    { title: "YOUR EMAIL", field: 'email', type: 'email' }, // Updated title and type stays email but will be read-only
     { title: "HOW OLD ARE YOU?", field: 'age', type: 'number' },
     { title: "WHAT'S YOUR GENDER?", field: 'gender', type: 'gender' },
     { title: "WHAT'S YOUR CURRENT WEIGHT?", field: 'weight', type: 'weight' },
@@ -70,11 +70,11 @@ const MemberProfile = () => {
       return false;
     }
     if (currentField === 'email') {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) {
-            Alert.alert('Invalid Email', 'Please enter a valid email address.');
-            return false;
-        }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+        return false;
+      }
     }
     return true;
   };
@@ -145,39 +145,38 @@ const MemberProfile = () => {
         return (
           <View style={styles.inputContainer}>
             <TextInput
-              style={styles.textInput}
-              placeholder="your.email@example.com"
-              placeholderTextColor="#888"
+              style={[styles.textInput, { color: '#888' }]} // Grayed out to indicate read-only
               value={formData[currentStepData.field]}
-              onChangeText={updateFormData}
-              autoFocus={true}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              editable={false} // Make read-only
+              selectTextOnFocus={false}
             />
             <View style={styles.inputLine} />
+            <Text style={{ color: '#888', marginTop: 10, fontSize: 12 }}>
+              Verified via Auth0. Contact support to change.
+            </Text>
           </View>
         );
       case 'gender':
         return (
           <View style={styles.genderContainer}>
             <TouchableOpacity
-              style={[ styles.genderOption, formData.gender === 'Male' && styles.genderSelected ]}
+              style={[styles.genderOption, formData.gender === 'Male' && styles.genderSelected]}
               onPress={() => updateFormData('Male')}
             >
               <View style={styles.genderImage}>
                 <Image source={require('../assets/boyy.jpg')} style={styles.genderImageStyle} />
               </View>
-              <View style={[ styles.radioButton, formData.gender === 'Male' && styles.radioSelected ]} />
+              <View style={[styles.radioButton, formData.gender === 'Male' && styles.radioSelected]} />
               <Text style={styles.genderText}>Male</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[ styles.genderOption, formData.gender === 'Female' && styles.genderSelected ]}
+              style={[styles.genderOption, formData.gender === 'Female' && styles.genderSelected]}
               onPress={() => updateFormData('Female')}
             >
               <View style={styles.genderImage}>
                 <Image source={require('../assets/girll.jpg')} style={styles.genderImageStyle} />
               </View>
-              <View style={[ styles.radioButton, formData.gender === 'Female' && styles.radioSelected ]} />
+              <View style={[styles.radioButton, formData.gender === 'Female' && styles.radioSelected]} />
               <Text style={styles.genderText}>Female</Text>
             </TouchableOpacity>
           </View>
@@ -227,7 +226,7 @@ const MemberProfile = () => {
         return (
           <View style={styles.goalsContainer}>
             {goals.map((goal, index) => (
-              <TouchableOpacity key={index} style={[ styles.goalCard, formData.fitnessGoal === goal.title && styles.goalSelected ]} onPress={() => updateFormData(goal.title)}>
+              <TouchableOpacity key={index} style={[styles.goalCard, formData.fitnessGoal === goal.title && styles.goalSelected]} onPress={() => updateFormData(goal.title)}>
                 <Text style={styles.goalIcon}>{goal.icon}</Text>
                 <View style={styles.goalContent}>
                   <Text style={styles.goalTitle}>{goal.title}</Text>
@@ -249,7 +248,7 @@ const MemberProfile = () => {
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <View style={styles.progressBar}>
-          <View style={[ styles.progressFill, { width: `${((currentStep + 1) / totalSteps) * 100}%` } ]} />
+          <View style={[styles.progressFill, { width: `${((currentStep + 1) / totalSteps) * 100}%` }]} />
         </View>
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
@@ -279,8 +278,8 @@ const MemberProfile = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: '#000000',
     backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDktQktk9aC8_aO96JBFXzdis2IEo1DzGlpZuK1s4av5oWSlAehHsxUxZ5rjzygc0OppXATgwAK2SZ1QIaSLDguEvCTgmNhH0oV8AX44zWbawYjuz28ZQ_6uVbLCeX4sepdvj8ILLY77q75xgdtuU3lfOB0qfmUbBVrnNf1_l-aqjyYISAKO99BF66duHj3mPzukanjr90ZcnZmf1L3fG7hcCdSM85HeYHhnm04EGcCuM3TX3OPrjhzCa6zm_d2sVT0ZFJOofAE-MM')",
     backgroundSize: 'cover',
@@ -294,16 +293,16 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
   },
-  backButton: { 
-    width: 40, 
-    height: 40, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  backIcon: { 
-    fontSize: 26, 
-    fontWeight: 'bold', 
-    color: '#FFFFFF' 
+  backIcon: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF'
   },
   progressBar: {
     flex: 1,
@@ -317,19 +316,19 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#452829',
   },
-  skipButton: { 
-    paddingHorizontal: 10 
+  skipButton: {
+    paddingHorizontal: 10
   },
-  skipText: { 
-    fontSize: 16, 
-    fontWeight: '600', 
-    color: '#FFFFFF' 
+  skipText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF'
   },
-  content: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 40 
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40
   },
   question: {
     fontSize: 24,
@@ -339,9 +338,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: '#FFF',
   },
-  inputContainer: { 
-    width: '100%', 
-    alignItems: 'center' 
+  inputContainer: {
+    width: '100%',
+    alignItems: 'center'
   },
   textInput: {
     width: '100%',
@@ -350,17 +349,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 12,
   },
-  inputLine: { 
-    width: '100%', 
-    height: 1, 
-    backgroundColor: '#FFFFFF', 
-    marginTop: 5 
+  inputLine: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#FFFFFF',
+    marginTop: 5
   },
-  genderContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    width: '100%', 
-    marginTop: 20 
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20
   },
   genderOption: {
     alignItems: 'center',
@@ -373,9 +372,9 @@ const styles = StyleSheet.create({
     elevation: 5,
     minWidth: 120,
   },
-  genderSelected: { 
-    borderWidth: 2, 
-    borderColor: '#452829' 
+  genderSelected: {
+    borderWidth: 2,
+    borderColor: '#452829'
   },
   genderImage: {
     width: 80,
@@ -387,10 +386,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     overflow: 'hidden',
   },
-  genderImageStyle: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 40 
+  genderImageStyle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40
   },
   radioButton: {
     width: 20,
@@ -400,17 +399,17 @@ const styles = StyleSheet.create({
     borderColor: '#452829',
     marginBottom: 10,
   },
-  radioSelected: { 
-    backgroundColor: '#452829' 
+  radioSelected: {
+    backgroundColor: '#452829'
   },
-  genderText: { 
-    fontSize: 16, 
-    fontWeight: '500', 
-    color: '#000000' 
+  genderText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000000'
   },
-  measureContainer: { 
-    width: '100%', 
-    alignItems: 'center' 
+  measureContainer: {
+    width: '100%',
+    alignItems: 'center'
   },
   unitToggle: {
     flexDirection: 'row',
@@ -419,21 +418,21 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 30,
   },
-  unitButton: { 
-    paddingHorizontal: 20, 
-    paddingVertical: 10, 
-    borderRadius: 6 
+  unitButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6
   },
-  unitSelected: { 
-    backgroundColor: '#452829' 
+  unitSelected: {
+    backgroundColor: '#452829'
   },
-  unitText: { 
-    fontSize: 16, 
-    fontWeight: '600', 
-    color: '#000000' 
+  unitText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000'
   },
-  unitTextSelected: { 
-    color: '#FFFFFF' 
+  unitTextSelected: {
+    color: '#FFFFFF'
   },
   bmiContainer: {
     alignItems: 'center',
@@ -456,13 +455,13 @@ const styles = StyleSheet.create({
     color: '#B2DFDB',
     textAlign: 'center',
   },
-  heightContainer: { 
-    width: '100%', 
-    alignItems: 'center' 
+  heightContainer: {
+    width: '100%',
+    alignItems: 'center'
   },
-  goalsContainer: { 
-    width: '100%', 
-    gap: 15 
+  goalsContainer: {
+    width: '100%',
+    gap: 15
   },
   goalCard: {
     backgroundColor: '#FFFFFF',
@@ -478,7 +477,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  goalSelected: { 
+  goalSelected: {
     backgroundColor: '#452829',
     borderColor: '#452829',
   },
@@ -489,23 +488,23 @@ const styles = StyleSheet.create({
   goalContent: {
     flex: 1,
   },
-  goalTitle: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#000000',
     marginBottom: 4,
   },
   goalSelectedText: {
     color: '#FFFFFF',
   },
-  goalSubtitle: { 
-    fontSize: 14, 
-    color: '#6B7280' 
+  goalSubtitle: {
+    fontSize: 14,
+    color: '#6B7280'
   },
   goalSelectedSubtitle: {
     color: '#D1D5DB',
   },
-  buttonContainer: { 
+  buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -519,10 +518,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  previousButtonText: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#9CA3AF' 
+  previousButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#9CA3AF'
   },
   skipButton: {
     borderRadius: 12,
@@ -531,10 +530,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  skipButtonText: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#57595B' 
+  skipButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#57595B'
   },
   nextButton: {
     borderRadius: 12,
@@ -548,10 +547,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  nextButtonText: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#000000' 
+  nextButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000000'
   },
 });
 
