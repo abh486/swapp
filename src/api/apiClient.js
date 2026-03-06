@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Auth0 from 'react-native-auth0';
 
 const auth0 = new Auth0({
-  domain: "dev-1de0bowjvfbbcx7q.us.auth0.com",
+  domain: "login.swapp.fit",
   clientId: "rwah022fY6bSPr5gstiKqPAErQjgynT2",
 });
 
@@ -12,7 +12,7 @@ const auth0 = new Auth0({
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = "https://test-api.swapp.fit/api";
+export const API_BASE_URL = "https://https://bleachable-maricruz-neglectingly.ngrok-free.dev/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

@@ -25,7 +25,7 @@ android {
 
         // ✅ REQUIRED for Auth0 + Cleartext
         manifestPlaceholders = [
-                auth0Domain: "dev-1de0bowjvfbbcx7q.us.auth0.com",   // 🔥 Replace this
+                auth0Domain: "login.swapp.fit",   // 🔥 Replace this
                 auth0Scheme: "com.swappios.auth0",        // Must match applicationId
                 usesCleartextTraffic: "false"
         ]
