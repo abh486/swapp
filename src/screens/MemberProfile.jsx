@@ -19,7 +19,6 @@ const MemberProfile = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    email: '', // Added email to state
     age: '',
     gender: '',
     weight: '',
@@ -31,15 +30,10 @@ const MemberProfile = () => {
   const [weightUnit, setWeightUnit] = useState('KG');
   const [heightUnit, setHeightUnit] = useState('CM');
 
-  useEffect(() => {
-    if (user?.email) {
-      setFormData(prev => ({ ...prev, email: user.email }));
-    }
-  }, [user]);
+
 
   const steps = [
     { title: "WHAT'S YOUR NAME?", field: 'name', type: 'text' },
-    { title: "YOUR EMAIL", field: 'email', type: 'email' }, // Updated title and type stays email but will be read-only
     { title: "HOW OLD ARE YOU?", field: 'age', type: 'number' },
     { title: "WHAT'S YOUR GENDER?", field: 'gender', type: 'gender' },
     { title: "WHAT'S YOUR CURRENT WEIGHT?", field: 'weight', type: 'weight' },
@@ -69,13 +63,6 @@ const MemberProfile = () => {
       Alert.alert('Invalid Age', 'Please enter a valid age between 1 and 120.');
       return false;
     }
-    if (currentField === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) {
-        Alert.alert('Invalid Email', 'Please enter a valid email address.');
-        return false;
-      }
-    }
     return true;
   };
 
@@ -101,7 +88,6 @@ const MemberProfile = () => {
         '/v1/auth/create-member-profile',
         {
           name: formData.name.trim(),
-          email: formData.email.trim(), // Send the email to the backend
           age: Number(formData.age),
           gender: formData.gender,
           weight: { value: Number(formData.weight), unit: weightUnit },
@@ -141,21 +127,7 @@ const MemberProfile = () => {
             <View style={styles.inputLine} />
           </View>
         );
-      case 'email':
-        return (
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[styles.textInput, { color: '#888' }]} // Grayed out to indicate read-only
-              value={formData[currentStepData.field]}
-              editable={false} // Make read-only
-              selectTextOnFocus={false}
-            />
-            <View style={styles.inputLine} />
-            <Text style={{ color: '#888', marginTop: 10, fontSize: 12 }}>
-              Verified via Auth0. Contact support to change.
-            </Text>
-          </View>
-        );
+
       case 'gender':
         return (
           <View style={styles.genderContainer}>
