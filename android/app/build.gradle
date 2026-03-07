@@ -23,11 +23,10 @@ android {
         versionCode 1
         versionName "1.0"
 
-        // ✅ REQUIRED for Auth0 + Cleartext
+        // Auth0 Config
         manifestPlaceholders = [
-                auth0Domain: "login.swapp.fit",   // 🔥 Replace this
-                auth0Scheme: "com.swappios.auth0",        // Must match applicationId
-                usesCleartextTraffic: "false"
+                auth0Domain: "login.swapp.fit",
+                auth0Scheme: "https"
         ]
     }
 
@@ -38,7 +37,6 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-
         release {
             storeFile file(MYAPP_UPLOAD_STORE_FILE)
             storePassword MYAPP_UPLOAD_STORE_PASSWORD
@@ -50,11 +48,15 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // FIX: Allows Metro bundler connection via HTTP
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
 
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
+            // FIX: Ensures security in production
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }

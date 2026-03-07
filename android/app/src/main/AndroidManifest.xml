@@ -1,17 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.swappios">
 
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- ✅ Image Picker Permissions -->
-    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    
-    <!-- Optional but recommended for maps -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Required for Camera Intent (do not remove) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
@@ -25,12 +20,10 @@
         android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:supportsRtl="true">
 
-        <!-- ✅ Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCYCaA0JTX_cpFbDbe3rlX764XyRsCUYPk" />
 
-        <!-- ✅ FileProvider required for Camera & Image Picker -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -49,18 +42,18 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
 
-            <!-- ✅ Auth0 Redirect -->
+            <!-- HTTPS CALLBACK -->
+            <!-- Removed autoVerify to fix login blocking -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data
-                    android:scheme="${auth0Scheme}"
-                    android:host="${auth0Domain}" />
+                <data android:scheme="com.swappios" />
+                <data android:scheme="https" android:host="login.swapp.fit" android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
-            <!-- Launcher -->
+            <!-- Launcher Intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

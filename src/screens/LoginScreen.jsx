@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert, ImageBackground, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert, ImageBackground, Dimensions, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
@@ -11,9 +11,26 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     try {
+      // ⬇️ LOG THIS TO SEE WHAT URL IS BEING GENERATED
+      // This helps you compare what the app sends vs what is in your Auth0 Dashboard
+      console.log('Initiating login...');
+      
       await login();
+      
+      console.log('Login call successful (waiting for redirect)...');
     } catch (err) {
-      Alert.alert('Login Error', err.message || 'Login failed');
+      // ⬇️ LOG THE FULL ERROR OBJECT
+      console.error('Login failed full error:', JSON.stringify(err, null, 2));
+      
+      // Specific handling for the URL mismatch error you described
+      if (err.message && err.message.includes('mismatch')) {
+        Alert.alert(
+          'Configuration Error', 
+          'There is a URL mismatch between your App and Auth0 Dashboard. Check your console logs for the Redirect URI.'
+        );
+      } else {
+        Alert.alert('Login Error', err.message || 'An unexpected error occurred.');
+      }
     }
   };
 
@@ -22,7 +39,7 @@ const LoginScreen = () => {
     if (isAuthenticated) {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'MemberProfile' }], // or "MainTabs" if you want bottom tabs first
+        routes: [{ name: 'MemberProfile' }], 
       });
     }
   }, [isAuthenticated, navigation]);
@@ -35,26 +52,13 @@ const LoginScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
-          {/* Spacer */}
           <View style={styles.spacer} />
-          
-          {/* Main Content */}
           <View style={styles.mainContent}>
-            {/* Logo has been removed from here */}
-            
-            {/* Headline */}
             <Text style={styles.headlineText}>Welcome to Swappfit</Text>
-            
-            {/* Subtitle */}
             <Text style={styles.subtitleText}>Your fitness journey starts here</Text>
           </View>
-          
-          {/* Spacer */}
           <View style={styles.spacer} />
-          
-          {/* Bottom Content */}
           <View style={styles.bottomContent}>
-            {/* Button */}
             <TouchableOpacity 
               style={styles.signInButton} 
               onPress={handleLogin} 
@@ -67,8 +71,6 @@ const LoginScreen = () => {
                 <Text style={styles.signInButtonText}>CONTINUE</Text>
               )}
             </TouchableOpacity>
-            
-            {/* Legal Text */}
             <Text style={styles.legalText}>
               By continuing, you agree to our <Text style={styles.underlineText}>Terms</Text> & <Text style={styles.underlineText}>Privacy Policy</Text>
             </Text>
@@ -106,7 +108,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  // Logo styles have been removed from here
   headlineText: {
     color: '#ffffff',
     fontSize: 32,
