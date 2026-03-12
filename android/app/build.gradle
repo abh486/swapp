@@ -49,14 +49,14 @@ android {
         debug {
             signingConfig signingConfigs.debug
             // FIX: Allows Metro bundler connection via HTTP
-            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            manifestPlaceholders.usesCleartextTraffic = "true"
         }
 
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             // FIX: Ensures security in production
-            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            manifestPlaceholders.usesCleartextTraffic = "false"
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }

@@ -5,7 +5,7 @@
 	<key>Auth0ClientId</key>
 	<string>rwah022fY6bSPr5gstiKqPAErQjgynT2</string>
 	<key>Auth0Domain</key>
-	<string>dev-1de0bowjvfbbcx7q.us.auth0.com</string>
+	<string>login.swapp.fit</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>

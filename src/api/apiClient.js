@@ -5,7 +5,7 @@ import Auth0 from 'react-native-auth0';
 
 const auth0 = new Auth0({
   domain: "login.swapp.fit",
-  clientId: "rwah022fY6bSPr5gstiKqPAErQjgynT2",
+  clientId: "6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0",
 });
 
 

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.swappios">
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -42,21 +43,47 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
 
-            <!-- HTTPS CALLBACK -->
-            <!-- Removed autoVerify to fix login blocking -->
+            <!-- Deep Links -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
                 <data android:scheme="com.swappios" />
-                <data android:scheme="https" android:host="login.swapp.fit" android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
             <!-- Launcher Intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name="com.auth0.android.provider.RedirectActivity"
+            android:exported="true"
+            tools:node="replace">
+
+            <!-- Auth0 login domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="login.swapp.fit"
+                    android:pathPrefix="/android/com.swappios/callback" />
+            </intent-filter>
+
+            <!-- App Links verification domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="swapp.fit"
+                    android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
         </activity>
