@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
       const creds = await auth0.webAuth.authorize({
         scope: "openid profile email offline_access",
         audience: "https://api.fitnessclub.com",
-        redirectUri: getRedirectUri(), // Uses the HTTPS link
+        redirectUrl: getRedirectUri(), // Uses the HTTPS link
       });
 
       if (creds?.accessToken) {
@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      await auth0.webAuth.clearSession();
+      await auth0.webAuth.clearSession({ returnToUrl: getRedirectUri() });
       await AsyncStorage.clear();
     } catch (e) {
       console.warn("Clear session error:", e.message);

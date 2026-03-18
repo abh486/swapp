@@ -21,7 +21,7 @@ const App = () => {
       <ImageSelectionProvider>
         <Auth0Provider
           domain="login.swapp.fit"
-          clientId="rwah022fY6bSPr5gstiKqPAErQjgynT2"
+          clientId="6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0"
           audience="https://api.fitnessclub.com"
           scope="openid profile email offline_access"
         >
