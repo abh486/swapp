@@ -15,7 +15,7 @@ import { Strings } from '../../../config/config'; // Import Config
 
 const FindTrainers = () => {
   const dispatch = useDispatch();
-  const { strings } = Strings.FindTrainers;
+  const strings = Strings.FindTrainers;
   const { user } = useAuth();
 
   const [trainers, setTrainers] = useState([]);
@@ -55,7 +55,7 @@ const FindTrainers = () => {
       setSelectedTrainerDetails(fullProfile);
     } catch (err) {
       console.error("Failed to load full trainer profile:", err);
-      Alert.alert(Strings.FindTrainers.alerts.genericError, Strings.FindTrainers.alerts.loadProfileError);
+      Alert.alert(Strings.FindTrainers.alerts.genericError || 'Error', Strings.FindTrainers.alerts.loadProfileError);
       setSelectedTrainerDetails(null);
     } finally {
       setIsModalLoading(false);

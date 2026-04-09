@@ -1148,37 +1148,53 @@ const Community = () => {
         
         console.log('Permissions to request:', permissionsToRequest);
         
-        const granted = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+        // Check which permissions are actually missing
+        const missingPermissions = [];
+        for (const permission of permissionsToRequest) {
+          const isGranted = await PermissionsAndroid.check(permission);
+          if (!isGranted) {
+            missingPermissions.push(permission);
+          }
+        }
+        
+        // If no permissions are missing, we're good to go
+        if (missingPermissions.length === 0) {
+          console.log('All permissions are already granted');
+          return true;
+        }
+        
+        console.log('Missing permissions to request:', missingPermissions);
+        const granted = await PermissionsAndroid.requestMultiple(missingPermissions);
         console.log('Permission results:', granted);
         
-        const allGranted = permissionsToRequest.every(permission => 
-          granted[permission] === PermissionsAndroid.RESULTS.GRANTED
+        const allGranted = missingPermissions.every(permission => 
+          granted[permission] === PermissionsAndroid.RESULTS.GRANTED || granted[permission] === 'granted'
         );
         
         if (allGranted) {
-          console.log('All permissions granted');
+          console.log('All requested permissions granted');
           return true;
         } else {
           console.log('Some permissions were denied');
           
-          const deniedPermissions = permissionsToRequest.filter(permission => 
-            granted[permission] !== PermissionsAndroid.RESULTS.GRANTED
+          const deniedPermissions = missingPermissions.filter(permission => 
+            granted[permission] !== PermissionsAndroid.RESULTS.GRANTED && granted[permission] !== 'granted'
           );
           console.log('Denied permissions:', deniedPermissions);
           
           Alert.alert(
-            alerts.permissions.title, 
-            alerts.permissions.message,
+            alerts.permissions?.title || 'Permissions Required', 
+            alerts.permissions?.message || 'Please grant the required permissions to proceed.',
             [
-              { text: alerts.permissions.cancel, style: 'cancel' },
-              { text: alerts.permissions.settings, onPress: () => Linking.openSettings() }
+              { text: alerts.permissions?.cancel || 'Cancel', style: 'cancel' },
+              { text: alerts.permissions?.settings || 'Settings', onPress: () => Linking.openSettings() }
             ]
           );
           return false;
         }
       } catch (err) {
         console.error('Permission request error:', err);
-        Alert.alert(alerts.genericError, 'Failed to request permissions. Please try again.');
+        Alert.alert(alerts.genericError || 'Error', 'Failed to request permissions. Please try again.');
         return false;
       }
     }
