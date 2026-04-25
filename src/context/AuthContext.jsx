@@ -36,12 +36,12 @@ export const ImageSelectionProvider = ({ children }) => {
 
 const AuthContext = createContext();
 
-// ✅ EXACT MATCH TO AUTH0 DASHBOARD URLS
+//✅EXACT MATCH TO AUTH0 DASHBOARD URLS
 const getRedirectUri = () => {
   if (Platform.OS === "ios") {
-    return "https://login.swapp.fit/ios/com.swapp.swappfit/callback";
+    return "https://swapp.fit/ios/com.swapp.swappfit/callback";
   } else {
-    return "https://login.swapp.fit/android/com.swappios/callback";
+    return "https://swapp.fit/android/com.swappios/callback";
   }
 };
 

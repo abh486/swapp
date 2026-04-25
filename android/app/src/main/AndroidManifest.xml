@@ -75,6 +75,17 @@
                     android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
+            <!-- App Links verification domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="swapp.fit"
+                    android:pathPrefix="/android/com.swappios/callback" />
+            </intent-filter>
+
         </activity>
 
     </application>
