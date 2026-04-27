@@ -6,6 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Feather from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
@@ -22,6 +23,11 @@ const AgeRuler = ({ value, onChange }) => {
   const ages = Array.from({ length: 80 }, (_, i) => 15 + i);
   const ITEM_HEIGHT = 65;
 
+  const initialOffset = React.useMemo(() => {
+    const idx = ages.findIndex(a => String(a) === String(value));
+    return idx > 0 ? idx * ITEM_HEIGHT : 0;
+  }, []);
+
   return (
     <View style={{ height: 320, width: '100%', alignItems: 'center' }}>
       <ScrollView
@@ -29,6 +35,7 @@ const AgeRuler = ({ value, onChange }) => {
         contentContainerStyle={{ paddingVertical: 120 }}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
+        contentOffset={{ x: 0, y: initialOffset }}
         onScroll={(e) => {
           const y = e.nativeEvent.contentOffset.y;
           const index = Math.round(y / ITEM_HEIGHT);
@@ -62,6 +69,12 @@ const HorizontalRuler = ({ min, max, value, onChange, unit, step = 1 }) => {
   const itemWidth = 14;
   const data = Array.from({ length: Math.floor((max - min) / step) + 1 }, (_, i) => min + i * step);
 
+  const initialOffset = React.useMemo(() => {
+    const val = Number(value);
+    const idx = Math.floor((val - min) / step);
+    return idx > 0 ? idx * itemWidth : 0;
+  }, []);
+
   return (
     <View style={{ height: 110, width: '100%', alignItems: 'center' }}>
       <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 15 }}>
@@ -74,8 +87,9 @@ const HorizontalRuler = ({ min, max, value, onChange, unit, step = 1 }) => {
           contentContainerStyle={{ paddingHorizontal: CONTENT_WIDTH / 2 }}
           snapToInterval={itemWidth}
           decelerationRate="fast"
+          contentOffset={{ x: initialOffset, y: 0 }}
           onScroll={(e) => {
-            const x = e.nativeEvent.contentOffset.x;
+            const x = Math.max(0, e.nativeEvent.contentOffset.x);
             const index = Math.round(x / itemWidth);
             if (index >= 0 && index < data.length) {
               onChange(data[index].toString());
@@ -118,8 +132,8 @@ const MemberProfile = () => {
     name: '',
     age: '22',
     gender: 'Male',
-    weight: '55',
-    height: '155',
+    weight: '0',
+    height: '0',
     fitnessGoal: [],
     interests: [],
   });
@@ -193,6 +207,7 @@ const MemberProfile = () => {
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setLoading(true);
+    setCurrentStep(5);
     try {
       await apiClient.post('/v1/auth/create-member-profile', {
         name: formData.name.trim(),
@@ -204,8 +219,11 @@ const MemberProfile = () => {
         healthConditions: formData.interests.join(', ') || 'None',
         profilePicture: profileImage ? profileImage : undefined,
       });
+      // Ensure the "Get ready !!" screen is visible for at least 1.5 seconds for visual impact
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await refreshAuthStatus();
     } catch (err) {
+      setCurrentStep(4);
       console.error('Profile Setup Failed:', err.response ? err.response.data : err.message);
       Alert.alert('Profile Setup Failed', err.response?.data?.message || 'An error occurred. Please try again.');
     } finally {
@@ -302,13 +320,13 @@ const MemberProfile = () => {
           <View style={{ width: '100%', alignItems: 'center', marginTop: 20 }}>
             <Text style={styles.stepHeading}>what's your height?</Text>
             <Text style={styles.stepSubtitle}>please select your height</Text>
-            <HorizontalRuler min={100} max={220} value={formData.height} onChange={(v) => setFormData({ ...formData, height: v })} unit="cm" />
+            <HorizontalRuler min={0} max={250} value={formData.height} onChange={(v) => setFormData({ ...formData, height: v })} unit="cm" />
 
             <View style={{ height: 40 }} />
 
             <Text style={styles.stepHeading}>what's your Weight?</Text>
             <Text style={styles.stepSubtitle}>please select your weight</Text>
-            <HorizontalRuler min={30} max={150} value={formData.weight} onChange={(v) => setFormData({ ...formData, weight: v })} unit="kg" />
+            <HorizontalRuler min={0} max={200} value={formData.weight} onChange={(v) => setFormData({ ...formData, weight: v })} unit="kg" />
           </View>
         );
 
@@ -342,34 +360,34 @@ const MemberProfile = () => {
           {
             title: 'STRENGTH & FITNESS',
             items: [
-              { label: 'Gym workout', icon: '🏋️' },
-              { label: 'CrossFit', icon: '💥' },
-              { label: 'HIIT', icon: '⚡' },
-              { label: 'Functional', icon: '🤸' },
+              { label: 'Gym workout', icon: 'weight-lifter' },
+              { label: 'CrossFit', icon: 'run-fast' },
+              { label: 'HIIT', icon: 'lightning-bolt' },
+              { label: 'Functional', icon: 'human-handsup' },
             ],
           },
           {
             title: 'COMBAT SPORTS',
             items: [
-              { label: 'Boxing', icon: '🥊' },
-              { label: 'MMA', icon: '🥷' },
-              { label: 'Karate', icon: '🥋' },
+              { label: 'Boxing', icon: 'boxing-glove' },
+              { label: 'MMA', icon: 'karate' },
+              { label: 'Karate', icon: 'martial-arts' },
             ],
           },
           {
             title: 'MIND & BODY',
             items: [
-              { label: 'Yoga', icon: '🧘' },
-              { label: 'Pilates', icon: '🏃' },
-              { label: 'Meditation', icon: '🧠' },
+              { label: 'Yoga', icon: 'yoga' },
+              { label: 'Pilates', icon: 'human-child' },
+              { label: 'Meditation', icon: 'meditation' },
             ],
           },
           {
             title: 'SPORTS',
             items: [
-              { label: 'Football', icon: '⚽' },
-              { label: 'Badminton', icon: '🏸' },
-              { label: 'Swimming', icon: '🏊' },
+              { label: 'Football', icon: 'soccer' },
+              { label: 'Badminton', icon: 'badminton' },
+              { label: 'Swimming', icon: 'swim' },
             ],
           },
         ];
@@ -391,7 +409,12 @@ const MemberProfile = () => {
                           style={[styles.interestChip, isSelected && styles.interestChipActive]}
                           onPress={() => toggleInterest(item.label)}
                         >
-                          <Text style={{ fontSize: 16, marginRight: 8 }}>{item.icon}</Text>
+                          <MaterialCommunityIcons 
+                            name={item.icon} 
+                            size={18} 
+                            color={isSelected ? '#FFFFFF' : '#888888'} 
+                            style={{ marginRight: 8 }} 
+                          />
                           <Text style={styles.interestText}>{item.label}</Text>
                         </TouchableOpacity>
                       );
@@ -409,6 +432,15 @@ const MemberProfile = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
+  if (currentStep === 5) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '500', letterSpacing: 0.5 }}>Get ready !!</Text>
+        <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 30, opacity: loading ? 1 : 0 }} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
 
