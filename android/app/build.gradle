@@ -25,8 +25,8 @@ android {
 
         // Auth0 Config
         manifestPlaceholders = [
-                auth0Domain: "swapp.fit",
-                auth0Scheme: "https"
+                auth0Domain: "login.swapp.fit",
+                auth0Scheme: "com.swappios.auth0"
         ]
     }
 
