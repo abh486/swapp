@@ -62,9 +62,10 @@
         <activity
             android:name="com.auth0.android.provider.RedirectActivity"
             android:exported="true"
-            tools:node="replace">
+            android:launchMode="singleTask"
+            tools:node="merge">
 
-            <!-- Auth0 login domain -->
+            <!-- App Links verification for Auth0 domains -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -73,16 +74,20 @@
                     android:scheme="https"
                     android:host="login.swapp.fit"
                     android:pathPrefix="/android/com.swappios/callback" />
+                <data
+                    android:scheme="https"
+                    android:host="swapp.fit"
+                    android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
-            <!-- App Links verification domain -->
-            <intent-filter android:autoVerify="true">
+            <!-- Custom Scheme Fallback (Recommended for Auth0) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="https"
-                    android:host="swapp.fit"
+                    android:scheme="com.swappios.auth0"
+                    android:host="login.swapp.fit"
                     android:pathPrefix="/android/com.swappios/callback" />
             </intent-filter>
 
