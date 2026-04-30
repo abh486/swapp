@@ -4,7 +4,7 @@ import { Text, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 // Import screens
-import LocationMain from '../screens/home/location/LocationMain';
+import HomeDashboard from '../screens/home/dashboard/HomeDashboard';
 import Activity from '../screens/activity/Activity';
 import Community from '../screens/community/Community';
 import Store from '../screens/store/Store';
@@ -14,7 +14,7 @@ import Profile from '../screens/profile/ProfileScreen';
 const TAB_CONFIG = [
   {
     name: 'Home',
-    component: LocationMain,
+    component: HomeDashboard,
     iconActive: 'home',
     iconInactive: 'home-outline'
   },

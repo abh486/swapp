@@ -11,6 +11,8 @@ import LoginScreen from "../screens/LoginScreen";
 import WorkoutLog from "../screens/activity/components/WorkoutLog";
 import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
+import DiscoverGymsMapScreen from "../screens/home/dashboard/DiscoverGymsMapScreen";
+import GymDetailScreen from "../screens/gym/GymDetailScreen";
 
 
 const Stack = createNativeStackNavigator();
@@ -39,6 +41,8 @@ const AppNavigator = () => {
               <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
               <Stack.Screen name="DietLog" component={DietLog} />
               <Stack.Screen name="WorkoutLog" component={WorkoutLog} />
+              <Stack.Screen name="DiscoverGymsMap" component={DiscoverGymsMapScreen} />
+              <Stack.Screen name="GymDetail" component={GymDetailScreen} />
               {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
             </>
           ) : (
