@@ -77,6 +77,27 @@ const TOP_OFFERINGS = [
   }
 ];
 
+const MOCK_GYMS = [
+  {
+    id: 'mock1',
+    name: 'Cult Koramangala',
+    distance: 0.8,
+    photos: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400'],
+  },
+  {
+    id: 'mock2',
+    name: 'Fitbox Jayanagar',
+    distance: 1.2,
+    photos: ['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=400'],
+  },
+  {
+    id: 'mock3',
+    name: 'Yoga House Indiranagar',
+    distance: 1.7,
+    photos: ['https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400'],
+  }
+];
+
 export const HomeDashboard = ({ navigation }) => {
   const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState('all');
@@ -129,18 +150,9 @@ export const HomeDashboard = ({ navigation }) => {
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gymOverlay} />
         </ImageBackground>
         <View style={styles.gymDetails}>
-          <View style={styles.gymHeaderRow}>
-             <Text style={styles.gymName} numberOfLines={1}>{gym.name || 'Fit7'}</Text>
-             <Text style={styles.gymPrice}>1049/mo*</Text>
-          </View>
+          <Text style={styles.gymName} numberOfLines={1}>{gym.name || 'Fit7'}</Text>
           <Text style={styles.gymDistance}>{distanceText}</Text>
-          <View style={styles.gymActions}>
-            <TouchableOpacity style={styles.gymBtnOutline}><Text style={styles.gymBtnOutlineText}>TRY FOR FREE</Text></TouchableOpacity>
-            <View style={styles.gymBtnDivider} />
-            <TouchableOpacity style={styles.gymBtnSolid} onPress={() => setMembershipModalVisible(true)}>
-              <Text style={styles.gymBtnSolidText}>JOIN NOW</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.gymPrice}>₹1049/mo*</Text>
         </View>
       </View>
     );
@@ -233,11 +245,11 @@ export const HomeDashboard = ({ navigation }) => {
         <FlatList 
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={gyms?.slice(0, 5) || []}
+          data={gyms?.length > 0 ? gyms.slice(0, 5) : MOCK_GYMS}
           renderItem={renderGym}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.gymsList}
-          ListEmptyComponent={<Text style={{color: '#888', marginLeft: 16}}>Loading centers...</Text>}
+          ListEmptyComponent={<Text style={{color: '#888', marginLeft: 16}}>No centers found</Text>}
         />
         
         {/* Spacer for bottom banner */}
@@ -498,17 +510,19 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   gymCard: {
-    width: 240,
+    width: 160,
+    marginRight: 15,
     backgroundColor: '#111',
     borderRadius: 12,
-    marginRight: 15,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
+    overflow: 'hidden',
+    paddingBottom: 12,
   },
   gymImage: {
     width: '100%',
     height: 120,
+    marginBottom: 10,
   },
   gymImageStyle: {
     borderTopLeftRadius: 12,
@@ -518,58 +532,22 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   gymDetails: {
-    padding: 12,
-  },
-  gymHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    paddingHorizontal: 12,
   },
   gymName: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
-    flex: 1,
-  },
-  gymPrice: {
-    color: '#aaa',
-    fontSize: 10,
+    marginBottom: 4,
   },
   gymDistance: {
-    color: '#666',
+    color: '#888',
     fontSize: 10,
-    marginBottom: 15,
+    marginBottom: 6,
   },
-  gymActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    paddingTop: 12,
-  },
-  gymBtnOutline: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gymBtnOutlineText: {
-    color: '#aaa',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  gymBtnDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: 10,
-  },
-  gymBtnSolid: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gymBtnSolidText: {
-    color: '#fff',
-    fontSize: 10,
+  gymPrice: {
+    color: '#e74c3c',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   proBannerContainer: {

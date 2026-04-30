@@ -12,7 +12,7 @@ import WorkoutLog from "../screens/activity/components/WorkoutLog";
 import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
 import DiscoverGymsMapScreen from "../screens/home/dashboard/DiscoverGymsMapScreen";
-import GymDetailScreen from "../screens/gym/GymDetailScreen";
+import GymDetailScreen from "../screens/home/gym/GymDetailScreen";
 
 
 const Stack = createNativeStackNavigator();
