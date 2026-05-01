@@ -15,19 +15,13 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocationManager } from '../../../hooks/useLocationManager';
-import { useGymData } from '../../../hooks/useGymData';
+import { useProviderData } from '../../../hooks/useProviderData';
+import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
-
-const CATEGORIES = [
-  { id: 'all', label: 'All', icon: 'apps' },
-  { id: 'train', label: 'Train', icon: 'barbell' },
-  { id: 'combat', label: 'Combat', icon: 'medical' }, // Mock icons
-  { id: 'mind_body', label: 'Mind & Body', icon: 'body' },
-  { id: 'recovery', label: 'Recovery', icon: 'medkit' }
-];
+import { RefreshControl } from 'react-native';
 
 const PROMOS = [
   {
@@ -44,124 +38,150 @@ const PROMOS = [
   }
 ];
 
-const TOP_OFFERINGS = [
-  {
-    id: '1',
-    title: 'Boxing Training',
-    duration: '50 mins',
-    level: 'Beginner',
-    price: '₹700',
-    originalPrice: '₹999',
-    discount: '25% OFF',
-    image: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?q=80&w=1374&auto=format&fit=crop'
-  },
-  {
-    id: '2',
-    title: 'Strength Training',
-    duration: '60 mins',
-    level: 'All Levels',
-    price: '₹699',
-    originalPrice: '₹899',
-    discount: '25% OFF',
-    image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=1470&auto=format&fit=crop'
-  },
-  {
-    id: '3',
-    title: 'MMA Workout',
-    duration: '60 mins',
-    level: 'Intermediate',
-    price: '₹749',
-    originalPrice: '₹999',
-    discount: '20% OFF',
-    image: 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1470&auto=format&fit=crop'
-  }
-];
-
-const MOCK_GYMS = [
-  {
-    id: 'mock1',
-    name: 'Cult Koramangala',
-    distance: 0.8,
-    photos: ['https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400'],
-  },
-  {
-    id: 'mock2',
-    name: 'Fitbox Jayanagar',
-    distance: 1.2,
-    photos: ['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=400'],
-  },
-  {
-    id: 'mock3',
-    name: 'Yoga House Indiranagar',
-    distance: 1.7,
-    photos: ['https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400'],
-  }
-];
-
 export const HomeDashboard = ({ navigation }) => {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMembershipModalVisible, setMembershipModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const { userLocation, permissionGranted } = useLocationManager();
-  const { gyms, isLoading: areGymsLoading } = useGymData(userLocation, permissionGranted);
+  const { feed, loading } = useSelector(state => state.home);
+
+  useEffect(() => {
+    fetchFeed();
+  }, [userLocation]);
+
+  const fetchFeed = async () => {
+    if (userLocation) {
+      await dispatch(getHomeFeed(userLocation.latitude, userLocation.longitude));
+    } else {
+      await dispatch(getHomeFeed());
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchFeed();
+    setRefreshing(false);
+  };
 
   const renderCategory = ({ item }) => {
     const isActive = activeCategory === item.id;
     return (
       <TouchableOpacity 
         style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-        onPress={() => setActiveCategory(item.id)}
+        onPress={() => {
+          setActiveCategory(item.id);
+          if (item.id !== 'all') {
+            navigation.navigate('DiscoverProvidersMap', { 
+              vertical: item.vertical,
+              categoryId: item.id
+            });
+          }
+        }}
       >
-        <Icon name={item.icon} size={14} color={isActive ? '#e74c3c' : '#888'} style={styles.categoryIcon} />
+        <Icon name={item.icon || 'apps'} size={14} color={isActive ? '#e74c3c' : '#888'} style={styles.categoryIcon} />
         <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>{item.label}</Text>
       </TouchableOpacity>
     );
   };
 
   const renderOffering = ({ item }) => (
-    <View style={styles.offeringCard}>
+    <TouchableOpacity style={styles.offeringCard} onPress={() => navigation.navigate('ProviderDetails', { id: item.provider?.id })}>
       <ImageBackground source={{ uri: item.image }} style={styles.offeringImage} imageStyle={styles.offeringImageStyle}>
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{item.discount}</Text>
+        <View style={styles.badgeContainer}>
+          {item.discount && (
+            <View style={[styles.badge, styles.discountBadge]}>
+              <Text style={styles.badgeText}>{item.discount}</Text>
+            </View>
+          )}
+          {item.badges?.is_recommended && (
+            <View style={[styles.badge, styles.recommendedBadge]}>
+              <Text style={styles.badgeText}>RECOMMENDED</Text>
+            </View>
+          )}
         </View>
         <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.offeringOverlay} />
       </ImageBackground>
       <View style={styles.offeringDetails}>
-        <Text style={styles.offeringTitle}>{item.title}</Text>
+        <Text style={styles.offeringTitle} numberOfLines={1}>{item.title}</Text>
         <Text style={styles.offeringMeta}>{item.duration} • {item.level}</Text>
         <View style={styles.offeringPriceRow}>
           <Text style={styles.offeringPrice}>{item.price}</Text>
-          <Text style={styles.offeringOriginalPrice}>{item.originalPrice}</Text>
+          {item.originalPrice && (
+            <Text style={styles.offeringOriginalPrice}>{item.originalPrice}</Text>
+          )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
-  const renderGym = ({ item: gym }) => {
-    if (!gym) return null;
-    const distanceValue = typeof gym.distance === 'number' ? gym.distance.toFixed(1) : null;
-    const distanceText = distanceValue ? `Downtown District • ${distanceValue} miles` : 'Downtown District';
+  const renderProvider = ({ item: provider }) => {
+    if (!provider) return null;
+    const distanceValue = typeof provider.distance === 'number' ? provider.distance.toFixed(1) : null;
+    const distanceText = distanceValue ? `${distanceValue} miles` : null;
+    
+    // Vertical Label (e.g., GYM -> Gym, BOXING -> Boxing Studio)
+    const verticalLabel = Array.isArray(provider.vertical) 
+      ? provider.vertical[0].charAt(0) + provider.vertical[0].slice(1).toLowerCase()
+      : (provider.vertical ? provider.vertical.charAt(0) + provider.vertical.slice(1).toLowerCase() : 'Fitness');
 
     return (
-      <View style={styles.gymCard}>
-        <ImageBackground source={{ uri: gym.photos?.[0] || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400' }} style={styles.gymImage} imageStyle={styles.gymImageStyle}>
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gymOverlay} />
+      <TouchableOpacity 
+        style={styles.providerCard} 
+        onPress={() => navigation.navigate('ProviderDetails', { id: provider.id })}
+      >
+        <ImageBackground 
+          source={{ uri: provider.photos?.[0] || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} 
+          style={styles.providerImage} 
+          imageStyle={styles.providerImageStyle}
+        >
+          <View style={styles.badgeContainer}>
+            {provider.badges?.is_popular && (
+              <View style={[styles.badge, styles.popularBadge]}>
+                <Text style={styles.badgeText}>POPULAR</Text>
+              </View>
+            )}
+            {provider.badges?.is_new && (
+              <View style={[styles.badge, styles.newBadge]}>
+                <Text style={styles.badgeText}>NEW</Text>
+              </View>
+            )}
+            {provider.badges?.is_swapp_partner && (
+              <View style={[styles.badge, styles.partnerBadge]}>
+                <Icon name="checkmark-circle" size={8} color="#fff" style={{marginRight: 2}} />
+                <Text style={styles.badgeText}>PARTNER</Text>
+              </View>
+            )}
+          </View>
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.providerOverlay} />
         </ImageBackground>
-        <View style={styles.gymDetails}>
-          <Text style={styles.gymName} numberOfLines={1}>{gym.name || 'Fit7'}</Text>
-          <Text style={styles.gymDistance}>{distanceText}</Text>
-          <Text style={styles.gymPrice}>₹1049/mo*</Text>
+        <View style={styles.providerDetails}>
+          <Text style={styles.providerName} numberOfLines={1}>{provider.name}</Text>
+          <Text style={styles.providerDistance}>{verticalLabel} {distanceText ? `• ${distanceText}` : ''}</Text>
+          <Text style={styles.providerPrice}>{provider.lowest_price ? `₹${provider.lowest_price}/mo*` : 'View Plans'}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
+
+  const dashboardCategories = [
+    { id: 'all', label: 'All', icon: 'apps' },
+    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon }))
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e74c3c" />
+        }
+      >
         
         {/* Header */}
         <View style={styles.header}>
@@ -177,10 +197,11 @@ export const HomeDashboard = ({ navigation }) => {
           <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
           <TextInput 
             style={styles.searchInput}
-            placeholder="Search gyms, trainers, classes..."
+            placeholder="Search providers, trainers, classes..."
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onSubmitEditing={() => navigation.navigate('DiscoverProvidersMap', { query: searchQuery })}
           />
         </View>
 
@@ -188,13 +209,13 @@ export const HomeDashboard = ({ navigation }) => {
         <FlatList 
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={CATEGORIES}
+          data={dashboardCategories}
           renderItem={renderCategory}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.categoriesList}
         />
 
-        {/* Promos Carousel */}
+        {/* Promos Carousel (Kept static as per user request) */}
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.promoCarousel}>
           {PROMOS.map((promo, index) => (
              <ImageBackground key={promo.id} source={{ uri: promo.image }} style={styles.promoCard} imageStyle={{borderRadius: 16}}>
@@ -215,42 +236,64 @@ export const HomeDashboard = ({ navigation }) => {
         </ScrollView>
 
         {/* Top Offerings */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
-          <Icon name="arrow-forward-circle" size={28} color="#555" />
-        </View>
-        <FlatList 
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={TOP_OFFERINGS}
-          renderItem={renderOffering}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.offeringsList}
-        />
+        {feed?.top_offerings?.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
+              <Icon name="arrow-forward-circle" size={28} color="#555" />
+            </View>
+            <FlatList 
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={feed.top_offerings}
+              renderItem={renderOffering}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.offeringsList}
+            />
+          </>
+        )}
 
         {/* Discover Fitness Near You */}
         <View style={styles.discoverSection}>
           <Text style={styles.discoverBold}>Discover</Text>
-          <Text style={styles.discoverThin}>Fitness Near You</Text>
+          <Text style={styles.discoverThin}>Partners Near You</Text>
           <Text style={styles.partnersText}>100+ Partners In Bangalore</Text>
         </View>
 
         {/* Centers Near You */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>CENTERS NEAR <Text style={{textDecorationLine: 'underline'}}>YOU</Text></Text>
-          <TouchableOpacity onPress={() => navigation.navigate('DiscoverGymsMap')}>
+          <Text style={styles.sectionTitle}>PARTNERS NEAR <Text style={{textDecorationLine: 'underline'}}>YOU</Text></Text>
+          <TouchableOpacity onPress={() => navigation.navigate('DiscoverProvidersMap')}>
             <Icon name="arrow-forward-circle" size={28} color="#555" />
           </TouchableOpacity>
         </View>
         <FlatList 
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={gyms?.length > 0 ? gyms.slice(0, 5) : MOCK_GYMS}
-          renderItem={renderGym}
+          data={feed?.nearby_providers || []}
+          renderItem={renderProvider}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.gymsList}
-          ListEmptyComponent={<Text style={{color: '#888', marginLeft: 16}}>No centers found</Text>}
+          contentContainerStyle={styles.providersList}
+          ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No partners found nearby</Text>}
         />
+
+        {/* Trending Partners */}
+        {feed?.trending_providers?.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
+              <Icon name="arrow-forward-circle" size={28} color="#555" />
+            </View>
+            <FlatList 
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={feed.trending_providers}
+              renderItem={renderProvider}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.providersList}
+            />
+          </>
+        )}
         
         {/* Spacer for bottom banner */}
         <View style={{ height: 100 }} />
@@ -505,11 +548,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  gymsList: {
+  providersList: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  gymCard: {
+  providerCard: {
     width: 160,
     marginRight: 15,
     backgroundColor: '#111',
@@ -519,33 +562,69 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingBottom: 12,
   },
-  gymImage: {
+  providerImage: {
     width: '100%',
     height: 120,
     marginBottom: 10,
   },
-  gymImageStyle: {
+  providerImageStyle: {
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
-  gymOverlay: {
+  providerOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  gymDetails: {
+  badgeContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    zIndex: 1,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: 'bold',
+  },
+  popularBadge: {
+    backgroundColor: '#e74c3c',
+  },
+  newBadge: {
+    backgroundColor: '#2ecc71',
+  },
+  partnerBadge: {
+    backgroundColor: '#3498db',
+  },
+  recommendedBadge: {
+    backgroundColor: '#9b59b6',
+  },
+  discountBadge: {
+    backgroundColor: 'rgba(231, 76, 60, 0.9)',
+  },
+  providerDetails: {
     paddingHorizontal: 12,
   },
-  gymName: {
+  providerName: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  gymDistance: {
+  providerDistance: {
     color: '#888',
     fontSize: 10,
     marginBottom: 6,
   },
-  gymPrice: {
+  providerPrice: {
     color: '#e74c3c',
     fontSize: 14,
     fontWeight: 'bold',

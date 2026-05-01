@@ -467,9 +467,9 @@ import { Linking } from 'react-native';
 import { Strings } from '../../config/config'; // Import Config
 
 import UserProfile from './components/UserProfile';
-import GymsTab from './components/GymsTab';
+import ProvidersTab from './components/ProvidersTab';
 import TrainersTab from './components/TrainersTab';
-import MultiGymTab from './components/MultiGymTab';
+import MultiProviderTab from './components/MultiProviderTab';
 import Notifications from './components/Notifications';
 
 // --- THEME ---
@@ -647,13 +647,13 @@ const Profile = () => {
             onLogout={logout}
           />
         );
-      case 'gyms':
-        return <GymsTab userProfile={userProfile} refreshKey={refreshKey} />;
+      case 'providers':
+        return <ProvidersTab userProfile={userProfile} refreshKey={refreshKey} />;
       case 'trainers':
         return <TrainersTab userProfile={userProfile} refreshKey={refreshKey} />;
-      case 'multi-gym':
+      case 'multi-provider':
         return (
-          <MultiGymTab
+          <MultiProviderTab
             userProfile={userProfile}
             refreshKey={refreshKey}
             onManageBilling={handleManageBilling}

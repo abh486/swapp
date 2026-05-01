@@ -3,28 +3,30 @@ import workoutReducer from './workoutReducer';
 import dietReducer from './dietReducer';
 import chatReducer from './chatReducer';
 import cartReducer from './cartReducer';
-import multiGymReducer from './multiGymReducer';
+import multiProviderReducer from './multiProviderReducer';
 import profileReducer from './profileReducer';
-import gymsReducer from './gymsReducer';
+import providersReducer from './providersReducer';
 import notificationReducer from './notificationReducer';
 import trainerReducer from './trainerReducer';
 import postReducer from './postReducer';
 import subscriptionReducer from './subscriptionReducer';
 import shopReducer from './shopReducer';
+import homeReducer from './homeReducer';
 
 const rootReducer = combineReducers({
   workout: workoutReducer,
   diet: dietReducer,
   chat: chatReducer,
   cart: cartReducer,
-  multiGym: multiGymReducer,
+  multiProvider: multiProviderReducer,
   profile: profileReducer,
-  gyms: gymsReducer,
+  providers: providersReducer,
   notification: notificationReducer,
   trainer: trainerReducer,
   post: postReducer,
   subscription: subscriptionReducer,
   shop: shopReducer,
+  home: homeReducer,
 });
 
 export default rootReducer;

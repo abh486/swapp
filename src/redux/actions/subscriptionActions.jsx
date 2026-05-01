@@ -40,18 +40,18 @@ export const createPortalSession = () => async (dispatch) => {
   }
 };
 
-export const getMultiGymTiers = () => async (dispatch) => {
-  dispatch({ type: types.SUBSCRIPTION_GET_MULTIGYM_TIERS_REQUEST });
+export const getMultiProviderTiers = () => async (dispatch) => {
+  dispatch({ type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_REQUEST });
   try {
-    const response = await apiClient.get('/admin/multi-gym-tiers');
+    const response = await apiClient.get('/admin/multi-provider-tiers');
     dispatch({
-      type: types.SUBSCRIPTION_GET_MULTIGYM_TIERS_SUCCESS,
+      type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_SUCCESS,
       payload: response.data,
     });
     return response.data;
   } catch (error) {
     dispatch({
-      type: types.SUBSCRIPTION_GET_MULTIGYM_TIERS_FAILURE,
+      type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_FAILURE,
       payload: error.message,
     });
     throw error;
@@ -76,18 +76,18 @@ export const getUserCheckIns = () => async (dispatch) => {
   }
 };
 
-export const checkInToGym = (gymId) => async (dispatch) => {
+export const checkInToProvider = (providerId) => async (dispatch) => {
   try {
-    const response = await apiClient.post('/gyms/check-in', { gymId });
+    const response = await apiClient.post('/providers/check-in', { providerId });
     return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-export const checkOutFromGym = (checkInId) => async (dispatch) => {
+export const checkOutFromProvider = (checkInId) => async (dispatch) => {
   try {
-    const response = await apiClient.patch(`/gyms/check-out/${checkInId}`);
+    const response = await apiClient.patch(`/providers/check-out/${checkInId}`);
     return response.data;
   } catch (error) {
     throw error;

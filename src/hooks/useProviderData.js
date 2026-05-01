@@ -1,12 +1,11 @@
-// src/hooks/useGymData.js
 import { useState, useEffect, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
-import { discoverGyms } from '../redux/actions/gymsActions';
+import { discoverProviders } from '../redux/actions/providersActions';
 import parseApiError from '../utils/parseApiError';
 
-export const useGymData = (location, permissionGranted) => {
+export const useProviderData = (location, permissionGranted, activeFilters = {}) => {
   const dispatch = useDispatch();
-  const [gyms, setGyms] = useState([]);
+  const [providers, setProviders] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
@@ -14,9 +13,9 @@ export const useGymData = (location, permissionGranted) => {
   const [hasMore, setHasMore] = useState(true);
   const [radius, setRadius] = useState(10); // Default radius in km
 
-  const fetchGyms = useCallback(async (page, newRadius) => {
+  const fetchProviders = useCallback(async (page, newRadius) => {
     if (!permissionGranted || !location) {
-        setGyms([]);
+        setProviders([]);
         setIsLoading(false);
         return;
     }
@@ -31,23 +30,24 @@ export const useGymData = (location, permissionGranted) => {
         radius: newRadius,
         lat: location.latitude,
         lon: location.longitude,
+        ...activeFilters
       };
-      const response = await dispatch(discoverGyms(params));
+      const response = await dispatch(discoverProviders(params));
 
       if (response.success) {
-        const fetched = response.data.gyms || [];
-        const formatted = fetched.map(g => ({
-          ...g,
-          coordinates: { latitude: parseFloat(g.latitude) || 0, longitude: parseFloat(g.longitude) || 0 }
+        const fetched = response.data || [];
+        const formatted = fetched.map(p => ({
+          ...p,
+          coordinates: { latitude: parseFloat(p.latitude) || 0, longitude: parseFloat(p.longitude) || 0 }
         }));
 
-        setGyms(prev => page === 1 ? formatted : [...prev, ...formatted]);
+        setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);
         setHasMore(formatted.length === params.limit);
         if (page === 1 && formatted.length === 0) {
-            setError('No gyms found in this radius.');
+            setError('No partners found in this radius.');
         }
       } else {
-        setError('Failed to load gyms.');
+        setError('Failed to load partners.');
       }
     } catch (err) {
       setError(parseApiError(err) || 'An error occurred.');
@@ -55,30 +55,27 @@ export const useGymData = (location, permissionGranted) => {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [location, permissionGranted]);
+  }, [location, permissionGranted, dispatch, activeFilters]);
 
   useEffect(() => {
-    // Initial fetch when location becomes available
-    setCurrentPage(1);
-    fetchGyms(1, radius);
-  }, [location, radius, fetchGyms]);
+    fetchProviders(1, radius);
+  }, [location, radius, fetchProviders, activeFilters]);
 
   const loadMore = () => {
     if (!isLoadingMore && hasMore) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      fetchGyms(nextPage, radius);
+      fetchProviders(nextPage, radius);
     }
   };
 
   const applyRadius = (newRadius) => {
     setRadius(newRadius);
-    setCurrentPage(1); // Reset pagination on new radius
-    // The useEffect will trigger the re-fetch
+    setCurrentPage(1);
   };
 
   return {
-    gyms,
+    providers,
     isLoading,
     isLoadingMore,
     error,
@@ -87,7 +84,7 @@ export const useGymData = (location, permissionGranted) => {
     actions: {
       loadMore,
       applyRadius,
-      refresh: () => fetchGyms(1, radius),
+      refresh: () => fetchProviders(1, radius),
     },
   };
 };
