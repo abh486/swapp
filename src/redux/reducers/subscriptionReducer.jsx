@@ -5,14 +5,14 @@ const initialState = {
   error: null,
   checkoutUrl: null,
   portalUrl: null,
-  multiGymTiers: [],
+  multiProviderTiers: [],
 };
 
 const subscriptionReducer = (state = initialState, action) => {
   switch (action.type) {
     case types.SUBSCRIPTION_CREATE_CHECKOUT_REQUEST:
     case types.SUBSCRIPTION_CREATE_PORTAL_REQUEST:
-    case types.SUBSCRIPTION_GET_MULTIGYM_TIERS_REQUEST:
+    case types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_REQUEST:
       return { ...state, loading: true, error: null };
     
     case types.SUBSCRIPTION_CREATE_CHECKOUT_SUCCESS:
@@ -29,16 +29,16 @@ const subscriptionReducer = (state = initialState, action) => {
         portalUrl: action.payload.portalUrl,
       };
     
-    case types.SUBSCRIPTION_GET_MULTIGYM_TIERS_SUCCESS:
+    case types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_SUCCESS:
       return {
         ...state,
         loading: false,
-        multiGymTiers: action.payload,
+        multiProviderTiers: action.payload,
       };
     
     case types.SUBSCRIPTION_CREATE_CHECKOUT_FAILURE:
     case types.SUBSCRIPTION_CREATE_PORTAL_FAILURE:
-    case types.SUBSCRIPTION_GET_MULTIGYM_TIERS_FAILURE:
+    case types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_FAILURE:
       return { ...state, loading: false, error: action.payload };
     
     default:

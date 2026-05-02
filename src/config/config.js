@@ -583,9 +583,13 @@ export const Strings = {
     },
   },
   //  Gyms Configuration
-  Gyms: {
+      welcome: (name) => `Welcome to ${name}.`,
+    },
+  },
+  // Providers Configuration
+  Providers: {
     List: {
-      loading: 'Loading gyms...',
+      loading: 'Loading partners...',
       loadMore: 'Load More',
     },
     DetailsModal: {
@@ -605,11 +609,11 @@ export const Strings = {
         sauna: 'Sauna',
         wifi: 'Free Wi-Fi',
         parking: 'Parking',
-        gear: 'Modern Gear',
+        gear: 'Modern Equipment',
       },
       plans: {
-        empty: 'This gym has not listed any plans yet.',
-        subscribed: 'You have an active membership at this gym.',
+        empty: 'This provider has not listed any plans yet.',
+        subscribed: 'You have an active membership with this partner.',
         active: 'Active',
         subscribe: 'Subscribe',
         checkIn: 'Check In Now',
@@ -637,9 +641,9 @@ export const Strings = {
     },
     Alerts: {
       checkinSuccess: 'Success!',
-      checkinMessage: 'You have successfully checked in to the gym!',
+      checkinMessage: 'You have successfully checked in!',
       checkoutSuccess: 'Success!',
-      checkoutMessage: 'You have successfully checked out from the gym!',
+      checkoutMessage: 'You have successfully checked out!',
       photoCaptured: 'Photo Captured!',
       mealSuccess: 'Your meal has been logged successfully!',
       saveSuccess: 'Picture saved successfully!',
@@ -647,7 +651,7 @@ export const Strings = {
       takePictureError: 'Failed to take picture',
     },
     Camera: {
-      headerSubtitle: (mode) => mode === 'checkin' ? 'Check-in to your gym' : mode === 'checkout' ? 'Check-out from your gym' : 'Log your meal',
+      headerSubtitle: (mode) => mode === 'checkin' ? 'Check-in to your partner' : mode === 'checkout' ? 'Check-out from your partner' : 'Log your meal',
       previewTitle: 'Photo Preview',
       previewPlaceholder: '📸',
       previewText: 'Photo captured successfully!',
@@ -657,7 +661,7 @@ export const Strings = {
     },
     Instructions: {
       title: 'Instructions',
-      checkin: 'Point camera at gym\'s QR code or entrance to check-in',
+      checkin: 'Point camera at partner\'s QR code or entrance to check-in',
       checkout: 'Point camera at exit QR code to check-out',
       diet: 'Take a photo of your meal to log it in your diet tracker',
     },
@@ -680,9 +684,9 @@ export const Strings = {
       },
     },
     List: {
-      loading: 'Loading gyms...',
+      loading: 'Loading partners...',
       loadMore: 'Load More',
-      empty: 'No gyms found. Try expanding your search area.',
+      empty: 'No partners found. Try expanding your search area.',
     },
     GymCard: {
       viewDetails: 'View Full Profile',
@@ -697,21 +701,21 @@ export const Strings = {
     },
     Permission: {
       title: 'Location Access',
-      message: 'Enable location access to discover nearby gyms.',
+      message: 'Enable location access to discover nearby partners.',
       buttons: {
         skip: 'Skip for now',
         enable: 'Enable Location Access',
       },
       required: 'Location Access Required',
-      requiredMsg: 'Enable location to find nearby gyms.',
+      requiredMsg: 'Enable location to find nearby partners.',
     },
     Search: {
-      title: 'Search Gyms',
+      title: 'Search Partners',
       placeholder: 'Search by name, location...',
     },
     Status: {
       loading: 'Getting your location...',
-      nearYou: 'Find Gyms Near You',
+      nearYou: 'Find Partners Near You',
       actions: { retry: 'Try Again' },
     },
   },
@@ -816,9 +820,9 @@ export const Strings = {
   Profile: {
     tabs: [
       { id: 'profile', title: 'Profile' },
-      { id: 'gyms', title: 'My Gyms' },
+      { id: 'providers', title: 'My Partners' },
       { id: 'trainers', title: 'Trainers' },
-      { id: 'multi-gym', title: 'Multi-Gym' },
+      { id: 'multi-provider', title: 'Multi-Provider' },
     ],
     actions: {
       logout: {
@@ -847,23 +851,23 @@ export const Strings = {
       overflowLabel: '99+',
     },
  },
-  GymsTab: {
+  ProvidersTab: {
     sections: {
-      myGyms: 'My Gyms',
+      myProviders: 'My Partners',
       history: 'All Check-ins',
     },
     emptyState: {
-      myGyms: {
-        title: 'No gyms subscribed',
-        subtitle: 'When you subscribe to a gym, it will appear here.',
-        action: 'Explore Gyms',
+      myProviders: {
+        title: 'No partners subscribed',
+        subtitle: 'When you subscribe to a partner, it will appear here.',
+        action: 'Explore Partners',
       },
       history: {
         title: 'No check-in history',
         subtitle: 'Your check-in history will be displayed here.',
       },
     },
-    gymCard: {
+    providerCard: {
       statusPrefix: 'Checked in at',
       actions: {
         checkIn: 'Check In',
@@ -880,7 +884,7 @@ export const Strings = {
     alerts: {
       error: {
         title: 'Error',
-        loadGyms: 'Failed to load your gyms. Please try again.',
+        loadProviders: 'Failed to load your partners. Please try again.',
         checkInFailed: 'Check-in Failed',
         checkOutFailed: 'Check-out Failed',
         generic: 'An unknown error occurred.',
@@ -895,9 +899,9 @@ export const Strings = {
       },
     },
   },
-  MultiGymTab: {
+  MultiProviderTab: {
     sections: {
-      accessibleGyms: (count) => `Your Accessible Gyms (${count})`,
+      accessibleProviders: (count) => `Your Accessible Partners (${count})`,
       choosePlan: 'Choose Your Plan',
     },
     tiers: [
@@ -907,7 +911,7 @@ export const Strings = {
         price: 49.99,
         badge: '🥈',
         description: 'Perfect for fitness enthusiasts',
-        features: ['Access to 50+ Silver tier gyms', 'Basic amenities access', 'Group classes access'],
+        features: ['Access to 50+ Silver tier partners', 'Basic amenities access', 'Group classes access'],
         popular: false,
       },
       {
@@ -917,7 +921,7 @@ export const Strings = {
         badge: '🥇',
         description: 'Most popular choice',
         features: [
-          'Access to 100+ Gold tier gyms',
+          'Access to 100+ Gold tier partners',
           'Premium amenities access',
           'Unlimited group classes',
           '1 personal training session/month',
@@ -931,7 +935,7 @@ export const Strings = {
         badge: '💎',
         description: 'Ultimate fitness experience',
         features: [
-          'Access to ALL partner gyms',
+          'Access to ALL partner locations',
           'VIP amenities access',
           'Unlimited group classes',
           '2 personal training sessions/month',
@@ -952,8 +956,8 @@ export const Strings = {
     },
     states: {
       loading: 'Loading...',
-      emptyGyms: 'No accessible gyms found',
-      emptyGymsSubtext: 'Please check back later for new locations.',
+      emptyProviders: 'No accessible partners found',
+      emptyProvidersSubtext: 'Please check back later for new locations.',
       popularBadge: 'MOST POPULAR',
       subscribeButton: 'Subscribe Now',
     },

@@ -12,12 +12,35 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 
+import { useSelector } from 'react-redux';
+
 const { width } = Dimensions.get('window');
 
 const MembershipPlanModal = ({ visible, onClose }) => {
+  const { feed } = useSelector(state => state.home);
   const [activeTab, setActiveTab] = useState('Monthly');
 
   const tabs = ['Hourly', 'Daily', 'Weekly', 'Monthly', 'Yearly'];
+
+  const tiers = feed?.membership_tiers || [];
+
+  const getTierColor = (name) => {
+    switch (name.toUpperCase()) {
+      case 'SILVER': return '#C0C0C0';
+      case 'GOLD': return '#FFD700';
+      case 'ELITE': return '#b873f0';
+      default: return '#E74C3C';
+    }
+  };
+
+  const getTierIcon = (name) => {
+    switch (name.toUpperCase()) {
+      case 'SILVER': return 'shield-checkmark';
+      case 'GOLD': return 'trophy';
+      case 'ELITE': return 'medal';
+      default: return 'star';
+    }
+  };
 
   return (
     <Modal
@@ -75,66 +98,31 @@ const MembershipPlanModal = ({ visible, onClose }) => {
               </LinearGradient>
             </View>
 
-            {/* Silver Plan */}
-            <LinearGradient
-              colors={['#1a1a1a', '#050505']}
-              style={styles.planCard}
-            >
-              <View style={styles.planIconContainer}>
-                <Icon name="shield-checkmark" size={60} color="#C0C0C0" />
-              </View>
-              <View style={styles.planDetails}>
-                <View style={styles.planHeaderRow}>
-                  <Text style={[styles.planTitle, { color: '#C0C0C0' }]}>SILVER</Text>
-                  <Text style={styles.planPrice}>₹799 <Text style={styles.planPriceMonth}>/month</Text></Text>
-                </View>
-                <Text style={styles.planFeature}>Gym + Boxing + Yoga</Text>
-                <Text style={styles.planFeature}>20 visits / month</Text>
-                <Text style={styles.planFeature}>Access to 5 venues</Text>
-                <Text style={styles.planFeature}>No trainer sessions</Text>
-              </View>
-            </LinearGradient>
-
-            {/* Gold Plan */}
-            <LinearGradient
-              colors={['#2a1e05', '#0a0700']}
-              style={[styles.planCard, styles.goldCardBorder]}
-            >
-              <View style={styles.planIconContainer}>
-                <Icon name="trophy" size={60} color="#FFD700" />
-              </View>
-              <View style={styles.planDetails}>
-                <View style={styles.planHeaderRow}>
-                  <Text style={[styles.planTitle, { color: '#FFD700' }]}>GOLD</Text>
-                  <Text style={styles.planPrice}>₹1499 <Text style={styles.planPriceMonth}>/month</Text></Text>
-                </View>
-                <Text style={styles.planFeature}>All major verticals + wellness + sports</Text>
-                <Text style={styles.planFeature}>40 visits / month</Text>
-                <Text style={styles.planFeature}>Access to 15 venues</Text>
-                <Text style={styles.planFeature}>4 trainer sessions / month</Text>
-              </View>
-            </LinearGradient>
-
-            {/* Elite Plan */}
-            <LinearGradient
-              colors={['#18052a', '#05000a']}
-              style={styles.planCard}
-            >
-              <View style={styles.planIconContainer}>
-                <Icon name="medal" size={60} color="#b873f0" />
-              </View>
-              <View style={styles.planDetails}>
-                <View style={styles.planHeaderRow}>
-                  <Text style={[styles.planTitle, { color: '#b873f0' }]}>ELITE</Text>
-                  <Text style={styles.planPrice}>₹2499 <Text style={styles.planPriceMonth}>/month</Text></Text>
-                </View>
-                <Text style={styles.planFeature}>All verticals included</Text>
-                <Text style={styles.planFeature}>Unlimited visits</Text>
-                <Text style={styles.planFeature}>Unlimited venues</Text>
-                <Text style={styles.planFeature}>Unlimited trainer sessions</Text>
-                <Text style={styles.planFeature}>Guest passes included</Text>
-              </View>
-            </LinearGradient>
+            {/* Dynamic Tiers */}
+            {tiers.length > 0 ? (
+              tiers.map((tier) => (
+                <LinearGradient
+                  key={tier.id}
+                  colors={tier.name.toUpperCase() === 'GOLD' ? ['#2a1e05', '#0a0700'] : (tier.name.toUpperCase() === 'ELITE' ? ['#18052a', '#05000a'] : ['#1a1a1a', '#050505'])}
+                  style={[styles.planCard, tier.name.toUpperCase() === 'GOLD' && styles.goldCardBorder]}
+                >
+                  <View style={styles.planIconContainer}>
+                    <Icon name={getTierIcon(tier.name)} size={60} color={getTierColor(tier.name)} />
+                  </View>
+                  <View style={styles.planDetails}>
+                    <View style={styles.planHeaderRow}>
+                      <Text style={[styles.planTitle, { color: getTierColor(tier.name) }]}>{tier.name.toUpperCase()}</Text>
+                      <Text style={styles.planPrice}>₹{tier.price} <Text style={styles.planPriceMonth}>/month</Text></Text>
+                    </View>
+                    {(tier.features || []).map((feature, idx) => (
+                      <Text key={idx} style={styles.planFeature}>{feature}</Text>
+                    ))}
+                  </View>
+                </LinearGradient>
+              ))
+            ) : (
+              <Text style={{ color: '#888', textAlign: 'center' }}>Loading plans...</Text>
+            )}
 
             {/* Bottom Info */}
             <View style={styles.bottomInfoContainer}>
