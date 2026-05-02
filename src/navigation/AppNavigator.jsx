@@ -7,12 +7,13 @@ import { View, ActivityIndicator, Text } from "react-native";
 // Screens
 import MemberProfile from "../screens/MemberProfile"; // 👈 Profile creation/edit screen
 import DietLog from "../screens/activity/components/DietLog";
-import LoginScreen from "../screens/LoginScreen";
 import WorkoutLog from "../screens/activity/components/WorkoutLog";
 import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
 import DiscoverGymsMapScreen from "../screens/home/dashboard/DiscoverGymsMapScreen";
 import GymDetailScreen from "../screens/home/gym/GymDetailScreen";
+import OnboardingScreen from "../screens/OnboardingScreen";
+
 
 
 const Stack = createNativeStackNavigator();
@@ -50,8 +51,8 @@ const AppNavigator = () => {
             <Stack.Screen name="MemberProfile" component={MemberProfile} />
           )
         ) : (
-          // ✅ User not logged in → login screen
-          <Stack.Screen name="LoginScreen" component={LoginScreen} />
+          // ✅ User not logged in → onboarding then login flow
+          <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         )}
         <Stack.Screen name="ollama" component={TestOllamaScreen} />
       </Stack.Navigator>
