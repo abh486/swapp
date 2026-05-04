@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }) => {
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
 
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         await AsyncStorage.setItem("userProfile", JSON.stringify(userObject));
 
-        if (userObject.memberProfile && userObject.memberProfile.name) {
+        if (userObject.userProfile && userObject.userProfile.name) {
           setHasProfile(true);
         } else {
           setHasProfile(false);
@@ -105,7 +106,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async () => {
-    setLoading(true);
+    setIsLoggingIn(true);
     try {
       const creds = await auth0.webAuth.authorize({
         scope: "openid profile email offline_access",
@@ -117,12 +118,11 @@ export const AuthProvider = ({ children }) => {
         await auth0.credentialsManager.saveCredentials(creds);
         await AsyncStorage.setItem("accessToken", creds.accessToken);
         await checkAuthStatus();
-      } else {
-        setLoading(false);
       }
     } catch (e) {
       console.error("🔴 [login] failed:", e.message);
-      setLoading(false);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -149,6 +149,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated,
         hasProfile,
         loading,
+        isLoggingIn,
         login,
         logout,
         refreshAuthStatus,

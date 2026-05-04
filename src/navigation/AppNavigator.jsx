@@ -12,6 +12,7 @@ import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
 import DiscoverProvidersMapScreen from "../screens/home/dashboard/DiscoverProvidersMapScreen";
 import ProviderDetailScreen from "../screens/home/provider/ProviderDetailScreen";
+import OnboardingScreen from "../screens/OnboardingScreen";
 
 
 const Stack = createNativeStackNavigator();

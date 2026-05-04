@@ -209,15 +209,15 @@ const MemberProfile = () => {
     setLoading(true);
     setCurrentStep(5);
     try {
-      await apiClient.post('/v1/auth/create-member-profile', {
-        name: formData.name.trim(),
-        age: Number(formData.age),
-        gender: formData.gender,
-        weight: { value: Number(formData.weight), unit: 'KG' },
-        height: { value: Number(formData.height), unit: 'CM' },
-        fitnessGoal: formData.fitnessGoal.join(', '),
-        healthConditions: formData.interests.join(', ') || 'None',
-        profilePicture: profileImage ? profileImage : undefined,
+     await apiClient.post('/v1/auth/create-user-profile', {
+  name: formData.name.trim(),
+  age: Number(formData.age),
+  gender: formData.gender,
+  weight: { value: Number(formData.weight), unit: 'KG' },
+  height: { value: Number(formData.height), unit: 'CM' },
+  fitnessGoal: formData.fitnessGoal.join(', '),
+  healthConditions: formData.interests.join(', ') || 'None',
+  profilePicture: profileImage ? profileImage : undefined,
       });
       // Ensure the "Get ready !!" screen is visible for at least 1.5 seconds for visual impact
       await new Promise(resolve => setTimeout(resolve, 1500));

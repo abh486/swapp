@@ -582,10 +582,7 @@ export const Strings = {
       close: 'Close',
     },
   },
-  //  Gyms Configuration
-      welcome: (name) => `Welcome to ${name}.`,
-    },
-  },
+
   // Providers Configuration
   Providers: {
     List: {

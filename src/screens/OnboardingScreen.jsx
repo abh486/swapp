@@ -77,25 +77,11 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd 
       },
       onPanResponderMove: Animated.event([null, { dx: pan.x }], {
         useNativeDriver: false,
-        listener: (e, gesture) => {
-          if (gesture.dx >= maxTravel * 0.70 && !triggered.current) {
-            triggered.current = true;
-            onSwipeComplete();
-            if (onSwipeEnd) onSwipeEnd();
-          }
-        },
       }),
       onPanResponderRelease: (e, gesture) => {
         pan.flattenOffset();
         if (onSwipeEnd) onSwipeEnd();
 
-        if (triggered.current) {
-          setTimeout(() => {
-            Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
-            triggered.current = false; // Safety reset
-          }, 1000);
-          return;
-        }
 
         if (pan.x._value > maxTravel * 0.50 || gesture.vx > 1.5) {
           if (!triggered.current) {
@@ -185,23 +171,25 @@ const OnboardingScreen = () => {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const scrollX = useRef(0);
   const flatListRef = useRef(null);
-  const { login, loading } = useAuth();
+  const { login, isLoggingIn: loading } = useAuth();
 
-  const handleLogin = async () => {
-    try {
-      console.log('Initiating login from onboarding...');
-      await login();
-    } catch (err) {
-      console.error('Login failed full error:', JSON.stringify(err, null, 2));
-      if (err.message && err.message.includes('mismatch')) {
-        Alert.alert(
-          'Configuration Error',
-          'There is a URL mismatch between your App and Auth0 Dashboard. Check your console logs for the Redirect URI.'
-        );
-      } else {
-        Alert.alert('Login Error', err.message || 'An unexpected error occurred.');
+  const handleLogin = () => {
+    console.log('Initiating login from onboarding...');
+    setTimeout(async () => {
+      try {
+        await login();
+      } catch (err) {
+        console.error('Login failed full error:', JSON.stringify(err, null, 2));
+        if (err.message && err.message.includes('mismatch')) {
+          Alert.alert(
+            'Configuration Error',
+            'There is a URL mismatch between your App and Auth0 Dashboard. Check your console logs for the Redirect URI.'
+          );
+        } else {
+          Alert.alert('Login Error', err.message || 'An unexpected error occurred.');
+        }
       }
-    }
+    }, 100);
   };
 
   const handleNext = () => {
