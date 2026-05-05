@@ -1,96 +1,52 @@
 import apiClient from '../../api/apiClient';
-import * as types from '../actionTypes/actionTypes';
+import parseApiError from '../../utils/parseApiError';
+import { Linking, Alert } from 'react-native';
 
-export const createCheckoutSession = (planId, planType) => async (dispatch) => {
-  dispatch({ type: types.SUBSCRIPTION_CREATE_CHECKOUT_REQUEST });
+export const createCheckoutSession = (planId, planType = 'PARTNER_PACKAGE') => async (dispatch) => {
   try {
+    console.log('[SubscriptionAction] Creating checkout session for:', planId, planType);
+    
     const response = await apiClient.post('/subscriptions/create-checkout-session', {
       planId,
-      planType,
+      planType
     });
-    dispatch({
-      type: types.SUBSCRIPTION_CREATE_CHECKOUT_SUCCESS,
-      payload: response.data,
-    });
-    return response.data;
+
+    if (response.data && response.data.success) {
+      const { checkoutUrl } = response.data.data;
+      if (checkoutUrl) {
+        // Open the checkout URL in the browser
+        const supported = await Linking.canOpenURL(checkoutUrl);
+        if (supported) {
+          await Linking.openURL(checkoutUrl);
+        } else {
+          Alert.alert('Error', 'Unable to open checkout URL');
+        }
+      }
+      return response.data;
+    } else {
+      throw new Error(response.data?.message || 'Failed to initiate checkout');
+    }
   } catch (error) {
-    dispatch({
-      type: types.SUBSCRIPTION_CREATE_CHECKOUT_FAILURE,
-      payload: error.message,
-    });
+    const errorMsg = parseApiError(error);
+    console.error('[SubscriptionAction] Checkout error:', errorMsg);
+    Alert.alert('Checkout Error', errorMsg);
     throw error;
   }
 };
 
 export const createPortalSession = () => async (dispatch) => {
-  dispatch({ type: types.SUBSCRIPTION_CREATE_PORTAL_REQUEST });
   try {
     const response = await apiClient.post('/subscriptions/portal-session');
-    dispatch({
-      type: types.SUBSCRIPTION_CREATE_PORTAL_SUCCESS,
-      payload: response.data,
-    });
-    return response.data;
+    if (response.data && response.data.success) {
+      const { portalUrl } = response.data.data;
+      if (portalUrl) {
+        await Linking.openURL(portalUrl);
+      }
+      return response.data;
+    }
   } catch (error) {
-    dispatch({
-      type: types.SUBSCRIPTION_CREATE_PORTAL_FAILURE,
-      payload: error.message,
-    });
+    const errorMsg = parseApiError(error);
+    Alert.alert('Error', errorMsg);
     throw error;
   }
 };
-
-export const getMultiProviderTiers = () => async (dispatch) => {
-  dispatch({ type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_REQUEST });
-  try {
-    const response = await apiClient.get('/admin/multi-provider-tiers');
-    dispatch({
-      type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_SUCCESS,
-      payload: response.data,
-    });
-    return response.data;
-  } catch (error) {
-    dispatch({
-      type: types.SUBSCRIPTION_GET_MULTI_PROVIDER_TIERS_FAILURE,
-      payload: error.message,
-    });
-    throw error;
-  }
-};
-
-export const getUserProfile = () => async (dispatch) => {
-  try {
-    const response = await apiClient.get('/users/profile');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const getUserCheckIns = () => async (dispatch) => {
-  try {
-    const response = await apiClient.get('/users/check-ins');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const checkInToProvider = (providerId) => async (dispatch) => {
-  try {
-    const response = await apiClient.post('/providers/check-in', { providerId });
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const checkOutFromProvider = (checkInId) => async (dispatch) => {
-  try {
-    const response = await apiClient.patch(`/providers/check-out/${checkInId}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-

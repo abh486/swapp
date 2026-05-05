@@ -2,10 +2,10 @@
 import * as types from '../actionTypes/actionTypes';
 import * as homeApi from '../../api/homeApi';
 
-export const getHomeFeed = (lat, lng) => async (dispatch) => {
+export const getHomeFeed = (lat, lng, vertical) => async (dispatch) => {
   dispatch({ type: types.HOME_GET_FEED_REQUEST });
   try {
-    const data = await homeApi.fetchHomeFeed(lat, lng);
+    const data = await homeApi.fetchHomeFeed(lat, lng, vertical);
     dispatch({
       type: types.HOME_GET_FEED_SUCCESS,
       payload: data

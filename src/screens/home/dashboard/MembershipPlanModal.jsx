@@ -12,13 +12,16 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 
 const { width } = Dimensions.get('window');
 
 const MembershipPlanModal = ({ visible, onClose }) => {
+  const dispatch = useDispatch();
   const { feed } = useSelector(state => state.home);
   const [activeTab, setActiveTab] = useState('Monthly');
+  const [selectedTier, setSelectedTier] = useState(null);
 
   const tabs = ['Hourly', 'Daily', 'Weekly', 'Monthly', 'Yearly'];
 
@@ -100,26 +103,38 @@ const MembershipPlanModal = ({ visible, onClose }) => {
 
             {/* Dynamic Tiers */}
             {tiers.length > 0 ? (
-              tiers.map((tier) => (
-                <LinearGradient
-                  key={tier.id}
-                  colors={tier.name.toUpperCase() === 'GOLD' ? ['#2a1e05', '#0a0700'] : (tier.name.toUpperCase() === 'ELITE' ? ['#18052a', '#05000a'] : ['#1a1a1a', '#050505'])}
-                  style={[styles.planCard, tier.name.toUpperCase() === 'GOLD' && styles.goldCardBorder]}
-                >
-                  <View style={styles.planIconContainer}>
-                    <Icon name={getTierIcon(tier.name)} size={60} color={getTierColor(tier.name)} />
-                  </View>
-                  <View style={styles.planDetails}>
-                    <View style={styles.planHeaderRow}>
-                      <Text style={[styles.planTitle, { color: getTierColor(tier.name) }]}>{tier.name.toUpperCase()}</Text>
-                      <Text style={styles.planPrice}>₹{tier.price} <Text style={styles.planPriceMonth}>/month</Text></Text>
-                    </View>
-                    {(tier.features || []).map((feature, idx) => (
-                      <Text key={idx} style={styles.planFeature}>{feature}</Text>
-                    ))}
-                  </View>
-                </LinearGradient>
-              ))
+              tiers.map((tier) => {
+                const isSelected = selectedTier?.id === tier.id;
+                return (
+                  <TouchableOpacity 
+                    key={tier.id}
+                    onPress={() => setSelectedTier(tier)}
+                    activeOpacity={0.9}
+                  >
+                    <LinearGradient
+                      colors={tier.name.toUpperCase() === 'GOLD' ? ['#2a1e05', '#0a0700'] : (tier.name.toUpperCase() === 'ELITE' ? ['#18052a', '#05000a'] : ['#1a1a1a', '#050505'])}
+                      style={[
+                        styles.planCard, 
+                        tier.name.toUpperCase() === 'GOLD' && styles.goldCardBorder,
+                        isSelected && { borderColor: getTierColor(tier.name), borderWidth: 2 }
+                      ]}
+                    >
+                      <View style={styles.planIconContainer}>
+                        <Icon name={getTierIcon(tier.name)} size={60} color={getTierColor(tier.name)} />
+                      </View>
+                      <View style={styles.planDetails}>
+                        <View style={styles.planHeaderRow}>
+                          <Text style={[styles.planTitle, { color: getTierColor(tier.name) }]}>{tier.name.toUpperCase()}</Text>
+                          <Text style={styles.planPrice}>₹{tier.price} <Text style={styles.planPriceMonth}>/month</Text></Text>
+                        </View>
+                        {(tier.features || []).map((feature, idx) => (
+                          <Text key={idx} style={styles.planFeature}>{feature}</Text>
+                        ))}
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                );
+              })
             ) : (
               <Text style={{ color: '#888', textAlign: 'center' }}>Loading plans...</Text>
             )}
@@ -141,8 +156,21 @@ const MembershipPlanModal = ({ visible, onClose }) => {
             </LinearGradient>
 
             {/* Action Button */}
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>Start 1 Month Free Trial</Text>
+            <TouchableOpacity 
+              style={[styles.actionButton, !selectedTier && { opacity: 0.5 }]}
+              disabled={!selectedTier}
+              onPress={() => {
+                if (selectedTier) {
+                  // MULTI_GYM_BROWSE or MULTI_GYM? 
+                  // Backend creates session based on planId and planType.
+                  // For Tiers, we use MULTI_GYM or specific tier logic.
+                  dispatch(createCheckoutSession(selectedTier.id, 'MULTI_GYM'));
+                }
+              }}
+            >
+              <Text style={styles.actionButtonText}>
+                {selectedTier ? `Get ${selectedTier.name} Membership` : 'Select a Membership Plan'}
+              </Text>
             </TouchableOpacity>
             
             <View style={{ height: 40 }} />

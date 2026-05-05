@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -18,8 +18,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import MapView, { Marker } from 'react-native-maps';
 import { useSelector } from 'react-redux';
+import { Modal } from 'react-native';
 
-import { useLocationManager } from '../../../hooks/useLocationManager';
+import { useLocation } from '../../../context/LocationContext';
 import { useProviderData } from '../../../hooks/useProviderData';
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -40,7 +41,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   const [activeVertical, setActiveVertical] = useState(initialVertical || null);
   const [searchQuery, setSearchQuery] = useState(route.params?.query || '');
   
-  const { userLocation, permissionGranted } = useLocationManager();
+  const { userLocation, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
   const { feed } = useSelector(state => state.home);
 
   React.useEffect(() => {
@@ -60,13 +61,13 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical }))
   ];
 
-  const activeFilters = {
+  const activeFilters = useMemo(() => ({
     ...(activeCategory !== 'all' ? { categoryId: activeCategory } : {}),
     ...(activeVertical ? { vertical: activeVertical } : {}),
-    ...(searchQuery ? { query: searchQuery } : {})
-  };
+    ...(searchQuery ? { search: searchQuery } : {})
+  }), [activeCategory, activeVertical, searchQuery]);
 
-  const { providers, isLoading } = useProviderData(userLocation, permissionGranted, activeFilters);
+  const { providers, isLoading, actions: providerActions } = useProviderData(userLocation, permissionGranted, activeFilters);
 
   const translateY = useRef(new Animated.Value(INITIAL_SNAP)).current;
   const lastOffsetY = useRef(INITIAL_SNAP);
@@ -220,14 +221,17 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
       <View style={styles.topContainer}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity 
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+          >
             <Icon name="chevron-back" size={28} color="#fff" />
           </TouchableOpacity>
           <View style={styles.searchContainer}>
             <Icon name="search" size={18} color="#888" style={styles.searchIcon} />
-            <TextInput
+            <TextInput 
               style={styles.searchInput}
-              placeholder="Search providers, trainers, classes.."
+              placeholder="Search providers or partners..."
               placeholderTextColor="#888"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -237,6 +241,37 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
             <Icon name="filter-outline" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* Location Permission Modal */}
+        <Modal
+          visible={showPermissionModal}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.permissionModal}>
+              <View style={styles.modalIconContainer}>
+                <Icon name="location" size={40} color="#e74c3c" />
+              </View>
+              <Text style={styles.modalTitle}>Enable Location</Text>
+              <Text style={styles.modalSub}>
+                To show you partners and studios on the map, we need access to your location.
+              </Text>
+              <TouchableOpacity 
+                style={styles.modalBtn} 
+                onPress={() => locationActions.requestPermission()}
+              >
+                <Text style={styles.modalBtnText}>ALLOW ACCESS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalSkipBtn} 
+                onPress={() => locationActions.skipPermission()}
+              >
+                <Text style={styles.modalSkipText}>Not now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.categoriesWrapper}>
           <FlatList
@@ -267,7 +302,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.topLine} />
-          <Text style={styles.listTitle}>{providers.length}+ Partners Nearby</Text>
+          <Text style={styles.listTitle}>{providers.length}+ Providers Nearby</Text>
         </View>
 
         <FlatList
@@ -278,7 +313,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
           scrollEnabled={true}
           contentContainerStyle={{ paddingBottom: 120 }}
-          ListEmptyComponent={!isLoading && <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No partners found nearby</Text>}
+          ListEmptyComponent={!isLoading && <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No providers found nearby</Text>}
         />
       </Animated.View>
     </SafeAreaView>
@@ -327,6 +362,64 @@ const styles = StyleSheet.create({
   providerRightActions: { justifyContent: 'space-between', alignItems: 'flex-end', marginLeft: 10 },
   bookmarkBtn: { padding: 4 },
   arrowBtn: { padding: 4 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalSub: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 20,
+  },
+  modalBtn: {
+    backgroundColor: '#e74c3c',
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalSkipBtn: {
+    paddingVertical: 10,
+  },
+  modalSkipText: {
+    color: '#666',
+    fontSize: 14,
+  },
 });
 
 export default DiscoverProvidersMapScreen;

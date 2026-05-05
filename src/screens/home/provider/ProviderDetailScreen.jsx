@@ -18,6 +18,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { getProviderDetails } from '../../../redux/actions/providersActions';
+import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 
 const { width } = Dimensions.get('window');
 
@@ -115,8 +116,8 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           <Text style={styles.gymTitle}>{provider.name}</Text>
           {isVerified && <Icon name="checkmark-circle" size={18} color="#4d94ff" style={styles.verifiedIcon} />}
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingScore}>{provider.rating || '4.5'}</Text>
-            <Icon name="star" size={16} color="#FFD700" style={styles.starIcon} />
+            <Text style={styles.ratingScore}>{provider.rating ? provider.rating.toFixed(1) : 'New'}</Text>
+            {provider.rating > 0 && <Icon name="star" size={16} color="#FFD700" style={styles.starIcon} />}
           </View>
         </View>
         <View style={styles.subtitleRow}>
@@ -164,8 +165,8 @@ const ProviderDetailScreen = ({ route, navigation }) => {
       <View style={styles.proBannerContent}>
         <Icon name="medal" size={36} color="#000" style={styles.proBannerIcon} />
         <View style={styles.proBannerTextContainer}>
-          <Text style={styles.proBannerTitle}>Swapp Membership</Text>
-          <Text style={styles.proBannerSubtitle}>Access this and 500+ other partners</Text>
+          <Text style={styles.proBannerTitle}>Swapp Gold</Text>
+          <Text style={styles.proBannerSubtitle}>Access {provider.name} and hundreds of other top-tier partners.</Text>
         </View>
       </View>
       <TouchableOpacity style={styles.proJoinBtn}>
@@ -184,12 +185,23 @@ const ProviderDetailScreen = ({ route, navigation }) => {
     </View>
   );
 
+  const getDynamicAbout = () => {
+    if (provider.description && provider.description.length > 10) return provider.description;
+    
+    const vertical = Array.isArray(provider.vertical) ? provider.vertical[0] : (provider.vertical || 'Fitness');
+    const type = vertical.toLowerCase().replace('_', ' ');
+    const addressStr = provider.address ? ` at ${provider.address}` : '';
+    const facilityCount = provider.facilities?.length || 0;
+    const facilityInfo = facilityCount > 0 ? ` featuring ${facilityCount} specialized amenities` : '';
+    
+    return `${provider.name} is a top-rated ${type} provider${addressStr}${facilityInfo}. Experience professional service and high-quality equipment designed to help you reach your peak potential.`;
+  };
+
   const renderOverview = () => (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>About {provider.name}</Text>
       <Text style={styles.aboutText}>
-        {provider.description || `Welcome to ${provider.name}. A premium ${Array.isArray(provider.vertical) ? provider.vertical[0].toLowerCase() : 'fitness'} center offering top-notch facilities and expert guidance to help you reach your goals.`}
-        <Text style={styles.readMoreText}> Read more</Text>
+        {getDynamicAbout()}
       </Text>
 
       <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Amenities</Text>
@@ -209,14 +221,20 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.facilitiesScroll}>
-        {(provider.facilities || []).map((item, index) => (
-          <View key={index} style={styles.facilityItem}>
-            <Image source={{ uri: item.image || 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=400' }} style={styles.facilityImage} />
-            <Text style={styles.facilityTitle}>{item.title || item}</Text>
-          </View>
-        ))}
+        {(provider.facilities || []).map((item, index) => {
+          const isObject = typeof item === 'object' && item !== null;
+          const title = isObject ? (item.title || item.name) : item;
+          const image = isObject ? item.image : 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=400';
+          
+          return (
+            <View key={index} style={styles.facilityItem}>
+              <Image source={{ uri: image }} style={styles.facilityImage} />
+              <Text style={styles.facilityTitle}>{title}</Text>
+            </View>
+          );
+        })}
         {(!provider.facilities || provider.facilities.length === 0) && (
-          <Text style={{color: '#666', fontSize: 12}}>Facilities list not available.</Text>
+          <Text style={{color: '#666', fontSize: 12, marginLeft: 20}}>Facilities list not available.</Text>
         )}
       </ScrollView>
     </View>
@@ -253,7 +271,10 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={styles.choosePlanBtn}>
+            <TouchableOpacity 
+              style={styles.choosePlanBtn} 
+              onPress={() => dispatch(createCheckoutSession(plan.id, 'PARTNER_PACKAGE'))}
+            >
               <Text style={styles.choosePlanText}>Choose Plan</Text>
             </TouchableOpacity>
           </View>
@@ -356,7 +377,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         {renderHeaderGallery()}
         {renderTitleBlock()}
         {renderActionBar()}
-        {renderProBanner()}
+        {provider.isSwappPartner && renderProBanner()}
         {renderTabs()}
         {activeTab === 'Overview' && renderOverview()}
         {activeTab === 'Plans' && renderPlans()}
@@ -372,10 +393,20 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           style={styles.stickyFooter}
         >
           <View>
-            <Text style={styles.footerPrice}>₹{provider.lowest_price || '799'} /month</Text>
+            <Text style={styles.footerPrice}>₹{provider.lowest_price || 'N/A'}</Text>
             <Text style={styles.footerGst}>+ GST extra</Text>
           </View>
-          <TouchableOpacity style={styles.footerChooseBtn} onPress={() => Alert.alert('Coming Soon', 'Booking feature will be available soon.')}>
+          <TouchableOpacity 
+            style={styles.footerChooseBtn} 
+            onPress={() => {
+              if (provider.packages && provider.packages.length > 0) {
+                // If multiple plans, maybe scroll to plans tab, but for now take the first one or a default
+                setActiveTab('Plans');
+              } else {
+                Alert.alert('No Plans', 'This partner does not have any active plans at the moment.');
+              }
+            }}
+          >
             <Text style={styles.footerChooseText}>Choose Plan</Text>
           </TouchableOpacity>
         </LinearGradient>

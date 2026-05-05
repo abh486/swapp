@@ -11,13 +11,14 @@ import {
   TextInput,
   ImageBackground,
   FlatList,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../context/AuthContext';
-import { useLocationManager } from '../../../hooks/useLocationManager';
+import { useLocation } from '../../../context/LocationContext';
 import { useProviderData } from '../../../hooks/useProviderData';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
@@ -46,18 +47,19 @@ export const HomeDashboard = ({ navigation }) => {
   const [isMembershipModalVisible, setMembershipModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
-  const { userLocation, permissionGranted } = useLocationManager();
+  const { userLocation, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
   const { feed, loading } = useSelector(state => state.home);
 
   useEffect(() => {
     fetchFeed();
-  }, [userLocation]);
+  }, [userLocation, activeCategory]);
 
   const fetchFeed = async () => {
+    const vertical = activeCategory === 'all' ? undefined : activeCategory;
     if (userLocation) {
-      await dispatch(getHomeFeed(userLocation.latitude, userLocation.longitude));
+      await dispatch(getHomeFeed(userLocation.latitude, userLocation.longitude, vertical));
     } else {
-      await dispatch(getHomeFeed());
+      await dispatch(getHomeFeed(undefined, undefined, vertical));
     }
   };
 
@@ -74,12 +76,6 @@ export const HomeDashboard = ({ navigation }) => {
         style={[styles.categoryPill, isActive && styles.categoryPillActive]}
         onPress={() => {
           setActiveCategory(item.id);
-          if (item.id !== 'all') {
-            navigation.navigate('DiscoverProvidersMap', { 
-              vertical: item.vertical,
-              categoryId: item.id
-            });
-          }
         }}
       >
         <Icon name={item.icon || 'apps'} size={14} color={isActive ? '#e74c3c' : '#888'} style={styles.categoryIcon} />
@@ -183,6 +179,37 @@ export const HomeDashboard = ({ navigation }) => {
         }
       >
         
+        {/* Location Permission Modal */}
+        <Modal
+          visible={showPermissionModal}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.permissionModal}>
+              <View style={styles.modalIconContainer}>
+                <Icon name="location" size={40} color="#e74c3c" />
+              </View>
+              <Text style={styles.modalTitle}>Enable Location</Text>
+              <Text style={styles.modalSub}>
+                To find the best partners nearby, we need access to your location.
+              </Text>
+              <TouchableOpacity 
+                style={styles.modalBtn} 
+                onPress={() => locationActions.requestPermission()}
+              >
+                <Text style={styles.modalBtnText}>ALLOW ACCESS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalSkipBtn} 
+                onPress={() => locationActions.skipPermission()}
+              >
+                <Text style={styles.modalSkipText}>Not now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome {user?.firstName || 'Stephen'} !</Text>
@@ -675,6 +702,64 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalSub: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 20,
+  },
+  modalBtn: {
+    backgroundColor: '#e74c3c',
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalSkipBtn: {
+    paddingVertical: 10,
+  },
+  modalSkipText: {
+    color: '#666',
+    fontSize: 14,
   },
 });
 
