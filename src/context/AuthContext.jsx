@@ -76,7 +76,8 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         await AsyncStorage.setItem("userProfile", JSON.stringify(userObject));
 
-        if (userObject.userProfile && userObject.userProfile.name) {
+        if ((userObject.userProfile && userObject.userProfile.name) ||
+            (userObject.memberProfile && userObject.memberProfile.name)) {
           setHasProfile(true);
         } else {
           setHasProfile(false);

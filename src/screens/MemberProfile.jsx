@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, Image, I18nManager, Dimensions, ScrollView
+  Alert, ActivityIndicator, Image, I18nManager, Dimensions, ScrollView,
+  KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -294,10 +295,10 @@ const MemberProfile = () => {
               <Text style={styles.stepTitle}>What do you want to be called ?</Text>
               <TextInput
                 style={styles.nameInput}
-                placeholder="Stephen"
+                placeholder=""
                 placeholderTextColor="#555"
                 value={formData.name}
-                autoFocus={true}
+                autoFocus={false}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
             </View>
@@ -442,7 +443,10 @@ const MemberProfile = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
 
       {/* Header */}
       <View style={styles.header}>
@@ -467,7 +471,13 @@ const MemberProfile = () => {
 
       {/* Content */}
       <View style={styles.content}>
-        {renderStepContent()}
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {renderStepContent()}
+        </ScrollView>
       </View>
 
       {/* Footer */}
@@ -484,7 +494,7 @@ const MemberProfile = () => {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

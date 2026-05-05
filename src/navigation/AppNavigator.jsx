@@ -26,8 +26,8 @@ const SplashScreen = () => (
 );
 
 const AppNavigator = () => {
-  const { isAuthenticated, hasProfile, loading } = useAuth();
-  if (loading) {
+  const { isAuthenticated, hasProfile, loading, isLoggingIn } = useAuth();
+  if (loading || isLoggingIn) {
     return <SplashScreen />;
   }
 
