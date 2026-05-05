@@ -35,10 +35,17 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
       const response = await dispatch(discoverProviders(params));
 
       if (response.success) {
-        const fetched = response.data || [];
+        // Handle both array and object responses
+        const fetched = Array.isArray(response.data) 
+          ? response.data 
+          : (response.data?.providers || response.data?.data || []);
+          
         const formatted = fetched.map(p => ({
           ...p,
-          coordinates: { latitude: parseFloat(p.latitude) || 0, longitude: parseFloat(p.longitude) || 0 }
+          coordinates: { 
+            latitude: parseFloat(p.latitude) || parseFloat(p.lat) || 0, 
+            longitude: parseFloat(p.longitude) || parseFloat(p.lng) || 0 
+          }
         }));
 
         setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);

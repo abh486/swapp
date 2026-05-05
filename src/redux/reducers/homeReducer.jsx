@@ -19,7 +19,7 @@ const homeReducer = (state = initialState, action) => {
       return {
         ...state,
         loading: false,
-        feed: action.payload,
+        feed: action.payload.data,
         error: null
       };
     case types.HOME_GET_FEED_FAILURE:

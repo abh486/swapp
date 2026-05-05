@@ -54,6 +54,7 @@ export const useLocationManager = () => {
       setError('');
       Geolocation.getCurrentPosition(
         async (position) => {
+          console.log('[LocationManager] Success:', position.coords);
           const { latitude, longitude } = position.coords;
           const newLocation = { latitude, longitude };
           setUserLocation(newLocation);
@@ -63,6 +64,7 @@ export const useLocationManager = () => {
           resolve(newLocation);
         },
         (e) => {
+          console.error('[LocationManager] Error:', e);
           let errorMessage = 'Could not get your location. ';
           switch (e.code) {
             case 1: errorMessage += 'Permission denied.'; break;
