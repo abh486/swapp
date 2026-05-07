@@ -17,8 +17,9 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import MapView, { Marker } from 'react-native-maps';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { Modal } from 'react-native';
+import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
 
 import { useLocation } from '../../../context/LocationContext';
 import { useProviderData } from '../../../hooks/useProviderData';
@@ -34,22 +35,16 @@ const INITIAL_SNAP = SNAP_MID;
 // Categories are now dynamic from Redux
 
 const DiscoverProvidersMapScreen = ({ navigation, route }) => {
-  const initialVertical = route.params?.vertical;
-  const initialCategoryId = route.params?.categoryId;
-
-  const [activeCategory, setActiveCategory] = useState(initialCategoryId || 'all');
-  const [activeVertical, setActiveVertical] = useState(initialVertical || null);
+  const dispatch = useDispatch();
+  const { activeCategory, activeVertical } = useSelector(state => state.home);
   const [searchQuery, setSearchQuery] = useState(route.params?.query || '');
   
   const { userLocation, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
   const { feed } = useSelector(state => state.home);
 
   React.useEffect(() => {
-    if (route.params?.categoryId) {
-      setActiveCategory(route.params.categoryId);
-    }
-    if (route.params?.vertical) {
-      setActiveVertical(route.params.vertical);
+    if (route.params?.categoryId || route.params?.vertical) {
+      dispatch(setGlobalCategory(route.params.categoryId || 'all', route.params.vertical || null));
     }
     if (route.params?.query) {
       setSearchQuery(route.params.query);
@@ -124,8 +119,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
       <TouchableOpacity
         style={[styles.categoryPill, isActive && styles.categoryPillActive]}
         onPress={() => {
-          setActiveCategory(item.id);
-          setActiveVertical(item.vertical || null);
+          dispatch(setGlobalCategory(item.id, item.vertical || null));
         }}
       >
         <Icon

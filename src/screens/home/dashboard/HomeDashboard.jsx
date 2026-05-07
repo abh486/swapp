@@ -23,6 +23,7 @@ import { useProviderData } from '../../../hooks/useProviderData';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
+import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
 
 const PROMOS = [
   {
@@ -42,7 +43,7 @@ const PROMOS = [
 export const HomeDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user } = useAuth();
-  const [activeCategory, setActiveCategory] = useState('all');
+  const { activeCategory, activeVertical } = useSelector(state => state.home);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMembershipModalVisible, setMembershipModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,10 +53,10 @@ export const HomeDashboard = ({ navigation }) => {
 
   useEffect(() => {
     fetchFeed();
-  }, [userLocation, activeCategory]);
+  }, [userLocation, activeCategory, activeVertical]);
 
   const fetchFeed = async () => {
-    const vertical = activeCategory === 'all' ? undefined : activeCategory;
+    const vertical = activeVertical || undefined;
     if (userLocation) {
       await dispatch(getHomeFeed(userLocation.latitude, userLocation.longitude, vertical));
     } else {
@@ -75,7 +76,7 @@ export const HomeDashboard = ({ navigation }) => {
       <TouchableOpacity 
         style={[styles.categoryPill, isActive && styles.categoryPillActive]}
         onPress={() => {
-          setActiveCategory(item.id);
+          dispatch(setGlobalCategory(item.id, item.vertical));
         }}
       >
         <Icon name={item.icon || 'apps'} size={14} color={isActive ? '#e74c3c' : '#888'} style={styles.categoryIcon} />
@@ -164,8 +165,8 @@ export const HomeDashboard = ({ navigation }) => {
   };
 
   const dashboardCategories = [
-    { id: 'all', label: 'All', icon: 'apps' },
-    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon }))
+    { id: 'all', label: 'All', icon: 'apps', vertical: null },
+    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical }))
   ];
 
   return (
@@ -212,11 +213,19 @@ export const HomeDashboard = ({ navigation }) => {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome {user?.firstName || 'Stephen'} !</Text>
-          <Image 
-            source={{ uri: user?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
-            style={styles.profilePic} 
-          />
+          <Text style={styles.greeting}>
+            Welcome {user?.userProfile?.name?.split(' ')[0] || 'Member'} !
+          </Text>
+          {user?.userProfile?.profileImage ? (
+            <Image 
+              source={{ uri: user.userProfile.profileImage }} 
+              style={styles.profilePic} 
+            />
+          ) : (
+            <View style={styles.profilePicPlaceholder}>
+              <Icon name="person-circle" size={44} color="#888" />
+            </View>
+          )}
         </View>
 
         {/* Search */}
@@ -305,22 +314,19 @@ export const HomeDashboard = ({ navigation }) => {
         />
 
         {/* Trending Partners */}
-        {feed?.trending_providers?.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
-              <Icon name="arrow-forward-circle" size={28} color="#555" />
-            </View>
-            <FlatList 
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={feed.trending_providers}
-              renderItem={renderProvider}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.providersList}
-            />
-          </>
-        )}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
+          <Icon name="arrow-forward-circle" size={28} color="#555" />
+        </View>
+        <FlatList 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={feed?.trending_providers || []}
+          renderItem={renderProvider}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.providersList}
+          ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No trending partners found for this category</Text>}
+        />
         
         {/* Spacer for bottom banner */}
         <View style={{ height: 100 }} />
@@ -372,6 +378,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+  },
+  profilePicPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
