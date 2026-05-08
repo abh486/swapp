@@ -30,6 +30,15 @@ android {
         ]
     }
 
+  flavorDimensions "react-native-camera"
+
+    productFlavors {
+        general {
+            dimension "react-native-camera"
+        }
+    }
+
+
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

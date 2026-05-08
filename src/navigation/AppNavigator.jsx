@@ -7,12 +7,14 @@ import { View, ActivityIndicator, Text } from "react-native";
 // Screens
 import MemberProfile from "../screens/MemberProfile"; // 👈 Profile creation/edit screen
 import DietLog from "../screens/activity/components/DietLog";
+import DietAllLogs from "../screens/activity/DietAllLogs";
 import WorkoutLog from "../screens/activity/components/WorkoutLog";
 import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
 import DiscoverProvidersMapScreen from "../screens/home/dashboard/DiscoverProvidersMapScreen";
 import ProviderDetailScreen from "../screens/home/provider/ProviderDetailScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
+import Dietplan from "../screens/activity/Dietplan";
 
 
 const Stack = createNativeStackNavigator();
@@ -40,9 +42,11 @@ const AppNavigator = () => {
             <>
               <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
               <Stack.Screen name="DietLog" component={DietLog} />
+              <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
               <Stack.Screen name="WorkoutLog" component={WorkoutLog} />
               <Stack.Screen name="DiscoverProvidersMap" component={DiscoverProvidersMapScreen} />
               <Stack.Screen name="ProviderDetails" component={ProviderDetailScreen} />
+                <Stack.Screen name="Dietplan" component={Dietplan} />
               {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
             </>
           ) : (

@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 // Import screens
 import HomeDashboard from '../screens/home/dashboard/HomeDashboard';
-import Activity from '../screens/activity/Activity';
+import Activity from '../screens/activity/Dietplan';
 import Community from '../screens/community/Community';
 import Store from '../screens/store/Store';
 import Profile from '../screens/profile/ProfileScreen';
