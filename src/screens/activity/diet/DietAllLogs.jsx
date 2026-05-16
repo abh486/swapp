@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import apiClient from '../../api/apiClient';
+import apiClient from '../../../api/apiClient';
 
 const DietAllLogs = ({ navigation }) => {
   const [loading, setLoading] = useState(true);

@@ -4,13 +4,13 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
-import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
+import { createCheckoutSession } from '../../../../redux/actions/subscriptionActions';
 import { getTrainerById, getTrainerProfileByTrainerId, startConversationWithTrainer } from '../../../redux/actions/trainerActions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChatScreen } from './ChatScreen';
-import { getToken } from '../../../api/apiClient';
-import { useAuth } from '../../../context/AuthContext';
-import { Strings } from '../../../config/config'; // Import Config
+import { getToken } from '../../../../api/apiClient';
+import { useAuth } from '../../../../context/AuthContext';
+import { Strings } from '../../../../config/config'; // Import Config
 
 const { height: screenHeight } = Dimensions.get('window');
 

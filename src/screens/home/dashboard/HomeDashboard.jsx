@@ -19,10 +19,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocation } from '../../../context/LocationContext';
-import { useProviderData } from '../../../hooks/useProviderData';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
+import FindTrainers from './components/FindTrainers';
 
 const PROMOS = [
   {
@@ -87,6 +87,7 @@ export const HomeDashboard = ({ navigation }) => {
   const renderOffering = ({ item }) => (
     <TouchableOpacity style={styles.offeringCard} onPress={() => navigation.navigate('ProviderDetails', { id: item.provider?.id })}>
       <ImageBackground source={{ uri: item.image }} style={styles.offeringImage} imageStyle={styles.offeringImageStyle}>
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.offeringOverlay} />
         <View style={styles.badgeContainer}>
           {item.discount && (
             <View style={[styles.badge, styles.discountBadge]}>
@@ -99,7 +100,6 @@ export const HomeDashboard = ({ navigation }) => {
             </View>
           )}
         </View>
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.offeringOverlay} />
       </ImageBackground>
       <View style={styles.offeringDetails}>
         <Text style={styles.offeringTitle} numberOfLines={1}>{item.title}</Text>
@@ -119,7 +119,6 @@ export const HomeDashboard = ({ navigation }) => {
     const distanceValue = typeof provider.distance === 'number' ? provider.distance.toFixed(1) : null;
     const distanceText = distanceValue ? `${distanceValue} miles` : null;
     
-    // Vertical Label (e.g., GYM -> Gym, BOXING -> Boxing Studio)
     const verticalLabel = Array.isArray(provider.vertical) 
       ? provider.vertical[0].charAt(0) + provider.vertical[0].slice(1).toLowerCase()
       : (provider.vertical ? provider.vertical.charAt(0) + provider.vertical.slice(1).toLowerCase() : 'Fitness');
@@ -165,7 +164,8 @@ export const HomeDashboard = ({ navigation }) => {
 
   const dashboardCategories = [
     { id: 'all', label: 'All', icon: 'apps' },
-    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon }))
+    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon })),
+    { id: 'trainer', label: 'Trainer', icon: 'body-outline' }
   ];
 
   return (
@@ -210,13 +210,16 @@ export const HomeDashboard = ({ navigation }) => {
           </View>
         </Modal>
 
-        {/* Header */}
+        {/* Header - Added Workouts Button Here */}
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome {user?.firstName || 'Stephen'} !</Text>
-          <Image 
-            source={{ uri: user?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
-            style={styles.profilePic} 
-          />
+          <View style={styles.headerRight}>
+
+            <Image 
+              source={{ uri: user?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+              style={styles.profilePic} 
+            />
+          </View>
         </View>
 
         {/* Search */}
@@ -242,88 +245,94 @@ export const HomeDashboard = ({ navigation }) => {
           contentContainerStyle={styles.categoriesList}
         />
 
-        {/* Promos Carousel (Kept static as per user request) */}
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.promoCarousel}>
-          {PROMOS.map((promo, index) => (
-             <ImageBackground key={promo.id} source={{ uri: promo.image }} style={styles.promoCard} imageStyle={{borderRadius: 16}}>
-               <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']} style={styles.promoOverlay}>
-                 <Text style={styles.promoTitle}>{promo.title}</Text>
-                 <Text style={styles.promoSubtitle}>{promo.subtitle}</Text>
-                 <TouchableOpacity style={styles.promoButton} onPress={() => setMembershipModalVisible(true)}>
-                   <Text style={styles.promoButtonText}>BOOK NOW</Text>
-                 </TouchableOpacity>
-                 <View style={styles.pagination}>
-                    {PROMOS.map((_, i) => (
-                      <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
-                    ))}
-                 </View>
-               </LinearGradient>
-             </ImageBackground>
-          ))}
-        </ScrollView>
-
-        {/* Top Offerings */}
-        {feed?.top_offerings?.length > 0 && (
+        {activeCategory === 'trainer' ? (
+          <FindTrainers />
+        ) : (
           <>
+            {/* Promos Carousel */}
+            <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.promoCarousel}>
+              {PROMOS.map((promo, index) => (
+                <ImageBackground key={promo.id} source={{ uri: promo.image }} style={styles.promoCard} imageStyle={{borderRadius: 16}}>
+                  <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']} style={styles.promoOverlay}>
+                    <Text style={styles.promoTitle}>{promo.title}</Text>
+                    <Text style={styles.promoSubtitle}>{promo.subtitle}</Text>
+                    <TouchableOpacity style={styles.promoButton} onPress={() => setMembershipModalVisible(true)}>
+                      <Text style={styles.promoButtonText}>BOOK NOW</Text>
+                    </TouchableOpacity>
+                    <View style={styles.pagination}>
+                        {PROMOS.map((_, i) => (
+                          <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
+                        ))}
+                    </View>
+                  </LinearGradient>
+                </ImageBackground>
+              ))}
+            </ScrollView>
+
+            {/* Top Offerings */}
+            {feed?.top_offerings?.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
+                  <Icon name="arrow-forward-circle" size={28} color="#555" />
+                </View>
+                <FlatList 
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={feed.top_offerings}
+                  renderItem={renderOffering}
+                  keyExtractor={item => item.id}
+                  contentContainerStyle={styles.offeringsList}
+                />
+              </>
+            )}
+
+            {/* Discover Fitness Near You */}
+            <View style={styles.discoverSection}>
+              <Text style={styles.discoverBold}>Discover</Text>
+              <Text style={styles.discoverThin}>Partners Near You</Text>
+              <Text style={styles.partnersText}>100+ Partners In Bangalore</Text>
+            </View>
+
+            {/* Centers Near You */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
-              <Icon name="arrow-forward-circle" size={28} color="#555" />
+              <Text style={styles.sectionTitle}>PARTNERS NEAR <Text style={{textDecorationLine: 'underline'}}>YOU</Text></Text>
+              <TouchableOpacity onPress={() => navigation.navigate('DiscoverProvidersMap')}>
+                <Icon name="arrow-forward-circle" size={28} color="#555" />
+              </TouchableOpacity>
             </View>
             <FlatList 
               horizontal
               showsHorizontalScrollIndicator={false}
-              data={feed.top_offerings}
-              renderItem={renderOffering}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.offeringsList}
-            />
-          </>
-        )}
-
-        {/* Discover Fitness Near You */}
-        <View style={styles.discoverSection}>
-          <Text style={styles.discoverBold}>Discover</Text>
-          <Text style={styles.discoverThin}>Partners Near You</Text>
-          <Text style={styles.partnersText}>100+ Partners In Bangalore</Text>
-        </View>
-
-        {/* Centers Near You */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>PARTNERS NEAR <Text style={{textDecorationLine: 'underline'}}>YOU</Text></Text>
-          <TouchableOpacity onPress={() => navigation.navigate('DiscoverProvidersMap')}>
-            <Icon name="arrow-forward-circle" size={28} color="#555" />
-          </TouchableOpacity>
-        </View>
-        <FlatList 
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={feed?.nearby_providers || []}
-          renderItem={renderProvider}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.providersList}
-          ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No partners found nearby</Text>}
-        />
-
-        {/* Trending Partners */}
-        {feed?.trending_providers?.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
-              <Icon name="arrow-forward-circle" size={28} color="#555" />
-            </View>
-            <FlatList 
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={feed.trending_providers}
+              data={feed?.nearby_providers || []}
               renderItem={renderProvider}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.providersList}
+              ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No partners found nearby</Text>}
             />
+
+            {/* Trending Partners */}
+            {feed?.trending_providers?.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
+                  <Icon name="arrow-forward-circle" size={28} color="#555" />
+                </View>
+                <FlatList 
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={feed.trending_providers}
+                  renderItem={renderProvider}
+                  keyExtractor={item => item.id}
+                  contentContainerStyle={styles.providersList}
+                />
+              </>
+            )}
+            
+            {/* Spacer for bottom banner */}
+            <View style={{ height: 100 }} />
           </>
         )}
-        
-        {/* Spacer for bottom banner */}
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Pro Membership Banner */}
@@ -367,6 +376,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: '400',
+  },
+  // New styles for header right side container
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  workoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(231, 76, 60, 0.1)', // Light red background
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)',   // Light red border
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 12, // Space between button and profile pic
+  },
+  workoutButtonText: {
+    color: '#e74c3c',
+    fontWeight: '600',
+    fontSize: 13,
+    marginLeft: 5,
   },
   profilePic: {
     width: 44,
@@ -512,21 +543,6 @@ const styles = StyleSheet.create({
   },
   offeringOverlay: {
     ...StyleSheet.absoluteFillObject,
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: 'rgba(255,0,0,0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    zIndex: 1,
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: 'bold',
   },
   offeringDetails: {},
   offeringTitle: {

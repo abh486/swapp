@@ -10,8 +10,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
-import { useAuth } from '../../../context/AuthContext';
-import { Strings } from '../../../config/config'; // Import Config
+import { useAuth } from '../../../../context/AuthContext';
+import { Strings } from '../../../../config/config'; // Import Config
 
 const FindTrainers = () => {
   const dispatch = useDispatch();

@@ -6,15 +6,20 @@ import { View, ActivityIndicator, Text } from "react-native";
 
 // Screens
 import MemberProfile from "../screens/MemberProfile"; // 👈 Profile creation/edit screen
-import DietLog from "../screens/activity/components/DietLog";
-import DietAllLogs from "../screens/activity/DietAllLogs";
-import WorkoutLog from "../screens/activity/components/WorkoutLog";
+import DietAllLogs from "../screens/activity/diet/DietAllLogs";
+
 import BottomTabNavigator from "./BottomTabNavigator";
 import TestOllamaScreen from "../screens/activity/components/OllamaScreen";
 import DiscoverProvidersMapScreen from "../screens/home/dashboard/DiscoverProvidersMapScreen";
 import ProviderDetailScreen from "../screens/home/provider/ProviderDetailScreen";
 import OnboardingScreen from "../screens/OnboardingScreen";
-import Dietplan from "../screens/activity/Dietplan";
+import Dietplan from "../screens/activity/diet/Dietplan";
+import WorkoutsScreen from "../screens/workout/WorkoutsScreen";
+import CreateFastWorkoutScreen from "../screens/workout/CreateFastWorkoutScreen";
+import CreateCustomWorkoutScreen, { WorkoutEditorScreen } from "../screens/workout/CreateCustomWorkoutScreen";
+import FastWorkoutActiveScreen from "../screens/workout/FastWorkoutActiveScreen";
+import WorkoutSummaryScreen from "../screens/workout/WorkoutSummaryScreen";
+import CurrentWorkoutPlanScreen from "../screens/workout/CurrentWorkoutPlanScreen";
 
 
 const Stack = createNativeStackNavigator();
@@ -41,12 +46,19 @@ const AppNavigator = () => {
             // ✅ User authenticated + has profile → go to main app
             <>
               <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-              <Stack.Screen name="DietLog" component={DietLog} />
+           
               <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
-              <Stack.Screen name="WorkoutLog" component={WorkoutLog} />
+              
               <Stack.Screen name="DiscoverProvidersMap" component={DiscoverProvidersMapScreen} />
               <Stack.Screen name="ProviderDetails" component={ProviderDetailScreen} />
-                <Stack.Screen name="Dietplan" component={Dietplan} />
+              <Stack.Screen name="Dietplan" component={Dietplan} />
+              <Stack.Screen name="Workouts" component={WorkoutsScreen} />
+              <Stack.Screen name="CreateFastWorkoutScreen" component={CreateFastWorkoutScreen} />
+              <Stack.Screen name="CreateCustomWorkoutScreen" component={CreateCustomWorkoutScreen} />
+              <Stack.Screen name="WorkoutEditorScreen" component={WorkoutEditorScreen} />
+              <Stack.Screen name="FastWorkoutActive" component={FastWorkoutActiveScreen} options={{ gestureEnabled: false }} />
+              <Stack.Screen name="WorkoutSummary" component={WorkoutSummaryScreen} />
+              <Stack.Screen name="CurrentWorkoutPlanScreen" component={CurrentWorkoutPlanScreen} />
               {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
             </>
           ) : (
