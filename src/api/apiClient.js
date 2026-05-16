@@ -8,7 +8,12 @@ const auth0 = new Auth0({
   clientId: "6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0",
 });
 
-export const API_BASE_URL = "https://bleachable-maricruz-neglectingly.ngrok-free.dev/api";
+
+// Update this URL to your current backend server URL
+// If using ngrok, get the new URL from: ngrok http <your-port>
+// If using production, use: https://api.swapp.fit/api
+export const API_BASE_URL = "http://192.168.1.5:5000/api";
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,

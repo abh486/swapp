@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -26,18 +27,37 @@ const { width } = Dimensions.get('window');
 const getAmenityIcon = (label) => {
   const map = {
     'Air Conditioning': 'snow-outline',
+    'AC': 'snow-outline',
     'Locker Rooms': 'cube-outline',
     'Shower': 'water-outline',
+    'Showers': 'water-outline',
     'Parking': 'car-outline',
     'Wi-Fi': 'wifi-outline',
     'Steam Room': 'thermometer-outline',
     'Nutrition Bar': 'pint-outline',
     'Towel Service': 'layers-outline',
     'Cafe': 'cafe-outline',
+    'Cafeteria': 'cafe-outline',
     'Pool': 'water-outline',
     'Sauna': 'flame-outline',
+    'Robes & Slippers': 'shirt-outline',
   };
   return map[label] || 'checkmark-circle-outline';
+};
+
+const getFacilityIcon = (label) => {
+  const map = {
+    'Indoor Court': 'basketball-outline',
+    'Floodlights': 'sunny-outline',
+    'Free Weights': 'barbell-outline',
+    'Cardio Machines': 'bicycle-outline',
+    'Functional Area': 'body-outline',
+    'Therapy Rooms': 'medical-outline',
+    'Relaxation Lounge': 'leaf-outline',
+    'Treadmills': 'walk-outline',
+    'Squat Racks': 'barbell-outline',
+  };
+  return map[label] || 'construct-outline';
 };
 
 const ProviderDetailScreen = ({ route, navigation }) => {
@@ -46,6 +66,9 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   const [provider, setProvider] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Overview');
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [isViewerVisible, setViewerVisible] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   const fetchDetails = useCallback(async () => {
     setLoading(true);
@@ -85,19 +108,58 @@ const ProviderDetailScreen = ({ route, navigation }) => {
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Icon name="chevron-back" size={28} color="#fff" />
       </TouchableOpacity>
-      <Image 
-        source={{ uri: provider.photos?.[0] || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }} 
-        style={styles.mainImage} 
-      />
+      
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => setViewerVisible(true)}
+      >
+        <Image 
+          source={{ uri: (provider.photos || [])[selectedPhotoIndex] || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }} 
+          style={styles.mainImage} 
+        />
+        <View style={styles.zoomIndicator}>
+          <Icon name="expand-outline" size={20} color="#fff" />
+        </View>
+      </TouchableOpacity>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbnailScroll}>
-        {(provider.photos || []).slice(1).map((photo, i) => (
-          <Image 
+        {(provider.photos || []).map((photo, i) => (
+          <TouchableOpacity 
             key={i} 
-            source={{ uri: photo }} 
-            style={styles.thumbnailImage} 
-          />
+            onPress={() => setSelectedPhotoIndex(i)}
+            style={[styles.thumbnailWrapper, selectedPhotoIndex === i && styles.activeThumbnailWrapper]}
+          >
+            <Image 
+              source={{ uri: photo }} 
+              style={styles.thumbnailImage} 
+            />
+          </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Full Screen Image Viewer */}
+      <Modal visible={isViewerVisible} transparent={true} animationType="fade">
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity 
+            style={styles.closeViewerBtn}
+            onPress={() => setViewerVisible(false)}
+          >
+            <Icon name="close" size={32} color="#fff" />
+          </TouchableOpacity>
+          
+          <Image 
+            source={{ uri: (provider.photos || [])[selectedPhotoIndex] }} 
+            style={styles.viewerImage} 
+            resizeMode="contain"
+          />
+          
+          <View style={styles.viewerFooter}>
+            <Text style={styles.viewerText}>
+              Photo {selectedPhotoIndex + 1} of {provider.photos?.length}
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 
@@ -216,27 +278,23 @@ const ProviderDetailScreen = ({ route, navigation }) => {
 
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Facilities & Equipment</Text>
-        <TouchableOpacity>
-          <Text style={styles.seeAllText}>See All</Text>
-        </TouchableOpacity>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.facilitiesScroll}>
+      <View style={styles.amenitiesGrid}>
         {(provider.facilities || []).map((item, index) => {
           const isObject = typeof item === 'object' && item !== null;
           const title = isObject ? (item.title || item.name) : item;
-          const image = isObject ? item.image : 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=400';
           
           return (
-            <View key={index} style={styles.facilityItem}>
-              <Image source={{ uri: image }} style={styles.facilityImage} />
-              <Text style={styles.facilityTitle}>{title}</Text>
+            <View key={index} style={styles.amenityBox}>
+              <Icon name={getFacilityIcon(title)} size={24} color="#aaa" />
+              <Text style={styles.amenityLabel}>{title}</Text>
             </View>
           );
         })}
         {(!provider.facilities || provider.facilities.length === 0) && (
-          <Text style={{color: '#666', fontSize: 12, marginLeft: 20}}>Facilities list not available.</Text>
+          <Text style={{color: '#666', fontSize: 12, marginLeft: 0}}>Facilities list not available.</Text>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 
@@ -244,7 +302,12 @@ const ProviderDetailScreen = ({ route, navigation }) => {
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>Membership Plans</Text>
       {(provider.packages || []).map((plan) => (
-        <View key={plan.id} style={styles.planCard}>
+        <TouchableOpacity 
+          key={plan.id} 
+          style={[styles.planCard, selectedPlan?.id === plan.id && styles.selectedPlanCard]}
+          onPress={() => setSelectedPlan(plan)}
+          activeOpacity={0.8}
+        >
           <View style={styles.planCardLeft}>
              <View style={[styles.planImagePlaceholder, { backgroundColor: plan.imageUrl ? 'transparent' : '#fff' }]}>
                {plan.imageUrl && <Image source={{ uri: plan.imageUrl }} style={{ width: '100%', height: '100%', borderRadius: 8 }} />}
@@ -273,12 +336,12 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             </View>
             <TouchableOpacity 
               style={styles.choosePlanBtn} 
-              onPress={() => dispatch(createCheckoutSession(plan.id, 'PARTNER_PACKAGE'))}
+              onPress={() => setSelectedPlan(plan)}
             >
               <Text style={styles.choosePlanText}>Choose Plan</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
       {(provider.packages?.length === 0 || !provider.packages) && (
         <Text style={{color: '#666', textAlign: 'center'}}>No plans available at the moment.</Text>
@@ -385,7 +448,6 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         {activeTab === 'Reviews' && renderReviews()}
       </ScrollView>
 
-      {/* Sticky Footer */}
       <View style={styles.stickyFooterContainer}>
         <LinearGradient
           colors={['#6d3a32', '#ba6b5c', '#6d3a32']}
@@ -393,21 +455,26 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           style={styles.stickyFooter}
         >
           <View>
-            <Text style={styles.footerPrice}>₹{provider.lowest_price || 'N/A'}</Text>
-            <Text style={styles.footerGst}>+ GST extra</Text>
+            <Text style={styles.footerPrice}>
+              ₹{selectedPlan ? selectedPlan.basePrice : (provider.lowest_price || 'N/A')}
+            </Text>
+            <Text style={styles.footerPlanName}>
+              {selectedPlan ? selectedPlan.name : 'Select a plan'}
+            </Text>
           </View>
           <TouchableOpacity 
-            style={styles.footerChooseBtn} 
+            style={[styles.footerChooseBtn, selectedPlan && styles.footerSubscribeBtn]} 
             onPress={() => {
-              if (provider.packages && provider.packages.length > 0) {
-                // If multiple plans, maybe scroll to plans tab, but for now take the first one or a default
-                setActiveTab('Plans');
+              if (selectedPlan) {
+                dispatch(createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE'));
               } else {
-                Alert.alert('No Plans', 'This partner does not have any active plans at the moment.');
+                setActiveTab('Plans');
               }
             }}
           >
-            <Text style={styles.footerChooseText}>Choose Plan</Text>
+            <Text style={styles.footerChooseText}>
+              {selectedPlan ? 'Subscribe Now' : 'Choose Plan'}
+            </Text>
           </TouchableOpacity>
         </LinearGradient>
       </View>
@@ -421,8 +488,17 @@ const styles = StyleSheet.create({
   galleryContainer: { marginBottom: 15 },
   backButton: { position: 'absolute', top: 15, left: 15, zIndex: 10, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   mainImage: { width: '100%', height: 250, resizeMode: 'cover' },
-  thumbnailScroll: { flexDirection: 'row', marginTop: 2, paddingHorizontal: 2 },
-  thumbnailImage: { width: (width / 4) - 4, height: 80, resizeMode: 'cover', marginHorizontal: 2 },
+  thumbnailScroll: { flexDirection: 'row', marginTop: 5, paddingHorizontal: 15 },
+  thumbnailWrapper: { marginRight: 10, borderRadius: 8, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
+  activeThumbnailWrapper: { borderColor: '#e74c3c' },
+  thumbnailImage: { width: 70, height: 70, resizeMode: 'cover' },
+  zoomIndicator: { position: 'absolute', bottom: 15, right: 15, backgroundColor: 'rgba(0,0,0,0.6)', padding: 8, borderRadius: 20 },
+  
+  viewerOverlay: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  closeViewerBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
+  viewerImage: { width: '100%', height: '80%' },
+  viewerFooter: { position: 'absolute', bottom: 50, width: '100%', alignItems: 'center' },
+  viewerText: { color: '#fff', fontSize: 14, fontWeight: '500' },
   
   titleBlockContainer: { paddingHorizontal: 20, marginBottom: 20 },
   premiumBadge: { backgroundColor: '#FFD700', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 10 },
@@ -469,13 +545,9 @@ const styles = StyleSheet.create({
   amenityLabel: { color: '#666', fontSize: 8, textAlign: 'center', marginTop: 8 },
 
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 15 },
-  seeAllText: { color: '#e74c3c', fontSize: 14 },
-  facilitiesScroll: { flexDirection: 'row' },
-  facilityItem: { marginRight: 15, width: 100 },
-  facilityImage: { width: 100, height: 100, borderRadius: 12, marginBottom: 8 },
-  facilityTitle: { color: '#fff', fontSize: 12, textAlign: 'center' },
 
   planCard: { flexDirection: 'row', backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#222', borderRadius: 12, padding: 15, marginBottom: 15 },
+  selectedPlanCard: { borderColor: '#FF7369', backgroundColor: 'rgba(255, 115, 105, 0.05)' },
   planCardLeft: { width: 50, marginRight: 15 },
   planImagePlaceholder: { width: 50, height: 50, backgroundColor: '#fff', borderRadius: 8 },
   planCardRight: { flex: 1 },
@@ -529,8 +601,9 @@ const styles = StyleSheet.create({
   stickyFooterContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 30 : 20, paddingTop: 10, backgroundColor: 'rgba(0,0,0,0.8)' },
   stickyFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12 },
   footerPrice: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  footerGst: { color: '#ddd', fontSize: 10 },
+  footerPlanName: { color: '#ddd', fontSize: 10, fontWeight: '500' },
   footerChooseBtn: { backgroundColor: 'transparent', paddingVertical: 10, paddingHorizontal: 20 },
+  footerSubscribeBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
   footerChooseText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
 });
 

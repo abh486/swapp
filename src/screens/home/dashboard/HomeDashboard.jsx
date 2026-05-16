@@ -22,7 +22,11 @@ import { useLocation } from '../../../context/LocationContext';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
+<<<<<<< HEAD
 import FindTrainers from './components/FindTrainers';
+=======
+import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
+>>>>>>> aaeb20c3e6b96a57c240601850f8330936af3847
 
 const PROMOS = [
   {
@@ -42,7 +46,7 @@ const PROMOS = [
 export const HomeDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user } = useAuth();
-  const [activeCategory, setActiveCategory] = useState('all');
+  const { activeCategory, activeVertical } = useSelector(state => state.home);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMembershipModalVisible, setMembershipModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,10 +56,10 @@ export const HomeDashboard = ({ navigation }) => {
 
   useEffect(() => {
     fetchFeed();
-  }, [userLocation, activeCategory]);
+  }, [userLocation, activeCategory, activeVertical]);
 
   const fetchFeed = async () => {
-    const vertical = activeCategory === 'all' ? undefined : activeCategory;
+    const vertical = activeVertical || undefined;
     if (userLocation) {
       await dispatch(getHomeFeed(userLocation.latitude, userLocation.longitude, vertical));
     } else {
@@ -75,7 +79,7 @@ export const HomeDashboard = ({ navigation }) => {
       <TouchableOpacity 
         style={[styles.categoryPill, isActive && styles.categoryPillActive]}
         onPress={() => {
-          setActiveCategory(item.id);
+          dispatch(setGlobalCategory(item.id, item.vertical));
         }}
       >
         <Icon name={item.icon || 'apps'} size={14} color={isActive ? '#e74c3c' : '#888'} style={styles.categoryIcon} />
@@ -163,9 +167,14 @@ export const HomeDashboard = ({ navigation }) => {
   };
 
   const dashboardCategories = [
+<<<<<<< HEAD
     { id: 'all', label: 'All', icon: 'apps' },
     ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon })),
     { id: 'trainer', label: 'Trainer', icon: 'body-outline' }
+=======
+    { id: 'all', label: 'All', icon: 'apps', vertical: null },
+    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical }))
+>>>>>>> aaeb20c3e6b96a57c240601850f8330936af3847
   ];
 
   return (
@@ -212,6 +221,7 @@ export const HomeDashboard = ({ navigation }) => {
 
         {/* Header - Added Workouts Button Here */}
         <View style={styles.header}>
+<<<<<<< HEAD
           <Text style={styles.greeting}>Welcome {user?.firstName || 'Stephen'} !</Text>
           <View style={styles.headerRight}>
 
@@ -220,6 +230,21 @@ export const HomeDashboard = ({ navigation }) => {
               style={styles.profilePic} 
             />
           </View>
+=======
+          <Text style={styles.greeting}>
+            Welcome {user?.userProfile?.name?.split(' ')[0] || 'Member'} !
+          </Text>
+          {user?.userProfile?.profileImage ? (
+            <Image 
+              source={{ uri: user.userProfile.profileImage }} 
+              style={styles.profilePic} 
+            />
+          ) : (
+            <View style={styles.profilePicPlaceholder}>
+              <Icon name="person-circle" size={44} color="#888" />
+            </View>
+          )}
+>>>>>>> aaeb20c3e6b96a57c240601850f8330936af3847
         </View>
 
         {/* Search */}
@@ -304,6 +329,7 @@ export const HomeDashboard = ({ navigation }) => {
             <FlatList 
               horizontal
               showsHorizontalScrollIndicator={false}
+<<<<<<< HEAD
               data={feed?.nearby_providers || []}
               renderItem={renderProvider}
               keyExtractor={item => item.id}
@@ -333,6 +359,57 @@ export const HomeDashboard = ({ navigation }) => {
             <View style={{ height: 100 }} />
           </>
         )}
+=======
+              data={feed.top_offerings}
+              renderItem={renderOffering}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.offeringsList}
+            />
+          </>
+        )}
+
+        {/* Discover Fitness Near You */}
+        <View style={styles.discoverSection}>
+          <Text style={styles.discoverBold}>Discover</Text>
+          <Text style={styles.discoverThin}>Partners Near You</Text>
+          <Text style={styles.partnersText}>100+ Partners In Bangalore</Text>
+        </View>
+
+        {/* Centers Near You */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>PARTNERS NEAR <Text style={{textDecorationLine: 'underline'}}>YOU</Text></Text>
+          <TouchableOpacity onPress={() => navigation.navigate('DiscoverProvidersMap')}>
+            <Icon name="arrow-forward-circle" size={28} color="#555" />
+          </TouchableOpacity>
+        </View>
+        <FlatList 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={feed?.nearby_providers || []}
+          renderItem={renderProvider}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.providersList}
+          ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No partners found nearby</Text>}
+        />
+
+        {/* Trending Partners */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
+          <Icon name="arrow-forward-circle" size={28} color="#555" />
+        </View>
+        <FlatList 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={feed?.trending_providers || []}
+          renderItem={renderProvider}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.providersList}
+          ListEmptyComponent={loading ? null : <Text style={{color: '#888', marginLeft: 16}}>No trending partners found for this category</Text>}
+        />
+        
+        {/* Spacer for bottom banner */}
+        <View style={{ height: 100 }} />
+>>>>>>> aaeb20c3e6b96a57c240601850f8330936af3847
       </ScrollView>
 
       {/* Pro Membership Banner */}
@@ -403,6 +480,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+  },
+  profilePicPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',

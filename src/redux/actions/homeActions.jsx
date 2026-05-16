@@ -19,3 +19,8 @@ export const getHomeFeed = (lat, lng, vertical) => async (dispatch) => {
     throw error;
   }
 };
+
+export const setActiveCategory = (id, vertical) => ({
+  type: types.HOME_SET_ACTIVE_CATEGORY,
+  payload: { id, vertical }
+});
