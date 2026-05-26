@@ -1,0 +1,31 @@
+diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.h b/node_modules/react-native-screens/ios/RNSSearchBar.h
+index ec72bcf..2c4fbec 100644
+--- a/node_modules/react-native-screens/ios/RNSSearchBar.h
++++ b/node_modules/react-native-screens/ios/RNSSearchBar.h
+@@ -2,7 +2,7 @@
+ 
+ #import <UIKit/UIKit.h>
+ 
+-#ifdef RCT_NEW_ARCH_ENABLED
++#if defined(RCT_NEW_ARCH_ENABLED) && defined(__cplusplus)
+ #import <React/RCTViewComponentView.h>
+ #import <react/renderer/components/rnscreens/RCTComponentViewHelpers.h>
+ #endif
+@@ -14,7 +14,7 @@
+ #import "RNSEnums.h"
+ 
+ @interface RNSSearchBar :
+-#ifdef RCT_NEW_ARCH_ENABLED
++#if defined(RCT_NEW_ARCH_ENABLED) && defined(__cplusplus)
+     RCTViewComponentView <UISearchBarDelegate, RCTRNSSearchBarViewProtocol>
+ #else
+     UIView <UISearchBarDelegate>
+@@ -31,7 +31,7 @@
+     API_UNAVAILABLE(tvos, watchos);
+ #endif // Check for iOS >= 16 && !TARGET_OS_TV
+ 
+-#ifdef RCT_NEW_ARCH_ENABLED
++#if defined(RCT_NEW_ARCH_ENABLED) && defined(__cplusplus)
+ #else
+ @property (nonatomic, copy) RCTDirectEventBlock onChangeText;
+ @property (nonatomic, copy) RCTDirectEventBlock onCancelButtonPress;

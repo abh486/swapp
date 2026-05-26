@@ -21,10 +21,15 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
       if (params.secondaryMuscles && params.secondaryMuscles.length > 0) {
         queryParams.push(`secondaryMuscles=${encodeURIComponent(params.secondaryMuscles.join(','))}`);
       }
-      if (params.equipments && params.equipments.length > 0 && !params.equipments.includes('All Equipement') && params.equipments !== 'All Equipement') {
+      
+      // FIX: Ensure equipment is always properly converted to a comma-separated string array for the API
+      if (params.equipments && !params.equipments.includes('All Equipement')) {
         const equipmentArray = Array.isArray(params.equipments) ? params.equipments : [params.equipments];
-        queryParams.push(`equipments=${encodeURIComponent(equipmentArray.join(','))}`);
+        if (equipmentArray.length > 0) {
+          queryParams.push(`equipments=${encodeURIComponent(equipmentArray.join(','))}`);
+        }
       }
+      
       if (params.name) {
         queryParams.push(`name=${encodeURIComponent(params.name)}`);
       }
@@ -180,13 +185,11 @@ export const deleteExerciseFromSession = (sessionId, logId) => async (dispatch) 
   }
 };
 
-// NEW: Save selected filters to Redux before navigating
 export const setSelectedFilters = (equipment, muscles) => ({
   type: types.WORKOUT_SET_SELECTED_FILTERS,
   payload: { equipment, muscles },
 });
 
-// NEW: Clear filters
 export const clearSelectedFilters = () => ({
   type: types.WORKOUT_CLEAR_SELECTED_FILTERS,
 });
@@ -217,6 +220,27 @@ export const updateCustomWorkoutTemplate = (templateId, exercises) => async (dis
     return response.data.data;
   } catch (error) {
     console.error('API Error:', error);
+    throw error.response?.data || new Error('Server error.');
+  }
+};
+
+export const fetchWorkoutHistory = (params = {}) => async (dispatch) => {
+  dispatch({ type: types.WORKOUT_GET_HISTORY_REQUEST });
+  try {
+    const queryParams = new URLSearchParams(params).toString();
+    const url = `/workouts/sessions${queryParams ? `?${queryParams}` : ''}`;
+    const response = await apiClient.get(url);
+    dispatch({
+      type: types.WORKOUT_GET_HISTORY_SUCCESS,
+      payload: response.data,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API Error:', error);
+    dispatch({
+      type: types.WORKOUT_GET_HISTORY_FAILURE,
+      payload: error.response?.data || new Error('Server error.'),
+    });
     throw error.response?.data || new Error('Server error.');
   }
 };

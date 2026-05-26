@@ -48,18 +48,81 @@ const WorkoutsScreen = ({ navigation }) => {
   const { exercises, loading, nextCursor, hasNextPage, selectedEquipment, selectedMuscles } = useSelector((state) => state.workout);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  useEffect(() => {
-    dispatch(clearSelectedFilters());
-  }, [dispatch]);
+  // Commented out to preserve user-selected filters when navigating from custom/fast workout screens
+  // useEffect(() => {
+  //   dispatch(clearSelectedFilters());
+  // }, [dispatch]);
 
   const hasActiveFilters = (selectedEquipment && selectedEquipment !== 'All Equipement') || (selectedMuscles && selectedMuscles.length > 0);
 
+  const mapUiFiltersToApi = (eq, muscles) => {
+    const UI_TO_API_MUSCLE_MAP = {
+      'abdominals': { type: 'target', value: 'abs' },
+      'abductors': { type: 'target', value: 'abductors' },
+      'adductors': { type: 'target', value: 'adductors' },
+      'biceps': { type: 'target', value: 'biceps' },
+      'calves': { type: 'target', value: 'calves' },
+      'cardio': { type: 'bodyPart', value: 'cardio' },
+      'chest': { type: 'bodyPart', value: 'chest' },
+      'forearms': { type: 'target', value: 'forearms' },
+      'glutes': { type: 'target', value: 'glutes' },
+      'hamstrings': { type: 'target', value: 'hamstrings' },
+      'lats': { type: 'target', value: 'lats' },
+      'lower back': { type: 'target', value: 'spine' },
+      'neck': { type: 'bodyPart', value: 'neck' },
+      'quadriceps': { type: 'target', value: 'quads' },
+      'shoulders': { type: 'bodyPart', value: 'shoulders' },
+      'traps': { type: 'target', value: 'traps' },
+      'triceps': { type: 'target', value: 'triceps' },
+      'upper back': { type: 'target', value: 'upper back' },
+    };
+
+    const UI_TO_API_EQUIPMENT_MAP = {
+      'none': 'body weight',
+      'barbell': 'barbell',
+      'dumbbell': 'dumbbell',
+      'kettlebell': 'kettlebell',
+      'machine': 'cable',
+      'plate': 'weighted',
+      'resistance band': 'resistance band',
+      'suspension band': 'leverage machine',
+    };
+
+    const selectedBodyParts = [];
+    const selectedTargetMuscles = [];
+
+    const cleanedMuscles = muscles ? muscles.filter(m => m !== 'All Muscles') : [];
+
+    cleanedMuscles.forEach((m) => {
+      const lowerM = m.toLowerCase();
+      if (UI_TO_API_MUSCLE_MAP[lowerM]) {
+        const mapping = UI_TO_API_MUSCLE_MAP[lowerM];
+        if (mapping.type === 'bodyPart') {
+          selectedBodyParts.push(mapping.value);
+        } else {
+          selectedTargetMuscles.push(mapping.value);
+        }
+      } else {
+        selectedTargetMuscles.push(lowerM);
+      }
+    });
+
+    const eqKey = eq ? eq.toLowerCase() : '';
+    const apiEquipment = UI_TO_API_EQUIPMENT_MAP[eqKey] || (eq && eq !== 'All Equipement' ? eqKey : undefined);
+
+    return {
+      equipments: apiEquipment,
+      bodyParts: selectedBodyParts.length > 0 ? selectedBodyParts : undefined,
+      targetMuscles: selectedTargetMuscles.length > 0 ? selectedTargetMuscles : undefined,
+    };
+  };
+
   useEffect(() => {
     if (hasActiveFilters) {
+      const apiFilters = mapUiFiltersToApi(selectedEquipment, selectedMuscles);
       dispatch(fetchExercises({
         limit: 50,
-        equipments: selectedEquipment !== 'All Equipement' ? selectedEquipment : undefined,
-        targetMuscles: selectedMuscles.length > 0 ? selectedMuscles : undefined
+        ...apiFilters
       }));
     } else {
       const bodyPartsForLevel = LEVEL_BODY_PARTS_MAP[selectedLevel] || [];
@@ -71,11 +134,11 @@ const WorkoutsScreen = ({ navigation }) => {
     if (hasNextPage && !isLoadingMore && !loading) {
       setIsLoadingMore(true);
       if (hasActiveFilters) {
+        const apiFilters = mapUiFiltersToApi(selectedEquipment, selectedMuscles);
         await dispatch(fetchExercises({
           limit: 50,
           after: nextCursor,
-          equipments: selectedEquipment !== 'All Equipement' ? selectedEquipment : undefined,
-          targetMuscles: selectedMuscles.length > 0 ? selectedMuscles : undefined,
+          ...apiFilters,
           isLoadMore: true
         }));
       } else {

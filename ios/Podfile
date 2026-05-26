@@ -6,6 +6,10 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 platform :ios, min_ios_version_supported
+
+# FIX non-modular include issues
+use_modular_headers!
+
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -20,17 +24,13 @@ target 'SwappIos' do
   use_react_native!(
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/..",
-    # Enabling New Architecture explicitly
-    :fabric_enabled => true,
-    :new_arch_enabled => true
+    :fabric_enabled => false,
+    :new_arch_enabled => false
   )
 
-  # --- GOOGLE MAPS SETUP ---
-  # This ensures GoogleMaps is installed for react-native-maps
   rn_maps_path = '../node_modules/react-native-maps'
   pod 'react-native-maps', :path => rn_maps_path
   pod 'GoogleMaps', :modular_headers => true
-
 
   post_install do |installer|
     react_native_post_install(
@@ -39,15 +39,30 @@ target 'SwappIos' do
       :mac_catalyst_enabled => false
     )
 
-    # Fix for New Architecture build settings
-    installer.aggregate_targets.each do |aggregate_target|
-      aggregate_target.user_project.targets.each do |target|
-        target.build_configurations.each do |config|
-          config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-          config.build_settings['SWIFT_VERSION'] = '5.0'
-          
-          # ✅ VECTOR ICONS FONT LINKING FIX
-          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+        build_config.build_settings['SWIFT_VERSION'] = '5.0'
+        build_config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+        build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+
+        # NUCLEAR FIX: Remove RCT_NEW_ARCH_ENABLED=1 from ALL pods.
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].reject! { |s| s == 'RCT_NEW_ARCH_ENABLED=1' }
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'RCT_NEW_ARCH_ENABLED=0'
+
+        # Fix for RN 0.74+ headers containing C++ code
+        if target.name == 'ChargebeeReactNative'
+          build_config.build_settings['SWIFT_OBJC_INTEROP_MODE'] = 'objcxx'
+          build_config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+          build_config.build_settings['OTHER_CFLAGS'] ||= ['$(inherited)']
+          build_config.build_settings['OTHER_CFLAGS'] << '-x' << 'objective-c++'
+        end
+
+        if target.name == 'Auth0' || target.name == 'A0Auth0'
+          build_config.build_settings['SWIFT_VERSION'] = '5'
+          build_config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
         end
       end
     end

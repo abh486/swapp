@@ -367,7 +367,8 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFFFFF',
     fontSize: 56,
-    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+    fontWeight: 'normal',
     fontStyle: 'italic',
     lineHeight: 64,
   },
@@ -523,7 +524,8 @@ const styles = StyleSheet.create({
   },
   healthTitle: {
     fontSize: 42,
-    fontWeight: '800',
+    fontFamily: 'BRLNSR',
+    fontWeight: 'normal',
     color: '#000',
     marginBottom: 12,
     lineHeight: 50,

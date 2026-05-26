@@ -123,7 +123,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         }}
       >
         <Icon
-          name={item.icon}
+          name={item.icon || 'apps'}
           size={14}
           color={isActive ? '#e74c3c' : '#888'}
           style={styles.categoryIcon}

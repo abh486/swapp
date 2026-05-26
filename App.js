@@ -5,6 +5,7 @@ import { Auth0Provider } from 'react-native-auth0';
 import { Provider } from 'react-redux';
 import AppNavigator from './src/navigation/AppNavigator';
 import { LogBox } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, ImageSelectionProvider } from './src/context/AuthContext';
 import { LocationProvider } from './src/context/LocationContext';
 import store from './src/redux/store/store';
@@ -25,20 +26,22 @@ const App = () => {
 
   return (
     <Provider store={store}>
-      <LocationProvider>
-        <ImageSelectionProvider>
-          <Auth0Provider
-            domain="login.swapp.fit"
-            clientId="6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0"
-            audience="https://api.fitnessclub.com"
-            scope="openid profile email offline_access"
-          >
-            <AuthProvider>
-              <AppNavigator />
-            </AuthProvider>
-          </Auth0Provider>
-        </ImageSelectionProvider>
-      </LocationProvider>
+      <SafeAreaProvider>
+        <LocationProvider>
+          <ImageSelectionProvider>
+            <Auth0Provider
+              domain="login.swapp.fit"
+              clientId="6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0"
+              audience="https://api.fitnessclub.com"
+              scope="openid profile email offline_access"
+            >
+              <AuthProvider>
+                <AppNavigator />
+              </AuthProvider>
+            </Auth0Provider>
+          </ImageSelectionProvider>
+        </LocationProvider>
+      </SafeAreaProvider>
     </Provider>
   );
 };

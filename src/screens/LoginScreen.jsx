@@ -111,7 +111,8 @@ const styles = StyleSheet.create({
   headlineText: {
     color: '#ffffff',
     fontSize: 32,
-    fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
+    fontWeight: 'normal',
     textAlign: 'center',
     marginBottom: 8,
   },

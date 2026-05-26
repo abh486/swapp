@@ -35,7 +35,7 @@ export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscri
     try {
       const response = await dispatch(createCheckoutSession(plan.id, 'TRAINER'));
       if (response.success && response.data.checkoutUrl) {
-        await Linking.openURL(response.data.checkoutUrl);
+        navigation.navigate('CheckoutWebView', { url: response.data.checkoutUrl });
         onClose();
       } else {
         throw new Error(response.message || strings.alerts.subscribeError);

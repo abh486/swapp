@@ -178,18 +178,19 @@ const MemberProfile = () => {
       Alert.alert('Required Field', 'Please enter your name.');
       return false;
     }
-    if (currentStep === 3 && formData.fitnessGoal.length === 0) {
+    if (currentStep === 4 && formData.fitnessGoal.length === 0) {
       Alert.alert('Required Field', 'Please select at least one goal.');
       return false;
     }
-    if (currentStep === 4 && formData.interests.length === 0) {
+    if (currentStep === 5 && formData.interests.length === 0) {
       Alert.alert('Required Field', 'Please select at least one interest.');
       return false;
     }
     return true;
   };
 
-  const isLastStep = currentStep === 4;
+  // Total steps: 0 (name), 1 (gender), 2 (age), 3 (height/weight), 4 (goals), 5 (interests)
+  const isLastStep = currentStep === 5;
 
   const handleNext = () => {
     if (validateCurrentStep()) {
@@ -208,23 +209,24 @@ const MemberProfile = () => {
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setLoading(true);
-    setCurrentStep(5);
+    setCurrentStep(6);
     try {
-     await apiClient.post('/v1/auth/create-user-profile', {
-  name: formData.name.trim(),
-  age: Number(formData.age),
-  gender: formData.gender,
-  weight: { value: Number(formData.weight), unit: 'KG' },
-  height: { value: Number(formData.height), unit: 'CM' },
-  fitnessGoal: formData.fitnessGoal.join(', '),
-  healthConditions: formData.interests.join(', ') || 'None',
-  profilePicture: profileImage ? profileImage : undefined,
+      await apiClient.post('/v1/auth/create-user-profile', {
+        name: formData.name.trim(),
+        age: Number(formData.age),
+        gender: formData.gender,
+        weight: { value: Number(formData.weight), unit: 'KG' },
+        height: { value: Number(formData.height), unit: 'CM' },
+        fitnessGoal: formData.fitnessGoal.join(', '),
+        healthConditions: formData.interests.join(', ') || 'None',
+        profileImage: profileImage ? profileImage : undefined,
+        profilePicture: profileImage ? profileImage : undefined,
       });
-      // Ensure the "Get ready !!" screen is visible for at least 1.5 seconds for visual impact
+      // Ensure the "Get ready !!" screen is visible for at least 1.5 seconds
       await new Promise(resolve => setTimeout(resolve, 1500));
       await refreshAuthStatus();
     } catch (err) {
-      setCurrentStep(4);
+      setCurrentStep(5);
       console.error('Profile Setup Failed:', err.response ? err.response.data : err.message);
       Alert.alert('Profile Setup Failed', err.response?.data?.message || 'An error occurred. Please try again.');
     } finally {
@@ -271,11 +273,8 @@ const MemberProfile = () => {
                       resizeMode="cover"
                     />
                   ) : (
-                    // Silhouette placeholder
                     <View style={styles.avatarPlaceholder}>
-                      {/* Head */}
                       <View style={styles.avatarHead} />
-                      {/* Shoulders */}
                       <View style={styles.avatarBody} />
                     </View>
                   )}
@@ -305,8 +304,55 @@ const MemberProfile = () => {
           </View>
         );
 
-      // ── Step 1: Age ─────────────────────────────────────────────────────────
+      // ── Step 1: Gender ──────────────────────────────────────────────────────
       case 1:
+        return (
+          <View style={{ width: '100%', marginTop: 20 }}>
+            <Text style={styles.stepHeading}>{"what's your\nGender?"}</Text>
+            <Text style={styles.stepSubtitle}>please select your gender</Text>
+
+            <View style={{ marginTop: 10, gap: 16 }}>
+
+              {/* Female Card */}
+              <TouchableOpacity
+                onPress={() => setFormData({ ...formData, gender: 'Female' })}
+                activeOpacity={0.85}
+                style={[
+                  styles.genderCard,
+                  formData.gender === 'Female' && styles.genderCardActive,
+                ]}
+              >
+                <Text style={styles.genderLabel}>Female</Text>
+                <Image
+                  source={require('../assets/image/girl 1.png')}
+                  style={styles.genderImageRight}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+
+              {/* Male Card */}
+              <TouchableOpacity
+                onPress={() => setFormData({ ...formData, gender: 'Male' })}
+                activeOpacity={0.85}
+                style={[
+                  styles.genderCard,
+                  formData.gender === 'Male' && styles.genderCardActive,
+                ]}
+              >
+                <Text style={[styles.genderLabel, { marginLeft: 'auto', marginRight: 30 }]}>Male</Text>
+                <Image
+                  source={require('../assets/image/male 1.png')}
+                  style={styles.genderImageLeft}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        );
+
+      // ── Step 2: Age ─────────────────────────────────────────────────────────
+      case 2:
         return (
           <View style={{ width: '100%', alignItems: 'center', marginTop: 20 }}>
             <Text style={styles.stepHeading}>what's your age?</Text>
@@ -315,8 +361,8 @@ const MemberProfile = () => {
           </View>
         );
 
-      // ── Step 2: Height + Weight ─────────────────────────────────────────────
-      case 2:
+      // ── Step 3: Height + Weight ─────────────────────────────────────────────
+      case 3:
         return (
           <View style={{ width: '100%', alignItems: 'center', marginTop: 20 }}>
             <Text style={styles.stepHeading}>what's your height?</Text>
@@ -331,8 +377,8 @@ const MemberProfile = () => {
           </View>
         );
 
-      // ── Step 3: Fitness Goals ────────────────────────────────────────────────
-      case 3:
+      // ── Step 4: Fitness Goals ────────────────────────────────────────────────
+      case 4:
         const goals = ['Lose Weight', 'Build muscle', 'Boost energy', 'Stress relief', 'Sports performance', 'Flexibility'];
         return (
           <View style={{ width: '100%', marginTop: 20 }}>
@@ -355,8 +401,8 @@ const MemberProfile = () => {
           </View>
         );
 
-      // ── Step 4: Interests ────────────────────────────────────────────────────
-      case 4:
+      // ── Step 5: Interests ────────────────────────────────────────────────────
+      case 5:
         const sections = [
           {
             title: 'STRENGTH & FITNESS',
@@ -410,11 +456,11 @@ const MemberProfile = () => {
                           style={[styles.interestChip, isSelected && styles.interestChipActive]}
                           onPress={() => toggleInterest(item.label)}
                         >
-                          <MaterialCommunityIcons 
-                            name={item.icon} 
-                            size={18} 
-                            color={isSelected ? '#FFFFFF' : '#888888'} 
-                            style={{ marginRight: 8 }} 
+                          <MaterialCommunityIcons
+                            name={item.icon}
+                            size={18}
+                            color={isSelected ? '#FFFFFF' : '#888888'}
+                            style={{ marginRight: 8 }}
                           />
                           <Text style={styles.interestText}>{item.label}</Text>
                         </TouchableOpacity>
@@ -433,7 +479,7 @@ const MemberProfile = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
-  if (currentStep === 5) {
+  if (currentStep === 6) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '500', letterSpacing: 0.5 }}>Get ready !!</Text>
@@ -443,8 +489,8 @@ const MemberProfile = () => {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
 
@@ -459,7 +505,7 @@ const MemberProfile = () => {
         </TouchableOpacity>
 
         <View style={styles.progressBar}>
-          {[0, 1, 2, 3, 4].map((step) => (
+          {[0, 1, 2, 3, 4, 5].map((step) => (
             <View key={step} style={[styles.progressSegment, step <= currentStep && styles.progressSegmentActive]} />
           ))}
         </View>
@@ -471,7 +517,7 @@ const MemberProfile = () => {
 
       {/* Content */}
       <View style={styles.content}>
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -487,7 +533,7 @@ const MemberProfile = () => {
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.continueButtonText}>
-              {currentStep === 4 && formData.interests.length > 0
+              {currentStep === 5 && formData.interests.length > 0
                 ? `Continue (${formData.interests.length} selected)`
                 : 'Continue >'}
             </Text>
@@ -627,9 +673,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  editBadgeIcon: {
-    fontSize: 16,
-  },
   addProfileLabel: {
     color: '#AAAAAA',
     fontSize: 16,
@@ -667,6 +710,46 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
+  // Step 1 — Gender
+  genderCard: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#0D0D0D',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 0,
+  },
+  genderCardActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#141414',
+  },
+  genderLabel: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '400',
+    letterSpacing: 0.5,
+    zIndex: 2,
+    paddingLeft: 30,
+  },
+  genderImageRight: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 160,
+    height: 160,
+  },
+  genderImageLeft: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    width: 160,
+    height: 160,
+  },
+
   // Step 3 — Goals
   goalCard: {
     width: '47%',
@@ -689,7 +772,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Step 4 — Interests
+  // Step 5 — Interests
   sectionLabel: {
     color: '#666',
     fontSize: 11,

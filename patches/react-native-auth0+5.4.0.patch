@@ -1,0 +1,1654 @@
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/results.bin b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/results.bin
+new file mode 100644
+index 0000000..7ed749e
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/results.bin
+@@ -0,0 +1 @@
++o/bundleLibRuntimeToDirDebug
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$Companion.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$Companion.dex
+new file mode 100644
+index 0000000..c38d21d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$Companion.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$customTokenExchange$2.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$customTokenExchange$2.dex
+new file mode 100644
+index 0000000..0d4952d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$customTokenExchange$2.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.dex
+new file mode 100644
+index 0000000..3bc8da1
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getCredentials$2$1.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getCredentials$2$1.dex
+new file mode 100644
+index 0000000..80ceabd
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getCredentials$2$1.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getSSOCredentials$2.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getSSOCredentials$2.dex
+new file mode 100644
+index 0000000..1c3effe
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$getSSOCredentials$2.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuth$3.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuth$3.dex
+new file mode 100644
+index 0000000..a980487
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuth$3.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuthLogout$2.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuthLogout$2.dex
+new file mode 100644
+index 0000000..8c05235
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module$webAuthLogout$2.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module.dex
+new file mode 100644
+index 0000000..530d2f6
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Module.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Package.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Package.dex
+new file mode 100644
+index 0000000..79aaf70
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Package.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Spec.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Spec.dex
+new file mode 100644
+index 0000000..c1cacd5
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/A0Auth0Spec.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/ApiCredentialsParser.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/ApiCredentialsParser.dex
+new file mode 100644
+index 0000000..4257cca
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/ApiCredentialsParser.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/BuildConfig.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/BuildConfig.dex
+new file mode 100644
+index 0000000..1ceca8f
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/BuildConfig.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/CredentialsParser.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/CredentialsParser.dex
+new file mode 100644
+index 0000000..5016b01
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/CredentialsParser.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/LocalAuthenticationOptionsParser.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/LocalAuthenticationOptionsParser.dex
+new file mode 100644
+index 0000000..ce93c33
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/LocalAuthenticationOptionsParser.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/NativeA0Auth0Spec.dex b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/NativeA0Auth0Spec.dex
+new file mode 100644
+index 0000000..306edbd
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/com/auth0/react/NativeA0Auth0Spec.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin
+new file mode 100644
+index 0000000..601f245
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/22237fc61282e4aa89be1e16cbffefb7/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin differ
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/results.bin b/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/transformed/classes/classes_dex/classes.dex b/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..927eac1
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/.transforms/4c47ff7779f9acfd9fc648c2c851b84f/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/buildConfig/debug/com/auth0/react/BuildConfig.java b/node_modules/react-native-auth0/android/build/generated/source/buildConfig/debug/com/auth0/react/BuildConfig.java
+new file mode 100644
+index 0000000..6ca1e04
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/buildConfig/debug/com/auth0/react/BuildConfig.java
+@@ -0,0 +1,12 @@
++/**
++ * Automatically generated file. DO NOT MODIFY
++ */
++package com.auth0.react;
++
++public final class BuildConfig {
++  public static final boolean DEBUG = Boolean.parseBoolean("true");
++  public static final String LIBRARY_PACKAGE_NAME = "com.auth0.react";
++  public static final String BUILD_TYPE = "debug";
++  // Field from default config.
++  public static final boolean IS_NEW_ARCHITECTURE_ENABLED = true;
++}
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/java/com/auth0/react/NativeA0Auth0Spec.java b/node_modules/react-native-auth0/android/build/generated/source/codegen/java/com/auth0/react/NativeA0Auth0Spec.java
+new file mode 100644
+index 0000000..43c36b6
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/java/com/auth0/react/NativeA0Auth0Spec.java
+@@ -0,0 +1,104 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateModuleJavaSpec.js
++ *
++ * @nolint
++ */
++
++package com.auth0.react;
++
++import com.facebook.proguard.annotations.DoNotStrip;
++import com.facebook.react.bridge.Promise;
++import com.facebook.react.bridge.ReactApplicationContext;
++import com.facebook.react.bridge.ReactContextBaseJavaModule;
++import com.facebook.react.bridge.ReactMethod;
++import com.facebook.react.bridge.ReadableMap;
++import com.facebook.react.turbomodule.core.interfaces.TurboModule;
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++
++public abstract class NativeA0Auth0Spec extends ReactContextBaseJavaModule implements TurboModule {
++  public static final String NAME = "A0Auth0";
++
++  public NativeA0Auth0Spec(ReactApplicationContext reactContext) {
++    super(reactContext);
++  }
++
++  @Override
++  public @Nonnull String getName() {
++    return NAME;
++  }
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void getBundleIdentifier(Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void hasValidAuth0InstanceWithConfiguration(String clientId, String domain, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void initializeAuth0WithConfiguration(String clientId, String domain, @Nullable ReadableMap localAuthenticationOptions, @Nullable Boolean useDPoP, double maxRetries, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void saveCredentials(ReadableMap credentials, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void getCredentials(@Nullable String scope, double minTTL, ReadableMap parameters, boolean forceRefresh, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void hasValidCredentials(double minTTL, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void clearCredentials(Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void getApiCredentials(String audience, @Nullable String scope, double minTTL, ReadableMap parameters, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void clearApiCredentials(String audience, @Nullable String scope, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void webAuth(String scheme, String redirectUri, @Nullable String state, @Nullable String nonce, @Nullable String audience, @Nullable String scope, @Nullable String connection, @Nullable Double maxAge, @Nullable String organization, @Nullable String invitationUrl, @Nullable Double leeway, @Nullable Boolean ephemeralSession, @Nullable Double safariViewControllerPresentationStyle, @Nullable ReadableMap additionalParameters, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void webAuthLogout(String scheme, boolean federated, String redirectUri, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void resumeWebAuth(String url, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void cancelWebAuth(Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void getDPoPHeaders(String url, String method, String accessToken, String tokenType, @Nullable String nonce, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void clearDPoPKey(Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void getSSOCredentials(ReadableMap parameters, ReadableMap headers, Promise promise);
++
++  @ReactMethod
++  @DoNotStrip
++  public abstract void customTokenExchange(String subjectToken, String subjectTokenType, @Nullable String audience, @Nullable String scope, @Nullable String organization, Promise promise);
++}
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/CMakeLists.txt b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/CMakeLists.txt
+new file mode 100644
+index 0000000..8b71123
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/CMakeLists.txt
+@@ -0,0 +1,28 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This source code is licensed under the MIT license found in the
++# LICENSE file in the root directory of this source tree.
++
++cmake_minimum_required(VERSION 3.13)
++set(CMAKE_VERBOSE_MAKEFILE on)
++
++file(GLOB react_codegen_SRCS CONFIGURE_DEPENDS *.cpp react/renderer/components/RNAuth0Spec/*.cpp)
++
++add_library(
++  react_codegen_RNAuth0Spec
++  OBJECT
++  ${react_codegen_SRCS}
++)
++
++target_include_directories(react_codegen_RNAuth0Spec PUBLIC . react/renderer/components/RNAuth0Spec)
++
++target_link_libraries(
++  react_codegen_RNAuth0Spec
++  fbjni
++  jsi
++  # We need to link different libraries based on whether we are building rncore or not, that's necessary
++  # because we want to break a circular dependency between react_codegen_rncore and reactnative
++  reactnative
++)
++
++target_compile_reactnative_options(react_codegen_RNAuth0Spec PRIVATE)
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec-generated.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec-generated.cpp
+new file mode 100644
+index 0000000..52801f3
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec-generated.cpp
+@@ -0,0 +1,128 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateModuleJniCpp.js
++ */
++
++#include "RNAuth0Spec.h"
++
++namespace facebook::react {
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_getBundleIdentifier(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "getBundleIdentifier", "(Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_hasValidAuth0InstanceWithConfiguration(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "hasValidAuth0InstanceWithConfiguration", "(Ljava/lang/String;Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_initializeAuth0WithConfiguration(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "initializeAuth0WithConfiguration", "(Ljava/lang/String;Ljava/lang/String;Lcom/facebook/react/bridge/ReadableMap;Ljava/lang/Boolean;DLcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_saveCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "saveCredentials", "(Lcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_getCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "getCredentials", "(Ljava/lang/String;DLcom/facebook/react/bridge/ReadableMap;ZLcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_hasValidCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "hasValidCredentials", "(DLcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_clearCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "clearCredentials", "(Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_getApiCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "getApiCredentials", "(Ljava/lang/String;Ljava/lang/String;DLcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_clearApiCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "clearApiCredentials", "(Ljava/lang/String;Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_webAuth(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "webAuth", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Double;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Double;Ljava/lang/Boolean;Ljava/lang/Double;Lcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_webAuthLogout(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "webAuthLogout", "(Ljava/lang/String;ZLjava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_resumeWebAuth(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "resumeWebAuth", "(Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_cancelWebAuth(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "cancelWebAuth", "(Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_getDPoPHeaders(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "getDPoPHeaders", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_clearDPoPKey(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "clearDPoPKey", "(Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_getSSOCredentials(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "getSSOCredentials", "(Lcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++static facebook::jsi::Value __hostFunction_NativeA0Auth0SpecJSI_customTokenExchange(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
++  static jmethodID cachedMethodId = nullptr;
++  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "customTokenExchange", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
++}
++
++NativeA0Auth0SpecJSI::NativeA0Auth0SpecJSI(const JavaTurboModule::InitParams &params)
++  : JavaTurboModule(params) {
++  methodMap_["getBundleIdentifier"] = MethodMetadata {0, __hostFunction_NativeA0Auth0SpecJSI_getBundleIdentifier};
++  methodMap_["hasValidAuth0InstanceWithConfiguration"] = MethodMetadata {2, __hostFunction_NativeA0Auth0SpecJSI_hasValidAuth0InstanceWithConfiguration};
++  methodMap_["initializeAuth0WithConfiguration"] = MethodMetadata {5, __hostFunction_NativeA0Auth0SpecJSI_initializeAuth0WithConfiguration};
++  methodMap_["saveCredentials"] = MethodMetadata {1, __hostFunction_NativeA0Auth0SpecJSI_saveCredentials};
++  methodMap_["getCredentials"] = MethodMetadata {4, __hostFunction_NativeA0Auth0SpecJSI_getCredentials};
++  methodMap_["hasValidCredentials"] = MethodMetadata {1, __hostFunction_NativeA0Auth0SpecJSI_hasValidCredentials};
++  methodMap_["clearCredentials"] = MethodMetadata {0, __hostFunction_NativeA0Auth0SpecJSI_clearCredentials};
++  methodMap_["getApiCredentials"] = MethodMetadata {4, __hostFunction_NativeA0Auth0SpecJSI_getApiCredentials};
++  methodMap_["clearApiCredentials"] = MethodMetadata {2, __hostFunction_NativeA0Auth0SpecJSI_clearApiCredentials};
++  methodMap_["webAuth"] = MethodMetadata {14, __hostFunction_NativeA0Auth0SpecJSI_webAuth};
++  methodMap_["webAuthLogout"] = MethodMetadata {3, __hostFunction_NativeA0Auth0SpecJSI_webAuthLogout};
++  methodMap_["resumeWebAuth"] = MethodMetadata {1, __hostFunction_NativeA0Auth0SpecJSI_resumeWebAuth};
++  methodMap_["cancelWebAuth"] = MethodMetadata {0, __hostFunction_NativeA0Auth0SpecJSI_cancelWebAuth};
++  methodMap_["getDPoPHeaders"] = MethodMetadata {5, __hostFunction_NativeA0Auth0SpecJSI_getDPoPHeaders};
++  methodMap_["clearDPoPKey"] = MethodMetadata {0, __hostFunction_NativeA0Auth0SpecJSI_clearDPoPKey};
++  methodMap_["getSSOCredentials"] = MethodMetadata {2, __hostFunction_NativeA0Auth0SpecJSI_getSSOCredentials};
++  methodMap_["customTokenExchange"] = MethodMetadata {5, __hostFunction_NativeA0Auth0SpecJSI_customTokenExchange};
++}
++
++std::shared_ptr<TurboModule> RNAuth0Spec_ModuleProvider(const std::string &moduleName, const JavaTurboModule::InitParams &params) {
++  if (moduleName == "A0Auth0") {
++    return std::make_shared<NativeA0Auth0SpecJSI>(params);
++  }
++  return nullptr;
++}
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec.h
+new file mode 100644
+index 0000000..b6bb7e5
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/RNAuth0Spec.h
+@@ -0,0 +1,31 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateModuleJniH.js
++ */
++
++#pragma once
++
++#include <ReactCommon/JavaTurboModule.h>
++#include <ReactCommon/TurboModule.h>
++#include <jsi/jsi.h>
++
++namespace facebook::react {
++
++/**
++ * JNI C++ class for module 'NativeA0Auth0'
++ */
++class JSI_EXPORT NativeA0Auth0SpecJSI : public JavaTurboModule {
++public:
++  NativeA0Auth0SpecJSI(const JavaTurboModule::InitParams &params);
++};
++
++
++JSI_EXPORT
++std::shared_ptr<TurboModule> RNAuth0Spec_ModuleProvider(const std::string &moduleName, const JavaTurboModule::InitParams &params);
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.cpp
+new file mode 100644
+index 0000000..2824c70
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.cpp
+@@ -0,0 +1,22 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateComponentDescriptorCpp.js
++ */
++
++#include <react/renderer/components/RNAuth0Spec/ComponentDescriptors.h>
++#include <react/renderer/core/ConcreteComponentDescriptor.h>
++#include <react/renderer/componentregistry/ComponentDescriptorProviderRegistry.h>
++
++namespace facebook::react {
++
++void RNAuth0Spec_registerComponentDescriptorsFromCodegen(
++  std::shared_ptr<const ComponentDescriptorProviderRegistry> registry) {
++
++}
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.h
+new file mode 100644
+index 0000000..28e1362
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ComponentDescriptors.h
+@@ -0,0 +1,24 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateComponentDescriptorH.js
++ */
++
++#pragma once
++
++#include <react/renderer/components/RNAuth0Spec/ShadowNodes.h>
++#include <react/renderer/core/ConcreteComponentDescriptor.h>
++#include <react/renderer/componentregistry/ComponentDescriptorProviderRegistry.h>
++
++namespace facebook::react {
++
++
++
++void RNAuth0Spec_registerComponentDescriptorsFromCodegen(
++  std::shared_ptr<const ComponentDescriptorProviderRegistry> registry);
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.cpp
+new file mode 100644
+index 0000000..dbf70b3
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.cpp
+@@ -0,0 +1,16 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateEventEmitterCpp.js
++ */
++
++#include <react/renderer/components/RNAuth0Spec/EventEmitters.h>
++
++
++namespace facebook::react {
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.h
+new file mode 100644
+index 0000000..2845a63
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/EventEmitters.h
+@@ -0,0 +1,17 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateEventEmitterH.js
++ */
++#pragma once
++
++#include <react/renderer/components/view/ViewEventEmitter.h>
++
++
++namespace facebook::react {
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.cpp
+new file mode 100644
+index 0000000..08d51f5
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.cpp
+@@ -0,0 +1,19 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GeneratePropsCpp.js
++ */
++
++#include <react/renderer/components/RNAuth0Spec/Props.h>
++#include <react/renderer/core/PropsParserContext.h>
++#include <react/renderer/core/propsConversions.h>
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.h
+new file mode 100644
+index 0000000..870864b
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/Props.h
+@@ -0,0 +1,18 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GeneratePropsH.js
++ */
++#pragma once
++
++
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/RNAuth0SpecJSI.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/RNAuth0SpecJSI.h
+new file mode 100644
+index 0000000..f3aafa9
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/RNAuth0SpecJSI.h
+@@ -0,0 +1,214 @@
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateModuleH.js
++ */
++
++#pragma once
++
++#include <ReactCommon/TurboModule.h>
++#include <react/bridging/Bridging.h>
++
++namespace facebook::react {
++
++
++template <typename T>
++class JSI_EXPORT NativeA0Auth0CxxSpec : public TurboModule {
++public:
++  static constexpr std::string_view kModuleName = "A0Auth0";
++
++protected:
++  NativeA0Auth0CxxSpec(std::shared_ptr<CallInvoker> jsInvoker) : TurboModule(std::string{NativeA0Auth0CxxSpec::kModuleName}, jsInvoker) {
++    methodMap_["getBundleIdentifier"] = MethodMetadata {.argCount = 0, .invoker = __getBundleIdentifier};
++    methodMap_["hasValidAuth0InstanceWithConfiguration"] = MethodMetadata {.argCount = 2, .invoker = __hasValidAuth0InstanceWithConfiguration};
++    methodMap_["initializeAuth0WithConfiguration"] = MethodMetadata {.argCount = 5, .invoker = __initializeAuth0WithConfiguration};
++    methodMap_["saveCredentials"] = MethodMetadata {.argCount = 1, .invoker = __saveCredentials};
++    methodMap_["getCredentials"] = MethodMetadata {.argCount = 4, .invoker = __getCredentials};
++    methodMap_["hasValidCredentials"] = MethodMetadata {.argCount = 1, .invoker = __hasValidCredentials};
++    methodMap_["clearCredentials"] = MethodMetadata {.argCount = 0, .invoker = __clearCredentials};
++    methodMap_["getApiCredentials"] = MethodMetadata {.argCount = 4, .invoker = __getApiCredentials};
++    methodMap_["clearApiCredentials"] = MethodMetadata {.argCount = 2, .invoker = __clearApiCredentials};
++    methodMap_["webAuth"] = MethodMetadata {.argCount = 14, .invoker = __webAuth};
++    methodMap_["webAuthLogout"] = MethodMetadata {.argCount = 3, .invoker = __webAuthLogout};
++    methodMap_["resumeWebAuth"] = MethodMetadata {.argCount = 1, .invoker = __resumeWebAuth};
++    methodMap_["cancelWebAuth"] = MethodMetadata {.argCount = 0, .invoker = __cancelWebAuth};
++    methodMap_["getDPoPHeaders"] = MethodMetadata {.argCount = 5, .invoker = __getDPoPHeaders};
++    methodMap_["clearDPoPKey"] = MethodMetadata {.argCount = 0, .invoker = __clearDPoPKey};
++    methodMap_["getSSOCredentials"] = MethodMetadata {.argCount = 2, .invoker = __getSSOCredentials};
++    methodMap_["customTokenExchange"] = MethodMetadata {.argCount = 5, .invoker = __customTokenExchange};
++  }
++  
++private:
++  static jsi::Value __getBundleIdentifier(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* /*args*/, size_t /*count*/) {
++    static_assert(
++      bridging::getParameterCount(&T::getBundleIdentifier) == 1,
++      "Expected getBundleIdentifier(...) to have 1 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::getBundleIdentifier,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule));
++  }
++
++  static jsi::Value __hasValidAuth0InstanceWithConfiguration(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::hasValidAuth0InstanceWithConfiguration) == 3,
++      "Expected hasValidAuth0InstanceWithConfiguration(...) to have 3 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::hasValidAuth0InstanceWithConfiguration,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asString(rt));
++  }
++
++  static jsi::Value __initializeAuth0WithConfiguration(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::initializeAuth0WithConfiguration) == 6,
++      "Expected initializeAuth0WithConfiguration(...) to have 6 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::initializeAuth0WithConfiguration,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asString(rt),
++      count <= 2 || args[2].isNull() || args[2].isUndefined() ? std::nullopt : std::make_optional(args[2].asObject(rt)),
++      count <= 3 || args[3].isNull() || args[3].isUndefined() ? std::nullopt : std::make_optional(args[3].asBool()),
++      count <= 4 ? throw jsi::JSError(rt, "Expected argument in position 4 to be passed") : args[4].asNumber());
++  }
++
++  static jsi::Value __saveCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::saveCredentials) == 2,
++      "Expected saveCredentials(...) to have 2 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::saveCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asObject(rt));
++  }
++
++  static jsi::Value __getCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::getCredentials) == 5,
++      "Expected getCredentials(...) to have 5 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::getCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 || args[0].isNull() || args[0].isUndefined() ? std::nullopt : std::make_optional(args[0].asString(rt)),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asNumber(),
++      count <= 2 ? throw jsi::JSError(rt, "Expected argument in position 2 to be passed") : args[2].asObject(rt),
++      count <= 3 ? throw jsi::JSError(rt, "Expected argument in position 3 to be passed") : args[3].asBool());
++  }
++
++  static jsi::Value __hasValidCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::hasValidCredentials) == 2,
++      "Expected hasValidCredentials(...) to have 2 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::hasValidCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asNumber());
++  }
++
++  static jsi::Value __clearCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* /*args*/, size_t /*count*/) {
++    static_assert(
++      bridging::getParameterCount(&T::clearCredentials) == 1,
++      "Expected clearCredentials(...) to have 1 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::clearCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule));
++  }
++
++  static jsi::Value __getApiCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::getApiCredentials) == 5,
++      "Expected getApiCredentials(...) to have 5 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::getApiCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 || args[1].isNull() || args[1].isUndefined() ? std::nullopt : std::make_optional(args[1].asString(rt)),
++      count <= 2 ? throw jsi::JSError(rt, "Expected argument in position 2 to be passed") : args[2].asNumber(),
++      count <= 3 ? throw jsi::JSError(rt, "Expected argument in position 3 to be passed") : args[3].asObject(rt));
++  }
++
++  static jsi::Value __clearApiCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::clearApiCredentials) == 3,
++      "Expected clearApiCredentials(...) to have 3 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::clearApiCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 || args[1].isNull() || args[1].isUndefined() ? std::nullopt : std::make_optional(args[1].asString(rt)));
++  }
++
++  static jsi::Value __webAuth(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::webAuth) == 15,
++      "Expected webAuth(...) to have 15 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::webAuth,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asString(rt),
++      count <= 2 || args[2].isNull() || args[2].isUndefined() ? std::nullopt : std::make_optional(args[2].asString(rt)),
++      count <= 3 || args[3].isNull() || args[3].isUndefined() ? std::nullopt : std::make_optional(args[3].asString(rt)),
++      count <= 4 || args[4].isNull() || args[4].isUndefined() ? std::nullopt : std::make_optional(args[4].asString(rt)),
++      count <= 5 || args[5].isNull() || args[5].isUndefined() ? std::nullopt : std::make_optional(args[5].asString(rt)),
++      count <= 6 || args[6].isNull() || args[6].isUndefined() ? std::nullopt : std::make_optional(args[6].asString(rt)),
++      count <= 7 || args[7].isNull() || args[7].isUndefined() ? std::nullopt : std::make_optional(args[7].asNumber()),
++      count <= 8 || args[8].isNull() || args[8].isUndefined() ? std::nullopt : std::make_optional(args[8].asString(rt)),
++      count <= 9 || args[9].isNull() || args[9].isUndefined() ? std::nullopt : std::make_optional(args[9].asString(rt)),
++      count <= 10 || args[10].isNull() || args[10].isUndefined() ? std::nullopt : std::make_optional(args[10].asNumber()),
++      count <= 11 || args[11].isNull() || args[11].isUndefined() ? std::nullopt : std::make_optional(args[11].asBool()),
++      count <= 12 || args[12].isNull() || args[12].isUndefined() ? std::nullopt : std::make_optional(args[12].asNumber()),
++      count <= 13 || args[13].isNull() || args[13].isUndefined() ? std::nullopt : std::make_optional(args[13].asObject(rt)));
++  }
++
++  static jsi::Value __webAuthLogout(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::webAuthLogout) == 4,
++      "Expected webAuthLogout(...) to have 4 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::webAuthLogout,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asBool(),
++      count <= 2 ? throw jsi::JSError(rt, "Expected argument in position 2 to be passed") : args[2].asString(rt));
++  }
++
++  static jsi::Value __resumeWebAuth(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::resumeWebAuth) == 2,
++      "Expected resumeWebAuth(...) to have 2 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::resumeWebAuth,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt));
++  }
++
++  static jsi::Value __cancelWebAuth(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* /*args*/, size_t /*count*/) {
++    static_assert(
++      bridging::getParameterCount(&T::cancelWebAuth) == 1,
++      "Expected cancelWebAuth(...) to have 1 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::cancelWebAuth,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule));
++  }
++
++  static jsi::Value __getDPoPHeaders(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::getDPoPHeaders) == 6,
++      "Expected getDPoPHeaders(...) to have 6 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::getDPoPHeaders,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asString(rt),
++      count <= 2 ? throw jsi::JSError(rt, "Expected argument in position 2 to be passed") : args[2].asString(rt),
++      count <= 3 ? throw jsi::JSError(rt, "Expected argument in position 3 to be passed") : args[3].asString(rt),
++      count <= 4 || args[4].isUndefined() ? std::nullopt : std::make_optional(args[4].asString(rt)));
++  }
++
++  static jsi::Value __clearDPoPKey(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* /*args*/, size_t /*count*/) {
++    static_assert(
++      bridging::getParameterCount(&T::clearDPoPKey) == 1,
++      "Expected clearDPoPKey(...) to have 1 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::clearDPoPKey,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule));
++  }
++
++  static jsi::Value __getSSOCredentials(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::getSSOCredentials) == 3,
++      "Expected getSSOCredentials(...) to have 3 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::getSSOCredentials,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asObject(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asObject(rt));
++  }
++
++  static jsi::Value __customTokenExchange(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
++    static_assert(
++      bridging::getParameterCount(&T::customTokenExchange) == 6,
++      "Expected customTokenExchange(...) to have 6 parameters");
++    return bridging::callFromJs<jsi::Value>(rt, &T::customTokenExchange,  static_cast<NativeA0Auth0CxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
++      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt),
++      count <= 1 ? throw jsi::JSError(rt, "Expected argument in position 1 to be passed") : args[1].asString(rt),
++      count <= 2 || args[2].isNull() || args[2].isUndefined() ? std::nullopt : std::make_optional(args[2].asString(rt)),
++      count <= 3 || args[3].isNull() || args[3].isUndefined() ? std::nullopt : std::make_optional(args[3].asString(rt)),
++      count <= 4 || args[4].isNull() || args[4].isUndefined() ? std::nullopt : std::make_optional(args[4].asString(rt)));
++  }
++};
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.cpp
+new file mode 100644
+index 0000000..9dbeafd
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.cpp
+@@ -0,0 +1,17 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateShadowNodeCpp.js
++ */
++
++#include <react/renderer/components/RNAuth0Spec/ShadowNodes.h>
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.h
+new file mode 100644
+index 0000000..bf7f5ac
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/ShadowNodes.h
+@@ -0,0 +1,23 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateShadowNodeH.js
++ */
++
++#pragma once
++
++#include <react/renderer/components/RNAuth0Spec/EventEmitters.h>
++#include <react/renderer/components/RNAuth0Spec/Props.h>
++#include <react/renderer/components/RNAuth0Spec/States.h>
++#include <react/renderer/components/view/ConcreteViewShadowNode.h>
++#include <jsi/jsi.h>
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.cpp b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.cpp
+new file mode 100644
+index 0000000..d597026
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.cpp
+@@ -0,0 +1,16 @@
++
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateStateCpp.js
++ */
++#include <react/renderer/components/RNAuth0Spec/States.h>
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.h b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.h
+new file mode 100644
+index 0000000..2e55bce
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/jni/react/renderer/components/RNAuth0Spec/States.h
+@@ -0,0 +1,20 @@
++/**
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by codegen project: GenerateStateH.js
++ */
++#pragma once
++
++#include <react/renderer/core/StateData.h>
++#ifdef RN_SERIALIZABLE_STATE
++#include <folly/dynamic.h>
++#endif
++
++namespace facebook::react {
++
++
++
++} // namespace facebook::react
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/generated/source/codegen/schema.json b/node_modules/react-native-auth0/android/build/generated/source/codegen/schema.json
+new file mode 100644
+index 0000000..4e7d9f3
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/generated/source/codegen/schema.json
+@@ -0,0 +1 @@
++{"libraryName":"","modules":{"NativeA0Auth0":{"type":"NativeModule","aliasMap":{},"enumMap":{},"spec":{"eventEmitters":[],"methods":[{"name":"getBundleIdentifier","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"StringTypeAnnotation"}},"params":[]}},{"name":"hasValidAuth0InstanceWithConfiguration","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"BooleanTypeAnnotation"}},"params":[{"name":"clientId","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"domain","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}}]}},{"name":"initializeAuth0WithConfiguration","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"clientId","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"domain","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"localAuthenticationOptions","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"GenericObjectTypeAnnotation","dictionaryValueType":{"type":"UnionTypeAnnotation","types":[{"type":"StringTypeAnnotation"},{"type":"NumberTypeAnnotation"},{"type":"BooleanTypeAnnotation"}]}}}},{"name":"useDPoP","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"BooleanTypeAnnotation"}}},{"name":"maxRetries","optional":false,"typeAnnotation":{"type":"NumberTypeAnnotation"}}]}},{"name":"saveCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"credentials","optional":false,"typeAnnotation":{"type":"GenericObjectTypeAnnotation","dictionaryValueType":{"type":"UnionTypeAnnotation","types":[{"type":"StringTypeAnnotation"},{"type":"NumberTypeAnnotation"}]}}}]}},{"name":"getCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"scope","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"minTTL","optional":false,"typeAnnotation":{"type":"NumberTypeAnnotation"}},{"name":"parameters","optional":false,"typeAnnotation":{"type":"GenericObjectTypeAnnotation"}},{"name":"forceRefresh","optional":false,"typeAnnotation":{"type":"BooleanTypeAnnotation"}}]}},{"name":"hasValidCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"BooleanTypeAnnotation"}},"params":[{"name":"minTTL","optional":false,"typeAnnotation":{"type":"NumberTypeAnnotation"}}]}},{"name":"clearCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[]}},{"name":"getApiCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"audience","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"scope","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"minTTL","optional":false,"typeAnnotation":{"type":"NumberTypeAnnotation"}},{"name":"parameters","optional":false,"typeAnnotation":{"type":"GenericObjectTypeAnnotation"}}]}},{"name":"clearApiCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"audience","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"scope","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}}]}},{"name":"webAuth","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"scheme","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"redirectUri","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"state","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"nonce","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"audience","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"scope","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"connection","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"maxAge","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"NumberTypeAnnotation"}}},{"name":"organization","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"invitationUrl","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"leeway","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"NumberTypeAnnotation"}}},{"name":"ephemeralSession","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"BooleanTypeAnnotation"}}},{"name":"safariViewControllerPresentationStyle","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"NumberTypeAnnotation"}}},{"name":"additionalParameters","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"GenericObjectTypeAnnotation","dictionaryValueType":{"type":"StringTypeAnnotation"}}}}]}},{"name":"webAuthLogout","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"scheme","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"federated","optional":false,"typeAnnotation":{"type":"BooleanTypeAnnotation"}},{"name":"redirectUri","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}}]}},{"name":"resumeWebAuth","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"url","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}}]}},{"name":"cancelWebAuth","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[]}},{"name":"getDPoPHeaders","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"GenericObjectTypeAnnotation","dictionaryValueType":{"type":"StringTypeAnnotation"}}},"params":[{"name":"url","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"method","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"accessToken","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"tokenType","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"nonce","optional":true,"typeAnnotation":{"type":"StringTypeAnnotation"}}]}},{"name":"clearDPoPKey","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[]}},{"name":"getSSOCredentials","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"ObjectTypeAnnotation","properties":[{"name":"sessionTransferToken","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"tokenType","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"expiresIn","optional":false,"typeAnnotation":{"type":"NumberTypeAnnotation"}},{"name":"idToken","optional":true,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"refreshToken","optional":true,"typeAnnotation":{"type":"StringTypeAnnotation"}}]}},"params":[{"name":"parameters","optional":false,"typeAnnotation":{"type":"GenericObjectTypeAnnotation"}},{"name":"headers","optional":false,"typeAnnotation":{"type":"GenericObjectTypeAnnotation"}}]}},{"name":"customTokenExchange","optional":false,"typeAnnotation":{"type":"FunctionTypeAnnotation","returnTypeAnnotation":{"type":"PromiseTypeAnnotation","elementType":{"type":"VoidTypeAnnotation"}},"params":[{"name":"subjectToken","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"subjectTokenType","optional":false,"typeAnnotation":{"type":"StringTypeAnnotation"}},{"name":"audience","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"scope","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}},{"name":"organization","optional":false,"typeAnnotation":{"type":"NullableTypeAnnotation","typeAnnotation":{"type":"StringTypeAnnotation"}}}]}}]},"moduleName":"A0Auth0"}}}
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml b/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+new file mode 100644
+index 0000000..7e21bbe
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Ignore rule required due to the 'queries' tag, fix only available for targetSdk=30 -->
++<!-- suppress AndroidElementNotAllowed -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    package="com.auth0.react" >
++
++    <uses-sdk android:minSdkVersion="24" />
++
++    <uses-permission android:name="android.permission.INTERNET" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json b/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+new file mode 100644
+index 0000000..7bc0dfd
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+@@ -0,0 +1,18 @@
++{
++  "version": 3,
++  "artifactType": {
++    "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
++    "kind": "Directory"
++  },
++  "applicationId": "com.auth0.react",
++  "variantName": "debug",
++  "elements": [
++    {
++      "type": "SINGLE",
++      "filters": [],
++      "attributes": [],
++      "outputFile": "AndroidManifest.xml"
++    }
++  ],
++  "elementType": "File"
++}
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties b/node_modules/react-native-auth0/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json b/node_modules/react-native-auth0/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar b/node_modules/react-native-auth0/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar
+new file mode 100644
+index 0000000..9b6ca2f
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar b/node_modules/react-native-auth0/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar
+new file mode 100644
+index 0000000..f85a043
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt b/node_modules/react-native-auth0/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties b/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+new file mode 100644
+index 0000000..e88ca1b
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Sat May 16 17:59:27 IST 2026
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml b/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+new file mode 100644
+index 0000000..2920478
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/build/generated/res/resValues/debug"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/build/generated/res/resValues/debug"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugAssets/merger.xml b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugAssets/merger.xml
+new file mode 100644
+index 0000000..eed2dd6
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugAssets/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/assets"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/debug/assets"/></dataSet><dataSet config="generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/build/intermediates/shader_assets/debug/compileDebugShaders/out"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+new file mode 100644
+index 0000000..dbcdc07
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/jniLibs"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/debug/jniLibs"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugShaders/merger.xml b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+new file mode 100644
+index 0000000..0016a3b
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/shaders"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/apple/swapp/node_modules/react-native-auth0/android/src/debug/shaders"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/react-native-auth0_debug.kotlin_module b/node_modules/react-native-auth0/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/react-native-auth0_debug.kotlin_module
+new file mode 100644
+index 0000000..9dbc290
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/react-native-auth0_debug.kotlin_module differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/BuildConfig.class b/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/BuildConfig.class
+new file mode 100644
+index 0000000..ee4c18e
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/BuildConfig.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/NativeA0Auth0Spec.class b/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/NativeA0Auth0Spec.class
+new file mode 100644
+index 0000000..4237af1
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/auth0/react/NativeA0Auth0Spec.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt b/node_modules/react-native-auth0/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+new file mode 100644
+index 0000000..78ac5b8
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+@@ -0,0 +1,2 @@
++R_DEF: Internal format may change without notice
++local
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt b/node_modules/react-native-auth0/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+new file mode 100644
+index 0000000..88e1246
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+@@ -0,0 +1,14 @@
++1<?xml version="1.0" encoding="utf-8"?>
++2<!-- Ignore rule required due to the 'queries' tag, fix only available for targetSdk=30 -->
++3<!-- suppress AndroidElementNotAllowed -->
++4<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++5    xmlns:tools="http://schemas.android.com/tools"
++6    package="com.auth0.react" >
++7
++8    <uses-sdk android:minSdkVersion="24" />
++9
++10    <uses-permission android:name="android.permission.INTERNET" />
++10-->/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:6:5-67
++10-->/Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:6:22-64
++11
++12</manifest>
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml b/node_modules/react-native-auth0/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+new file mode 100644
+index 0000000..7e21bbe
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Ignore rule required due to the 'queries' tag, fix only available for targetSdk=30 -->
++<!-- suppress AndroidElementNotAllowed -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    package="com.auth0.react" >
++
++    <uses-sdk android:minSdkVersion="24" />
++
++    <uses-permission android:name="android.permission.INTERNET" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json b/node_modules/react-native-auth0/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+new file mode 100644
+index 0000000..0637a08
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt b/node_modules/react-native-auth0/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/react-native-auth0_debug.kotlin_module b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/react-native-auth0_debug.kotlin_module
+new file mode 100644
+index 0000000..9dbc290
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/react-native-auth0_debug.kotlin_module differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$Companion.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$Companion.class
+new file mode 100644
+index 0000000..826b011
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$Companion.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class
+new file mode 100644
+index 0000000..f6efe5c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class
+new file mode 100644
+index 0000000..c8618d8
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class
+new file mode 100644
+index 0000000..c6d2103
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class
+new file mode 100644
+index 0000000..dbb9ffb
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuth$3.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuth$3.class
+new file mode 100644
+index 0000000..3f2cb91
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuth$3.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class
+new file mode 100644
+index 0000000..1164ce0
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module.class
+new file mode 100644
+index 0000000..27c3740
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Module.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Package.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Package.class
+new file mode 100644
+index 0000000..74bf247
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Package.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Spec.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Spec.class
+new file mode 100644
+index 0000000..4874d62
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/A0Auth0Spec.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/ApiCredentialsParser.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/ApiCredentialsParser.class
+new file mode 100644
+index 0000000..4c44bbd
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/ApiCredentialsParser.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/BuildConfig.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/BuildConfig.class
+new file mode 100644
+index 0000000..ee4c18e
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/BuildConfig.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/CredentialsParser.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/CredentialsParser.class
+new file mode 100644
+index 0000000..9f24c8a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/CredentialsParser.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/LocalAuthenticationOptionsParser.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/LocalAuthenticationOptionsParser.class
+new file mode 100644
+index 0000000..79c3656
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/LocalAuthenticationOptionsParser.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/NativeA0Auth0Spec.class b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/NativeA0Auth0Spec.class
+new file mode 100644
+index 0000000..4237af1
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/com/auth0/react/NativeA0Auth0Spec.class differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar
+new file mode 100644
+index 0000000..d9d1c2c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar differ
+diff --git a/node_modules/react-native-auth0/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt b/node_modules/react-native-auth0/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+new file mode 100644
+index 0000000..89cf050
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+@@ -0,0 +1 @@
++com.auth0.react
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab
+new file mode 100644
+index 0000000..0fc122b
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream
+new file mode 100644
+index 0000000..caa4c6a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len
+new file mode 100644
+index 0000000..6353e1c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len
+new file mode 100644
+index 0000000..9e27f73
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at
+new file mode 100644
+index 0000000..afeeb49
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i
+new file mode 100644
+index 0000000..3ed7665
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab
+new file mode 100644
+index 0000000..6acc95f
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream
+new file mode 100644
+index 0000000..b153105
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len
+new file mode 100644
+index 0000000..b4da131
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len
+new file mode 100644
+index 0000000..817b326
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at
+new file mode 100644
+index 0000000..92b2b7d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i
+new file mode 100644
+index 0000000..5fbffe0
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab
+new file mode 100644
+index 0000000..6837b5e
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream
+new file mode 100644
+index 0000000..b153105
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len
+new file mode 100644
+index 0000000..b4da131
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len
+new file mode 100644
+index 0000000..817b326
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at
+new file mode 100644
+index 0000000..b92541d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i
+new file mode 100644
+index 0000000..5fbffe0
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab
+new file mode 100644
+index 0000000..bdf584a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream
+new file mode 100644
+index 0000000..42abef3
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream.len
+new file mode 100644
+index 0000000..1c69ee4
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.len
+new file mode 100644
+index 0000000..2a17e6e
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.values.at
+new file mode 100644
+index 0000000..964cebd
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i
+new file mode 100644
+index 0000000..f7e223b
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/constants.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab
+new file mode 100644
+index 0000000..fb6815b
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream
+new file mode 100644
+index 0000000..167e2e3
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len
+new file mode 100644
+index 0000000..502352e
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len
+new file mode 100644
+index 0000000..6f677df
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at
+new file mode 100644
+index 0000000..78b3043
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i
+new file mode 100644
+index 0000000..5058295
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab
+new file mode 100644
+index 0000000..204b2c6
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream
+new file mode 100644
+index 0000000..8e1f858
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len
+new file mode 100644
+index 0000000..6f80c14
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at
+new file mode 100644
+index 0000000..d117f95
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i
+new file mode 100644
+index 0000000..0cc746c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab
+new file mode 100644
+index 0000000..e165bda
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream
+new file mode 100644
+index 0000000..caa4c6a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len
+new file mode 100644
+index 0000000..6353e1c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len
+new file mode 100644
+index 0000000..9e27f73
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at
+new file mode 100644
+index 0000000..cbc2845
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i
+new file mode 100644
+index 0000000..3ed7665
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab
+new file mode 100644
+index 0000000..e679277
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream
+new file mode 100644
+index 0000000..62b6748
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len
+new file mode 100644
+index 0000000..f568412
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len
+new file mode 100644
+index 0000000..93a595b
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at
+new file mode 100644
+index 0000000..63891df
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i
+new file mode 100644
+index 0000000..8755506
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab
+new file mode 100644
+index 0000000..c521e87
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream
+new file mode 100644
+index 0000000..e43e299
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len
+new file mode 100644
+index 0000000..2537434
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len
+new file mode 100644
+index 0000000..a9f80ae
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at
+new file mode 100644
+index 0000000..cf4803a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i
+new file mode 100644
+index 0000000..d974711
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab
+new file mode 100644
+index 0000000..888a92d
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab
+@@ -0,0 +1,2 @@
++6
++0
+\ No newline at end of file
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab
+new file mode 100644
+index 0000000..c6cfa7f
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream
+new file mode 100644
+index 0000000..caa4c6a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len
+new file mode 100644
+index 0000000..6353e1c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len
+new file mode 100644
+index 0000000..9e27f73
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at
+new file mode 100644
+index 0000000..87c4282
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i
+new file mode 100644
+index 0000000..3ed7665
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab
+new file mode 100644
+index 0000000..09a8769
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream
+new file mode 100644
+index 0000000..3d5fe7a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len
+new file mode 100644
+index 0000000..fa902fa
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len
+new file mode 100644
+index 0000000..9e27f73
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at
+new file mode 100644
+index 0000000..b04918d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i
+new file mode 100644
+index 0000000..b7dc911
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab
+new file mode 100644
+index 0000000..20b5f04
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream
+new file mode 100644
+index 0000000..27cca01
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len
+new file mode 100644
+index 0000000..988a139
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len
+new file mode 100644
+index 0000000..92059fc
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at
+new file mode 100644
+index 0000000..8d64256
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i
+new file mode 100644
+index 0000000..55d9add
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin
+new file mode 100644
+index 0000000..64d6ab2
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin
+new file mode 100644
+index 0000000..dc68b72
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin differ
+diff --git a/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin
+new file mode 100644
+index 0000000..40bd454
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin differ
+diff --git a/node_modules/react-native-auth0/android/build/outputs/logs/manifest-merger-debug-report.txt b/node_modules/react-native-auth0/android/build/outputs/logs/manifest-merger-debug-report.txt
+new file mode 100644
+index 0000000..3bfe46d
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/build/outputs/logs/manifest-merger-debug-report.txt
+@@ -0,0 +1,23 @@
++-- Merging decision tree log ---
++manifest
++ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:3:1-7:12
++INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:3:1-7:12
++	package
++		ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:5:5-30
++		INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml
++	xmlns:tools
++		ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:4:5-51
++	xmlns:android
++		ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:3:11-69
++uses-permission#android.permission.INTERNET
++ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:6:5-67
++	android:name
++		ADDED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml:6:22-64
++uses-sdk
++INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
++INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml
++INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml
++	android:targetSdkVersion
++		INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml
++	android:minSdkVersion
++		INJECTED from /Users/apple/swapp/node_modules/react-native-auth0/android/src/main/AndroidManifest.xml
+diff --git a/node_modules/react-native-auth0/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin b/node_modules/react-native-auth0/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin
+new file mode 100644
+index 0000000..dfb7578
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/META-INF/react-native-auth0_debug.kotlin_module b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/META-INF/react-native-auth0_debug.kotlin_module
+new file mode 100644
+index 0000000..9dbc290
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/META-INF/react-native-auth0_debug.kotlin_module differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$Companion.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$Companion.class
+new file mode 100644
+index 0000000..826b011
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$Companion.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class
+new file mode 100644
+index 0000000..f6efe5c
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$customTokenExchange$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class
+new file mode 100644
+index 0000000..c8618d8
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getApiCredentials$2$1.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class
+new file mode 100644
+index 0000000..c6d2103
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getCredentials$2$1.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class
+new file mode 100644
+index 0000000..dbb9ffb
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$getSSOCredentials$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuth$3.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuth$3.class
+new file mode 100644
+index 0000000..3f2cb91
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuth$3.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class
+new file mode 100644
+index 0000000..1164ce0
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module$webAuthLogout$2.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module.class
+new file mode 100644
+index 0000000..27c3740
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Module.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Package.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Package.class
+new file mode 100644
+index 0000000..74bf247
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Package.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Spec.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Spec.class
+new file mode 100644
+index 0000000..4874d62
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/A0Auth0Spec.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/ApiCredentialsParser.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/ApiCredentialsParser.class
+new file mode 100644
+index 0000000..4c44bbd
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/ApiCredentialsParser.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/CredentialsParser.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/CredentialsParser.class
+new file mode 100644
+index 0000000..9f24c8a
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/CredentialsParser.class differ
+diff --git a/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/LocalAuthenticationOptionsParser.class b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/LocalAuthenticationOptionsParser.class
+new file mode 100644
+index 0000000..79c3656
+Binary files /dev/null and b/node_modules/react-native-auth0/android/build/tmp/kotlin-classes/debug/com/auth0/react/LocalAuthenticationOptionsParser.class differ
+diff --git a/node_modules/react-native-auth0/ios/A0Auth0.h b/node_modules/react-native-auth0/ios/A0Auth0.h
+index e4bec85..cd1c932 100644
+--- a/node_modules/react-native-auth0/ios/A0Auth0.h
++++ b/node_modules/react-native-auth0/ios/A0Auth0.h
+@@ -1,12 +1,6 @@
+-#ifdef RCT_NEW_ARCH_ENABLED
+-#import "RNAuth0Spec.h"
+-
+-@interface A0Auth0 : NSObject <NativeA0Auth0Spec>
+-#else
+ #import <React/RCTBridgeModule.h>
+ 
+ @interface A0Auth0 : NSObject <RCTBridgeModule>
+-#endif
+ 
+ @end
+ 
+diff --git a/node_modules/react-native-auth0/ios/A0Auth0.mm b/node_modules/react-native-auth0/ios/A0Auth0.mm
+index 94223ab..114d15e 100644
+--- a/node_modules/react-native-auth0/ios/A0Auth0.mm
++++ b/node_modules/react-native-auth0/ios/A0Auth0.mm
+@@ -2,10 +2,6 @@
+ 
+ #import <React/RCTUtils.h>
+ 
+-#ifdef RCT_NEW_ARCH_ENABLED
+-#import "RNAuth0Spec/RNAuth0Spec.h"
+-#endif
+-
+ /**
+  * This preprocessor directive resolves the static linking issue by ensuring
+  * the correct import of the Swift header file generated for the A0Auth0 module.
+@@ -205,10 +201,6 @@ - (void)tryAndInitializeNativeBridge:(NSString *)clientId domain:(NSString *)dom
+     NativeBridge *bridge = [[NativeBridge alloc] initWithClientId:clientId domain:domain localAuthenticationOptions:options useDPoP:useDPoPBool maxRetries:maxRetries resolve:resolve reject:reject];
+     self.nativeBridge = bridge;
+ }
+-#ifdef RCT_NEW_ARCH_ENABLED
+-- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:(const facebook::react::ObjCTurboModule::InitParams &)params { 
+-    return std::make_shared<facebook::react::NativeA0Auth0SpecJSI>(params);
+-}
+-#endif
++
+ 
+ @end

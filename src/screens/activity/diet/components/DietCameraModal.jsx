@@ -1,143 +1,173 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { forwardRef } from 'react';
+import { View, StyleSheet, Modal, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { Camera } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const DietCameraModal = ({ 
+// CRITICAL: We use forwardRef so the parent (Dietplan.js) can access the Camera's methods if needed
+const DietCameraModal = forwardRef(({ 
   showCameraOverlay, 
   setShowCameraOverlay, 
   cameraDevice, 
-  cameraRef, 
-  VisionCameraView, 
-  handleCameraShot,
-  handleUploadPhoto
-}) => {
+  handleCameraShot, 
+  handleUploadPhoto, 
+  hasPermission, 
+  requestPermission,
+  photoOutput
+}, ref) => {
+
+  // If permission is not granted, show a request button
+  if (!hasPermission) {
+    return (
+      <Modal visible={showCameraOverlay} transparent={true} animationType="slide">
+        <View style={styles.permissionContainer}>
+          <Text style={styles.permissionText}>Camera access is required to scan meals</Text>
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowCameraOverlay(false)}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
+
+  // If device camera hasn't loaded yet, show loading spinner
+  if (!cameraDevice) {
+    return (
+      <Modal visible={showCameraOverlay} transparent={true} animationType="slide">
+        <View style={styles.permissionContainer}>
+          <ActivityIndicator size="large" color="#FFF" />
+          <Text style={styles.permissionText}>Loading Camera Hardware...</Text>
+          <TouchableOpacity onPress={() => setShowCameraOverlay(false)}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal visible={showCameraOverlay} animationType="slide" transparent={true}>
-      <View style={styles.cameraOverlayContainer}>
-        <SafeAreaView style={styles.cameraSafeArea}>
-          <View style={styles.cameraTopBar}>
-            <TouchableOpacity style={styles.cameraTopIcon} onPress={() => setShowCameraOverlay(false)}>
-              <Icon name="chevron-back" size={26} color="#FFF" />
+    <Modal visible={showCameraOverlay} transparent={true} animationType="slide">
+      <View style={styles.container}>
+        
+        {/* CRITICAL: The ref from Dietplan.js is passed directly to the Camera component here */}
+        <Camera
+          ref={ref}
+          style={StyleSheet.absoluteFill}
+          device={cameraDevice}
+          isActive={showCameraOverlay} // Turns camera on/off
+          outputs={[photoOutput]}      // CRITICAL: Connect the photo output pipeline!
+        />
+
+        {/* Camera UI Overlay */}
+        <View style={styles.overlayControls}>
+          
+          {/* Close Button */}
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={() => setShowCameraOverlay(false)}
+          >
+            <Icon name="close" size={30} color="#FFF" />
+          </TouchableOpacity>
+
+          {/* Bottom Controls (Upload & Capture) */}
+          <View style={styles.bottomControls}>
+            
+            {/* Upload from Gallery */}
+            <TouchableOpacity style={styles.galleryButton} onPress={handleUploadPhoto}>
+              <Icon name="images" size={28} color="#FFF" />
             </TouchableOpacity>
+
+            {/* Capture Photo Button */}
+            <TouchableOpacity style={styles.captureButton} onPress={handleCameraShot}>
+              <View style={styles.captureButtonInner} />
+            </TouchableOpacity>
+
+            {/* Empty space to balance the layout */}
+            <View style={{ width: 50 }} />
+
           </View>
+        </View>
 
-          <View style={styles.cameraPreviewOuter}>
-            <View style={styles.cameraPreviewFrame}>
-              {cameraDevice && VisionCameraView ? (
-                <VisionCameraView
-                  ref={cameraRef}
-                  style={styles.cameraPreviewCamera}
-                  device={cameraDevice}
-                  isActive={showCameraOverlay}
-                  photo={true}
-                />
-              ) : (
-                <View style={styles.cameraLoadingState}>
-                  <Text style={styles.cameraLoadingText}>Loading camera...</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.cameraBottomBar}>
-            <TouchableOpacity style={styles.cameraSideBtn} onPress={handleUploadPhoto}>
-              <Icon name="images-outline" size={24} color="#000" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cameraCaptureOuter} onPress={handleCameraShot}>
-              <View style={styles.cameraCaptureInner} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cameraSideBtn}>
-              <Icon name="search-outline" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
       </View>
     </Modal>
   );
-};
+});
 
 const styles = StyleSheet.create({
-  cameraOverlayContainer: {
+  container: {
     flex: 1,
     backgroundColor: '#000',
   },
-  cameraSafeArea: {
+  permissionContainer: {
     flex: 1,
-  },
-  cameraTopBar: {
-    paddingHorizontal: 14,
-    paddingTop: 6,
-  },
-  cameraTopIcon: {
-    width: 42,
-    height: 42,
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  cameraPreviewOuter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
+  permissionText: {
+    color: '#FFF',
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 20,
   },
-  cameraPreviewFrame: {
-    width: '100%',
-    height: '62%',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderColor: '#E8E8E8',
-    borderWidth: 1.5,
-    backgroundColor: '#1A1A1A',
+  permissionButton: {
+    backgroundColor: '#1E90FF',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    marginBottom: 20,
   },
-  cameraPreviewCamera: {
-    width: '100%',
-    height: '100%',
+  permissionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  cameraLoadingState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-  },
-  cameraLoadingText: {
-    color: '#EEE',
+  cancelText: {
+    color: '#AAA',
     fontSize: 14,
   },
-  cameraBottomBar: {
-    height: 150,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: '#000',
+  overlayControls: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingBottom: 40,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 15,
+  },
+  bottomControls: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 30,
-    paddingBottom: 18,
+    alignItems: 'center',
+    paddingBottom: 20,
   },
-  cameraSideBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F0F0F0',
+  galleryButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cameraCaptureOuter: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 3,
-    borderColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraCaptureInner: {
+  captureButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#D9D9D9',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFF',
+  },
+  captureButtonInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#FFF',
   },
 });
 

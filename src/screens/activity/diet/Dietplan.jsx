@@ -8,8 +8,8 @@ import {
   Platform,
   Dimensions
 } from 'react-native';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import DietHeader from './components/DietHeader';
@@ -22,12 +22,14 @@ import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
 
 const { width } = Dimensions.get('window');
-const VisionCameraView = Camera;
 
 const Dietplan = ({ navigation }) => {
   const cameraRef = useRef(null);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
+  const photoOutput = usePhotoOutput({
+    quality: 0.8,
+  });
 
   const [showMealModal, setShowMealModal] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(false);
@@ -59,20 +61,6 @@ const Dietplan = ({ navigation }) => {
   }, [navigation]);
 
   const handleTrackWithCamera = useCallback(() => {
-    if (!VisionCameraView) {
-      launchCamera(
-        { mediaType: 'photo', quality: 0.8, cameraType: 'back', saveToPhotos: false },
-        (response) => {
-          if (!response.didCancel && !response.errorCode && response.assets?.[0]?.uri) {
-            setSelectedImage(response.assets[0].uri);
-            setMealStep(1);
-            setMealQuantity(1);
-            setShowMealModal(true);
-          }
-        }
-      );
-      return;
-    }
     setShowCameraOverlay(true);
   }, []);
 
@@ -92,43 +80,41 @@ const Dietplan = ({ navigation }) => {
   }, []);
 
   const handleCameraShot = useCallback(async () => {
-    if (!cameraRef.current) return;
     try {
-      if (!VisionCameraView || !cameraDevice) {
-        launchCamera(
-          { mediaType: 'photo', quality: 0.8, cameraType: 'back', saveToPhotos: false },
-          (response) => {
-            if (!response.didCancel && !response.errorCode && response.assets?.[0]?.uri) {
-              setSelectedImage(response.assets[0].uri);
-              setMealStep(1);
-              setMealQuantity(1);
-              setShowCameraOverlay(false);
-              setShowMealModal(true);
-            }
-          }
-        );
+      if (!photoOutput) {
+        Alert.alert("Camera Error", "Camera output is not initialized.");
         return;
       }
 
-      const photo = await cameraRef.current.takePhoto();
-      if (photo?.path) {
-        setSelectedImage('file://' + photo.path);
+      // Directly attempt to take the photo using Vision Camera V5 API. 
+      const photo = await photoOutput.capturePhotoToFile({ flashMode: 'off' }, {});
+      
+      if (photo && photo.filePath) {
+        // Android already prepends 'file://', iOS does not.
+        const imagePath = photo.filePath.startsWith('file://') ? photo.filePath : 'file://' + photo.filePath;
+        
+        setSelectedImage(imagePath);
         setMealStep(1);
         setMealQuantity(1);
         setShowCameraOverlay(false);
         setShowMealModal(true);
+      } else {
+        throw new Error("Captured photo had no file path.");
       }
     } catch (error) {
-      // Keep silent here to avoid interrupting the camera flow.
+      Alert.alert(
+        "Camera Not Ready", 
+        "Please wait a moment for the camera to initialize before taking a photo."
+      );
+      console.error('Camera capture error:', error);
     }
-  }, [cameraDevice]);
+  }, [photoOutput]);
 
   // --- CALENDAR HANDLER ---
   const handleCalendarPress = () => {
     setShowDatePicker(true);
   };
 
-  // Fixed: Safely handle null events and removed event.type check that caused the crash
   const handleDateChange = (event, date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
@@ -139,17 +125,11 @@ const Dietplan = ({ navigation }) => {
     
     if (date) {
       setSelectedDate(date);
-      if (Platform.OS === 'ios') {
-        // Keep modal open on iOS while scrolling the wheel, user presses "Done" to close
-      } else {
+      if (Platform.OS !== 'ios') {
         setShowDatePicker(false);
       }
       
-      // Update UI to reflect selection logic
-      const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
-      const dayOfMonth = date.getDate();
-      
-      // Map 0(Sun)-6(Sat) to our 0(Mon)-6(Sun) array index
+      const dayOfWeek = date.getDay();
       let activeIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
       const newDays = calendarDays.map((day, idx) => ({
@@ -157,7 +137,6 @@ const Dietplan = ({ navigation }) => {
         active: idx === activeIndex,
       }));
       
-      // Update dates relative to selected day for surrounding days
       for(let i=0; i<7; i++) {
         const offset = i - activeIndex;
         const d = new Date(date);
@@ -169,10 +148,8 @@ const Dietplan = ({ navigation }) => {
     }
   };
 
-  // Function specifically for the iOS "Done" button inside the custom Modal
   const handleIOSDonePress = () => {
     setShowDatePicker(false);
-    // State is already updated in real-time by handleDateChange as the user scrolls the wheel
   };
 
   return (
@@ -207,14 +184,17 @@ const Dietplan = ({ navigation }) => {
 
       <DietWaterWidget />
 
+      {/* The ref is passed down here */}
       <DietCameraModal 
+        ref={cameraRef}
         showCameraOverlay={showCameraOverlay}
         setShowCameraOverlay={setShowCameraOverlay}
         cameraDevice={cameraDevice}
-        cameraRef={cameraRef}
-        VisionCameraView={VisionCameraView}
         handleCameraShot={handleCameraShot}
         handleUploadPhoto={handleUploadPhoto}
+        hasPermission={hasPermission}
+        requestPermission={requestPermission}
+        photoOutput={photoOutput}
       />
 
       <DietDatePickerModal 

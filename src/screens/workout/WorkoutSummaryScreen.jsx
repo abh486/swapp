@@ -1,10 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+  ScrollView,
+  Dimensions,
+  StatusBar,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
-import { logWorkoutSession, updateCustomWorkoutTemplate } from '../../redux/actions/workoutActions';
+import {
+  logWorkoutSession,
+  updateCustomWorkoutTemplate,
+} from '../../redux/actions/workoutActions';
+import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 
 const { width } = Dimensions.get('window');
 
@@ -15,83 +31,166 @@ const WorkoutSummaryScreen = () => {
 
   const { sessionData, progressPhoto } = route.params || {};
   // Use a fallback image if no progress photo is provided to match the mockup aesthetic
-  const [selectedImage] = useState(progressPhoto || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop');
+  const [selectedImage] = useState(
+    progressPhoto ||
+      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',
+  );
 
-  const formatTime = (totalSeconds) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const formatTime = totalSeconds => {
     const mins = Math.floor(totalSeconds / 60);
     return `${mins}min`;
   };
 
   const handleSave = async () => {
-    // Include imageUrl in sessionData for the community post
-    const finalData = { ...sessionData, imageUrl: selectedImage };
-
-    // Save to AsyncStorage as a fallback
+    setIsSaving(true);
     try {
-      await AsyncStorage.setItem('latestWorkoutData', JSON.stringify(finalData));
-    } catch (e) {
-      console.error('Error saving fallback data:', e);
-    }
+      let finalImageUrl =
+        typeof selectedImage === 'string' ? selectedImage : selectedImage?.uri;
 
-    // Dispatch the workout log action
-    dispatch(logWorkoutSession(finalData));
+      // If the image is a local URI from device (e.g. file:// or content://), upload it to Cloudinary
+      if (selectedImage) {
+        let isLocal = false;
+        let imageObj = null;
 
-    // If this was from a custom template, update the template with completed exercises
-    if (sessionData.templateId && sessionData.templateExercises && sessionData.templateExercises.length > 0) {
-      try {
-        await dispatch(updateCustomWorkoutTemplate(sessionData.templateId, sessionData.templateExercises));
-      } catch (err) {
-        console.error('Failed to update custom template:', err);
+        if (typeof selectedImage === 'string') {
+          if (!selectedImage.startsWith('http')) {
+            isLocal = true;
+            imageObj = { uri: selectedImage };
+          }
+        } else if (selectedImage.uri && !selectedImage.uri.startsWith('http')) {
+          isLocal = true;
+          imageObj = selectedImage;
+        }
+
+        if (isLocal && imageObj) {
+          const uploadedUrl = await uploadToCloudinary(imageObj);
+          if (uploadedUrl) {
+            finalImageUrl = uploadedUrl;
+          }
+        }
       }
-    }
 
-    // Return to Workouts or Dashboard
-    navigation.replace("Workouts");
+      // Include imageUrl in sessionData for the community post
+      const finalData = { ...sessionData, imageUrl: finalImageUrl };
+
+      // Save to AsyncStorage as a fallback
+      try {
+        await AsyncStorage.setItem(
+          'latestWorkoutData',
+          JSON.stringify(finalData),
+        );
+      } catch (e) {
+        console.error('Error saving fallback data:', e);
+      }
+
+      // Dispatch the workout log action
+      dispatch(logWorkoutSession(finalData));
+
+      // If this was from a custom template, update the template with completed exercises
+      if (
+        sessionData.templateId &&
+        sessionData.templateExercises &&
+        sessionData.templateExercises.length > 0
+      ) {
+        try {
+          await dispatch(
+            updateCustomWorkoutTemplate(
+              sessionData.templateId,
+              sessionData.templateExercises,
+            ),
+          );
+        } catch (err) {
+          console.error('Failed to update custom template:', err);
+        }
+      }
+
+      // Return to Workouts or Dashboard
+      navigation.replace('Workouts');
+    } catch (error) {
+      console.error('Error saving workout:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const totalSets = sessionData?.exercises?.reduce((acc, ex) => acc + (ex.sets?.length || 0), 0) || 0;
+  const totalSets =
+    sessionData?.exercises?.reduce(
+      (acc, ex) => acc + (ex.sets?.length || 0),
+      0,
+    ) || 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header Texts */}
         <View style={styles.header}>
           <Text style={styles.title}>Share Your Workout</Text>
-          <Text style={styles.subtitle}>Nice work ! Lets keep the momentum going .</Text>
+          <Text style={styles.subtitle}>
+            Nice work ! Lets keep the momentum going .
+          </Text>
         </View>
 
         {/* Polaroid/Card */}
         <View style={styles.cardContainer}>
-          <Image source={{ uri: selectedImage }} style={styles.cardImage} resizeMode="cover" />
+          <Image
+            source={{
+              uri:
+                typeof selectedImage === 'string'
+                  ? selectedImage
+                  : selectedImage?.uri,
+            }}
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
 
           <View style={styles.overlay} />
 
-          <Text style={styles.cardDate}>{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+          <Text style={styles.cardDate}>
+            {new Date().toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </Text>
 
           <View style={styles.cardBottomSection}>
-            <Text style={styles.cardTitle}>Workout{"\n"}Complete !</Text>
+            <Text style={styles.cardTitle}>Workout{'\n'}Complete !</Text>
 
             <View style={styles.statsContainer}>
               <View style={styles.statRow}>
-                <View style={styles.whiteSquare} />
+                <View style={styles.statIcon}>
+                  <Icon name="time-outline" size={14} color="#111" />
+                </View>
                 <View>
                   <Text style={styles.statLabel}>DURATION</Text>
-                  <Text style={styles.statVal}>{formatTime(sessionData?.duration || 60)}</Text>
+                  <Text style={styles.statVal}>
+                    {formatTime(sessionData?.duration || 60)}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.statRow}>
-                <View style={styles.whiteSquare} />
+                <View style={styles.statIcon}>
+                  <Icon name="barbell-outline" size={14} color="#111" />
+                </View>
                 <View>
                   <Text style={styles.statLabel}>VOLUME</Text>
-                  <Text style={styles.statVal}>{sessionData?.volume || 0} kg</Text>
+                  <Text style={styles.statVal}>
+                    {sessionData?.volume || 0} kg
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.statRow}>
-                <View style={styles.whiteSquare} />
+                <View style={styles.statIcon}>
+                  <Icon name="list-outline" size={14} color="#111" />
+                </View>
                 <View>
                   <Text style={styles.statLabel}>SETS</Text>
                   <Text style={styles.statVal}>{totalSets || 3}</Text>
@@ -105,12 +204,21 @@ const WorkoutSummaryScreen = () => {
 
         {/* Share To */}
         <Text style={styles.shareToTitle}>Share to</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shareRow}>
-
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.shareRow}
+        >
           <View style={styles.shareItem}>
             <View style={styles.shareBox}>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <Path
+                  d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"
+                  stroke="#222"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </Svg>
             </View>
             <Text style={styles.shareLabel}>whatsapp</Text>
@@ -119,7 +227,16 @@ const WorkoutSummaryScreen = () => {
           <View style={styles.shareItem}>
             <View style={styles.shareBox}>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="#222" strokeWidth="2" />
+                <Rect
+                  x="2"
+                  y="2"
+                  width="20"
+                  height="20"
+                  rx="5"
+                  ry="5"
+                  stroke="#222"
+                  strokeWidth="2"
+                />
                 <Circle cx="12" cy="12" r="4" stroke="#222" strokeWidth="2" />
                 <Circle cx="18" cy="6" r="1" fill="#222" />
               </Svg>
@@ -130,7 +247,13 @@ const WorkoutSummaryScreen = () => {
           <View style={styles.shareItem}>
             <View style={styles.shareBox}>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <Path
+                  d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"
+                  stroke="#222"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </Svg>
             </View>
             <Text style={styles.shareLabel}>Facebook</Text>
@@ -139,7 +262,13 @@ const WorkoutSummaryScreen = () => {
           <View style={styles.shareItem}>
             <View style={styles.shareBox}>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <Path
+                  d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"
+                  stroke="#222"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </Svg>
             </View>
             <Text style={styles.shareLabel}>Twitter</Text>
@@ -148,7 +277,13 @@ const WorkoutSummaryScreen = () => {
           <View style={styles.shareItem}>
             <View style={styles.shareBox}>
               <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <Path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <Path
+                  d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                  stroke="#222"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </Svg>
             </View>
             <Text style={styles.shareLabel}>Save to Gallery</Text>
@@ -164,15 +299,21 @@ const WorkoutSummaryScreen = () => {
             </View>
             <Text style={styles.shareLabel}>More</Text>
           </View>
-
         </ScrollView>
-
       </ScrollView>
 
       {/* Done Button */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.doneBtn} onPress={handleSave}>
-          <Text style={styles.doneBtnText}>DONE</Text>
+        <TouchableOpacity
+          style={styles.doneBtn}
+          onPress={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.doneBtnText}>DONE</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -249,11 +390,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  whiteSquare: {
-    width: 14,
-    height: 14,
+  statIcon: {
+    width: 20,
+    height: 20,
     backgroundColor: '#FFF',
     marginRight: 10,
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statLabel: {
     color: '#AAA',

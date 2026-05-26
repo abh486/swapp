@@ -14,12 +14,6 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
   const [radius, setRadius] = useState(10); // Default radius in km
 
   const fetchProviders = useCallback(async (page, newRadius) => {
-    if (!permissionGranted || !location) {
-        setProviders([]);
-        setIsLoading(false);
-        return;
-    }
-
     page === 1 ? setIsLoading(true) : setIsLoadingMore(true);
     setError('');
 
@@ -28,10 +22,13 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
         page,
         limit: 20,
         radius: newRadius,
-        lat: location.latitude,
-        lon: location.longitude,
         ...activeFilters
       };
+
+      if (location && location.latitude && location.longitude) {
+        params.lat = location.latitude;
+        params.lon = location.longitude;
+      }
       const response = await dispatch(discoverProviders(params));
 
       if (response.success) {

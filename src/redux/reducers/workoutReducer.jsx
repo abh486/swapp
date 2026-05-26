@@ -52,6 +52,7 @@ const workoutReducer = (state = initialState, action) => {
     case types.WORKOUT_LOG_SESSION_REQUEST:
     case types.WORKOUT_DELETE_SESSION_REQUEST:
     case types.WORKOUT_DELETE_EXERCISE_REQUEST:
+    case types.WORKOUT_GET_HISTORY_REQUEST:
       return { ...state, loading: true, error: null };
     
     case types.WORKOUT_LOG_SESSION_SUCCESS:
@@ -59,6 +60,13 @@ const workoutReducer = (state = initialState, action) => {
         ...state,
         loading: false,
         sessions: [...state.sessions, action.payload],
+      };
+    
+    case types.WORKOUT_GET_HISTORY_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        sessions: action.payload.data || action.payload,
       };
     
     case types.WORKOUT_DELETE_SESSION_SUCCESS:
@@ -77,6 +85,7 @@ const workoutReducer = (state = initialState, action) => {
     case types.WORKOUT_LOG_SESSION_FAILURE:
     case types.WORKOUT_DELETE_SESSION_FAILURE:
     case types.WORKOUT_DELETE_EXERCISE_FAILURE:
+    case types.WORKOUT_GET_HISTORY_FAILURE:
       return { ...state, loading: false, error: action.payload };
 
     // NEW: Set selected filters for navigation between screens

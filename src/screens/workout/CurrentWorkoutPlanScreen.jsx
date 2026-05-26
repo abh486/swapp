@@ -1,6 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, FlatList, ActivityIndicator, StatusBar, SafeAreaView } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ImageBackground,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  StatusBar,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { getCustomWorkoutTemplates } from '../../redux/actions/workoutActions';
 
@@ -8,61 +21,155 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
   const [workouts, setWorkouts] = useState([]);
+  const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
 
-  useEffect(() => {
+  const getWorkoutKey = workout =>
+    workout.id || workout._id || workout.name || JSON.stringify(workout);
+
+  const getExerciseKey = exercise =>
+    String(exercise.name || exercise.id || exercise._id || JSON.stringify(exercise))
+      .trim()
+      .toLowerCase();
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
     const fetchTemplates = async () => {
+      setLoading(true);
       try {
         const folders = await dispatch(getCustomWorkoutTemplates());
-        // Flatten all workouts from all folders
-        const allWorkouts = [];
-        folders.forEach(folder => {
-          if (folder.workouts && folder.workouts.length > 0) {
-            folder.workouts.forEach(w => w.folderName = folder.name);
-            allWorkouts.push(...folder.workouts);
-          }
-        });
-        setWorkouts(allWorkouts);
+        const templateFolders = Array.isArray(folders) ? folders : [];
+        const selectedFolder =
+          templateFolders.find(folder => Array.isArray(folder.workouts) && folder.workouts.length > 0) ||
+          templateFolders[0];
+        const folderWorkouts = Array.isArray(selectedFolder?.workouts)
+          ? selectedFolder.workouts
+          : [];
+        const uniqueWorkouts = Array.from(
+          new Map(folderWorkouts.map(workout => [getWorkoutKey(workout), workout])).values(),
+        );
+
+        if (isActive) {
+          setWorkouts(uniqueWorkouts);
+          setSelectedWorkoutIndex(0);
+        }
       } catch (err) {
         console.error('Failed to fetch templates:', err);
+        if (isActive) {
+          setWorkouts([]);
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
+
     fetchTemplates();
-  }, [dispatch]);
+
+      return () => {
+        isActive = false;
+      };
+    }, [dispatch])
+  );
 
   const handleStartWorkout = () => {
-    if (workouts.length > 0) {
+    if (workouts.length > 0 && selectedWorkoutIndex < workouts.length) {
+      const selectedWorkout = workouts[selectedWorkoutIndex];
       navigation.navigate('FastWorkoutActive', {
         level: 'Custom',
-        duration: workouts[0].duration || '60 min',
-        exercises: workouts[0].exercises || [],
-        workoutName: workouts[0].name,
-        templateId: workouts[0].id
+        duration: selectedWorkout.duration || '60 min',
+        exercises: selectedWorkout.exercises || [],
+        workoutName: selectedWorkout.name,
+        templateId: selectedWorkout.id
       });
     }
   };
 
-  const renderWorkoutItem = ({ item }) => (
-    <View style={styles.workoutItem}>
-      <View style={styles.titleRow}>
-        <Text style={styles.workoutTitle}>{item.name}</Text>
-        <View style={styles.folderBadge}>
-          <Text style={styles.folderBadgeText}>{item.folderName}</Text>
-        </View>
+  const getExerciseLine = exercise => {
+    const sets = Array.isArray(exercise.sets) ? exercise.sets.length : exercise.sets || 3;
+    const reps = Array.isArray(exercise.sets)
+      ? exercise.sets[0]?.reps || 12
+      : exercise.reps || 12;
+    const weight = Array.isArray(exercise.sets)
+      ? exercise.sets[0]?.weight
+      : exercise.weight;
+
+    return weight ? `${sets} sets of ${reps} reps at ${weight} kg` : `${sets} sets of ${reps} reps`;
+  };
+
+  const getExerciseImageUri = exercise =>
+    exercise.gifUrl ||
+    exercise.imageUrl ||
+    exercise.image ||
+    exercise.thumbnail ||
+    exercise.thumbnailUrl ||
+    exercise.photoUrl;
+
+  const renderExerciseCard = (exercise, workoutIndex, exerciseIndex) => (
+    <TouchableOpacity
+      key={`${workoutIndex}-${exercise.id || exercise.name || exerciseIndex}`}
+      style={[
+        styles.exerciseCard,
+        selectedWorkoutIndex === workoutIndex && styles.exerciseCardActive,
+      ]}
+      activeOpacity={0.85}
+      onPress={() => setSelectedWorkoutIndex(workoutIndex)}
+    >
+      {getExerciseImageUri(exercise) ? (
+        <Image
+          source={{ uri: getExerciseImageUri(exercise) }}
+          style={styles.exerciseThumb}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.exerciseThumb} />
+      )}
+      <View style={styles.exerciseCopy}>
+        <Text style={styles.exerciseName} numberOfLines={1}>
+          {exercise.name || 'Exercise'}
+        </Text>
+        <Text style={styles.exerciseMeta} numberOfLines={1}>
+          {getExerciseLine(exercise)}
+        </Text>
       </View>
-      <Text style={styles.workoutSubtitle}>
-        Muscles: {item.muscles && item.muscles.length > 0 ? item.muscles.join(', ').toUpperCase() : 'FULL BODY'} • Equip: {item.equipment || 'Any'}
-      </Text>
-      <View style={styles.exerciseList}>
-        {item.exercises && item.exercises.map((ex, idx) => (
-          <Text key={idx} style={styles.exerciseText}>
-            • {ex.name} ({ex.sets || 3} sets x {ex.reps || 12} reps @ {ex.weight || '4.00'}kg)
-          </Text>
-        ))}
-      </View>
-    </View>
+    </TouchableOpacity>
   );
+
+  const renderWorkoutSection = (item, index) => {
+    const isSelected = index === selectedWorkoutIndex;
+    const exercises = Array.isArray(item.exercises)
+      ? Array.from(
+          new Map(item.exercises.map(exercise => [getExerciseKey(exercise), exercise])).values(),
+        )
+      : [];
+
+    return (
+      <View
+        key={item.id || `${item.name}-${index}`}
+        style={styles.workoutSection}
+      >
+        <Text style={[styles.sectionTitle, isSelected && styles.sectionTitleActive]}>
+          WORKOUT {index + 1}
+        </Text>
+        <Text style={styles.sectionSubtitle}>
+          {exercises.length} {exercises.length === 1 ? 'Exercise' : 'Exercises'}
+        </Text>
+        {exercises.length > 0 ? (
+          exercises.map((ex, idx) => renderExerciseCard(ex, index, idx))
+        ) : (
+          <View style={[styles.exerciseCard, isSelected && styles.exerciseCardActive]}>
+            <View style={styles.exerciseThumb} />
+            <View style={styles.exerciseCopy}>
+              <Text style={styles.exerciseName}>No exercises added</Text>
+              <Text style={styles.exerciseMeta}>Select another workout</Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -74,42 +181,40 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
         style={styles.imageBackground}
         resizeMode="cover"
       >
+        <View style={styles.imageScrim} />
+        <View style={styles.imageFade} />
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.headerRow}>
             <TouchableOpacity style={styles.currentWorkoutPill} onPress={() => navigation.goBack()}>
-              <View style={styles.listIconCircle}>
-                <Svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <Path d="M4 6H20M4 12H20M4 18H20" stroke="#000" strokeWidth="2" strokeLinecap="round" />
+              <View style={styles.listIconCircleOuter}>
+                <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 7H19M5 12H19M5 17H19" stroke="#111" strokeWidth="1.8" strokeLinecap="round" />
+                  <Path d="M7 5V19M10 5V19M13 5V19M16 5V19" stroke="#111" strokeWidth="1.1" strokeLinecap="round" opacity="0.45" />
                 </Svg>
               </View>
               <Text style={styles.currentWorkoutText}>Current Workout</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.tagsContainer}>
             <View style={styles.tag}><Text style={styles.tagText}>Intermediate</Text></View>
             <View style={styles.tag}><Text style={styles.tagText}>Basic Gym</Text></View>
-            <View style={styles.tag}><Text style={styles.tagText}>45min</Text></View>
+            <View style={styles.tagSmall}><Text style={styles.tagText}>45min</Text></View>
           </View>
         </SafeAreaView>
       </ImageBackground>
 
-      {/* Bottom Sheet Section */}
-      <View style={styles.bottomSheet}>
-        <Text style={styles.sheetTitle}>Select WORKOUT to start</Text>
-
+      <View style={styles.content}>
         {loading ? (
           <ActivityIndicator size="large" color="#7C3AED" style={{ marginTop: 40 }} />
         ) : workouts.length === 0 ? (
           <Text style={styles.emptyText}>No custom workouts found. Create one first!</Text>
         ) : (
-          <FlatList
-            data={workouts}
-            keyExtractor={item => item.id}
-            renderItem={renderWorkoutItem}
+          <ScrollView
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {workouts.map((item, index) => renderWorkoutSection(item, index))}
+          </ScrollView>
         )}
 
         <TouchableOpacity
@@ -117,7 +222,7 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
           disabled={workouts.length === 0}
           onPress={handleStartWorkout}
         >
-          <Text style={styles.startBtnText}>Start Workout</Text>
+          <Text style={styles.startBtnText}>Select Workout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -126,32 +231,172 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  imageBackground: { height: '45%', width: '100%', justifyContent: 'space-between' },
-  safeArea: { flex: 1, justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20 },
-  headerRow: { flexDirection: 'row' },
-  currentWorkoutPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59, 7, 100, 0.9)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
-  listIconCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  currentWorkoutText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-  tagsContainer: { alignItems: 'flex-end', gap: 10, paddingBottom: 20 },
-  tag: { backgroundColor: 'rgba(59, 7, 100, 0.9)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15 },
-  tagText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-
-  bottomSheet: { flex: 1, backgroundColor: '#000', borderTopLeftRadius: 30, borderTopRightRadius: 30, marginTop: -30, padding: 25 },
-  sheetTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
-  listContent: { paddingBottom: 80 },
-  workoutItem: { marginBottom: 25, backgroundColor: '#1A1A2E', padding: 15, borderRadius: 15 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  workoutTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  folderBadge: { backgroundColor: 'rgba(168, 85, 247, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  folderBadgeText: { color: '#A855F7', fontSize: 11, fontWeight: 'bold' },
-  workoutSubtitle: { color: '#A855F7', fontSize: 12, fontWeight: '600', marginBottom: 10 },
-  exerciseList: { paddingLeft: 5 },
-  exerciseText: { color: '#CCC', fontSize: 13, marginBottom: 6 },
+  imageBackground: {
+    height: 418,
+    maxHeight: '43%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  imageScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+  },
+  imageFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 150,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+  },
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 22,
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingBottom: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  currentWorkoutPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B0058',
+    minHeight: 42,
+    paddingLeft: 3,
+    paddingRight: 17,
+    borderRadius: 23,
+  },
+  listIconCircleOuter: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  currentWorkoutText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  tagsContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    gap: 18,
+    paddingBottom: 5,
+  },
+  tag: {
+    backgroundColor: '#3B0058',
+    minWidth: 96,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 13,
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
+  tagSmall: {
+    backgroundColor: '#3B0058',
+    minWidth: 68,
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 13,
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
+  tagText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  content: {
+    flex: 1,
+    backgroundColor: '#000',
+    marginTop: -4,
+    paddingHorizontal: 22,
+  },
+  listContent: {
+    paddingTop: 11,
+    paddingBottom: 132,
+  },
+  workoutSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 3,
+  },
+  sectionTitleActive: {
+    color: '#FFF',
+  },
+  sectionSubtitle: {
+    color: '#CFCFCF',
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  exerciseCard: {
+    minHeight: 75,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#F3F3F3',
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  exerciseCardActive: {
+    borderColor: '#FFFFFF',
+  },
+  exerciseThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#FFF',
+    marginRight: 15,
+  },
+  exerciseCopy: {
+    flex: 1,
+  },
+  exerciseName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  exerciseMeta: {
+    color: '#8E8E8E',
+    fontSize: 12,
+    fontWeight: '500',
+  },
   emptyText: { color: '#888', fontSize: 15, textAlign: 'center', marginTop: 40 },
 
-  startBtn: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#3B0764', paddingVertical: 15, paddingHorizontal: 40, borderRadius: 25 },
+  startBtn: {
+    position: 'absolute',
+    bottom: 38,
+    alignSelf: 'center',
+    backgroundColor: '#3B0058',
+    width: 148,
+    height: 43,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
   startBtnDisabled: { opacity: 0.5 },
-  startBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+  startBtnText: { color: '#FFF', fontSize: 8, fontWeight: '800', letterSpacing: 0.7 },
 });
 
 export default CurrentWorkoutPlanScreen;

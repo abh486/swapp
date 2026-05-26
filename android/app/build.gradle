@@ -20,24 +20,22 @@ android {
         applicationId "com.swappios"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 4
+        versionName "1.0.4"
+
+        // FIX FOR react-native-camera
+        missingDimensionStrategy 'react-native-camera', 'general'
 
         // Auth0 Config
         manifestPlaceholders = [
                 auth0Domain: "login.swapp.fit",
                 auth0Scheme: "com.swappios.auth0"
         ]
-    }
 
-  flavorDimensions "react-native-camera"
-
-    productFlavors {
-        general {
-            dimension "react-native-camera"
+        ndk {
+         abiFilters "arm64-v8a", "x86_64"
         }
     }
-
 
     signingConfigs {
         debug {
@@ -46,6 +44,7 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+
         release {
             storeFile file(MYAPP_UPLOAD_STORE_FILE)
             storePassword MYAPP_UPLOAD_STORE_PASSWORD
@@ -57,22 +56,25 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            // FIX: Allows Metro bundler connection via HTTP
+
+            // Allows Metro HTTP connection
             manifestPlaceholders.usesCleartextTraffic = "true"
         }
 
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
-            // FIX: Ensures security in production
+
+            // Security for production
             manifestPlaceholders.usesCleartextTraffic = "false"
+
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
-    }
-}
+    }}
 
 dependencies {
     implementation("com.facebook.react:react-android")
+    implementation("com.facebook.fresco:animated-gif:3.6.0")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
