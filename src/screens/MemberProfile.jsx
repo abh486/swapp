@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
-import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Alert, ActivityIndicator, Image, I18nManager, Dimensions, ScrollView,
-  KeyboardAvoidingView, Platform
-} from 'react-native';
+import { GlobalLoader } from '../components/GlobalLoader';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, I18nManager, Dimensions, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Feather from 'react-native-vector-icons/Feather';
@@ -11,6 +8,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
+import * as Clarity from '@microsoft/react-native-clarity';
 
 if (I18nManager.isRTL) {
   I18nManager.forceRTL(false);
@@ -139,6 +137,15 @@ const MemberProfile = () => {
     interests: [],
   });
 
+  useEffect(() => {
+    console.log('[Clarity] Sign up started');
+    try {
+      Clarity.sendCustomEvent('signup_started');
+    } catch (e) {
+      console.error('[Clarity] Failed to send signup_started:', e);
+    }
+  }, []);
+
   // ── Image Picker ────────────────────────────────────────────────────────────
   const handlePickImage = () => {
     launchImageLibrary(
@@ -224,6 +231,12 @@ const MemberProfile = () => {
       });
       // Ensure the "Get ready !!" screen is visible for at least 1.5 seconds
       await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('[Clarity] Sign up completed');
+      try {
+        Clarity.sendCustomEvent('signup_completed');
+      } catch (e) {
+        console.error('[Clarity] Failed to send signup_completed:', e);
+      }
       await refreshAuthStatus();
     } catch (err) {
       setCurrentStep(5);
@@ -265,7 +278,7 @@ const MemberProfile = () => {
               <TouchableOpacity onPress={handlePickImage} activeOpacity={0.85}>
                 <View style={styles.avatarCircle}>
                   {uploadingImage ? (
-                    <ActivityIndicator size="large" color="#FFFFFF" />
+                    <GlobalLoader size={60} />
                   ) : profileImage ? (
                     <Image
                       source={{ uri: profileImage }}
@@ -483,7 +496,7 @@ const MemberProfile = () => {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '500', letterSpacing: 0.5 }}>Get ready !!</Text>
-        <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 30, opacity: loading ? 1 : 0 }} />
+        <GlobalLoader size={60} style={{ marginTop: 30, opacity: loading ? 1 : 0 }} />
       </View>
     );
   }
@@ -530,7 +543,7 @@ const MemberProfile = () => {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.continueButton} onPress={handleNext} disabled={loading || uploadingImage}>
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <GlobalLoader size={50} />
           ) : (
             <Text style={styles.continueButtonText}>
               {currentStep === 5 && formData.interests.length > 0

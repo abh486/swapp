@@ -4,17 +4,17 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
+import * as Clarity from '@microsoft/react-native-clarity';
 
-const { width } = Dimensions.get('window');
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
 
 const SubscriptionSuccessScreen = ({ route, navigation }) => {
@@ -34,6 +34,25 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
     }
     refreshAuthStatus?.().catch(err => console.log('Error refreshing user status:', err));
   }, [pendingSubscription, refreshAuthStatus]);
+
+  useEffect(() => {
+    console.log('[Clarity] User subscribed. Plan:', planName, 'Price:', price);
+    try {
+      Clarity.sendCustomEvent('payment_success');
+      Clarity.sendCustomEvent('user_subscribed_gym');
+      Clarity.setCustomTag('subscribed_plan', planName);
+      Clarity.setCustomTag('subscribed_price', String(price));
+      if (pendingSubscription?.gymName || pendingSubscription?.providerName) {
+        Clarity.setCustomTag('subscribed_gym', pendingSubscription.gymName || pendingSubscription.providerName);
+      }
+    } catch (err) {
+      console.error('[Clarity] Failed to send subscription event/tags:', err);
+    }
+  }, [planName, price, pendingSubscription]);
+
+  const metrics = useResponsiveMetrics();
+  const { sp, ms, fs, wp } = metrics;
+  const styles = createStyles(metrics);
 
   const cleanPlanName = planName.trim().toUpperCase();
   const displayPlanName =
@@ -265,195 +284,205 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    justifyContent: 'space-around',
-  },
-  confettiContainer: {
-    marginTop: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headingContainer: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  congratsText: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFF',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  planActiveText: {
-    fontSize: 16,
-    color: '#2ecc71',
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  cardWrapper: {
-    width: '100%',
-    marginVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  planCard: {
-    width: '100%',
-    padding: 20,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  cardTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  shieldIconContainer: {
-    marginRight: 12,
-  },
-  textColumn: {
-    justifyContent: 'center',
-  },
-  cardPlanTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  cardPlanSubtitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  activeBadge: {
-    backgroundColor: 'rgba(46, 204, 113, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(46, 204, 113, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activeBadgeText: {
-    color: '#2ecc71',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  featureGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  featureItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  featureIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  featureLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 8,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  receiptContainer: {
-    width: '100%',
-    backgroundColor: '#0a0a0a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    padding: 20,
-    marginVertical: 10,
-  },
-  receiptHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  receiptCheckIcon: {
-    marginRight: 16,
-  },
-  receiptTitle: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  receiptSubtitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginVertical: 14,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  rowLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-  },
-  rowValue: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    width: '100%',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  letsStartBtn: {
-    width: '100%',
-    height: 56,
-    backgroundColor: '#050505',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  letsStartBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  downloadBtn: {
-    width: '100%',
-    height: 56,
-    backgroundColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  downloadBtnText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+const createStyles = ({ sp, ms, fs, wp }) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#000',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      paddingHorizontal: wp(4),
+      paddingTop: sp(16),
+      paddingBottom: sp(16),
+    },
+    confettiContainer: {
+      marginTop: sp(16),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headingContainer: {
+      alignItems: 'center',
+      marginVertical: sp(10),
+    },
+    congratsText: {
+      fontSize: fs(24),
+      fontWeight: 'bold',
+      color: '#FFF',
+      letterSpacing: 1.5,
+      marginBottom: sp(8),
+    },
+    planActiveText: {
+      fontSize: fs(15),
+      color: '#2ecc71',
+      fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    cardWrapper: {
+      width: '100%',
+      marginVertical: sp(10),
+      borderRadius: ms(16),
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.08)',
+      overflow: 'hidden',
+    },
+    planCard: {
+      width: '100%',
+      padding: sp(20),
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: sp(22),
+    },
+    cardTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    shieldIconContainer: {
+      marginRight: sp(12),
+    },
+    textColumn: {
+      justifyContent: 'center',
+      flexShrink: 1,
+    },
+    cardPlanTitle: {
+      color: '#FFF',
+      fontSize: fs(18),
+      fontWeight: '900',
+      letterSpacing: 1,
+      flexShrink: 1,
+    },
+    cardPlanSubtitle: {
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: fs(12),
+      marginTop: sp(4),
+    },
+    activeBadge: {
+      backgroundColor: 'rgba(46, 204, 113, 0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(46, 204, 113, 0.4)',
+      paddingHorizontal: sp(12),
+      paddingVertical: sp(4),
+      borderRadius: ms(12),
+    },
+    activeBadgeText: {
+      color: '#2ecc71',
+      fontSize: fs(10),
+      fontWeight: 'bold',
+    },
+    featureGrid: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: sp(12),
+    },
+    featureItem: {
+      alignItems: 'center',
+      flex: 1,
+      minWidth: 0,
+    },
+    featureIconBox: {
+      width: ms(44),
+      height: ms(44),
+      borderRadius: ms(12),
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.12)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: sp(8),
+    },
+    featureLabel: {
+      color: 'rgba(255,255,255,0.7)',
+      fontSize: fs(11),
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    receiptContainer: {
+      width: '100%',
+      backgroundColor: '#0a0a0a',
+      borderRadius: ms(16),
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.08)',
+      padding: sp(20),
+      marginVertical: sp(10),
+    },
+    receiptHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: sp(16),
+    },
+    receiptCheckIcon: {
+      marginRight: sp(16),
+    },
+    receiptTitle: {
+      color: '#FFF',
+      fontSize: fs(16),
+      fontWeight: 'bold',
+    },
+    receiptSubtitle: {
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: fs(12),
+      marginTop: sp(4),
+      lineHeight: fs(18),
+    },
+    divider: {
+      height: 1,
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      marginVertical: sp(14),
+    },
+    receiptRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginVertical: sp(6),
+    },
+    rowLabel: {
+      color: 'rgba(255,255,255,0.5)',
+      fontSize: fs(12),
+    },
+    rowValue: {
+      color: '#FFF',
+      fontSize: fs(12),
+      fontWeight: '600',
+    },
+    buttonContainer: {
+      width: '100%',
+      marginTop: sp(10),
+      marginBottom: sp(20),
+    },
+    letsStartBtn: {
+      width: '100%',
+      minHeight: ms(52),
+      backgroundColor: '#050505',
+      borderWidth: 1,
+      borderColor: '#333',
+      borderRadius: ms(12),
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: sp(12),
+      paddingVertical: sp(14),
+    },
+    letsStartBtnText: {
+      color: '#FFF',
+      fontSize: fs(16),
+      fontWeight: 'bold',
+    },
+    downloadBtn: {
+      width: '100%',
+      minHeight: ms(52),
+      backgroundColor: 'transparent',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: sp(14),
+    },
+    downloadBtnText: {
+      color: 'rgba(255,255,255,0.6)',
+      fontSize: fs(14),
+      fontWeight: '600',
+    },
+  });
 
 export default SubscriptionSuccessScreen;

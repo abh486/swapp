@@ -1,18 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar,
-  Modal,
-  TouchableWithoutFeedback,
-  ActivityIndicator,
-  FlatList,
-  ImageBackground,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal, TouchableWithoutFeedback, FlatList, ImageBackground, Image} from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
@@ -34,9 +22,9 @@ const ChevronDownIcon = ({ open }) => (
 );
 
 const LEVEL_BODY_PARTS_MAP = {
-  'BEGINNER': ['Cardio', 'Neck', 'Full Body'],
-  'INTERMEDIATE': ['Chest', 'Back', 'Shoulders', 'Upper Arms', 'Upper Legs'],
-  'ADVANCED': ['Waist', 'Lower Arms', 'Lower Legs'],
+  'BEGINNER': ['cardio', 'neck'],
+  'INTERMEDIATE': ['chest', 'back', 'shoulders', 'upper arms', 'upper legs'],
+  'ADVANCED': ['waist', 'lower arms', 'lower legs'],
 };
 
 const WorkoutsScreen = ({ navigation }) => {
@@ -53,7 +41,10 @@ const WorkoutsScreen = ({ navigation }) => {
   //   dispatch(clearSelectedFilters());
   // }, [dispatch]);
 
-  const hasActiveFilters = (selectedEquipment && selectedEquipment !== 'All Equipement') || (selectedMuscles && selectedMuscles.length > 0);
+  const activeMuscles = selectedMuscles?.filter(m => m !== 'All Muscles') || [];
+  const hasActiveFilters =
+    (selectedEquipment && selectedEquipment !== 'All Equipement') ||
+    activeMuscles.length > 0;
 
   const mapUiFiltersToApi = (eq, muscles) => {
     const UI_TO_API_MUSCLE_MAP = {
@@ -79,12 +70,8 @@ const WorkoutsScreen = ({ navigation }) => {
 
     const UI_TO_API_EQUIPMENT_MAP = {
       'none': 'body weight',
-      'barbell': 'barbell',
-      'dumbbell': 'dumbbell',
-      'kettlebell': 'kettlebell',
       'machine': 'cable',
       'plate': 'weighted',
-      'resistance band': 'resistance band',
       'suspension band': 'leverage machine',
     };
 
@@ -332,7 +319,7 @@ const WorkoutsScreen = ({ navigation }) => {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator size="large" color="#7C3AED" style={{ marginTop: 50 }} />
+            <GlobalLoader size={60} style={{ marginTop: 50 }} />
           ) : (
             <Text style={styles.emptyText}>No exercises found for {hasActiveFilters ? 'selected filters' : selectedLevel}.</Text>
           )
@@ -345,7 +332,7 @@ const WorkoutsScreen = ({ navigation }) => {
         onEndReachedThreshold={0.5}
         ListFooterComponent={
           <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
-            {isLoadingMore && <ActivityIndicator size="small" color="#7C3AED" />}
+            {isLoadingMore && <GlobalLoader size={30} />}
           </View>
         }
       />

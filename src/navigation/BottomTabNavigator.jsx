@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 // Import screens
 import HomeDashboard from '../screens/home/dashboard/HomeDashboard';
@@ -75,9 +76,10 @@ const Tab = createBottomTabNavigator();
 const BottomTabNavigator = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
   const bottomPadding = DIMENSIONS.padding.bottom[Platform.OS] ?? 2;
   const bottomInset = Math.max(insets.bottom, bottomPadding);
-  const tabBarHeight = DIMENSIONS.tabBarHeight[Platform.OS] + bottomInset;
+  const tabBarHeight = metrics.ms(DIMENSIONS.tabBarHeight[Platform.OS]) + bottomInset;
 
   return (
     <Tab.Navigator
@@ -110,9 +112,9 @@ const BottomTabNavigator = () => {
             borderTopWidth: 1,
             borderTopColor: COLORS.border,
             paddingBottom: bottomInset,
-            paddingTop: DIMENSIONS.padding.top,
+            paddingTop: metrics.sp(DIMENSIONS.padding.top),
             height: tabBarHeight,
-            paddingHorizontal: DIMENSIONS.padding.horizontal,
+            paddingHorizontal: metrics.sp(DIMENSIONS.padding.horizontal),
             elevation: 8,
             shadowColor: COLORS.shadow,
             shadowOffset: { width: 0, height: -2 },
@@ -120,7 +122,7 @@ const BottomTabNavigator = () => {
             shadowRadius: 6,
           },
           tabBarItemStyle: {
-            height: DIMENSIONS.tabBarHeight[Platform.OS],
+            height: metrics.ms(DIMENSIONS.tabBarHeight[Platform.OS]),
             justifyContent: 'center',
           },
           tabBarLabelStyle: {

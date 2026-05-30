@@ -11,15 +11,21 @@ const LOCATION_EXPIRATION_MS = 30 * 60 * 1000; // 30 minutes
 
 export const LocationProvider = ({ children }) => {
   const [userLocation, setUserLocation] = useState(null);
+  const [locationName, setLocationName] = useState('Bangalore');
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
-  const saveLocationToStorage = async (location, permission) => {
+  const saveLocationToStorage = async (location, permission, name) => {
     try {
       if (location && permission) {
-        const locationData = { ...location, timestamp: Date.now(), permission: true };
+        const locationData = {
+          ...location,
+          timestamp: Date.now(),
+          permission: true,
+          name: name || 'Bangalore',
+        };
         await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(locationData));
       } else {
         await AsyncStorage.removeItem(LOCATION_STORAGE_KEY);
@@ -38,6 +44,7 @@ export const LocationProvider = ({ children }) => {
       if (Date.now() - locationData.timestamp < LOCATION_EXPIRATION_MS) {
         setUserLocation({ latitude: locationData.latitude, longitude: locationData.longitude });
         setPermissionGranted(locationData.permission);
+        setLocationName(locationData.name || 'Bangalore');
         setIsLoading(false);
         return true;
       } else {
@@ -60,7 +67,8 @@ export const LocationProvider = ({ children }) => {
           const newLocation = { latitude, longitude };
           setUserLocation(newLocation);
           setPermissionGranted(true);
-          await saveLocationToStorage(newLocation, true);
+          setLocationName('My Location');
+          await saveLocationToStorage(newLocation, true, 'My Location');
           setIsLoading(false);
           resolve(newLocation);
         },
@@ -138,8 +146,17 @@ export const LocationProvider = ({ children }) => {
     setError('Location access is required to find nearby gyms.');
   };
 
+  const selectLocation = useCallback(async (latitude, longitude, name) => {
+    const newLocation = { latitude, longitude };
+    setUserLocation(newLocation);
+    setPermissionGranted(true);
+    setLocationName(name);
+    await saveLocationToStorage(newLocation, true, name);
+  }, []);
+
   const value = {
     userLocation,
+    locationName,
     permissionGranted,
     isLoading,
     error,
@@ -148,6 +165,7 @@ export const LocationProvider = ({ children }) => {
       requestPermission,
       skipPermission,
       retry: initialize,
+      selectLocation,
     },
   };
 

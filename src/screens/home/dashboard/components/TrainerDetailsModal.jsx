@@ -1,7 +1,8 @@
 
 // src/screens/community/components/TrainerDetailsModal.jsx
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Linking, Alert, TextInput, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../../redux/actions/subscriptionActions';
@@ -11,6 +12,7 @@ import { ChatScreen } from './ChatScreen';
 import { getToken } from '../../../../api/apiClient';
 import { useAuth } from '../../../../context/AuthContext';
 import { Strings } from '../../../../config/config'; // Import Config
+import * as Clarity from '@microsoft/react-native-clarity';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -120,10 +122,21 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
     console.log('TrainerDetailsModal - Subscribe button pressed for plan:', plan.id);
     setError('');
     setSubscribingPlanId(plan.id);
+    console.log('[Clarity] Subscription clicked');
+    try {
+      Clarity.sendCustomEvent('subscription_clicked');
+      Clarity.setCustomTag('clicked_plan', plan ? plan.name : 'Trainer Plan');
+    } catch (e) {
+      console.error('[Clarity] Failed to send subscription_clicked:', e);
+    }
     try {
       const response = await dispatch(createCheckoutSession(plan.id, 'TRAINER'));
       if (response.success && response.data.checkoutUrl) {
-        navigation.navigate('CheckoutWebView', { url: response.data.checkoutUrl });
+        navigation.navigate('CheckoutWebView', {
+          url: response.data.checkoutUrl,
+          planName: plan.name,
+          price: plan.price,
+        });
         onClose();
       } else {
         throw new Error(response.message || alerts.subscribeError);
@@ -272,7 +285,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
             
             <ScrollView showsVerticalScrollIndicator={false}>
               {isLoading || loadingDetails ? (
-                <ActivityIndicator style={{ marginVertical: 60, alignSelf: 'center' }} size="large" color="#452829" />
+                <GlobalLoader size={60} style={{ marginVertical: 60, alignSelf: 'center' }} />
               ) : (
                 <View style={styles.content}>
                   <Text style={styles.trainerName}>
@@ -350,7 +363,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                               disabled={subscribingPlanId === plan.id}
                             >
                               {subscribingPlanId === plan.id ? 
-                                  <ActivityIndicator color="#ffffff" size="small" /> : 
+                                  <GlobalLoader size={30} /> : 
                                   <Text style={styles.subscribeButtonText}>{strings.subscribeBtn}</Text>
                               }
                             </TouchableOpacity>
@@ -366,7 +379,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                     disabled={isCheckingAuth}
                   >
                     {isCheckingAuth ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
+                      <GlobalLoader size={30} />
                     ) : (
                       <Text style={styles.chatButtonText}>{strings.startChatBtn}</Text>
                     )}

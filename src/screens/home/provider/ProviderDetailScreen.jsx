@@ -1,26 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Dimensions,
-  Platform,
-  ActivityIndicator,
-  Linking,
-  Alert,
-  Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProviderDetails } from '../../../redux/actions/providersActions';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
+import * as Clarity from '@microsoft/react-native-clarity';
+
+import { FullScreenLoader } from '../../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
@@ -71,6 +60,8 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const { wp, hp, ms, sp, fs, isTablet } = useResponsiveMetrics();
+  const styles = createStyles({ wp, hp, ms, sp, fs, isTablet });
 
   const fetchDetails = useCallback(async () => {
     setLoading(true);
@@ -99,16 +90,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   }, [fetchDetails]);
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.safeArea,
-          { justifyContent: 'center', alignItems: 'center' },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#e74c3c" />
-      </View>
-    );
+    return <FullScreenLoader />;
   }
 
   if (!provider) return null;
@@ -621,6 +603,13 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             style={styles.footerBtn}
             onPress={async () => {
               if (isSubscribe) {
+                console.log('[Clarity] Subscription clicked');
+                try {
+                  Clarity.sendCustomEvent('subscription_clicked');
+                  Clarity.setCustomTag('clicked_plan', selectedPlan ? selectedPlan.name : 'Unknown');
+                } catch (e) {
+                  console.error('[Clarity] Failed to send subscription_clicked:', e);
+                }
                 try {
                   const pendingSubscription = {
                     status: 'ACTIVE',
@@ -700,44 +689,45 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#000' },
-  container: { flex: 1 },
-  galleryContainer: { marginBottom: 15 },
-  backButton: {
-    position: 'absolute',
-    top: 15,
-    left: 15,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-  },
-  mainImage: { width: '100%', height: 250, resizeMode: 'cover' },
+const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
+  StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: '#000' },
+    container: { flex: 1 },
+    galleryContainer: { marginBottom: sp(15) },
+    backButton: {
+      position: 'absolute',
+      top: sp(15),
+      left: sp(15),
+      zIndex: 10,
+      width: ms(40),
+      height: ms(40),
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: ms(20),
+    },
+    mainImage: { width: '100%', height: ms(isTablet ? 320 : 260), resizeMode: 'cover' },
   thumbnailScroll: {
     flexDirection: 'row',
-    marginTop: 5,
-    paddingHorizontal: 15,
+    marginTop: sp(5),
+    paddingHorizontal: sp(15),
   },
   thumbnailWrapper: {
-    marginRight: 10,
-    borderRadius: 8,
+    marginRight: sp(10),
+    borderRadius: ms(8),
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   activeThumbnailWrapper: { borderColor: '#e74c3c' },
-  thumbnailImage: { width: 70, height: 70, resizeMode: 'cover' },
+  thumbnailImage: { width: ms(isTablet ? 90 : 70), height: ms(isTablet ? 90 : 70), resizeMode: 'cover' },
   zoomIndicator: {
     position: 'absolute',
-    bottom: 15,
-    right: 15,
+    bottom: sp(15),
+    right: sp(15),
     backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 8,
-    borderRadius: 20,
+    padding: sp(8),
+    borderRadius: ms(20),
   },
 
   viewerOverlay: {
@@ -756,20 +746,20 @@ const styles = StyleSheet.create({
   viewerImage: { width: '100%', height: '80%' },
   viewerFooter: {
     position: 'absolute',
-    bottom: 50,
+    bottom: sp(50),
     width: '100%',
     alignItems: 'center',
   },
-  viewerText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  viewerText: { color: '#fff', fontSize: fs(14), fontWeight: '500' },
 
-  titleBlockContainer: { paddingHorizontal: 20, marginBottom: 20 },
+  titleBlockContainer: { paddingHorizontal: sp(20), marginBottom: sp(20) },
   premiumBadge: {
     backgroundColor: '#FFD700',
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 10,
+    paddingHorizontal: sp(10),
+    paddingVertical: sp(4),
+    borderRadius: ms(12),
+    marginBottom: sp(10),
   },
   premiumText: { color: '#000', fontSize: 10, fontWeight: 'bold' },
   titleRow: {
@@ -777,8 +767,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  gymTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', flex: 1 },
-  verifiedIcon: { marginLeft: 8, marginTop: 2 },
+  gymTitle: { color: '#fff', fontSize: fs(24), fontWeight: 'bold', flex: 1 },
+  verifiedIcon: { marginLeft: sp(8), marginTop: sp(2) },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -794,10 +784,10 @@ const styles = StyleSheet.create({
   subtitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 5,
+    marginTop: sp(5),
   },
-  gymSubtitle: { color: '#aaa', fontSize: 14 },
-  reviewsText: { color: '#666', fontSize: 12 },
+  gymSubtitle: { color: '#aaa', fontSize: fs(14) },
+  reviewsText: { color: '#666', fontSize: fs(12) },
   hoursRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
   openNowText: { color: '#2ecc71', fontSize: 14, fontWeight: '500' },
   closesText: { color: '#aaa', fontSize: 14 },
@@ -806,33 +796,33 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
-    paddingVertical: 15,
+    marginHorizontal: sp(20),
+    paddingVertical: sp(15),
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#222',
-    marginBottom: 20,
+    marginBottom: sp(20),
   },
   actionButton: { alignItems: 'center', flex: 1 },
   actionText: { color: '#aaa', fontSize: 12, marginTop: 5 },
 
   tabsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: sp(20),
+    marginBottom: sp(20),
   },
   tabItem: { marginRight: 30 },
   tabText: { color: '#666', fontSize: 16, fontWeight: '500' },
   tabTextActive: { color: '#fff', fontWeight: 'bold' },
 
-  sectionContainer: { paddingHorizontal: 20, marginBottom: 35 },
+  sectionContainer: { paddingHorizontal: sp(20), marginBottom: sp(35) },
   sectionTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: sp(15),
   },
-  aboutText: { color: '#aaa', fontSize: 14, lineHeight: 22 },
+  aboutText: { color: '#aaa', fontSize: fs(14), lineHeight: fs(22) },
 
   amenitiesGrid: {
     flexDirection: 'row',
@@ -872,20 +862,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a0a',
     borderWidth: 1,
     borderColor: '#222',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    borderRadius: ms(12),
+    padding: sp(15),
+    marginBottom: sp(15),
   },
   selectedPlanCard: {
     borderColor: '#FF7369',
     backgroundColor: 'rgba(255, 115, 105, 0.05)',
   },
-  planCardLeft: { width: 50, marginRight: 15 },
+  planCardLeft: { width: ms(50), marginRight: sp(15) },
   planImagePlaceholder: {
-    width: 50,
-    height: 50,
+    width: ms(50),
+    height: ms(50),
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: ms(8),
   },
   planCardRight: { flex: 1 },
   planCardHeaderRow: {
@@ -920,32 +910,32 @@ const styles = StyleSheet.create({
   planFeatureText: { color: '#ddd', fontSize: 12, marginLeft: 8 },
   choosePlanBtn: {
     backgroundColor: '#FF7369',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: sp(10),
+    borderRadius: ms(8),
     alignItems: 'center',
     alignSelf: 'flex-end',
-    paddingHorizontal: 20,
+    paddingHorizontal: sp(20),
   },
-  choosePlanText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
+  choosePlanText: { color: '#fff', fontWeight: 'bold', fontSize: fs(12) },
 
   trainersScroll: { flexDirection: 'row' },
   trainerCard: {
-    width: 140,
+    width: Math.min(ms(140), wp(42)),
     backgroundColor: '#0a0a0a',
     borderWidth: 1,
     borderColor: '#222',
-    borderRadius: 12,
-    padding: 15,
-    marginRight: 15,
+    borderRadius: ms(12),
+    padding: sp(15),
+    marginRight: sp(15),
     alignItems: 'flex-start',
   },
   trainerImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: ms(80),
+    height: ms(80),
+    borderRadius: ms(40),
     borderWidth: 2,
     borderColor: '#2ecc71',
-    marginBottom: 10,
+    marginBottom: sp(10),
     alignSelf: 'center',
     overflow: 'hidden',
   },
@@ -969,11 +959,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: '#222',
   },
-  reviewScoreMain: { color: '#fff', fontSize: 48, fontWeight: 'bold' },
-  reviewCount: { color: '#666', fontSize: 12, marginTop: 5 },
+  reviewScoreMain: { color: '#fff', fontSize: fs(48), fontWeight: 'bold' },
+  reviewCount: { color: '#666', fontSize: fs(12), marginTop: sp(5) },
   reviewBarsBlock: { flex: 1.5, paddingLeft: 20, justifyContent: 'center' },
   reviewBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  reviewBarStar: { color: '#aaa', fontSize: 10, width: 25 },
+  reviewBarStar: { color: '#aaa', fontSize: fs(10), width: ms(25) },
   reviewBarTrack: {
     flex: 1,
     height: 4,
@@ -982,7 +972,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   reviewBarFill: { height: '100%', backgroundColor: '#aaa', borderRadius: 2 },
-  reviewBarPct: { color: '#aaa', fontSize: 10, width: 30, textAlign: 'right' },
+  reviewBarPct: { color: '#aaa', fontSize: fs(10), width: ms(30), textAlign: 'right' },
 
   reviewCard: {
     backgroundColor: '#050505',

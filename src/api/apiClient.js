@@ -8,10 +8,13 @@ const auth0 = new Auth0({
   clientId: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
 });
 
+export const AUTH0_API_AUDIENCE = 'https://api.fitnessclub.com';
+export const AUTH0_LOGIN_SCOPE = 'openid profile email offline_access';
+
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = 'https://test-api.swapp.fit/api';
+export const API_BASE_URL = 'https://bleachable-maricruz-neglectingly.ngrok-free.dev/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -19,21 +22,110 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const decodeBase64Url = value => {
+  try {
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let input = value.replace(/-/g, '+').replace(/_/g, '/');
+    while (input.length % 4) input += '=';
+
+    let output = '';
+    let buffer = 0;
+    let bits = 0;
+
+    for (const char of input) {
+      if (char === '=') break;
+      const index = chars.indexOf(char);
+      if (index === -1) return null;
+      buffer = (buffer << 6) | index;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        output += String.fromCharCode((buffer >> bits) & 0xff);
+      }
+    }
+
+    return decodeURIComponent(
+      output
+        .split('')
+        .map(char => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    );
+  } catch {
+    return null;
+  }
+};
+
+const decodeJwtPart = (token, index) => {
+  const part = token?.split('.')?.[index];
+  if (!part) return null;
+
+  const decoded = decodeBase64Url(part);
+  if (!decoded) return null;
+
+  try {
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const isUsableApiToken = token => {
+  const header = decodeJwtPart(token, 0);
+  const payload = decodeJwtPart(token, 1);
+  const audience = Array.isArray(payload?.aud) ? payload.aud : [payload?.aud];
+
+  return (
+    header?.alg === 'RS256' &&
+    audience.includes(AUTH0_API_AUDIENCE) &&
+    (!payload?.exp || payload.exp * 1000 > Date.now() + 60000)
+  );
+};
+
+const clearCachedAccessToken = async () => {
+  await AsyncStorage.removeItem('accessToken');
+};
+
+const clearStoredCredentialsWithoutRefreshToken = async error => {
+  if (!error?.message?.includes('does not contain a refresh token')) return;
+
+  try {
+    await auth0.credentialsManager.clearCredentials();
+  } catch (clearError) {
+    console.log(
+      '[apiClient] failed to clear Auth0 credentials:',
+      clearError.message,
+    );
+  }
+};
+
 export async function getToken() {
   try {
-    const creds = await auth0.credentialsManager.getCredentials(
-      'openid profile email offline_access',
+    const creds = await auth0.credentialsManager.getApiCredentials(
+      AUTH0_API_AUDIENCE,
+      undefined,
+      60,
     );
     if (creds?.accessToken) {
       await AsyncStorage.setItem('accessToken', creds.accessToken);
       return creds.accessToken;
     }
   } catch (e) {
+    const cachedToken = await AsyncStorage.getItem('accessToken');
+    if (isUsableApiToken(cachedToken)) {
+      console.log(
+        '[apiClient] getToken error, using cached API token:',
+        e.message,
+      );
+      return cachedToken;
+    }
+
+    await clearStoredCredentialsWithoutRefreshToken(e);
+    await clearCachedAccessToken();
     console.log(
-      '[apiClient] getToken error, falling back to AsyncStorage:',
+      '[apiClient] getToken error, cleared unusable cached token:',
       e.message,
     );
-    return await AsyncStorage.getItem('accessToken');
   }
   return null;
 }

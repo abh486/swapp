@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@chargebee/react-native-chargebee": "^2.5.2",
+    "@microsoft/react-native-clarity": "^4.6.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "^9.1.0",
     "@react-native-community/geolocation": "3.4.0",
@@ -31,6 +32,7 @@
     "react-native-nitro-modules": "0.35.6",
     "react-native-safe-area-context": "5.6.2",
     "react-native-screens": "^4.25.1",
+    "react-native-size-matters": "^0.4.2",
     "react-native-svg": "^15.15.4",
     "react-native-vector-icons": "10.3.0",
     "react-native-video": "6.19.0",

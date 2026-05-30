@@ -1,16 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
-  useWindowDimensions,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, useWindowDimensions, Platform} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -344,11 +334,7 @@ const ProfileDashboard = () => {
           <Text style={styles.sectionTitle}>Workouts</Text>
 
           {loading ? (
-            <ActivityIndicator
-              size="large"
-              color={THEME.colors.primary}
-              style={{ marginTop: 20 }}
-            />
+            <GlobalLoader size={60} style={{ marginTop: 20 }} />
           ) : workouts.length === 0 ? (
             <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>
               No workouts logged yet.

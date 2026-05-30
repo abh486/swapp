@@ -6,11 +6,20 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Modal, SafeAreaView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { GlobalLoader } from '../components/GlobalLoader';
+import { WebView } from 'react-native-webview';
 import Auth0 from 'react-native-auth0';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiClient, { getToken, debugStorage } from '../api/apiClient';
+import * as Clarity from '@microsoft/react-native-clarity';
+import apiClient, {
+  AUTH0_API_AUDIENCE,
+  AUTH0_LOGIN_SCOPE,
+  getToken,
+  debugStorage,
+} from '../api/apiClient';
 
 // Initialize Auth0
 const auth0 = new Auth0({
@@ -51,10 +60,28 @@ const getRedirectUri = () => {
   }
 };
 
+const generateCodeVerifier = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let result = '';
+  for (let i = 0; i < 50; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+const getQueryParam = (url, param) => {
+  const regex = new RegExp('[\\?&#]' + param + '=([^&#]*)');
+  const results = regex.exec(url);
+  return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+};
+
 export const AuthProvider = ({ children }) => {
   const { isImageSelectionInProgress } = useImageSelection();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showWebViewModal, setShowWebViewModal] = useState(false);
+  const [authUrl, setAuthUrl] = useState('');
+  const codeVerifierRef = useRef('');
   const [loading, setLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
@@ -87,6 +114,18 @@ export const AuthProvider = ({ children }) => {
           setUserProfile(userObject);
           setIsAuthenticated(true);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
+
+          if (userObject && userObject.id) {
+            console.log('[Clarity] Setting custom user ID:', userObject.id);
+            try {
+              Clarity.setCustomUserId(userObject.id);
+              if (userObject.email) {
+                Clarity.setCustomTag('email', userObject.email);
+              }
+            } catch (err) {
+              console.error('[Clarity] Failed to set user ID/tags:', err);
+            }
+          }
 
           if (
             (userObject.userProfile && userObject.userProfile.name) ||
@@ -126,23 +165,117 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
+  const handleRedirect = async (url) => {
+    setShowWebViewModal(false);
+    setIsLoggingIn(true);
+
+    const authCode = getQueryParam(url, 'code');
+    if (authCode) {
+      try {
+        console.log('[AuthContext] Exchanging authorization code for tokens...');
+        const tokenUrl = `https://login.swapp.fit/oauth/token`;
+        const tokenResponse = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+            code_verifier: codeVerifierRef.current,
+            code: authCode,
+            redirect_uri: getRedirectUri(),
+          }),
+        });
+
+        const tokenData = await tokenResponse.json();
+        if (tokenResponse.ok && tokenData.access_token) {
+          console.log('[AuthContext] Tokens successfully fetched!');
+          const creds = {
+            accessToken: tokenData.access_token,
+            idToken: tokenData.id_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt: Date.now() + (tokenData.expires_in || 86400) * 1000,
+            scope: tokenData.scope || AUTH0_LOGIN_SCOPE,
+            tokenType: tokenData.token_type || 'Bearer',
+          };
+
+          await auth0.credentialsManager.saveCredentials(creds);
+          await AsyncStorage.setItem('accessToken', creds.accessToken);
+          await checkAuthStatus();
+        } else {
+          console.error('[AuthContext] Token exchange failed:', tokenData);
+          alert('Login failed: Could not exchange authorization code.');
+        }
+      } catch (err) {
+        console.error('[AuthContext] Error during token exchange:', err);
+        alert('Login failed due to an error.');
+      } finally {
+        setIsLoggingIn(false);
+      }
+    } else {
+      console.error('[AuthContext] No auth code found in callback URL:', url);
+      setIsLoggingIn(false);
+    }
+  };
+
+  const isRedirectUrl = (url) => {
+    const redirectUri = getRedirectUri();
+    return (
+      url.includes('code=') &&
+      (url.startsWith(redirectUri) ||
+        url.includes('/callback') ||
+        url.startsWith('com.swappios.auth0://') ||
+        url.startsWith('com.swapp.swappfit.auth0://'))
+    );
+  };
+
+  const handleShouldStartLoadWithRequest = (request) => {
+    const { url } = request;
+    console.log('[AuthContext] WebView should load request:', url);
+    if (isRedirectUrl(url)) {
+      handleRedirect(url);
+      return false; // Stop the WebView from loading this URL
+    }
+    return true;
+  };
+
+  const handleNavigationStateChange = (navState) => {
+    const { url } = navState;
+    console.log('[AuthContext] WebView navigation state changed:', url);
+    if (isRedirectUrl(url)) {
+      handleRedirect(url);
+    }
+  };
+
   const login = async () => {
     setIsLoggingIn(true);
     try {
-      const creds = await auth0.webAuth.authorize({
-        scope: 'openid profile email offline_access',
-        audience: 'https://api.fitnessclub.com',
-        redirectUrl: getRedirectUri(), // Uses the HTTPS link
-      });
+      const verifier = generateCodeVerifier();
+      codeVerifierRef.current = verifier;
 
-      if (creds?.accessToken) {
-        await auth0.credentialsManager.saveCredentials(creds);
-        await AsyncStorage.setItem('accessToken', creds.accessToken);
-        await checkAuthStatus();
-      }
+      const domain = 'login.swapp.fit';
+      const clientId = '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0';
+      const scope = AUTH0_LOGIN_SCOPE;
+      const audience = AUTH0_API_AUDIENCE;
+      const redirectUri = getRedirectUri();
+      const state = Math.random().toString(36).substring(2, 15);
+
+      const url = `https://${domain}/authorize?` +
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `response_type=code&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `audience=${encodeURIComponent(audience)}&` +
+        `state=${encodeURIComponent(state)}&` +
+        `code_challenge=${encodeURIComponent(verifier)}&` +
+        `code_challenge_method=plain&` +
+        `prompt=login`;
+
+      setAuthUrl(url);
+      setShowWebViewModal(true);
     } catch (e) {
       console.error('🔴 [login] failed:', e.message);
-    } finally {
       setIsLoggingIn(false);
     }
   };
@@ -150,7 +283,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      await auth0.webAuth.clearSession({ returnToUrl: getRedirectUri() });
+      await auth0.credentialsManager.clearCredentials();
       await AsyncStorage.clear();
     } catch (e) {
       console.warn('Clear session error:', e.message);
@@ -178,9 +311,87 @@ export const AuthProvider = ({ children }) => {
       }}
     >
       {children}
+
+      <Modal
+        visible={showWebViewModal}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowWebViewModal(false);
+          setIsLoggingIn(false);
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.header}>
+            <View />
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setShowWebViewModal(false);
+                setIsLoggingIn(false);
+              }}
+            >
+              <Text style={styles.closeButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <WebView
+            source={{ uri: authUrl }}
+            style={styles.webView}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            originWhitelist={['*']}
+            onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+            onNavigationStateChange={handleNavigationStateChange}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <GlobalLoader size={60} />
+              </View>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
     </AuthContext.Provider>
   );
 };
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    color: '#e74c3c',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+});
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);

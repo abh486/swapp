@@ -1,10 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
   Linking,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,15 +11,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
+import * as Clarity from '@microsoft/react-native-clarity';
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
   useObjectOutput,
 } from 'react-native-vision-camera';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 const FALLBACK_GYM_IMAGE =
   'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
@@ -39,6 +41,9 @@ const getDateText = value => {
 const MembershipDetailsScreen = ({ route, navigation }) => {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [isScanLocked, setIsScanLocked] = useState(false);
+  const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
   const { subscription = {} } = route.params || {};
@@ -131,6 +136,15 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
 
       setIsScanLocked(true);
       setScannerVisible(false);
+      console.log('[Clarity] Gym checked in:', gymName);
+      try {
+        Clarity.sendCustomEvent('gym_checked_in');
+        if (gymName) {
+          Clarity.setCustomTag('checked_in_gym', gymName);
+        }
+      } catch (e) {
+        console.error('[Clarity] Failed to send gym_checked_in:', e);
+      }
       Alert.alert('QR Scanned', value, [
         { text: 'Scan Again', onPress: () => setScannerVisible(true) },
         { text: 'Done', style: 'cancel' },
@@ -139,7 +153,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#170B20" />
       <ScrollView
         style={styles.container}
@@ -154,7 +168,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             <Icon name="chevron-back" size={24} color="#FFF" />
           </TouchableOpacity>
           <View style={styles.heroArc} />
-          <Image source={{ uri: image }} style={styles.gymImage} />
+          <Image source={{ uri: image }} style={styles.gymImage} resizeMode="cover" />
           <TouchableOpacity
             style={styles.qrMark}
             onPress={openScanner}
@@ -322,7 +336,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         animationType="slide"
         onRequestClose={closeScanner}
       >
-        <SafeAreaView style={styles.scannerContainer}>
+        <SafeAreaView style={styles.scannerContainer} edges={['top', 'bottom', 'left', 'right']}>
           <StatusBar barStyle="light-content" backgroundColor="#000" />
           <View style={styles.scannerHeader}>
             <TouchableOpacity
@@ -382,92 +396,101 @@ const InfoRow = ({ title, value, valuePill }) => (
   </View>
 );
 
-const styles = StyleSheet.create({
+const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, shortest }, insets) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000' },
   container: { flex: 1, backgroundColor: '#000' },
-  content: { paddingBottom: 34 },
-  hero: { height: 190, alignItems: 'center', justifyContent: 'flex-end' },
+  content: {
+    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(16),
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: maxContentWidth,
+  },
+  hero: {
+    minHeight: ms(isLandscape ? 150 : 190),
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   backButton: {
     position: 'absolute',
-    top: 12,
-    left: 18,
+    top: sp(12),
+    left: sp(18),
     zIndex: 3,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: ms(42),
+    height: ms(42),
+    borderRadius: ms(21),
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroArc: {
     position: 'absolute',
-    top: -190,
-    width: 520,
-    height: 330,
-    borderBottomLeftRadius: 260,
-    borderBottomRightRadius: 260,
+    top: -ms(190),
+    width: Math.max(wp(138), ms(420)),
+    height: ms(330),
+    borderBottomLeftRadius: ms(260),
+    borderBottomRightRadius: ms(260),
     backgroundColor: '#1B0D27',
   },
   gymImage: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: ms(112),
+    height: ms(112),
+    borderRadius: ms(56),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
-  qrMark: { position: 'absolute', right: 28, bottom: 26 },
-  titleBlock: { alignItems: 'center', marginTop: 18 },
-  gymName: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  planName: { color: '#B8B1C2', fontSize: 14, marginTop: 3 },
-  tierName: { color: '#D8D1E1', fontSize: 13, marginTop: 2 },
+  qrMark: { position: 'absolute', right: sp(28), bottom: sp(26) },
+  titleBlock: { alignItems: 'center', marginTop: sp(18), paddingHorizontal: sp(24) },
+  gymName: { color: '#FFF', fontSize: fs(24), fontWeight: '900', textAlign: 'center' },
+  planName: { color: '#B8B1C2', fontSize: fs(14), marginTop: sp(3), textAlign: 'center' },
+  tierName: { color: '#D8D1E1', fontSize: fs(13), marginTop: sp(2), textAlign: 'center' },
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#158028',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 6,
+    borderRadius: ms(10),
+    paddingHorizontal: sp(8),
+    paddingVertical: sp(3),
+    marginTop: sp(6),
   },
   activeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: ms(5),
+    height: ms(5),
+    borderRadius: ms(2.5),
     backgroundColor: '#FFF',
-    marginRight: 5,
+    marginRight: sp(5),
   },
-  activeText: { color: '#FFF', fontSize: 7, fontWeight: '900' },
-  curveLayer: { height: 112, justifyContent: 'center', marginTop: -6 },
+  activeText: { color: '#FFF', fontSize: fs(7, { min: 7, max: 9 }), fontWeight: '900' },
+  curveLayer: { height: ms(112), justifyContent: 'center', marginTop: -sp(6) },
   orbitDot: {
     position: 'absolute',
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: ms(66),
+    height: ms(66),
+    borderRadius: ms(33),
     backgroundColor: '#E4E4E4',
   },
-  orbitLeft: { left: 26, top: 36 },
-  orbitCenter: { alignSelf: 'center', top: 72 },
-  orbitRight: { right: 26, top: 36 },
+  orbitLeft: { left: sp(26), top: sp(36) },
+  orbitCenter: { alignSelf: 'center', top: sp(72) },
+  orbitRight: { right: sp(26), top: sp(36) },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 34,
-    marginTop: 18,
+    paddingHorizontal: sp(isTablet ? 48 : 34),
+    marginTop: sp(18),
   },
   metaLabel: {
     color: '#777183',
-    fontSize: 10,
+    fontSize: fs(10),
     fontWeight: '900',
     letterSpacing: 1.2,
-    marginBottom: 8,
+    marginBottom: sp(8),
   },
-  metaValue: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  progressBlock: { paddingHorizontal: 34, marginTop: 28 },
-  progressHeader: { marginBottom: 10 },
-  progressTitle: { color: '#A9A0B3', fontSize: 13, fontWeight: '800' },
+  metaValue: { color: '#FFF', fontSize: fs(16), fontWeight: '800' },
+  progressBlock: { paddingHorizontal: sp(isTablet ? 48 : 34), marginTop: sp(28) },
+  progressHeader: { marginBottom: sp(10) },
+  progressTitle: { color: '#A9A0B3', fontSize: fs(13), fontWeight: '800' },
   progressTrack: {
-    height: 22,
-    borderRadius: 11,
+    minHeight: ms(22),
+    borderRadius: ms(11),
     backgroundColor: '#1B1720',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
@@ -483,181 +506,183 @@ const styles = StyleSheet.create({
   },
   daysLeft: {
     color: '#C5BED0',
-    fontSize: 10,
+    fontSize: fs(10),
     fontWeight: '700',
     alignSelf: 'flex-end',
-    marginRight: 12,
+    marginRight: sp(12),
   },
   renewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 34,
-    marginTop: 20,
+    paddingHorizontal: sp(isTablet ? 48 : 34),
+    marginTop: sp(20),
   },
-  renewCopy: { flex: 1, marginLeft: 18 },
-  renewTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-  renewSub: { color: '#777183', fontSize: 11, marginTop: 2 },
+  renewCopy: { flex: 1, marginLeft: sp(18), minWidth: 0 },
+  renewTitle: { color: '#FFF', fontSize: fs(16), fontWeight: '900' },
+  renewSub: { color: '#777183', fontSize: fs(11), marginTop: sp(2) },
   toggleTrack: {
-    width: 58,
-    height: 26,
-    borderRadius: 13,
+    width: ms(58),
+    height: ms(26),
+    borderRadius: ms(13),
     backgroundColor: '#6A3C91',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: sp(3),
   },
   toggleKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: ms(20),
+    height: ms(20),
+    borderRadius: ms(10),
     backgroundColor: '#FFF',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    paddingHorizontal: 34,
-    marginTop: 20,
+    gap: sp(12),
+    paddingHorizontal: sp(isTablet ? 48 : 34),
+    marginTop: sp(20),
   },
   statCard: {
-    width: '47.5%',
-    height: 76,
-    borderRadius: 14,
+    flexBasis: isTablet ? '23%' : '47%',
+    flexGrow: 1,
+    minHeight: ms(76),
+    borderRadius: ms(14),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statMain: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  statNumber: { color: '#FFF', fontSize: 20, fontWeight: '300' },
-  statSub: { color: '#BFB5CC', fontSize: 9, marginTop: 4 },
-  statTiny: { color: '#776E82', fontSize: 8, marginTop: 3 },
+  statMain: { color: '#FFF', fontSize: fs(16), fontWeight: '800' },
+  statNumber: { color: '#FFF', fontSize: fs(20), fontWeight: '300' },
+  statSub: { color: '#BFB5CC', fontSize: fs(9), marginTop: sp(4), textAlign: 'center' },
+  statTiny: { color: '#776E82', fontSize: fs(8), marginTop: sp(3), textAlign: 'center' },
   bookNowButton: {
-    height: 58,
-    borderRadius: 16,
+    minHeight: ms(58),
+    borderRadius: ms(16),
     backgroundColor: '#4A2666',
-    marginHorizontal: 34,
-    marginTop: 22,
+    marginHorizontal: sp(isTablet ? 48 : 34),
+    marginTop: sp(22),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: sp(10),
   },
   bookNowText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: '900',
   },
   sectionKicker: {
     color: '#7E7788',
-    fontSize: 12,
+    fontSize: fs(12),
     letterSpacing: 1.5,
-    marginTop: 42,
-    marginBottom: 22,
-    paddingHorizontal: 34,
+    marginTop: sp(42),
+    marginBottom: sp(22),
+    paddingHorizontal: sp(isTablet ? 48 : 34),
   },
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 34,
-    marginBottom: 28,
+    paddingHorizontal: sp(isTablet ? 48 : 34),
+    marginBottom: sp(28),
+    gap: sp(12),
   },
-  sessionTime: { width: 78 },
-  sessionHour: { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  sessionDay: { color: '#777183', fontSize: 10, fontWeight: '800' },
-  sessionCopy: { flex: 1 },
-  sessionTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-  sessionSub: { color: '#8F8797', fontSize: 10, marginTop: 4 },
+  sessionTime: { width: ms(78) },
+  sessionHour: { color: '#FFF', fontSize: fs(20), fontWeight: '900' },
+  sessionDay: { color: '#777183', fontSize: fs(10), fontWeight: '800' },
+  sessionCopy: { flex: 1, minWidth: 0 },
+  sessionTitle: { color: '#FFF', fontSize: fs(16), fontWeight: '900' },
+  sessionSub: { color: '#8F8797', fontSize: fs(10), marginTop: sp(4) },
   sessionPill: {
     backgroundColor: '#24112F',
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: sp(13),
+    paddingVertical: sp(6),
+    borderRadius: ms(14),
   },
-  sessionPillText: { color: '#FFF', fontSize: 8, fontWeight: '900' },
+  sessionPillText: { color: '#FFF', fontSize: fs(8), fontWeight: '900' },
   infoPanel: {
-    marginHorizontal: 26,
-    borderRadius: 26,
+    marginHorizontal: sp(isTablet ? 48 : 26),
+    borderRadius: ms(22),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 26,
+    paddingHorizontal: sp(22),
+    paddingTop: sp(18),
+    paddingBottom: sp(26),
     backgroundColor: '#030303',
   },
   infoRow: {
-    minHeight: 82,
+    minHeight: ms(74),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(8),
     backgroundColor: '#FFF',
-    marginRight: 16,
+    marginRight: sp(16),
   },
-  infoTitle: { color: '#AFA7B8', fontSize: 15, fontWeight: '700' },
+  infoTitle: { color: '#AFA7B8', fontSize: fs(15), fontWeight: '700', flexShrink: 1 },
   infoSpacer: { flex: 1 },
-  infoValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+  infoValue: { color: '#FFF', fontSize: fs(16), fontWeight: '900', textAlign: 'right', flexShrink: 1 },
   infoValuePill: {
     backgroundColor: '#1F0D2C',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    borderRadius: ms(12),
+    paddingHorizontal: sp(14),
+    paddingVertical: sp(7),
   },
-  infoValuePillText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
+  infoValuePillText: { color: '#FFF', fontSize: fs(12), fontWeight: '900' },
   amenityWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    paddingTop: 20,
-    paddingBottom: 26,
+    gap: sp(10),
+    paddingTop: sp(20),
+    paddingBottom: sp(26),
   },
   amenityPill: {
     backgroundColor: '#1D0E28',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    borderRadius: ms(10),
+    paddingHorizontal: sp(15),
+    paddingVertical: sp(10),
   },
-  amenityText: { color: '#D9D1E4', fontSize: 12, fontWeight: '800' },
+  amenityText: { color: '#D9D1E4', fontSize: fs(12), fontWeight: '800' },
   navigateButton: {
-    height: 58,
+    minHeight: ms(58),
     borderRadius: 2,
     backgroundColor: '#24102E',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: sp(12),
   },
-  navigateText: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  navigateText: { color: '#FFF', fontSize: fs(18), fontWeight: '900' },
   scannerContainer: {
     flex: 1,
     backgroundColor: '#000',
   },
   scannerHeader: {
-    height: 58,
+    minHeight: ms(58),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: sp(16),
   },
   scannerCloseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(22),
     alignItems: 'center',
     justifyContent: 'center',
   },
   scannerTitle: {
     color: '#FFF',
-    fontSize: 17,
+    fontSize: fs(17),
     fontWeight: '900',
   },
   cameraWrap: {
     flex: 1,
-    margin: 18,
-    borderRadius: 26,
+    margin: sp(18),
+    borderRadius: ms(26),
     overflow: 'hidden',
     backgroundColor: '#111',
     alignItems: 'center',
@@ -666,22 +691,22 @@ const styles = StyleSheet.create({
   cameraUnavailable: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: sp(12),
   },
   cameraUnavailableText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '700',
   },
   scanFrame: {
-    width: 240,
-    height: 240,
+    width: Math.min(ms(240), shortest - sp(72)),
+    height: Math.min(ms(240), shortest - sp(72)),
     position: 'absolute',
   },
   scanCorner: {
     position: 'absolute',
-    width: 48,
-    height: 48,
+    width: ms(48),
+    height: ms(48),
     borderColor: '#FFF',
   },
   scanCornerTopLeft: {
@@ -715,10 +740,10 @@ const styles = StyleSheet.create({
   scanHint: {
     color: '#CFC7D8',
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '700',
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: sp(24),
+    paddingBottom: Math.max(insets.bottom, sp(18)),
   },
 });
 

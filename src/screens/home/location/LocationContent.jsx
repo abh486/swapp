@@ -1,5 +1,6 @@
+import { GlobalLoader } from '../../../components/GlobalLoader';
 import React, { useMemo, useEffect } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Image, Platform, Animated, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Image, Platform, Animated} from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient'; // 1. Import LinearGradient
@@ -50,7 +51,7 @@ export const LocationContent = ({
 
   const renderGymList = () => {
     if (isLoading) {
-      return <ActivityIndicator style={{ marginTop: 50 }} size="large" color="#442728" />;
+      return <GlobalLoader size={50} style={{ marginTop: 50 }} />;
     }
     if (error && (!gyms || gyms.length === 0)) {
       return <Text style={styles.errorText}>{error}</Text>;
@@ -152,7 +153,7 @@ export const LocationContent = ({
         {isLoadingLocation && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingCard}>
-              <ActivityIndicator size="small" color="#442728" />
+              <GlobalLoader size={24} />
               <Text style={styles.loadingText}>{Status?.loading || 'Getting your location...'}</Text>
             </View>
           </View>

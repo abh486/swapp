@@ -1,17 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ImageBackground,
-  Image,
-  ScrollView,
-  ActivityIndicator,
-  StatusBar,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Image, ScrollView, StatusBar, SafeAreaView, Platform} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -205,7 +194,7 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
 
       <View style={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#7C3AED" style={{ marginTop: 40 }} />
+          <GlobalLoader size={60} style={{ marginTop: 40 }} />
         ) : workouts.length === 0 ? (
           <Text style={styles.emptyText}>No custom workouts found. Create one first!</Text>
         ) : (

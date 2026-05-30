@@ -13,7 +13,6 @@ import {
   FlatList,
   Platform,
   Modal,
-  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -27,6 +26,8 @@ import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
 import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
 import FindTrainers from './components/FindTrainers';
+import { useResponsiveMetrics } from '../../../utils/responsive';
+import LocationSelectorModal from './components/LocationSelectorModal';
 
 const PROMOS = [
   {
@@ -45,10 +46,9 @@ const PROMOS = [
   },
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SUBSCRIPTION_CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.74, 330);
 const SUBSCRIPTION_CARD_SPACING = 14;
-const SUBSCRIPTION_SIDE_PADDING = (SCREEN_WIDTH - SUBSCRIPTION_CARD_WIDTH) / 2;
+const SUBSCRIPTION_CARD_WIDTH = 330;
+const SUBSCRIPTION_SIDE_PADDING = 14;
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
 
 export const HomeDashboard = ({ navigation }) => {
@@ -57,16 +57,27 @@ export const HomeDashboard = ({ navigation }) => {
   const { activeCategory, activeVertical } = useSelector(state => state.home);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMembershipModalVisible, setMembershipModalVisible] = useState(false);
+  const [isLocationModalVisible, setLocationModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingSubscription, setPendingSubscription] = useState(null);
   const subscriptionCarouselRef = useRef(null);
 
   const {
     userLocation,
+    locationName,
     showPermissionModal,
     actions: locationActions,
   } = useLocation();
   const { feed, loading } = useSelector(state => state.home);
+  const metrics = useResponsiveMetrics();
+  const { ms, sp, wp, hp } = metrics;
+  const subscriptionCardWidth = Math.min(wp(74), ms(330));
+  const subscriptionCardHeight = Math.min(ms(168), hp(22));
+  const subscriptionCardSpacing = sp(SUBSCRIPTION_CARD_SPACING);
+  const subscriptionSidePadding = sp(14);
+  const promoCardWidth = Math.min(wp(92), ms(462));
+  const promoCardHeight = Math.min(hp(27), ms(204));
+  const promoCardSpacing = sp(20);
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const userName = profileData.name?.split(' ')[0] || 'Member';
   const userAvatar =
@@ -172,7 +183,7 @@ export const HomeDashboard = ({ navigation }) => {
 
     const centerActiveCard = setTimeout(() => {
       subscriptionCarouselRef.current?.scrollTo({
-        x: SUBSCRIPTION_CARD_WIDTH + SUBSCRIPTION_CARD_SPACING,
+        x: subscriptionCardWidth + subscriptionCardSpacing,
         animated: false,
       });
     }, 80);
@@ -355,7 +366,7 @@ export const HomeDashboard = ({ navigation }) => {
 
   const renderRewardsCard = () => (
     <TouchableOpacity
-      style={[styles.carouselCard, styles.sideCarouselCard]}
+      style={[styles.carouselCard, styles.sideCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
       activeOpacity={0.9}
     >
       <LinearGradient
@@ -376,25 +387,63 @@ export const HomeDashboard = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderActiveSubscriptionCard = () => (
-    <TouchableOpacity
-      style={[styles.carouselCard, styles.activeCarouselCard]}
-      activeOpacity={0.9}
-      onPress={() =>
-        navigation.navigate('MembershipDetails', {
-          subscription: activeSubscription,
-        })
-      }
-    >
+  const renderActiveSubscriptionCard = () => {
+    const arcOneWidth = subscriptionCardWidth * 1.2;
+    const arcTwoWidth = subscriptionCardWidth * 1.35;
+    const arcThreeWidth = subscriptionCardWidth * 1.5;
+
+    return (
+      <TouchableOpacity
+        style={[styles.carouselCard, styles.activeCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
+        activeOpacity={0.9}
+        onPress={() =>
+          navigation.navigate('MembershipDetails', {
+            subscription: activeSubscription,
+          })
+        }
+      >
       <LinearGradient
         colors={['#030303', '#09050D', '#160420']}
         style={styles.membershipGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={styles.membershipArcOne} />
-        <View style={styles.membershipArcTwo} />
-        <View style={styles.membershipArcThree} />
+        <View
+          style={[
+            styles.membershipArcOne,
+            {
+              width: arcOneWidth,
+              height: arcOneWidth * 0.48,
+              borderRadius: arcOneWidth / 2,
+              left: -subscriptionCardWidth * 0.24,
+              bottom: -subscriptionCardHeight * 0.85,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.membershipArcTwo,
+            {
+              width: arcTwoWidth,
+              height: arcTwoWidth * 0.47,
+              borderRadius: arcTwoWidth / 2,
+              left: -subscriptionCardWidth * 0.28,
+              bottom: -subscriptionCardHeight * 0.95,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.membershipArcThree,
+            {
+              width: arcThreeWidth,
+              height: arcThreeWidth * 0.46,
+              borderRadius: arcThreeWidth / 2,
+              left: -subscriptionCardWidth * 0.3,
+              bottom: -subscriptionCardHeight * 1.05,
+            },
+          ]}
+        />
         <View style={styles.activeBadge}>
           <View style={styles.activeDot} />
           <Text style={styles.activeText}>ACTIVE</Text>
@@ -433,10 +482,11 @@ export const HomeDashboard = ({ navigation }) => {
       </LinearGradient>
     </TouchableOpacity>
   );
+  };
 
   const renderPassesCard = () => (
     <TouchableOpacity
-      style={[styles.carouselCard, styles.sideCarouselCard]}
+      style={[styles.carouselCard, styles.sideCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
       activeOpacity={0.9}
     >
       <LinearGradient
@@ -500,9 +550,9 @@ export const HomeDashboard = ({ navigation }) => {
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
-        snapToInterval={SUBSCRIPTION_CARD_WIDTH + SUBSCRIPTION_CARD_SPACING}
+        snapToInterval={subscriptionCardWidth + subscriptionCardSpacing}
         snapToAlignment="start"
-        contentContainerStyle={styles.subscriptionCarouselContent}
+        contentContainerStyle={[styles.subscriptionCarouselContent, { paddingHorizontal: subscriptionSidePadding }]}
       >
         {renderRewardsCard()}
         {renderActiveSubscriptionCard()}
@@ -612,7 +662,7 @@ export const HomeDashboard = ({ navigation }) => {
                 <ImageBackground
                   key={promo.id}
                   source={{ uri: promo.image }}
-                  style={styles.promoCard}
+                  style={[styles.promoCard, { width: promoCardWidth, height: promoCardHeight, marginHorizontal: promoCardSpacing }]}
                   imageStyle={{ borderRadius: 16 }}
                 >
                   <View style={styles.promoContent}>
@@ -668,16 +718,28 @@ export const HomeDashboard = ({ navigation }) => {
             <View style={styles.discoverSection}>
               <Text style={styles.discoverBold}>Discover</Text>
               <Text style={styles.discoverThin}>Partners Near You</Text>
-              <Text style={styles.partnersText}>
-                100+ Partners In Bangalore
-              </Text>
+              <TouchableOpacity
+                onPress={() => setLocationModalVisible(true)}
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+              >
+                <Text style={styles.partnersText}>
+                  100+ Partners In {locationName || 'Bangalore'}
+                </Text>
+                <Icon name="chevron-down" size={14} color="#888" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
             </View>
 
             {/* Centers Near You */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
                 PARTNERS NEAR{' '}
-                <Text style={{ textDecorationLine: 'underline' }}>YOU</Text>
+                <Text
+                  style={{ textDecorationLine: 'underline', color: '#e74c3c' }}
+                  onPress={() => setLocationModalVisible(true)}
+                >
+                  {locationName ? locationName.toUpperCase() : 'YOU'}
+                </Text>
               </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('DiscoverProvidersMap')}
@@ -732,6 +794,15 @@ export const HomeDashboard = ({ navigation }) => {
       <MembershipPlanModal
         visible={isMembershipModalVisible}
         onClose={() => setMembershipModalVisible(false)}
+      />
+      <LocationSelectorModal
+        visible={isLocationModalVisible}
+        onClose={() => setLocationModalVisible(false)}
+        actions={locationActions}
+        activeLocationName={locationName}
+        onSelect={(newLoc) => {
+          navigation.navigate('DiscoverProvidersMap', { selectedLocation: newLoc });
+        }}
       />
     </SafeAreaView>
   );

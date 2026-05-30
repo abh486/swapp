@@ -1,6 +1,21 @@
 import apiClient from '../../api/apiClient';
 import * as types from '../actionTypes/actionTypes';
 
+const normalizeFilterList = value => {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map(item => String(item || '').trim().toLowerCase())
+    .filter(Boolean)
+    .filter(item => !item.startsWith('all '));
+};
+
+const normalizeExercisesResponse = data => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
+
 export const fetchExercises = (params = {}) => async (dispatch) => {
   dispatch({ type: types.WORKOUT_GET_EXERCISES_REQUEST, payload: { isLoadMore: params.isLoadMore } });
   try {
@@ -12,22 +27,23 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
       queryParams.push(`search=${encodeURIComponent(params.search)}`);
       queryParams.push(`threshold=0.5`);
     } else {
-      if (params.bodyParts && params.bodyParts.length > 0 && !params.bodyParts.includes('All Body Parts')) {
-        queryParams.push(`bodyParts=${encodeURIComponent(params.bodyParts.join(','))}`);
+      const bodyParts = normalizeFilterList(params.bodyParts);
+      const targetMuscles = normalizeFilterList(params.targetMuscles);
+      const secondaryMuscles = normalizeFilterList(params.secondaryMuscles);
+      const equipments = normalizeFilterList(params.equipments);
+
+      if (bodyParts.length > 0) {
+        queryParams.push(`bodyParts=${encodeURIComponent(bodyParts.join(','))}`);
       }
-      if (params.targetMuscles && params.targetMuscles.length > 0 && !params.targetMuscles.includes('All Muscles')) {
-        queryParams.push(`targetMuscles=${encodeURIComponent(params.targetMuscles.join(','))}`);
+      if (targetMuscles.length > 0) {
+        queryParams.push(`targetMuscles=${encodeURIComponent(targetMuscles.join(','))}`);
       }
-      if (params.secondaryMuscles && params.secondaryMuscles.length > 0) {
-        queryParams.push(`secondaryMuscles=${encodeURIComponent(params.secondaryMuscles.join(','))}`);
+      if (secondaryMuscles.length > 0) {
+        queryParams.push(`secondaryMuscles=${encodeURIComponent(secondaryMuscles.join(','))}`);
       }
-      
-      // FIX: Ensure equipment is always properly converted to a comma-separated string array for the API
-      if (params.equipments && !params.equipments.includes('All Equipement')) {
-        const equipmentArray = Array.isArray(params.equipments) ? params.equipments : [params.equipments];
-        if (equipmentArray.length > 0) {
-          queryParams.push(`equipments=${encodeURIComponent(equipmentArray.join(','))}`);
-        }
+
+      if (equipments.length > 0) {
+        queryParams.push(`equipments=${encodeURIComponent(equipments.join(','))}`);
       }
       
       if (params.name) {
@@ -46,19 +62,23 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
     }
 
     const finalUrl = queryParams.length > 0 ? `${url}?${queryParams.join('&')}` : url;
+    console.log('[fetchExercises] url:', finalUrl);
     
     const response = await fetch(finalUrl);
     const data = await response.json();
+    const exercises = normalizeExercisesResponse(data);
+
+    console.log('[fetchExercises] count:', exercises.length);
 
     dispatch({
       type: types.WORKOUT_GET_EXERCISES_SUCCESS,
       payload: {
-        exercises: data.data || data,
+        exercises,
         meta: data.meta,
         isLoadMore: params.isLoadMore
       },
     });
-    return data.data || data;
+    return exercises;
   } catch (error) {
     console.error('API Error:', error);
     dispatch({
@@ -71,7 +91,7 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
 export const fetchBodyParts = () => async (dispatch) => {
   dispatch({ type: types.WORKOUT_GET_BODY_PARTS_REQUEST });
   try {
-    const response = await fetch('https://oss.exercisedb.dev/api/v1/bodyparts');
+    const response = await fetch('https://oss.exercisedb.dev/api/v1/exercises/bodyparts');
     const data = await response.json();
     dispatch({
       type: types.WORKOUT_GET_BODY_PARTS_SUCCESS,

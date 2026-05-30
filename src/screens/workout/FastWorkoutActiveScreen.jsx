@@ -18,6 +18,7 @@ import Svg, { Path, Circle, Rect, Polyline } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import * as Clarity from '@microsoft/react-native-clarity';
 import {
   useCameraDevice,
   useCameraPermission,
@@ -276,6 +277,15 @@ const FastWorkoutActiveScreen = () => {
   }, []);
 
   useEffect(() => {
+    console.log('[Clarity] Workout opened');
+    try {
+      Clarity.sendCustomEvent('workout_opened');
+    } catch (e) {
+      console.error('[Clarity] Failed to send workout_opened:', e);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!isRestTimerVisible) return undefined;
 
     const interval = setInterval(() => {
@@ -380,6 +390,13 @@ const FastWorkoutActiveScreen = () => {
     ex => Array.isArray(ex.sets) && ex.sets.length > 0,
   ).length;
 
+  const closeWorkout = () => {
+    navigation.reset({
+      index: 1,
+      routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
@@ -388,7 +405,7 @@ const FastWorkoutActiveScreen = () => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.goBack()}
+            onPress={closeWorkout}
           >
             <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <Path

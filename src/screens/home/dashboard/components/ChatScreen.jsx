@@ -1,7 +1,8 @@
 
 // src/components/ChatScreen.jsx
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, ActivityIndicator, Image, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, Image, Alert, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { getTrainerMessages, sendMessageToTrainer, initializeTrainerChat, endTrainerChat, sendMessageViaSocket } from '../../../../redux/actions/trainerActions';
@@ -288,7 +289,7 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
         </View>
       ) : loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#452829" />
+          <GlobalLoader size={60} />
           <Text style={styles.loadingText}>{strings.emptyState.loading}</Text>
         </View>
       ) : error ? (
@@ -331,7 +332,7 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
           disabled={sending || !newMessage.trim() || !currentToken}
         >
           {sending ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <GlobalLoader size={30} />
           ) : (
             <Icon name="send" size={20} color="#ffffff" />
           )}

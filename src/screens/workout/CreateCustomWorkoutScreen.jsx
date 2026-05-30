@@ -1,21 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Dimensions,
-  Image,
-  PanResponder,
-  Animated,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Image, PanResponder, Animated} from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -67,7 +52,7 @@ const CreateCustomWorkoutScreen = () => {
   const [isWorkoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Equipment');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEquipment, setSelectedEquipment] = useState('All Equipement');
+  const [selectedEquipment, setSelectedEquipment] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState([]);
   const [workoutNameInput, setWorkoutNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -121,13 +106,16 @@ const CreateCustomWorkoutScreen = () => {
 
   const toggleMuscle = muscle => {
     if (muscle === 'All Muscles') {
-      setSelectedMuscles([]);
+      setSelectedMuscles(prev => prev.includes(muscle) ? [] : [muscle]);
       return;
     }
     if (selectedMuscles.includes(muscle)) {
       setSelectedMuscles(selectedMuscles.filter(m => m !== muscle));
     } else {
-      setSelectedMuscles([...selectedMuscles, muscle]);
+      setSelectedMuscles([
+        ...selectedMuscles.filter(m => m !== 'All Muscles'),
+        muscle,
+      ]);
     }
   };
 
@@ -196,12 +184,8 @@ const CreateCustomWorkoutScreen = () => {
 
       const UI_TO_API_EQUIPMENT_MAP = {
         none: 'body weight',
-        barbell: 'barbell',
-        dumbbell: 'dumbbell',
-        kettlebell: 'kettlebell',
         machine: 'cable',
         plate: 'weighted',
-        'resistance band': 'resistance band',
         'suspension band': 'leverage machine',
       };
 
@@ -225,7 +209,9 @@ const CreateCustomWorkoutScreen = () => {
       const eqKey = selectedEquipment.toLowerCase();
       const apiEquipment =
         UI_TO_API_EQUIPMENT_MAP[eqKey] ||
-        (selectedEquipment !== 'All Equipement' ? eqKey : undefined);
+        (selectedEquipment && selectedEquipment !== 'All Equipement'
+          ? eqKey
+          : undefined);
 
       const fetchedExercises = await dispatch(
         fetchExercises({
@@ -242,7 +228,7 @@ const CreateCustomWorkoutScreen = () => {
 
       let finalExercises = fetchedExercises || [];
 
-      let formattedExercises = finalExercises.slice(0, 1).map(ex => ({
+      let formattedExercises = finalExercises.slice(0, 30).map(ex => ({
         ...ex,
         id: ex.id || ex._id,
         gifUrl: ex.gifUrl,
@@ -270,7 +256,7 @@ const CreateCustomWorkoutScreen = () => {
         muscles: cleanedMuscles,
         duration: '60 min',
         calories: '60 kcal',
-        equipment: selectedEquipment,
+        equipment: selectedEquipment || 'All Equipement',
         exercises: formattedExercises,
       };
 
@@ -294,7 +280,7 @@ const CreateCustomWorkoutScreen = () => {
       // Close modal and clean up states
       setWorkoutModalVisible(false);
       setSelectedMuscles([]);
-      setSelectedEquipment('All Equipement');
+      setSelectedEquipment('');
       setWorkoutNameInput('');
 
       // Auto-navigate to FastWorkoutActive with the newly created custom workout!
@@ -779,7 +765,7 @@ const CreateCustomWorkoutScreen = () => {
               >
                 <View style={styles.floatingButtonIcon}>
                   {isSaving ? (
-                    <ActivityIndicator color="#48075F" />
+                    <GlobalLoader size={50} />
                   ) : (
                     <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <Path

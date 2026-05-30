@@ -1,6 +1,6 @@
 // // src/screens/home/location/StatusIndicator.jsx
 // import React from 'react';
-// import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+// import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 // import Icon from 'react-native-vector-icons/Ionicons';
 
 // export const StatusIndicator = ({ locationError, gymError, isLoading, permissionGranted, onRetry }) => {
@@ -8,7 +8,7 @@
 //   if (isLoading) {
 //     return (
 //         <View style={styles.centered}>
-//             <ActivityIndicator size="large" color="#e74c3c" />
+//             <GlobalLoader size={50} />
 //             <Text style={styles.infoText}>Getting your location...</Text>
 //         </View>
 //     );
@@ -50,11 +50,11 @@
 //     infoText: { fontSize: 14, color: '#999', marginTop: 5, textAlign: 'center' },
 // });
 
-// src/screens/home/location/StatusIndicator.jsx
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Strings } from '../../../config/config'; // Import Config
+import { Strings } from '../../../config/config';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 export const StatusIndicator = ({ locationError, gymError, isLoading, permissionGranted, onRetry }) => {
   const { loading, notFound, serviceUnavailable, nearYou, required, requiredMsg, actions } = Strings.Location.Status;
@@ -62,7 +62,7 @@ export const StatusIndicator = ({ locationError, gymError, isLoading, permission
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#e74c3c" />
+        <GlobalLoader size={80} outerWidth={6} innerWidth={4} />
         <Text style={styles.infoText}>{loading}</Text>
       </View>
     );
