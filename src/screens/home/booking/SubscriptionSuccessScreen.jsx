@@ -8,11 +8,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useResponsiveMetrics } from '../../utils/responsive';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '@microsoft/react-native-clarity';
 
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';

@@ -1,4 +1,4 @@
-import { GlobalLoader } from '../../components/GlobalLoader';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 import React, { useState, useRef, useEffect } from 'react';
 import { View, SafeAreaView, StyleSheet, TouchableOpacity, Text, Alert} from 'react-native';
 import { WebView } from 'react-native-webview';

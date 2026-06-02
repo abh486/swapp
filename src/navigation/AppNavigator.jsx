@@ -10,6 +10,7 @@ import MemberProfile from '../screens/MemberProfile'; // 👈 Profile creation/e
 import DietAllLogs from '../screens/activity/diet/DietAllLogs';
 
 import BottomTabNavigator from './BottomTabNavigator';
+import Community from '../screens/community/Community';
 import DiscoverProvidersMapScreen from '../screens/home/dashboard/DiscoverProvidersMapScreen';
 import ProviderDetailScreen from '../screens/home/provider/ProviderDetailScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -22,11 +23,11 @@ import CreateCustomWorkoutScreen, {
 import FastWorkoutActiveScreen from '../screens/workout/FastWorkoutActiveScreen';
 import WorkoutSummaryScreen from '../screens/workout/WorkoutSummaryScreen';
 import CurrentWorkoutPlanScreen from '../screens/workout/CurrentWorkoutPlanScreen';
-import CheckoutWebViewScreen from '../screens/home/CheckoutWebViewScreen';
-import SubscriptionSuccessScreen from '../screens/home/SubscriptionSuccessScreen';
-import PaymentProcessingScreen from '../screens/home/PaymentProcessingScreen';
-import MembershipDetailsScreen from '../screens/home/MembershipDetailsScreen';
-import MembershipBookingScreen from '../screens/home/MembershipBookingScreen';
+import CheckoutWebViewScreen from '../screens/home/booking/CheckoutWebViewScreen';
+import SubscriptionSuccessScreen from '../screens/home/booking/SubscriptionSuccessScreen';
+import PaymentProcessingScreen from '../screens/home/booking/PaymentProcessingScreen';
+import MembershipDetailsScreen from '../screens/home/booking/MembershipDetailsScreen';
+import MembershipBookingScreen from '../screens/home/booking/MembershipBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
@@ -65,6 +66,7 @@ const AppNavigator = () => {
             // ✅ User authenticated + has profile → go to main app
             <>
               <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+              <Stack.Screen name="Community" component={Community} />
               <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
 
               <Stack.Screen

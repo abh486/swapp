@@ -22,7 +22,7 @@ import {
   useCameraPermission,
   useObjectOutput,
 } from 'react-native-vision-camera';
-import { useResponsiveMetrics } from '../../utils/responsive';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const FALLBACK_GYM_IMAGE =
   'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';

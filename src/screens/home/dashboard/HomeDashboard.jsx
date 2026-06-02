@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -210,24 +211,57 @@ export const HomeDashboard = ({ navigation }) => {
 
   const renderCategory = ({ item }) => {
     const isActive = activeCategory === item.id;
+
+    if (isActive) {
+      return (
+        <TouchableOpacity
+          style={styles.categoryItemActive}
+          activeOpacity={0.9}
+          onPress={() => {
+            dispatch(setGlobalCategory(item.id, item.vertical));
+          }}
+        >
+          <View style={styles.svgWrapper}>
+            <Svg width={110} height={60} viewBox="0 0 110 60">
+              <Path
+                d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
+                fill="none"
+                stroke="rgba(255, 255, 255, 0.4)"
+                strokeWidth={1.5}
+              />
+            </Svg>
+          </View>
+
+          <View style={styles.activeCircleIcon}>
+            <Icon
+              name={item.icon || 'apps'}
+              size={18}
+              color="#1a1a1a"
+            />
+          </View>
+
+          <Text style={styles.activeCategoryText}>{item.label}</Text>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <TouchableOpacity
-        style={[styles.categoryPill, isActive && styles.categoryPillActive]}
+        style={styles.categoryItemInactive}
+        activeOpacity={0.8}
         onPress={() => {
           dispatch(setGlobalCategory(item.id, item.vertical));
         }}
       >
-        <Icon
-          name={item.icon || 'apps'}
-          size={14}
-          color={isActive ? '#fff' : '#888'}
-          style={styles.categoryIcon}
-        />
-        <Text
-          style={[styles.categoryText, isActive && styles.categoryTextActive]}
-        >
-          {item.label}
-        </Text>
+        <View style={styles.inactiveCircleIcon}>
+          <Icon
+            name={item.icon || 'apps'}
+            size={18}
+            color="#A5A5A5"
+          />
+        </View>
+        <Text style={styles.inactiveCategoryText}>{item.label}</Text>
+        <View style={styles.inactiveBottomLine} />
       </TouchableOpacity>
     );
   };
@@ -286,10 +320,10 @@ export const HomeDashboard = ({ navigation }) => {
 
     const verticalLabel = Array.isArray(provider.vertical)
       ? provider.vertical[0].charAt(0) +
-        provider.vertical[0].slice(1).toLowerCase()
+      provider.vertical[0].slice(1).toLowerCase()
       : provider.vertical
-      ? provider.vertical.charAt(0) + provider.vertical.slice(1).toLowerCase()
-      : 'Fitness';
+        ? provider.vertical.charAt(0) + provider.vertical.slice(1).toLowerCase()
+        : 'Fitness';
 
     return (
       <TouchableOpacity
@@ -402,86 +436,86 @@ export const HomeDashboard = ({ navigation }) => {
           })
         }
       >
-      <LinearGradient
-        colors={['#030303', '#09050D', '#160420']}
-        style={styles.membershipGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View
-          style={[
-            styles.membershipArcOne,
-            {
-              width: arcOneWidth,
-              height: arcOneWidth * 0.48,
-              borderRadius: arcOneWidth / 2,
-              left: -subscriptionCardWidth * 0.24,
-              bottom: -subscriptionCardHeight * 0.85,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.membershipArcTwo,
-            {
-              width: arcTwoWidth,
-              height: arcTwoWidth * 0.47,
-              borderRadius: arcTwoWidth / 2,
-              left: -subscriptionCardWidth * 0.28,
-              bottom: -subscriptionCardHeight * 0.95,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.membershipArcThree,
-            {
-              width: arcThreeWidth,
-              height: arcThreeWidth * 0.46,
-              borderRadius: arcThreeWidth / 2,
-              left: -subscriptionCardWidth * 0.3,
-              bottom: -subscriptionCardHeight * 1.05,
-            },
-          ]}
-        />
-        <View style={styles.activeBadge}>
-          <View style={styles.activeDot} />
-          <Text style={styles.activeText}>ACTIVE</Text>
-        </View>
-
-        <View style={styles.membershipImageWrap}>
-          <Image
-            source={{ uri: subscribedImage }}
-            style={styles.membershipImage}
+        <LinearGradient
+          colors={['#030303', '#09050D', '#160420']}
+          style={styles.membershipGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View
+            style={[
+              styles.membershipArcOne,
+              {
+                width: arcOneWidth,
+                height: arcOneWidth * 0.48,
+                borderRadius: arcOneWidth / 2,
+                left: -subscriptionCardWidth * 0.24,
+                bottom: -subscriptionCardHeight * 0.85,
+              },
+            ]}
           />
-          <View style={styles.qrBadge}>
-            <Icon name="qr-code-outline" size={20} color="#FFF" />
+          <View
+            style={[
+              styles.membershipArcTwo,
+              {
+                width: arcTwoWidth,
+                height: arcTwoWidth * 0.47,
+                borderRadius: arcTwoWidth / 2,
+                left: -subscriptionCardWidth * 0.28,
+                bottom: -subscriptionCardHeight * 0.95,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.membershipArcThree,
+              {
+                width: arcThreeWidth,
+                height: arcThreeWidth * 0.46,
+                borderRadius: arcThreeWidth / 2,
+                left: -subscriptionCardWidth * 0.3,
+                bottom: -subscriptionCardHeight * 1.05,
+              },
+            ]}
+          />
+          <View style={styles.activeBadge}>
+            <View style={styles.activeDot} />
+            <Text style={styles.activeText}>ACTIVE</Text>
           </View>
-        </View>
 
-        <View style={styles.membershipCopy}>
-          <Text style={styles.membershipTitle} numberOfLines={1}>
-            {subscribedGymName}
-          </Text>
-          <Text style={styles.membershipSubtitle} numberOfLines={1}>
-            {subscribedPlanName}
-          </Text>
-          <Text style={styles.membershipTier} numberOfLines={1}>
-            {subscribedTierName}
-          </Text>
-        </View>
+          <View style={styles.membershipImageWrap}>
+            <Image
+              source={{ uri: subscribedImage }}
+              style={styles.membershipImage}
+            />
+            <View style={styles.qrBadge}>
+              <Icon name="qr-code-outline" size={20} color="#FFF" />
+            </View>
+          </View>
 
-        <View style={styles.membershipArrow}>
-          <Icon
-            name="arrow-up-outline"
-            size={20}
-            color="#FFF"
-            style={{ transform: [{ rotate: '45deg' }] }}
-          />
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+          <View style={styles.membershipCopy}>
+            <Text style={styles.membershipTitle} numberOfLines={1}>
+              {subscribedGymName}
+            </Text>
+            <Text style={styles.membershipSubtitle} numberOfLines={1}>
+              {subscribedPlanName}
+            </Text>
+            <Text style={styles.membershipTier} numberOfLines={1}>
+              {subscribedTierName}
+            </Text>
+          </View>
+
+          <View style={styles.membershipArrow}>
+            <Icon
+              name="arrow-up-outline"
+              size={20}
+              color="#FFF"
+              style={{ transform: [{ rotate: '45deg' }] }}
+            />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
   };
 
   const renderPassesCard = () => (
@@ -1136,33 +1170,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
     marginBottom: 24,
+    height: 95,
   },
-  categoryPill: {
-    flexDirection: 'row',
+  categoryItemActive: {
+    width: 110,
+    height: 90,
     alignItems: 'center',
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
+    justifyContent: 'flex-end',
+    position: 'relative',
   },
-  categoryPillActive: {
-    backgroundColor: '#1a1a1a',
-    borderColor: '#444',
+  svgWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 110,
+    height: 60,
   },
-  categoryIcon: {
-    marginRight: 6,
+  activeCircleIcon: {
+    position: 'absolute',
+    top: 9,
+    left: '50%',
+    marginLeft: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#A5A5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
   },
-  categoryText: {
-    color: '#888',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  categoryTextActive: {
-    color: '#fff',
+  activeCategoryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '600',
+    position: 'absolute',
+    bottom: 18,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: 5,
+  },
+  categoryItemInactive: {
+    width: 100,
+    height: 90,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  inactiveCircleIcon: {
+    position: 'absolute',
+    top: 9,
+    left: '50%',
+    marginLeft: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3E3E3E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inactiveCategoryText: {
+    color: '#888888',
+    fontSize: 11,
+    fontWeight: '500',
+    position: 'absolute',
+    bottom: 18,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+  },
+  inactiveBottomLine: {
+    height: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    position: 'absolute',
+    bottom: 5,
+    left: 0,
+    right: 0,
   },
 
   promoCarousel: {

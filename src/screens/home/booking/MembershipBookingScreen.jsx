@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useResponsiveMetrics } from '../../utils/responsive';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const DATES = [
   { month: 'May', day: '22' },
