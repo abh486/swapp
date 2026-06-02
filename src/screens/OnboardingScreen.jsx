@@ -1,30 +1,15 @@
+import { GlobalLoader } from '../components/GlobalLoader';
 import React, { useRef, useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Dimensions,
-  TouchableOpacity,
-  ImageBackground,
-  Image,
-  SafeAreaView,
-  Alert,
-  ActivityIndicator,
-  Animated,
-  PanResponder,
-  Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, Image, SafeAreaView, Alert, Animated, PanResponder, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useAuth } from '../context/AuthContext';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 // NOTE: For SVG support, ensure you have react-native-svg and react-native-svg-transformer installed.
 // In metro.config.js add the svg transformer. Then you can import SVGs as components:
 // import RingsGraphic from '../assets/image/grop 20000260.svg';
-
-const { width, height } = Dimensions.get('window');
 
 const slides = [
   {
@@ -53,12 +38,12 @@ const slides = [
 // ─────────────────────────────────────────────
 // SwipeButton
 // ─────────────────────────────────────────────
-const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd }) => {
+const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd, styles, wp, ms, sp }) => {
   const pan = useRef(new Animated.ValueXY()).current;
   const triggered = useRef(false);
-  const trackWidth = width - 60;
-  const iconWidth = 50;
-  const padding = 6;
+  const trackWidth = wp(90);
+  const iconWidth = ms(50);
+  const padding = ms(6);
   const maxTravel = trackWidth - iconWidth - padding * 2;
 
   const panResponder = useRef(
@@ -123,7 +108,7 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd 
 
   return (
     <View 
-      style={styles.swipeTrack}
+      style={[styles.swipeTrack, { padding: padding, borderRadius: ms(31), height: ms(62) }]}
       onStartShouldSetResponder={() => true}
       onResponderGrant={() => { if (onSwipeStart) onSwipeStart(); }}
       onResponderRelease={() => { if (onSwipeEnd) onSwipeEnd(); }}
@@ -136,12 +121,21 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd 
         <Icon name="chevron-right" size={24} color="#FFFFFF" />
       </View>
       <Animated.View
-        style={[styles.swipeThumb, { transform: [{ translateX }] }]}
+        style={[
+          styles.swipeThumb,
+          {
+            width: iconWidth,
+            height: iconWidth,
+            borderRadius: iconWidth / 2,
+            left: padding,
+            transform: [{ translateX }],
+          },
+        ]}
         {...panResponder.panHandlers}
-        hitSlop={{ top: 20, bottom: 20, left: 20, right: 30 }}
+        hitSlop={{ top: ms(20), bottom: ms(20), left: ms(20), right: ms(30) }}
       >
         {loading ? (
-          <ActivityIndicator color="#000" size="small" />
+          <GlobalLoader size={30} />
         ) : (
           <Icon name="chevron-right" size={28} color="#000" />
         )}
@@ -153,11 +147,11 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd 
 // ─────────────────────────────────────────────
 // RingsGraphic — Static SVG rings
 // ─────────────────────────────────────────────
-const RingsGraphic = () => {
+const RingsGraphic = ({ style }) => {
   return (
     <Image 
       source={require('../assets/image/Group 20000347.png')} // Clean version without any baked-in text
-      style={styles.ringsImage}
+      style={style}
       resizeMode="contain"
     />
   );
@@ -172,6 +166,8 @@ const OnboardingScreen = () => {
   const scrollX = useRef(0);
   const flatListRef = useRef(null);
   const { login, isLoggingIn: loading } = useAuth();
+  const { width: screenWidth, height: screenHeight, wp, hp, ms, fs, sp } = useResponsiveMetrics();
+  const styles = createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp });
 
   const handleLogin = () => {
     console.log('Initiating login from onboarding...');
@@ -202,7 +198,7 @@ const OnboardingScreen = () => {
 
   const handleScroll = (event) => {
     scrollX.current = event.nativeEvent.contentOffset.x;
-    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+    const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
     setCurrentIndex(index);
   };
 
@@ -210,21 +206,20 @@ const OnboardingScreen = () => {
     // ── Watch / Apple Health slide ──────────────────────────
     if (item.type === 'watch_layout') {
       return (
-        <View style={[styles.slide, { backgroundColor: '#CDCDCD' }]}>
+        <View style={[styles.slide, { width: screenWidth, height: screenHeight, backgroundColor: '#CDCDCD' }]}>
           {/* Watch — top (flipped 180°) */}
           <Image
             source={require('../assets/image/watch.png')}
-            style={styles.watchTop}
+            style={[styles.watchTop, { width: screenWidth * 1.4, height: screenHeight * 0.30, top: screenHeight * 0.02 }]}
             resizeMode="contain"
           />
 
           {/* Centre content */}
-          <View style={styles.watchMiddleContent}>
+          <View style={[styles.watchMiddleContent, { paddingHorizontal: sp(20), marginTop: screenHeight * 0.26, marginBottom: screenHeight * 0.26 }]}>
             {/* Activity rings + labels */}
-            <View style={styles.activityRingsContainer}>
-              <RingsGraphic />
+            <View style={[styles.activityRingsContainer, { width: screenWidth * 0.95, height: ms(280) }]}> 
+              <RingsGraphic style={[styles.ringsImage, { width: screenWidth * 0.95, height: ms(280) }]} />
             </View>
-
             {/* Text block */}
             <View style={styles.healthTextContainer}>
               <Text style={styles.healthTitle}>{item.title}</Text>
@@ -235,7 +230,7 @@ const OnboardingScreen = () => {
           {/* Watch — bottom (normal orientation) */}
           <Image
             source={require('../assets/image/watch.png')}
-            style={styles.watchBottom}
+            style={[styles.watchBottom, { width: screenWidth * 1.4, height: screenHeight * 0.30, bottom: screenHeight * 0.02 }]}
             resizeMode="contain"
           />
         </View>
@@ -244,7 +239,7 @@ const OnboardingScreen = () => {
 
     // ── Image-background slides (slide 1 & 3) ───────────────
     return (
-      <View style={styles.slide}>
+      <View style={[styles.slide, { width: screenWidth, height: screenHeight }]}> 
         <ImageBackground source={item.image} style={styles.imageBackground} resizeMode="cover">
           <View style={styles.overlay} />
           <SafeAreaView style={styles.safeArea}>
@@ -263,6 +258,10 @@ const OnboardingScreen = () => {
                       loading={loading}
                       onSwipeStart={() => setScrollEnabled(false)}
                       onSwipeEnd={() => setScrollEnabled(true)}
+                      styles={styles}
+                      wp={wp}
+                      ms={ms}
+                      sp={sp}
                     />
                   ) : (
                     <TouchableOpacity
@@ -272,7 +271,7 @@ const OnboardingScreen = () => {
                     >
                       <View style={styles.buttonIconContainer}>
                         {loading ? (
-                          <ActivityIndicator color="#000" size="small" />
+                          <GlobalLoader size={30} />
                         ) : (
                           <Icon name="chevron-right" size={24} color="#000" />
                         )}
@@ -329,17 +328,16 @@ const OnboardingScreen = () => {
 // ─────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────
-const styles = StyleSheet.create({
-  // ── Shared ──────────────────────────────────
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  slide: {
-    width,
-    height,
-    overflow: 'hidden',
-  },
+const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) =>
+  StyleSheet.create({
+    // ── Shared ──────────────────────────────────
+    container: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    slide: {
+      overflow: 'hidden',
+    },
 
   // ── Image-bg slides ─────────────────────────
   imageBackground: {
@@ -355,52 +353,52 @@ const styles = StyleSheet.create({
   },
   textContent: {
     flex: 1,
-    paddingHorizontal: 30,
-    paddingBottom: 80,
+    paddingHorizontal: sp(30),
+    paddingBottom: sp(80),
   },
   spacer: {
     flex: 1,
   },
   titleContainer: {
-    marginBottom: 40,
+    marginBottom: sp(40),
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 56,
+    fontSize: fs(56),
     fontFamily: 'BRLNSR',
     fontWeight: 'normal',
     fontStyle: 'italic',
-    lineHeight: 64,
+    lineHeight: fs(64),
   },
   buttonContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: sp(20),
   },
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(70, 70, 70, 0.8)',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 40,
+    paddingVertical: sp(12),
+    paddingHorizontal: sp(16),
+    borderRadius: ms(40),
     width: '100%',
     justifyContent: 'space-between',
   },
   buttonIconContainer: {
     backgroundColor: '#FFF',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(20),
     justifyContent: 'center',
     alignItems: 'center',
   },
   startButtonText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: '600',
     flex: 1,
     textAlign: 'center',
-    marginRight: 10,
+    marginRight: sp(10),
   },
   chevronGroup: {
     flexDirection: 'row',
@@ -410,21 +408,21 @@ const styles = StyleSheet.create({
   // ── Swipe button ─────────────────────────────
   swipeTrack: {
     width: '100%',
-    height: 62,
+    height: ms(62),
     backgroundColor: 'rgba(70, 70, 70, 0.8)',
-    borderRadius: 31,
+    borderRadius: ms(31),
     justifyContent: 'center',
-    padding: 6,
+    padding: ms(6),
   },
   swipeThumb: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: ms(50),
+    height: ms(50),
+    borderRadius: ms(25),
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    left: 6,
+    left: ms(6),
     zIndex: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -434,7 +432,7 @@ const styles = StyleSheet.create({
   },
   swipeText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: '600',
     textAlign: 'center',
     position: 'absolute',
@@ -444,7 +442,7 @@ const styles = StyleSheet.create({
   swipeChevronGroup: {
     flexDirection: 'row',
     position: 'absolute',
-    right: 20,
+    right: sp(20),
     zIndex: 1,
     opacity: 0.8,
   },
@@ -452,63 +450,50 @@ const styles = StyleSheet.create({
   // ── Pagination ───────────────────────────────
   paginationContainer: {
     position: 'absolute',
-    bottom: 40,
+    bottom: sp(40),
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dot: {
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 4,
+    height: ms(4),
+    borderRadius: ms(2),
+    marginHorizontal: sp(4),
   },
   activeDot: {
-    width: 30,
+    width: ms(30),
     backgroundColor: '#FFF',
   },
   inactiveDot: {
-    width: 20,
+    width: ms(20),
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
 
   // ── Watch layout (slide 2) ───────────────────
   watchTop: {
-    width: width * 1.4,
-    height: height * 0.30,
     position: 'absolute',
-    top: height * 0.02,
     alignSelf: 'center',
     transform: [{ rotate: '180deg' }],
   },
   watchBottom: {
-    width: width * 1.4,
-    height: height * 0.30,
     position: 'absolute',
-    bottom: height * 0.02,
     alignSelf: 'center',
   },
   watchMiddleContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    // Offset so content sits in the gap between the two watch images
-    marginTop: height * 0.26,
-    marginBottom: height * 0.26,
+    paddingHorizontal: sp(20),
   },
 
   // ── Activity rings ───────────────────────────
   activityRingsContainer: {
-    width: width * 0.95,
-    height: 280,
     alignSelf: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
+    marginVertical: sp(10),
   },
   ringsImage: {
-    width: width * 0.95,
-    height: 280,
     alignSelf: 'center',
   },
 
@@ -523,15 +508,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   healthTitle: {
-    fontSize: 42,
+    fontSize: fs(42),
     fontFamily: 'BRLNSR',
     fontWeight: 'normal',
     color: '#000',
-    marginBottom: 12,
-    lineHeight: 50,
+    marginBottom: sp(12),
+    lineHeight: fs(50),
   },
   healthSubtitle: {
-    fontSize: 15,
+    fontSize: fs(15),
     color: '#555',
     lineHeight: 22,
     fontWeight: '400',

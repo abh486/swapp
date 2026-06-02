@@ -1,5 +1,6 @@
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 import React, { forwardRef } from 'react';
-import { View, StyleSheet, Modal, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity, Text} from 'react-native';
 import { Camera } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -37,7 +38,7 @@ const DietCameraModal = forwardRef(({
     return (
       <Modal visible={showCameraOverlay} transparent={true} animationType="slide">
         <View style={styles.permissionContainer}>
-          <ActivityIndicator size="large" color="#FFF" />
+          <GlobalLoader size={50} />
           <Text style={styles.permissionText}>Loading Camera Hardware...</Text>
           <TouchableOpacity onPress={() => setShowCameraOverlay(false)}>
             <Text style={styles.cancelText}>Cancel</Text>

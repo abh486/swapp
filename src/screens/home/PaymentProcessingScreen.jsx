@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Animated,
   Easing,
   Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/apiClient';
@@ -20,6 +20,9 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
     pendingSubscription,
   } = route.params || {};
   const { refreshAuthStatus } = useAuth();
+  const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
 
   // Step state: 0 = secure connection, 1 = verifying, 2 = confirming, 3 = done
   const [activeStep, setActiveStep] = useState(0);
@@ -205,101 +208,112 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-
-      {/* Rotating Spinner */}
-      <View style={styles.spinnerContainer}>
-        <Animated.View
-          style={[styles.spinnerRing, { transform: [{ rotate: spinAngle }] }]}
-        >
-          <View style={styles.spinnerGapCover} />
-        </Animated.View>
-      </View>
-
-      {/* Processing Text */}
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>Processing Payment</Text>
-        <Text style={styles.subtitle}>
-          Please wait while we confirm{'\n'}your transaction....
-        </Text>
-      </View>
-
-      {/* Step Checklist List */}
-      <View style={styles.checklistContainer}>
-        {/* Step 1 */}
-        <View style={[styles.checkRow, activeStep >= 0 && styles.activeRow]}>
-          <Text
-            style={[
-              styles.checkLabel,
-              step1Status === 'success' && styles.successLabel,
-              step1Status === 'loading' && styles.loadingLabel,
-            ]}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <View style={styles.spinnerContainer}>
+          <Animated.View
+            style={[styles.spinnerRing, { transform: [{ rotate: spinAngle }] }]}
           >
-            Secure connection
-          </Text>
-          {renderCheckmark(step1Status, bounce1)}
+            <View style={styles.spinnerGapCover} />
+          </Animated.View>
         </View>
 
-        {/* Step 2 */}
-        <View style={[styles.checkRow, activeStep >= 1 && styles.activeRow]}>
-          <Text
-            style={[
-              styles.checkLabel,
-              step2Status === 'success' && styles.successLabel,
-              step2Status === 'loading' && styles.loadingLabel,
-            ]}
-          >
-            Verifying payment
+        <View style={styles.textContainer}>
+          <Text style={styles.title} adjustsFontSizeToFit numberOfLines={1}>
+            Processing Payment
           </Text>
-          {renderCheckmark(step2Status, bounce2)}
+          <Text style={styles.subtitle}>
+            Please wait while we confirm{'\n'}your transaction....
+          </Text>
         </View>
 
-        {/* Step 3 */}
-        <View style={[styles.checkRow, activeStep >= 2 && styles.activeRow]}>
-          <Text
-            style={[
-              styles.checkLabel,
-              step3Status === 'success' && styles.successLabel,
-              step3Status === 'loading' && styles.loadingLabel,
-            ]}
-          >
-            Confirming details
-          </Text>
-          {renderCheckmark(step3Status, bounce3)}
-        </View>
-      </View>
+        <View style={styles.checklistContainer}>
+          <View style={[styles.checkRow, activeStep >= 0 && styles.activeRow]}>
+            <Text
+              style={[
+                styles.checkLabel,
+                step1Status === 'success' && styles.successLabel,
+                step1Status === 'loading' && styles.loadingLabel,
+              ]}
+              numberOfLines={2}
+            >
+              Secure connection
+            </Text>
+            {renderCheckmark(step1Status, bounce1)}
+          </View>
 
-      {/* Footer Secure Info */}
-      <View style={styles.footerContainer}>
-        <Text style={styles.footerText}>
-          This is a secure 256-bit encrypted payment
-        </Text>
-      </View>
+          <View style={[styles.checkRow, activeStep >= 1 && styles.activeRow]}>
+            <Text
+              style={[
+                styles.checkLabel,
+                step2Status === 'success' && styles.successLabel,
+                step2Status === 'loading' && styles.loadingLabel,
+              ]}
+              numberOfLines={2}
+            >
+              Verifying payment
+            </Text>
+            {renderCheckmark(step2Status, bounce2)}
+          </View>
+
+          <View style={[styles.checkRow, activeStep >= 2 && styles.activeRow]}>
+            <Text
+              style={[
+                styles.checkLabel,
+                step3Status === 'success' && styles.successLabel,
+                step3Status === 'loading' && styles.loadingLabel,
+              ]}
+              numberOfLines={2}
+            >
+              Confirming details
+            </Text>
+            {renderCheckmark(step3Status, bounce3)}
+          </View>
+        </View>
+
+        <View style={styles.footerContainer}>
+          <Text style={styles.footerText}>
+            This is a secure 256-bit encrypted payment
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ fs, sp, ms, isLandscape, maxContentWidth }, insets) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 30,
+    justifyContent: isLandscape ? 'flex-start' : 'space-around',
+    paddingHorizontal: sp(30),
+    paddingTop: sp(isLandscape ? 18 : 36),
+    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(16),
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: maxContentWidth,
   },
   spinnerContainer: {
-    marginTop: 60,
-    width: 140,
-    height: 140,
+    marginTop: sp(isLandscape ? 8 : 24),
+    width: ms(isLandscape ? 112 : 140),
+    height: ms(isLandscape ? 112 : 140),
     justifyContent: 'center',
     alignItems: 'center',
   },
   spinnerRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 6,
+    width: ms(isLandscape ? 96 : 120),
+    height: ms(isLandscape ? 96 : 120),
+    borderRadius: ms(isLandscape ? 48 : 60),
+    borderWidth: ms(6),
     borderColor: '#2ecc71',
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
@@ -307,38 +321,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   spinnerGapCover: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: ms(isLandscape ? 84 : 108),
+    height: ms(isLandscape ? 84 : 108),
+    borderRadius: ms(isLandscape ? 42 : 54),
     backgroundColor: '#000',
   },
   textContainer: {
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: sp(10),
   },
   title: {
-    fontSize: 24,
+    fontSize: fs(24),
     fontWeight: 'bold',
     color: '#FFF',
-    marginBottom: 10,
+    marginBottom: sp(10),
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: fs(16),
     color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: fs(22),
   },
   checklistContainer: {
     width: '100%',
-    paddingHorizontal: 20,
-    marginVertical: 10,
+    paddingHorizontal: sp(20),
+    marginVertical: sp(10),
   },
   checkRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: sp(16),
+    gap: sp(14),
     opacity: 0.3,
   },
   activeRow: {
@@ -346,8 +361,10 @@ const styles = StyleSheet.create({
   },
   checkLabel: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: '500',
+    flex: 1,
+    minWidth: 0,
   },
   successLabel: {
     color: '#FFF',
@@ -356,36 +373,36 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   emptyCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: ms(24),
+    height: ms(24),
+    borderRadius: ms(12),
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   loadingDotContainer: {
-    width: 24,
-    height: 24,
+    width: ms(24),
+    height: ms(24),
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingDotSpin: {
-    width: 24,
-    height: 24,
+    width: ms(24),
+    height: ms(24),
     justifyContent: 'center',
     alignItems: 'center',
   },
   smallSpinnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: ms(6),
+    height: ms(6),
+    borderRadius: ms(3),
     backgroundColor: '#2ecc71',
     position: 'absolute',
     top: 0,
   },
   successCheckCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: ms(26),
+    height: ms(26),
+    borderRadius: ms(13),
     backgroundColor: '#2ecc71',
     justifyContent: 'center',
     alignItems: 'center',
@@ -397,10 +414,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   footerContainer: {
-    marginBottom: 20,
+    marginBottom: sp(4),
   },
   footerText: {
-    fontSize: 12,
+    fontSize: fs(12),
     color: 'rgba(255, 255, 255, 0.3)',
     textAlign: 'center',
   },

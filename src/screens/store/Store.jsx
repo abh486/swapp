@@ -1,19 +1,6 @@
-// import React, { useState, useEffect } from 'react';
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   ScrollView,
-//   TouchableOpacity,
-//   Image,
-//   TextInput,
-//   Modal,
-//   StatusBar,
-//   FlatList,
-//   Dimensions,
-//   ActivityIndicator,
-//   Alert,
-// } from 'react-native';
+// import { GlobalLoader } from '../../components/GlobalLoader';
+import React, { useState, useEffect } from 'react';
+// import { // View, // Text, // StyleSheet, // ScrollView, // TouchableOpacity, // Image, // TextInput, // Modal, // StatusBar, // FlatList, // Dimensions, // , // Alert, // } from 'react-native';
 // import LinearGradient from 'react-native-linear-gradient';
 // import Icon from 'react-native-vector-icons/Ionicons';
 // import Cart from './Cart';
@@ -212,7 +199,7 @@
 
 //   const renderProductList = () => {
 //     if (loading) {
-//       return <ActivityIndicator size="large" color="#452829" style={{ marginTop: 50 }} />;
+//       return <GlobalLoader size={50} style={{ marginTop: 50 }} />;
 //     }
 //     if (error) {
 //       return <Text style={styles.errorText}>{error}</Text>;
@@ -695,21 +682,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  Modal,
-  StatusBar,
-  FlatList,
-  Dimensions,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, StatusBar, FlatList, Dimensions, Alert} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Cart from './Cart';
@@ -915,7 +888,7 @@ const Store = () => {
 
   const renderProductList = () => {
     if (loading) {
-      return <ActivityIndicator size="large" color="#452829" style={{ marginTop: 50 }} />;
+      return <GlobalLoader size={50} style={{ marginTop: 50 }} />;
     }
     if (error) {
       return <Text style={styles.errorText}>{error}</Text>;

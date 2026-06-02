@@ -1,16 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  Image,
-  ScrollView,
-  Dimensions,
-  StatusBar,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
@@ -106,8 +96,10 @@ const WorkoutSummaryScreen = () => {
         }
       }
 
-      // Return to Workouts or Dashboard
-      navigation.replace('Workouts');
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+      });
     } catch (error) {
       console.error('Error saving workout:', error);
     } finally {
@@ -310,7 +302,7 @@ const WorkoutSummaryScreen = () => {
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <GlobalLoader size={30} />
           ) : (
             <Text style={styles.doneBtnText}>DONE</Text>
           )}

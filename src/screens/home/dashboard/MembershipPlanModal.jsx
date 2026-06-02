@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
+import * as Clarity from '@microsoft/react-native-clarity';
 
 const { width } = Dimensions.get('window');
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
@@ -224,6 +225,13 @@ const MembershipPlanModal = ({ visible, onClose }) => {
               disabled={!selectedTier}
               onPress={async () => {
                 if (selectedTier) {
+                  console.log('[Clarity] Subscription clicked');
+                  try {
+                    Clarity.sendCustomEvent('subscription_clicked');
+                    Clarity.setCustomTag('clicked_plan', selectedTier ? selectedTier.name : 'Unknown');
+                  } catch (e) {
+                    console.error('[Clarity] Failed to send subscription_clicked:', e);
+                  }
                   try {
                     const pendingSubscription = {
                       status: 'ACTIVE',

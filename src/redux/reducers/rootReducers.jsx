@@ -12,6 +12,7 @@ import postReducer from './postReducer';
 import subscriptionReducer from './subscriptionReducer';
 import shopReducer from './shopReducer';
 import homeReducer from './homeReducer';
+import supportReducer from './supportReducer';
 
 const rootReducer = combineReducers({
   workout: workoutReducer,
@@ -27,6 +28,7 @@ const rootReducer = combineReducers({
   subscription: subscriptionReducer,
   shop: shopReducer,
   home: homeReducer,
+  support: supportReducer,
 });
 
 export default rootReducer;

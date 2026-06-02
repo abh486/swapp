@@ -1,15 +1,9 @@
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  SafeAreaView,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-  Text,
-  Alert,
-} from 'react-native';
+import { GlobalLoader } from '../../components/GlobalLoader';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, SafeAreaView, StyleSheet, TouchableOpacity, Text, Alert} from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as Clarity from '@microsoft/react-native-clarity';
 
 const CheckoutWebViewScreen = ({ route, navigation }) => {
   const {
@@ -20,6 +14,15 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
   } = route.params || {};
   const [loading, setLoading] = useState(true);
   const successHandledRef = useRef(false);
+
+  useEffect(() => {
+    console.log('[Clarity] Checkout started');
+    try {
+      Clarity.sendCustomEvent('checkout_started');
+    } catch (e) {
+      console.error('[Clarity] Failed to send checkout_started:', e);
+    }
+  }, []);
 
   const handleNavigationStateChange = navState => {
     const currentUrl = navState.url;
@@ -120,7 +123,7 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
           startInLoadingState={true}
           renderLoading={() => (
             <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color="#FFF" />
+              <GlobalLoader size={60} />
             </View>
           )}
         />

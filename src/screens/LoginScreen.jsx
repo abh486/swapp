@@ -1,13 +1,15 @@
+import { GlobalLoader } from '../components/GlobalLoader';
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert, ImageBackground, Dimensions, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert, ImageBackground, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-
-const { width, height } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../utils/responsive';
 
 const LoginScreen = () => {
   const { login, loading, isAuthenticated } = useAuth();
   const navigation = useNavigation();
+  const { wp, ms, fs, sp } = useResponsiveMetrics();
+  const styles = createStyles({ wp, ms, fs, sp });
 
   const handleLogin = async () => {
     try {
@@ -66,7 +68,7 @@ const LoginScreen = () => {
               activeOpacity={0.9}
             >
               {loading ? (
-                <ActivityIndicator color="#000000" />
+                <GlobalLoader size={40} />
               ) : (
                 <Text style={styles.signInButtonText}>CONTINUE</Text>
               )}
@@ -81,8 +83,9 @@ const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({ 
-  backgroundImage: {
+const createStyles = ({ wp, ms, fs, sp }) =>
+  StyleSheet.create({ 
+    backgroundImage: {
     flex: 1,
     width: '100%',
     height: '100%',
@@ -99,7 +102,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: sp(24),
+    paddingVertical: sp(16),
   },
   spacer: {
     flex: 1,
@@ -110,29 +114,29 @@ const styles = StyleSheet.create({
   },
   headlineText: {
     color: '#ffffff',
-    fontSize: 32,
+    fontSize: fs(32),
     fontFamily: 'BRLNSR',
     fontWeight: 'normal',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: sp(8),
   },
   subtitleText: {
     color: '#A0A0A0',
-    fontSize: 18,
+    fontSize: fs(16),
     textAlign: 'center',
   },
   bottomContent: {
     width: '100%',
-    maxWidth: 350,
+    maxWidth: Math.min(ms(360), wp(90)),
   },
   signInButton: { 
     backgroundColor: '#ffffff',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: sp(16),
+    paddingHorizontal: sp(18),
+    borderRadius: ms(14),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: sp(12),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -141,14 +145,14 @@ const styles = StyleSheet.create({
   },
   signInButtonText: { 
     color: '#000000',
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: 'bold',
   },
   legalText: {
     color: '#AFA7A7',
-    fontSize: 12,
+    fontSize: fs(12),
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: sp(16),
   },
   underlineText: {
     textDecorationLine: 'underline',

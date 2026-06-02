@@ -1,13 +1,6 @@
+import { GlobalLoader } from '../../../components/GlobalLoader';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import apiClient from '../../../api/apiClient';
 
@@ -62,7 +55,7 @@ const DietAllLogs = ({ navigation }) => {
 
       {loading ? (
         <View style={styles.centerState}>
-          <ActivityIndicator color="#4CAF50" size="large" />
+          <GlobalLoader size={50} />
           <Text style={styles.stateText}>Loading food logs...</Text>
         </View>
       ) : error ? (

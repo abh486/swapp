@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { createBooking } from '../../api/bookingApi';
 import { parseApiFailure } from '../../api/apiUtils';
@@ -293,7 +292,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#050209" />
 
       {/* Deep purple/black gradient background top glow */}
@@ -496,7 +495,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ fs, sp, ms, isTablet, isLandscape, maxContentWidth }, insets) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#000',
@@ -506,64 +505,67 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 180,
+    height: ms(isLandscape ? 128 : 180),
     backgroundColor: '#130421',
     opacity: 0.4,
     borderBottomLeftRadius: 180,
     borderBottomRightRadius: 180,
   },
   header: {
-    height: 60,
+    minHeight: ms(56),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 10,
+    paddingHorizontal: sp(20),
+    marginTop: sp(6),
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: maxContentWidth,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     color: '#FFF',
-    fontSize: 20,
+    fontSize: fs(20),
     fontWeight: 'bold',
   },
   calendarButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: ms(38),
+    height: ms(38),
+    borderRadius: ms(19),
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateStrip: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingHorizontal: sp(16),
+    paddingVertical: sp(isLandscape ? 12 : 20),
     alignItems: 'center',
     flexDirection: 'row',
   },
   dateChip: {
-    width: 52,
-    height: 74,
-    borderRadius: 26,
-    marginHorizontal: 5,
+    width: ms(52),
+    minHeight: ms(72),
+    borderRadius: ms(26),
+    marginHorizontal: sp(5),
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#0F0E13',
-    paddingVertical: 12,
+    paddingVertical: sp(12),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.03)',
   },
   dateChipActive: {
-    width: 56,
-    height: 90,
-    borderRadius: 28,
+    width: ms(56),
+    minHeight: ms(86),
+    borderRadius: ms(28),
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
+    paddingVertical: sp(8),
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -577,56 +579,56 @@ const styles = StyleSheet.create({
   },
   dateMonth: {
     color: '#5E5D62',
-    fontSize: 11,
+    fontSize: fs(11),
     fontWeight: '500',
   },
   dateDay: {
     color: '#A2A1A6',
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '700',
   },
   activeDayCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(22),
     backgroundColor: '#6A3C91',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginBottom: 4,
+    marginBottom: sp(4),
   },
   activeDayText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: fs(18),
     fontWeight: 'bold',
   },
   activeDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
+    width: ms(3),
+    height: ms(3),
+    borderRadius: ms(1.5),
     backgroundColor: '#FFF',
     position: 'absolute',
-    bottom: 6,
+    bottom: sp(6),
   },
   activeBottomMonth: {
     color: '#6A3C91',
-    fontSize: 11,
+    fontSize: fs(11),
     fontWeight: 'bold',
   },
   categoryStrip: {
-    paddingHorizontal: 20,
-    paddingBottom: 25,
+    paddingHorizontal: sp(20),
+    paddingBottom: sp(isLandscape ? 14 : 25),
     alignItems: 'center',
   },
   categoryPill: {
-    height: 36,
-    borderRadius: 18,
+    minHeight: ms(36),
+    borderRadius: ms(18),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 20,
+    paddingHorizontal: sp(20),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: sp(10),
     backgroundColor: '#000',
   },
   categoryPillActive: {
@@ -635,7 +637,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     color: '#727177',
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: '600',
   },
   categoryTextActive: {
@@ -645,39 +647,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slotContent: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    paddingBottom: 30,
+    paddingHorizontal: sp(isTablet ? 28 : 20),
+    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(12),
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: maxContentWidth,
   },
   sectionTitle: {
     color: '#727177',
-    fontSize: 12,
+    fontSize: fs(12),
     fontWeight: 'bold',
     letterSpacing: 1,
-    marginBottom: 16,
+    marginBottom: sp(16),
   },
   slotCard: {
-    width: SLOT_CARD_WIDTH,
-    height: 80,
-    borderRadius: 16,
+    width: '100%',
+    minHeight: ms(76),
+    borderRadius: ms(16),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: '#000',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: sp(16),
+    paddingVertical: sp(12),
+    marginBottom: sp(12),
+    gap: sp(12),
   },
   slotInfo: {
     flex: 1,
+    minWidth: 0,
   },
   slotTime: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: sp(6),
   },
   slotStatus: {
-    fontSize: 13,
+    fontSize: fs(13),
     fontWeight: '500',
   },
   slotStatusAvailable: {
@@ -717,9 +725,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bookButton: {
-    width: 80,
-    height: 38,
-    borderRadius: 10,
+    minWidth: ms(76),
+    minHeight: ms(38),
+    borderRadius: ms(10),
+    paddingHorizontal: sp(14),
     backgroundColor: '#4E266E',
     alignItems: 'center',
     justifyContent: 'center',
@@ -729,7 +738,7 @@ const styles = StyleSheet.create({
   },
   bookButtonText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: fs(14),
     fontWeight: 'bold',
   },
   entitlementCard: {

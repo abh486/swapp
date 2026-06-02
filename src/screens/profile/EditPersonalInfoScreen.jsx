@@ -1,23 +1,11 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import * as Clarity from '@microsoft/react-native-clarity';
 
 const OPTION_FIELDS = {
   gender: ['Male', 'Female', 'Other'],
@@ -124,6 +112,12 @@ const EditPersonalInfoScreen = ({ navigation }) => {
       }
 
       await refreshAuthStatus();
+      console.log('[Clarity] Profile updated');
+      try {
+        Clarity.sendCustomEvent('profile_updated');
+      } catch (e) {
+        console.error('[Clarity] Failed to send profile_updated:', e);
+      }
       Alert.alert('Saved', 'Your personal info has been updated.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -154,7 +148,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
           <Text style={styles.title}>Edit Personal info</Text>
           <TouchableOpacity style={styles.iconButton} onPress={handleSave} disabled={saving}>
             {saving ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <GlobalLoader size={30} />
             ) : (
               <Icon name="settings-sharp" size={24} color="#FFF" />
             )}
@@ -216,7 +210,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
           <UnderlineField label="Country" value={form.country} onChangeText={value => updateField('country', value)} />
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveText}>Save Changes</Text>}
+            {saving ? <GlobalLoader size={50} /> : <Text style={styles.saveText}>Save Changes</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

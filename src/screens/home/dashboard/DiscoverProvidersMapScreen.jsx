@@ -1,6 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   View,
@@ -12,8 +11,8 @@ import {
   Platform,
   Animated,
   PanResponder,
-  Dimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import MapView, { Marker } from 'react-native-maps';
@@ -23,14 +22,7 @@ import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/h
 
 import { useLocation } from '../../../context/LocationContext';
 import { useProviderData } from '../../../hooks/useProviderData';
-
-const { height: screenHeight } = Dimensions.get('window');
-
-const SNAP_BOTTOM = screenHeight - 130;  // Sheet fully down, map fully exposed
-const SNAP_MID = screenHeight * 0.55;    // Sheet half way
-const SNAP_TOP = 130;                    // Sheet expanded
-
-const INITIAL_SNAP = SNAP_MID;
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 // Categories are now dynamic from Redux
 
@@ -38,9 +30,31 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { activeCategory, activeVertical } = useSelector(state => state.home);
   const [searchQuery, setSearchQuery] = useState(route.params?.query || '');
+  const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
+  const SNAP_TOP = insets.top + metrics.sp(104);
+  const SNAP_BOTTOM = metrics.height - insets.bottom - metrics.sp(116);
+  const SNAP_MID = metrics.isLandscape ? metrics.height * 0.48 : metrics.height * 0.55;
+  const styles = useMemo(
+    () => createStyles({ ...metrics, wp: metrics.wp }, insets, SNAP_TOP),
+    [metrics, insets, SNAP_TOP],
+  );
   
   const { userLocation, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
   const { feed } = useSelector(state => state.home);
+  const mapRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const targetLoc = route.params?.selectedLocation || userLocation;
+    if (targetLoc?.latitude && targetLoc?.longitude && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: parseFloat(targetLoc.latitude),
+        longitude: parseFloat(targetLoc.longitude),
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 1000);
+    }
+  }, [route.params?.selectedLocation, userLocation]);
 
   React.useEffect(() => {
     if (route.params?.categoryId || route.params?.vertical) {
@@ -64,8 +78,9 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
   const { providers, isLoading, actions: providerActions } = useProviderData(userLocation, permissionGranted, activeFilters);
 
-  const translateY = useRef(new Animated.Value(INITIAL_SNAP)).current;
-  const lastOffsetY = useRef(INITIAL_SNAP);
+  const translateY = useRef(new Animated.Value(SNAP_MID)).current;
+  const lastOffsetY = useRef(SNAP_MID);
+  const snapPointsRef = useRef({ top: SNAP_TOP, bottom: SNAP_BOTTOM });
 
   React.useEffect(() => {
     const listenerId = translateY.addListener(({ value }) => {
@@ -73,6 +88,12 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     });
     return () => translateY.removeListener(listenerId);
   }, [translateY]);
+
+  React.useEffect(() => {
+    snapPointsRef.current = { top: SNAP_TOP, bottom: SNAP_BOTTOM };
+    translateY.setValue(SNAP_MID);
+    lastOffsetY.current = SNAP_MID;
+  }, [SNAP_BOTTOM, SNAP_MID, SNAP_TOP, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -89,16 +110,17 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
       ),
       onPanResponderRelease: (_, gs) => {
         translateY.flattenOffset();
-        if (lastOffsetY.current < SNAP_TOP) {
+        const { top, bottom } = snapPointsRef.current;
+        if (lastOffsetY.current < top) {
           Animated.spring(translateY, {
-            toValue: SNAP_TOP,
+            toValue: top,
             useNativeDriver: false,
             bounciness: 0,
           }).start();
         } 
-        else if (lastOffsetY.current > SNAP_BOTTOM) {
+        else if (lastOffsetY.current > bottom) {
           Animated.spring(translateY, {
-            toValue: SNAP_BOTTOM,
+            toValue: bottom,
             useNativeDriver: false,
             bounciness: 0,
           }).start();
@@ -186,11 +208,12 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       <View style={StyleSheet.absoluteFillObject}>
         <MapView
+          ref={mapRef}
           style={styles.map}
           initialRegion={{
             latitude: userLocation?.latitude || 12.9716,
@@ -199,17 +222,26 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
             longitudeDelta: 0.1,
           }}
         >
-          {providers.map(provider => (
+          {providers
+            .filter(provider => provider.coordinates?.latitude && provider.coordinates?.longitude)
+            .map(provider => (
+              <Marker
+                key={provider.id}
+                coordinate={provider.coordinates}
+                title={provider.name}
+                description={`${provider.vertical?.[0] || 'Fitness'} • ${provider.address}`}
+                pinColor={provider.isPremium ? '#e74c3c' : '#00bcd4'}
+                onPress={() => navigation.navigate('ProviderDetails', { id: provider.id })}
+              />
+            ))}
+          {userLocation?.latitude && userLocation?.longitude && (
             <Marker
-              key={provider.id}
-              coordinate={{
-                latitude: parseFloat(provider.latitude),
-                longitude: parseFloat(provider.longitude)
-              }}
-              title={provider.name}
-              description={`${provider.vertical?.[0] || 'Fitness'} • ${provider.address}`}
+              key="user-location"
+              coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
+              title="You"
+              pinColor="#1e90ff"
             />
-          ))}
+          )}
         </MapView>
       </View>
 
@@ -306,7 +338,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           scrollEnabled={true}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
           ListEmptyComponent={!isLoading && <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No providers found nearby</Text>}
         />
       </Animated.View>
@@ -314,46 +346,56 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = ({ fs, sp, ms, wp, height, isTablet }, insets, SNAP_TOP) => StyleSheet.create({
+
   safeArea: { flex: 1, backgroundColor: '#000' },
-  topContainer: { backgroundColor: '#000', zIndex: 10, paddingBottom: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingTop: Platform.OS === 'android' ? 10 : 0, paddingBottom: 10, backgroundColor: '#000' },
-  backBtn: { marginRight: 10 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#000', borderRadius: 20, borderWidth: 1, borderColor: '#333', height: 40, paddingHorizontal: 15 },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 14, height: '100%' },
-  filterBtn: { marginLeft: 15 },
+  topContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+    paddingTop: insets.top + sp(6),
+    paddingBottom: sp(10),
+  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sp(15), paddingBottom: sp(10), backgroundColor: 'transparent' },
+  backBtn: { marginRight: sp(10), minWidth: ms(40), minHeight: ms(40), alignItems: 'center', justifyContent: 'center' },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#000', borderRadius: ms(20), borderWidth: 1, borderColor: '#333', minHeight: ms(40), paddingHorizontal: sp(15) },
+  searchIcon: { marginRight: sp(8) },
+  searchInput: { flex: 1, color: '#fff', fontSize: fs(14), minHeight: ms(40), minWidth: 0, paddingVertical: 0 },
+  filterBtn: { marginLeft: sp(15), minWidth: ms(40), minHeight: ms(40), alignItems: 'center', justifyContent: 'center' },
   categoriesWrapper: { backgroundColor: '#000' },
-  categoriesList: { paddingHorizontal: 15, alignItems: 'center' },
-  categoryPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginRight: 10, height: 32 },
+  categoriesList: { paddingHorizontal: sp(15), alignItems: 'center' },
+  categoryPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sp(16), paddingVertical: sp(6), borderRadius: ms(20), backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginRight: sp(10), minHeight: ms(32) },
   categoryPillActive: { borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)' },
-  categoryIcon: { marginRight: 6 },
-  categoryText: { color: '#888', fontSize: 12, fontWeight: '600' },
+  categoryIcon: { marginRight: sp(6) },
+  categoryText: { color: '#888', fontSize: fs(12), fontWeight: '600' },
   categoryTextActive: { color: '#fff' },
   map: { ...StyleSheet.absoluteFillObject },
-  sheetContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: screenHeight - SNAP_TOP, backgroundColor: '#000', borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 20, overflow: 'hidden' },
-  draggableHeader: { alignItems: 'center', paddingTop: 14, paddingBottom: 20, backgroundColor: '#000' },
-  topRightGradientContainer: { position: 'absolute', top: 0, right: 0, width: '60%', height: 120 },
-  topRightGradient: { flex: 1, borderBottomLeftRadius: 100 },
-  topLine: { width: 50, height: 4, backgroundColor: '#444', borderRadius: 2, marginBottom: 18 },
-  listTitle: { color: '#fff', fontSize: 20, fontWeight: '500', letterSpacing: 1 },
+  sheetContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: height - SNAP_TOP, backgroundColor: '#000', borderTopLeftRadius: ms(20), borderTopRightRadius: ms(20), zIndex: 20, overflow: 'hidden' },
+  draggableHeader: { alignItems: 'center', paddingTop: sp(14), paddingBottom: sp(20), backgroundColor: '#000' },
+  topRightGradientContainer: { position: 'absolute', top: 0, right: 0, width: '60%', height: ms(120) },
+  topRightGradient: { flex: 1, borderBottomLeftRadius: ms(100) },
+  topLine: { width: ms(50), height: ms(4), backgroundColor: '#444', borderRadius: ms(2), marginBottom: sp(18) },
+  listTitle: { color: '#fff', fontSize: fs(20), fontWeight: '500', letterSpacing: 1 },
   providersList: { flex: 1, backgroundColor: '#000' },
-  providerCard: { flexDirection: 'row', backgroundColor: '#050505', borderRadius: 12, padding: 12, marginHorizontal: 20, marginBottom: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  providerImage: { width: 80, height: 80, borderRadius: 8 },
-  providerContent: { flex: 1, marginLeft: 15 },
-  providerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  providerName: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginRight: 8, flexShrink: 1 },
-  premiumBadge: { backgroundColor: '#FFD700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 },
-  premiumText: { color: '#000', fontSize: 8, fontWeight: 'bold' },
-  providerMeta: { color: '#aaa', fontSize: 10, marginBottom: 4 },
-  providerRatingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  providerRatingText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-  starIcon: { marginHorizontal: 4 },
-  providerReviewsText: { color: '#888', fontSize: 10 },
+  providerCard: { flexDirection: 'row', backgroundColor: '#050505', borderRadius: ms(12), padding: sp(12), marginHorizontal: sp(isTablet ? 28 : 20), marginBottom: sp(15), borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  providerImage: { width: ms(isTablet ? 96 : 80), height: ms(isTablet ? 96 : 80), borderRadius: ms(8) },
+  providerContent: { flex: 1, marginLeft: sp(15), minWidth: 0 },
+  providerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: sp(4) },
+  providerName: { color: '#fff', fontSize: fs(14), fontWeight: 'bold', marginRight: sp(8), flexShrink: 1 },
+  premiumBadge: { backgroundColor: '#FFD700', paddingHorizontal: sp(6), paddingVertical: sp(2), borderRadius: ms(10) },
+  premiumText: { color: '#000', fontSize: fs(8), fontWeight: 'bold' },
+  providerMeta: { color: '#aaa', fontSize: fs(10), marginBottom: sp(4) },
+  providerRatingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: sp(8) },
+  providerRatingText: { color: '#fff', fontSize: fs(10), fontWeight: 'bold' },
+  starIcon: { marginHorizontal: sp(4) },
+  providerReviewsText: { color: '#888', fontSize: fs(10) },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap' },
-  tagPill: { backgroundColor: '#222', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, marginRight: 6, marginTop: 4 },
-  tagText: { color: '#aaa', fontSize: 8 },
-  providerRightActions: { justifyContent: 'space-between', alignItems: 'flex-end', marginLeft: 10 },
+  tagPill: { backgroundColor: '#222', paddingHorizontal: sp(8), paddingVertical: sp(4), borderRadius: ms(10), marginRight: sp(6), marginTop: sp(4) },
+  tagText: { color: '#aaa', fontSize: fs(8) },
+  providerRightActions: { justifyContent: 'space-between', alignItems: 'flex-end', marginLeft: sp(10) },
   bookmarkBtn: { padding: 4 },
   arrowBtn: { padding: 4 },
   modalOverlay: {
@@ -365,42 +407,43 @@ const styles = StyleSheet.create({
   },
   permissionModal: {
     backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
+    borderRadius: ms(20),
+    padding: ms(24),
+    width: wp(90),
+    maxWidth: 520,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#333',
   },
   modalIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: ms(80),
+    height: ms(80),
+    borderRadius: ms(40),
     backgroundColor: 'rgba(231, 76, 60, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: sp(20),
   },
   modalTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: fs(20),
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: sp(10),
   },
   modalSub: {
     color: '#aaa',
-    fontSize: 14,
+    fontSize: fs(14),
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 20,
+    marginBottom: sp(30),
+    lineHeight: fs(18),
   },
   modalBtn: {
     backgroundColor: '#e74c3c',
     width: '100%',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: sp(14),
+    borderRadius: ms(12),
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: sp(15),
   },
   modalBtnText: {
     color: '#fff',

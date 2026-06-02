@@ -1,11 +1,9 @@
 
 
 // src/screens/community/components/FindTrainers.jsx
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView, Image, Alert
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
@@ -66,7 +64,7 @@ const FindTrainers = () => {
     if (isLoading) {
       return (
         <View style={styles.centeredView}>
-          <ActivityIndicator size="large" color="#452829" />
+          <GlobalLoader size={60} />
           <Text style={styles.infoText}>{strings.loading}</Text>
         </View>
       );

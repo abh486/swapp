@@ -1,21 +1,10 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Modal,
-  TextInput,
-  PanResponder,
-  Animated,
-  ActivityIndicator,
-  Image,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, PanResponder, Animated, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchExercises,
@@ -24,26 +13,25 @@ import {
   setSelectedFilters,
 } from '../../redux/actions/workoutActions';
 
-const { width } = Dimensions.get('window');
-
 const LIGHTNING_ICON = require('../../assets/image/tender.png');
 const PLUS_ICON = require('../../assets/image/plus.png');
-
-const swipeWidth = 240;
-const sliderWidth = 46;
 
 const LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
 
 const LEVEL_BODY_PARTS_MAP = {
-  Beginner: ['Cardio', 'Neck', 'Full Body'],
-  Intermediate: ['Chest', 'Back', 'Shoulders', 'Upper Arms', 'Upper Legs'],
-  Advanced: ['Waist', 'Lower Arms', 'Lower Legs'],
+  Beginner: ['cardio', 'neck'],
+  Intermediate: ['chest', 'back', 'shoulders', 'upper arms', 'upper legs'],
+  Advanced: ['waist', 'lower arms', 'lower legs'],
 };
 
 const CreateFastWorkoutScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { equipments, muscles } = useSelector(state => state.workout);
+  const { wp, hp, ms, sp, fs, isLandscape } = useResponsiveMetrics();
+  const styles = createFastWorkoutStyles({ wp, hp, ms, sp, fs, isLandscape });
+  const swipeWidth = wp(90);
+  const sliderWidth = ms(46);
 
   useEffect(() => {
     if (!equipments || equipments.length === 0) dispatch(fetchEquipments());
@@ -56,7 +44,7 @@ const CreateFastWorkoutScreen = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Equipment');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEquipment, setSelectedEquipment] = useState('All Equipement');
+  const [selectedEquipment, setSelectedEquipment] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -69,9 +57,14 @@ const CreateFastWorkoutScreen = () => {
     : ['All Muscles', 'Abdominals', 'Abductors', 'Adductors', 'Biceps', 'Calves', 'Cardio', 'Chest', 'Forearms', 'Full Body', 'Glutes', 'Hamstrings', 'Lats', 'Lower back', 'Neck', 'Quadriceps', 'Shoulders', 'Traps', 'Triceps', 'Upper Back', 'Other'];
 
   const toggleMuscle = muscle => {
-    if (muscle === 'All Muscles') { setSelectedMuscles([]); return; }
+    if (muscle === 'All Muscles') {
+      setSelectedMuscles(prev => prev.includes(muscle) ? [] : [muscle]);
+      return;
+    }
     setSelectedMuscles(prev =>
-      prev.includes(muscle) ? prev.filter(m => m !== muscle) : [...prev, muscle],
+      prev.includes(muscle)
+        ? prev.filter(m => m !== muscle)
+        : [...prev.filter(m => m !== 'All Muscles'), muscle],
     );
   };
 
@@ -106,12 +99,8 @@ const CreateFastWorkoutScreen = () => {
 
       const UI_TO_API_EQUIPMENT_MAP = {
         none: 'body weight',
-        barbell: 'barbell',
-        dumbbell: 'dumbbell',
-        kettlebell: 'kettlebell',
         machine: 'cable',
         plate: 'weighted',
-        'resistance band': 'resistance band',
         'suspension band': 'leverage machine',
       };
 
@@ -133,17 +122,25 @@ const CreateFastWorkoutScreen = () => {
       const eqKey = selectedEquipment.toLowerCase();
       const apiEquipment =
         UI_TO_API_EQUIPMENT_MAP[eqKey] ||
-        (selectedEquipment !== 'All Equipement' ? eqKey : undefined);
+        (selectedEquipment && selectedEquipment !== 'All Equipement'
+          ? eqKey
+          : undefined);
       const levelBodyParts = LEVEL_BODY_PARTS_MAP[selectedLevel] || [];
+      const hasSelectedMuscleFilter =
+        selectedBodyParts.length > 0 || selectedTargetMuscles.length > 0;
 
       const fetchedExercises = await dispatch(fetchExercises({
         limit: 30,
         equipments: apiEquipment,
-        bodyParts: selectedBodyParts.length > 0 ? selectedBodyParts : levelBodyParts,
+        bodyParts: selectedBodyParts.length > 0
+          ? selectedBodyParts
+          : hasSelectedMuscleFilter
+            ? undefined
+            : levelBodyParts,
         targetMuscles: selectedTargetMuscles.length > 0 ? selectedTargetMuscles : undefined,
       }));
 
-      const formattedExercises = (fetchedExercises || []).slice(0, 1).map(ex => ({
+      const formattedExercises = (fetchedExercises || []).slice(0, 30).map(ex => ({
         ...ex,
         id: ex.id || ex._id,
         gifUrl: ex.gifUrl,
@@ -157,7 +154,7 @@ const CreateFastWorkoutScreen = () => {
         level: selectedLevel,
         environment: selectedEnv,
         duration: selectedDuration,
-        equipment: selectedEquipment,
+        equipment: selectedEquipment || 'All Equipement',
         muscles: cleanedMuscles,
         exercises: formattedExercises,
       });
@@ -176,7 +173,7 @@ const CreateFastWorkoutScreen = () => {
       onStartShouldSetPanResponder: () => true,
       onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
       onPanResponderRelease: (e, gesture) => {
-        if (gesture.dx > swipeWidth - sliderWidth - 20) {
+        if (gesture.dx > swipeWidth - sliderWidth - sp(20)) {
           Animated.spring(pan, {
             toValue: { x: swipeWidth - sliderWidth, y: 0 },
             useNativeDriver: false,
@@ -216,21 +213,21 @@ const CreateFastWorkoutScreen = () => {
         <Text style={styles.sectionLabel}>LEVEL</Text>
         <View style={styles.optionsRow}>
           {LEVEL_OPTIONS.map(level => (
-            <OptionChip key={level} title={level} isSelected={selectedLevel === level} onSelect={() => setSelectedLevel(level)} />
+            <OptionChip styles={styles} key={level} title={level} isSelected={selectedLevel === level} onSelect={() => setSelectedLevel(level)} />
           ))}
         </View>
 
         <Text style={styles.sectionLabel}>TRAINING ENVIRONMENT</Text>
         <View style={styles.optionsRow}>
           {['ADVANCED GYM', 'BASIC GYM', 'AT-HOME GYM', 'ZERO EQUIPMENT', 'PERSONALISED'].map(env => (
-            <OptionChip key={env} title={env} isSelected={selectedEnv === env} onSelect={() => setSelectedEnv(env)} />
+            <OptionChip styles={styles} key={env} title={env} isSelected={selectedEnv === env} onSelect={() => setSelectedEnv(env)} />
           ))}
         </View>
 
         <Text style={styles.sectionLabel}>WORKOUT DURATION</Text>
         <View style={styles.optionsRow}>
           {['30min', '45min', '50min', 'Choose Duration'].map(dur => (
-            <OptionChip key={dur} title={dur} isSelected={selectedDuration === dur} onSelect={() => setSelectedDuration(dur)} />
+            <OptionChip styles={styles} key={dur} title={dur} isSelected={selectedDuration === dur} onSelect={() => setSelectedDuration(dur)} />
           ))}
         </View>
 
@@ -355,7 +352,7 @@ const CreateFastWorkoutScreen = () => {
                 {...panResponder.panHandlers}>
                 <View style={styles.floatingButtonIcon}>
                   {isCreating
-                    ? <ActivityIndicator color="#48075F" />
+                    ? <GlobalLoader size={50} />
                     : (
                       <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                         <Path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#48075F" />
@@ -372,7 +369,7 @@ const CreateFastWorkoutScreen = () => {
   );
 };
 
-const OptionChip = ({ title, isSelected, onSelect }) => (
+const OptionChip = ({ styles, title, isSelected, onSelect }) => (
   <TouchableOpacity
     style={[styles.chip, isSelected && styles.chipSelected]}
     onPress={onSelect}
@@ -381,38 +378,39 @@ const OptionChip = ({ title, isSelected, onSelect }) => (
   </TouchableOpacity>
 );
 
-const styles = StyleSheet.create({
-  // Screen
-  container: { flex: 1, backgroundColor: '#000000' },
+const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs, isLandscape }) =>
+  StyleSheet.create({
+    // Screen
+    container: { flex: 1, backgroundColor: '#000000' },
 
-  // Header
-  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10 },
-  headerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3A0751',
-    alignSelf: 'flex-start',
-    paddingRight: 18,
-    paddingLeft: 0,
-    borderRadius: 22,
-    minHeight: 44,
-  },
-  lightningIcon: { width: 48, height: 48, marginLeft: -2, marginRight: 6 },
-  headerTitle: { fontSize: 13, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2 },
+    // Header
+    header: { paddingHorizontal: sp(18), paddingTop: sp(14), paddingBottom: sp(10) },
+    headerPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#3A0751',
+      alignSelf: 'flex-start',
+      paddingRight: sp(18),
+      paddingLeft: 0,
+      borderRadius: ms(22),
+      minHeight: ms(44),
+    },
+    lightningIcon: { width: ms(48), height: ms(48), marginLeft: -ms(2), marginRight: sp(6) },
+    headerTitle: { fontSize: fs(13), fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2 },
 
-  // Card (flex:1 = fills remaining screen, no scroll needed)
-  card: {
-    flex: 1,
-    borderRadius: 44,
-    marginHorizontal: 10,
-    marginBottom: 14,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
-    borderWidth: 1.3,
-    borderColor: 'rgba(255,255,255,0.88)',
-    backgroundColor: 'transparent',
-  },
+    // Card (flex:1 = fills remaining screen, no scroll needed)
+    card: {
+      flex: 1,
+      borderRadius: ms(44),
+      marginHorizontal: sp(10),
+      marginBottom: sp(14),
+      paddingHorizontal: sp(22),
+      paddingTop: sp(24),
+      paddingBottom: sp(20),
+      borderWidth: 1.3,
+      borderColor: 'rgba(255,255,255,0.88)',
+      backgroundColor: 'transparent',
+    },
 
   // Labels
   sectionLabel: {
@@ -534,8 +532,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A0A3A',
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
-    borderRadius: 23,
+    height: ms(46),
+    borderRadius: ms(23),
     borderWidth: 1,
     borderColor: '#3D1A54',
     overflow: 'hidden',
@@ -555,7 +553,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: sliderWidth,
+    width: ms(46),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,

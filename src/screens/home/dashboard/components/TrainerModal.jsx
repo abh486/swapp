@@ -1,12 +1,14 @@
 
 // src/screens/community/components/TrainerModal.jsx
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 import React, { useState, useMemo } from 'react';
-import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Linking, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../redux/actions/subscriptionActions';
 import { Strings } from '../../../config/config'; // Import Config
+import * as Clarity from '@microsoft/react-native-clarity';
 
 export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscribed, userSubscriptions }) => {
   const dispatch = useDispatch();
@@ -32,10 +34,21 @@ export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscri
     console.log('TrainerModal - Subscribe button pressed for plan:', plan.id);
     setError('');
     setSubscribingPlanId(plan.id);
+    console.log('[Clarity] Subscription clicked');
+    try {
+      Clarity.sendCustomEvent('subscription_clicked');
+      Clarity.setCustomTag('clicked_plan', plan ? plan.name : 'Trainer Plan');
+    } catch (e) {
+      console.error('[Clarity] Failed to send subscription_clicked:', e);
+    }
     try {
       const response = await dispatch(createCheckoutSession(plan.id, 'TRAINER'));
       if (response.success && response.data.checkoutUrl) {
-        navigation.navigate('CheckoutWebView', { url: response.data.checkoutUrl });
+        navigation.navigate('CheckoutWebView', {
+          url: response.data.checkoutUrl,
+          planName: plan.name,
+          price: plan.price,
+        });
         onClose();
       } else {
         throw new Error(response.message || strings.alerts.subscribeError);
@@ -162,7 +175,7 @@ export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscri
                               disabled={subscribingPlanId === plan.id}
                             >
                               {subscribingPlanId === plan.id ? (
-                                <ActivityIndicator color="#fff" size="small" />
+                                <GlobalLoader size={30} />
                               ) : (
                                 <Text style={styles.subscribeButtonText}>{strings.plan.subscribeBtn}</Text>
                               )}

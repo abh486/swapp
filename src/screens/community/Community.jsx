@@ -1,21 +1,6 @@
+import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  StatusBar,
-  SafeAreaView,
-  FlatList,
-  Image,
-  ActivityIndicator,
-  TextInput,
-  ImageBackground,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, SafeAreaView, FlatList, Image, TextInput, ImageBackground, Modal, KeyboardAvoidingView, Platform} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import apiClient from '../../api/apiClient';
 
@@ -453,7 +438,7 @@ const Community = () => {
       <View style={styles.content}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#5E5CE6" />
+            <GlobalLoader size={60} />
           </View>
         ) : (
           <FlatList
@@ -500,11 +485,7 @@ const Community = () => {
             </View>
 
             {commentsLoading ? (
-              <ActivityIndicator
-                size="large"
-                color="#5E5CE6"
-                style={{ marginTop: 24 }}
-              />
+              <GlobalLoader size={60} style={{ marginTop: 24 }} />
             ) : (
               <FlatList
                 data={comments}
@@ -558,7 +539,7 @@ const Community = () => {
                 disabled={!commentText.trim() || commentSubmitting}
               >
                 {commentSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <GlobalLoader size={30} />
                 ) : (
                   <Icon name="send" size={18} color="#FFF" />
                 )}
