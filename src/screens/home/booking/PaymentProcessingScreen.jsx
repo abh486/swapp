@@ -6,12 +6,12 @@ import {
   StatusBar,
   Animated,
   Easing,
-  ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAuth } from '../../../context/AuthContext';
-import { useResponsiveMetrics } from '../../../utils/responsive';
+import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../api/apiClient';
 
 const PaymentProcessingScreen = ({ route, navigation }) => {
   const {
@@ -35,6 +35,7 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
   const bounce1 = useRef(new Animated.Value(0)).current;
   const bounce2 = useRef(new Animated.Value(0)).current;
   const bounce3 = useRef(new Animated.Value(0)).current;
+  const pollIntervalRef = useRef(null);
 
   // 1. Rotate loading spinner continuously
   useEffect(() => {
@@ -48,14 +49,17 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
     ).start();
   }, [spinValue]);
 
-  // 2. Animate step transitions sequentially
+  // 2. Animate step transitions and verify payment via backend polling
   useEffect(() => {
-    // Step 1: Secure Connection (instantly loads, takes 1.2s to succeed)
+    let isMounted = true;
+    let pollCountLocal = 0;
+
+    // Step 1: Secure Connection (instantly loads, takes 1.5s to succeed)
     setStep1Status('loading');
 
     const t1 = setTimeout(() => {
+      if (!isMounted) return;
       setStep1Status('success');
-      // Trigger checkmark pop animation
       Animated.spring(bounce1, {
         toValue: 1,
         friction: 4,
@@ -63,54 +67,109 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
         useNativeDriver: true,
       }).start();
 
-      // Start Step 2
+      // Start Step 2: Verifying payment (starts polling)
       setStep2Status('loading');
       setActiveStep(1);
+
+      // Start polling
+      pollIntervalRef.current = setInterval(async () => {
+        if (!isMounted) return;
+
+        pollCountLocal += 1;
+        console.log(`[PaymentProcessing] Polling verification attempt #${pollCountLocal}`);
+
+        try {
+          const resp = await apiClient.post('/subscriptions/sync');
+          if (resp.data?.success && resp.data.data) {
+            const userObj = resp.data.data.user;
+            const subs = userObj?.subscriptions || [];
+            
+            // Check if there is an active subscription on the server
+            const serverActiveSub = subs.find(sub => {
+              const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+              return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+            });
+
+            if (serverActiveSub) {
+              // Found active subscription! Stop polling.
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+
+              // Step 2 Success
+              setStep2Status('success');
+              Animated.spring(bounce2, {
+                toValue: 1,
+                friction: 4,
+                tension: 40,
+                useNativeDriver: true,
+              }).start();
+
+              // Start Step 3: Confirming details
+              setStep3Status('loading');
+              setActiveStep(2);
+
+              // Wait 1.5s to finish step 3 visual transition
+              setTimeout(async () => {
+                if (!isMounted) return;
+                setStep3Status('success');
+                Animated.spring(bounce3, {
+                  toValue: 1,
+                  friction: 4,
+                  tension: 40,
+                  useNativeDriver: true,
+                }).start();
+                setActiveStep(3);
+
+                // Wait 1s and replace screen
+                setTimeout(async () => {
+                  if (!isMounted) return;
+                  await refreshAuthStatus?.();
+                  navigation.replace('SubscriptionSuccess', {
+                    planName,
+                    price,
+                    pendingSubscription,
+                  });
+                }, 1000);
+              }, 1500);
+
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('[PaymentProcessing] Polling error:', error?.message);
+        }
+
+        // Handle timeout (12 attempts * 2.5s = 30 seconds)
+        if (pollCountLocal >= 12) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+
+          Alert.alert(
+            'Verification Pending',
+            'We are still waiting for payment confirmation from Chargebee/your bank. If your payment went through, it will be updated in the background shortly.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
+                  });
+                },
+              },
+            ],
+          );
+        }
+      }, 2500);
+
     }, 1500);
 
-    // Step 2: Verifying Payment (starts after step 1 succeeds, takes 1.5s to succeed)
-    const t2 = setTimeout(() => {
-      setStep2Status('success');
-      Animated.spring(bounce2, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-
-      // Start Step 3
-      setStep3Status('loading');
-      setActiveStep(2);
-    }, 3200);
-
-    // Step 3: Confirming Details (starts after step 2 succeeds, takes 1.5s to succeed)
-    const t3 = setTimeout(() => {
-      setStep3Status('success');
-      Animated.spring(bounce3, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-
-      setActiveStep(3);
-    }, 4900);
-
-    // Final navigation to Congratulations screen (starts after step 3 succeeds)
-    const t4 = setTimeout(async () => {
-      await refreshAuthStatus?.();
-      navigation.replace('SubscriptionSuccess', {
-        planName,
-        price,
-        pendingSubscription,
-      });
-    }, 5900);
-
     return () => {
+      isMounted = false;
       clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
     };
   }, [planName, price, pendingSubscription, navigation, refreshAuthStatus]);
 

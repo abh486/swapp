@@ -1,9 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Linking,
   Modal,
+  Platform,
+  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -22,7 +25,82 @@ import {
   useCameraPermission,
   useObjectOutput,
 } from 'react-native-vision-camera';
-import { useResponsiveMetrics } from '../../../utils/responsive';
+import { useBarcodeScannerOutput } from 'react-native-vision-camera-barcode-scanner';
+import apiClient from '../../api/apiClient';
+import { generateBookingQr, getMyBookings } from '../../api/bookingApi';
+import { getCheckInHistory, venueScanCheckIn } from '../../api/checkinApi';
+import { parseApiFailure } from '../../api/apiUtils';
+import { isOpenAccessMode, resolveAccessMode } from '../../utils/accessMode';
+import { useLocation } from '../../context/LocationContext';
+import { useAuth } from '../../context/AuthContext';
+import { identifyQrPayload, QR_TYPE } from '../../utils/qrParser';
+
+const IOSScannerCamera = ({ device, isActive, isScanLocked, onQrCodeScanned }) => {
+  const objectOutput = useObjectOutput({
+    types: ['qr', 'ean-13', 'code-128', 'code-39', 'pdf-417'],
+    onObjectsScanned: objects => {
+      if (isScanLocked || objects.length === 0) return;
+      const value = objects.find(object => object.value)?.value;
+      if (!value) return;
+      onQrCodeScanned(value);
+    },
+  });
+
+  return (
+    <Camera
+      style={StyleSheet.absoluteFill}
+      device={device}
+      isActive={isActive}
+      outputs={objectOutput ? [objectOutput] : undefined}
+    />
+  );
+};
+
+const AndroidScannerCamera = ({ device, isActive, isScanLocked, onQrCodeScanned }) => {
+  const barcodeOutput = useBarcodeScannerOutput({
+    barcodeFormats: ['qr-code', 'ean-13', 'code-128', 'code-39', 'pdf-417'],
+    onBarcodeScanned: barcodes => {
+      if (isScanLocked || barcodes.length === 0) return;
+      const barcode = barcodes.find(b => b.rawValue || b.displayValue);
+      const value = barcode ? (barcode.rawValue || barcode.displayValue) : null;
+      if (!value) return;
+      onQrCodeScanned(value);
+    },
+    onError: error => {
+      console.warn('[AndroidScannerCamera] Barcode scan error:', error);
+    },
+  });
+
+  return (
+    <Camera
+      style={StyleSheet.absoluteFill}
+      device={device}
+      isActive={isActive}
+      outputs={barcodeOutput ? [barcodeOutput] : undefined}
+    />
+  );
+};
+
+const QRScanner = ({ device, isActive, isScanLocked, onQrCodeScanned }) => {
+  if (Platform.OS === 'ios') {
+    return (
+      <IOSScannerCamera
+        device={device}
+        isActive={isActive}
+        isScanLocked={isScanLocked}
+        onQrCodeScanned={onQrCodeScanned}
+      />
+    );
+  }
+  return (
+    <AndroidScannerCamera
+      device={device}
+      isActive={isActive}
+      isScanLocked={isScanLocked}
+      onQrCodeScanned={onQrCodeScanned}
+    />
+  );
+};
 
 const FALLBACK_GYM_IMAGE =
   'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
@@ -38,21 +116,107 @@ const getDateText = value => {
   });
 };
 
+const formatTime = value => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'TBD';
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatBookingDate = value => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'UPCOMING';
+
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+
+  if (date.toDateString() === today.toDateString()) return 'TODAY';
+  if (date.toDateString() === tomorrow.toDateString()) return 'TOMORROW';
+  return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+};
+
+const isActiveSubscription = sub => {
+  if (!sub) return false;
+  const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+  if (['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status)) return false;
+  if (sub.isActive === false || sub.active === false) return false;
+  return true;
+};
+
+const normalizePackageType = value => {
+  const raw = String(value || '').trim().toUpperCase();
+  if (raw === 'BUNDLE') return 'GLOBAL_BUNDLE';
+  if (raw === 'GLOBAL_BUNDLE') return 'GLOBAL_BUNDLE';
+  if (raw === 'UPGRADE_ONLY') return 'UPGRADE_ONLY';
+  return 'STANDALONE';
+};
+
 const MembershipDetailsScreen = ({ route, navigation }) => {
+  const { subscription: routeSubscription = {}, membershipId, categoryId: routeCategoryId = '' } = route.params || {};
+  const { user } = useAuth();
   const [scannerVisible, setScannerVisible] = useState(false);
   const [isScanLocked, setIsScanLocked] = useState(false);
-  const metrics = useResponsiveMetrics();
-  const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [checkInHistory, setCheckInHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [qrPass, setQrPass] = useState(null);
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const [providerDetails, setProviderDetails] = useState(null);
+  const [autoRenew, setAutoRenew] = useState(
+    routeSubscription?.cancelAtPeriodEnd !== true
+  );
+  const didAutoOpenScannerRef = useRef(false);
+  const subscriptions = useMemo(() => {
+    const profileData = user?.userProfile || user?.memberProfile || user || {};
+    const fromUser = user?.subscriptions || profileData.subscriptions || [];
+    const merged = [...fromUser];
+    if (routeSubscription?.id && !merged.find(sub => sub?.id === routeSubscription.id)) {
+      merged.unshift(routeSubscription);
+    }
+    return merged.filter(Boolean);
+  }, [routeSubscription, user]);
+  const [selectedMembershipId, setSelectedMembershipId] = useState(
+    membershipId || routeSubscription?.id || subscriptions[0]?.id || null
+  );
+
+  useEffect(() => {
+    if (membershipId && membershipId !== selectedMembershipId) {
+      setSelectedMembershipId(membershipId);
+    }
+  }, [membershipId, selectedMembershipId]);
+
+  const subscription = useMemo(() => {
+    if (selectedMembershipId) {
+      const matched = subscriptions.find(sub => sub?.id === selectedMembershipId);
+      if (matched) return matched;
+    }
+    return routeSubscription;
+  }, [routeSubscription, selectedMembershipId, subscriptions]);
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
-  const { subscription = {} } = route.params || {};
-  const provider =
-    subscription.provider ||
-    subscription.gym ||
-    subscription.partner ||
-    subscription.package?.provider ||
-    {};
+  const { userLocation, actions: locationActions } = useLocation();
+  const provider = useMemo(() => {
+    const routeProvider =
+      subscription.provider ||
+      subscription.gym ||
+      subscription.partner ||
+      subscription.package?.provider ||
+      {};
+    return { ...routeProvider, ...providerDetails };
+  }, [subscription, providerDetails]);
+  const accessMode = useMemo(
+    () =>
+      resolveAccessMode(
+        providerDetails?.accessConfig?.accessMode,
+        provider?.accessConfig?.accessMode,
+        subscription?.provider?.accessConfig?.accessMode,
+        subscription?.accessConfig?.accessMode,
+        subscription?.accessMode,
+      ),
+    [providerDetails, provider, subscription],
+  );
+  const isOpenAccess = isOpenAccessMode(accessMode);
   const plan =
     subscription.plan ||
     subscription.package ||
@@ -81,16 +245,247 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     subscription.photoUrl ||
     FALLBACK_GYM_IMAGE;
   const startDate =
-    getDateText(subscription.startDate || subscription.createdAt) ||
-    'Jan 20, 2026';
+    getDateText(subscription.currentTermStart || subscription.startDate || subscription.createdAt) ||
+    'N/A';
   const endDate =
     getDateText(
-      subscription.endDate ||
+      subscription.currentTermEnd ||
+        subscription.endDate ||
         subscription.expiresAt ||
         subscription.expiryDate ||
         subscription.currentPeriodEnd,
-    ) || 'Jan 20, 2027';
+    ) || 'N/A';
   const locationUrl = provider.locationLink || provider.mapUrl;
+  const providerId =
+    provider.id ||
+    subscription.providerId ||
+    subscription.gymId ||
+    subscription.partnerId ||
+    subscription.package?.providerId;
+  const packageType = useMemo(
+    () =>
+      normalizePackageType(
+        subscription?.packageType ||
+          subscription?.package?.package_type ||
+          subscription?.package?.packageType ||
+          subscription?.userPlan?.packageSubscription?.package?.package_type ||
+          subscription?.userPlan?.packageSubscription?.package?.packageType ||
+          ''
+      ),
+    [subscription]
+  );
+  const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
+  const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
+  const isAccessModeLoading = Boolean(providerId) && !providerDetails;
+  const isAppointmentOnly = accessMode === 'APPOINTMENT_ONLY';
+  const userPlanStatus = String(
+    subscription?.userPlan?.status ||
+      subscription?.userPlanStatus ||
+      subscription?.status ||
+      'UNKNOWN'
+  ).toUpperCase();
+  const remainingCredits = Number(
+    subscription?.creditLedger?.remainingCredits ??
+      subscription?.creditLedger?.availableCredits ??
+      subscription?.remainingCredits ??
+      subscription?.remainingSessions ??
+      0
+  );
+  const membershipChoices = useMemo(
+    () =>
+      subscriptions
+        .filter(sub => isActiveSubscription(sub) && normalizePackageType(
+          sub?.packageType ||
+            sub?.package?.package_type ||
+            sub?.package?.packageType ||
+            sub?.userPlan?.packageSubscription?.package?.package_type ||
+            ''
+        ) !== 'UPGRADE_ONLY')
+        .map(sub => {
+          const subProvider = sub.provider || sub.gym || sub.partner || sub.package?.provider || {};
+          const subPlan = sub.plan || sub.package || sub.membershipTier || sub.tier || {};
+          return {
+            id: sub.id,
+            label: `${subProvider?.name || 'Provider'} - ${subPlan?.name || sub.tierName || 'Membership'}`,
+          };
+        }),
+    [subscriptions]
+  );
+  const packageCategories = useMemo(() => {
+    if (isUpgradeOnlyPackage) return [];
+    const items =
+      subscription?.package?.items ||
+      subscription?.packageSubscription?.package?.items ||
+      subscription?.userPlan?.packageSubscription?.package?.items ||
+      [];
+    return items
+      .map(item => ({
+        id: item.category?.id || item.categoryId || item.id,
+        name: item.category?.name || item.name || 'Category',
+      }))
+      .filter(item => item.id && item.name);
+  }, [isUpgradeOnlyPackage, subscription]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(routeCategoryId || '');
+
+  useEffect(() => {
+    setSelectedCategoryId(routeCategoryId || '');
+  }, [routeCategoryId, subscription?.id, packageType]);
+
+  const { daysLeft, progressPercent } = useMemo(() => {
+    const startVal = subscription.currentTermStart || subscription.startDate || subscription.createdAt;
+    const endVal =
+      subscription.currentTermEnd ||
+      subscription.endDate ||
+      subscription.expiresAt ||
+      subscription.expiryDate ||
+      subscription.currentPeriodEnd;
+
+    if (!startVal || !endVal) {
+      return { daysLeft: 0, progressPercent: 0 };
+    }
+
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    const today = new Date();
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return { daysLeft: 0, progressPercent: 0 };
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const totalDuration = end.getTime() - start.getTime();
+    const remaining = end.getTime() - today.getTime();
+
+    const daysLeftVal = Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
+    const totalDaysVal = Math.max(1, Math.ceil(totalDuration / (1000 * 60 * 60 * 24)));
+
+    const percent = Math.max(0, Math.min(100, ((totalDaysVal - daysLeftVal) / totalDaysVal) * 100));
+
+    return { daysLeft: daysLeftVal, progressPercent: percent };
+  }, [subscription]);
+
+  const streakDays = useMemo(() => {
+    if (checkInHistory.length === 0) return 0;
+
+    const checkInDates = Array.from(
+      new Set(
+        checkInHistory.map(item => {
+          const d = new Date(item.date || item.checkedAt || item.startTime);
+          return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+        }).filter(Boolean)
+      )
+    ).sort((a, b) => new Date(b) - new Date(a));
+
+    if (checkInDates.length === 0) return 0;
+
+    let streak = 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    const latestDateStr = checkInDates[0];
+    if (latestDateStr !== todayStr && latestDateStr !== yesterdayStr) {
+      return 0;
+    }
+
+    const expectedDate = new Date(latestDateStr);
+    for (let i = 0; i < checkInDates.length; i++) {
+      const currentDateStr = checkInDates[i];
+      const expectedStr = expectedDate.toISOString().split('T')[0];
+
+      if (currentDateStr === expectedStr) {
+        streak++;
+        expectedDate.setDate(expectedDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }, [checkInHistory]);
+
+  const avgDuration = useMemo(() => {
+    const durations = checkInHistory
+      .map(item => item.duration || item.durationMinutes || item.activeMinutes)
+      .filter(Boolean);
+    if (durations.length === 0) return 58;
+    const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+    return Math.round(avg);
+  }, [checkInHistory]);
+
+  const openingHours = provider.openTime && provider.closeTime
+    ? `${provider.openTime} - ${provider.closeTime}`
+    : '05:00 - 23:00';
+
+  const crowdLevel = provider.crowdLevel || '• Low';
+
+  const parkingText = provider.parking || provider.parkingInfo ||
+    (provider.amenity_tags?.includes('Parking') ? 'Available' : 'Limited Spots');
+
+  const lockersText = provider.lockersInfo ||
+    (provider.amenity_tags?.includes('Locker Rooms') || provider.amenity_tags?.includes('Locker') ? 'Available' : 'Not Available');
+
+  const amenities = provider.amenity_tags && provider.amenity_tags.length > 0
+    ? provider.amenity_tags
+    : ['Pool', 'Spa', 'Boxing', 'Sauna', 'Cafe', 'Wi-Fi'];
+
+  const upcomingBookings = useMemo(() => {
+    const now = new Date();
+    return bookings
+      .filter(booking => {
+        const status = booking.bookingStatus || booking.status;
+        return (
+          (!providerId || booking.providerId === providerId) &&
+          ['CONFIRMED', 'PENDING_CONFIRMATION', 'CHECKED_IN'].includes(status) &&
+          new Date(booking.endTime || booking.startTime) >= now
+        );
+      })
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+      .slice(0, 3);
+  }, [bookings, providerId]);
+
+  const latestCheckIn = checkInHistory[0];
+  const visitsThisMonth = useMemo(() => {
+    const now = new Date();
+    return checkInHistory.filter(item => {
+      const date = new Date(item.date || item.checkedAt || item.startTime);
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).length;
+  }, [checkInHistory]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLifecycle = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const [bookingRows, historyRows, providerDataResp] = await Promise.all([
+          getMyBookings(),
+          getCheckInHistory(providerId ? { providerId } : undefined),
+          providerId ? apiClient.get(`/providers/profile/${providerId}`) : Promise.resolve(null),
+        ]);
+
+        if (isActive) {
+          setBookings(bookingRows || []);
+          setCheckInHistory(historyRows || []);
+          if (providerDataResp?.data?.success && providerDataResp?.data?.data) {
+            setProviderDetails(providerDataResp.data.data);
+          }
+        }
+      } catch (error) {
+        console.warn('[MembershipDetails] Lifecycle load failed:', parseApiFailure(error));
+      } finally {
+        if (isActive) setIsLoadingHistory(false);
+      }
+    };
+
+    loadLifecycle();
+
+    return () => {
+      isActive = false;
+    };
+  }, [providerId]);
 
   const openDirections = () => {
     if (locationUrl) {
@@ -101,10 +496,77 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   };
 
   const openBooking = () => {
+    if (isUpgradeOnlyPackage) {
+      Alert.alert(
+        'Upgrade Package',
+        'This package is for upgrades only and cannot be used as an active access package.',
+      );
+      return;
+    }
+
+    if (isGlobalBundlePackage && !selectedCategoryId && packageCategories.length > 0) {
+      Alert.alert('Select Category', 'Choose a category before continuing.');
+      return;
+    }
+
+    if (isOpenAccess) {
+      openScanner();
+      return;
+    }
+
     navigation.navigate('MembershipBooking', {
       gymName,
       subscription,
+      packageType,
+      categoryId: selectedCategoryId || null,
     });
+  };
+
+  const [isTogglingRenew, setIsTogglingRenew] = useState(false);
+
+  const handleToggleAutoRenew = async () => {
+    if (!subscription.id) {
+      Alert.alert('Unavailable', 'No subscription ID is associated with this membership.');
+      return;
+    }
+
+    const nextState = !autoRenew;
+    Alert.alert(
+      nextState ? 'Enable Auto-Renew' : 'Disable Auto-Renew',
+      nextState
+        ? 'Are you sure you want to enable auto-renew for this membership subscription?'
+        : 'Are you sure you want to disable auto-renew? Your membership will not automatically renew at the end of the current term.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setIsTogglingRenew(true);
+            try {
+              const resp = await apiClient.post(`/subscriptions/${subscription.id}/toggle-auto-renew`, {
+                autoRenew: nextState
+              });
+              if (resp.data?.success) {
+                setAutoRenew(nextState);
+                Alert.alert('Success', `Auto-renew has been ${nextState ? 'enabled' : 'disabled'} successfully.`);
+              } else {
+                throw new Error(resp.data?.message || 'Failed to update auto-renew status.');
+              }
+            } catch (error) {
+              Alert.alert(
+                'Error',
+                parseApiFailure(error, 'Could not update auto-renew state. Please try again later.')
+              );
+            } finally {
+              setIsTogglingRenew(false);
+            }
+          }
+        }
+    ]
+  );
   };
 
   const openScanner = useCallback(async () => {
@@ -117,40 +579,118 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
+    if (!device) {
+      Alert.alert(
+        'Camera Unavailable',
+        'Camera hardware is not ready yet. Please try again in a moment.',
+      );
+      return;
+    }
+
     setIsScanLocked(false);
     setScannerVisible(true);
-  }, [hasPermission, requestPermission]);
+  }, [device, hasPermission, requestPermission]);
 
   const closeScanner = useCallback(() => {
     setScannerVisible(false);
     setIsScanLocked(false);
+    setIsCheckingIn(false);
   }, []);
 
-  const objectOutput = useObjectOutput({
-    types: ['qr', 'ean-13', 'code-128', 'code-39', 'pdf-417'],
-    onObjectsScanned: objects => {
-      if (isScanLocked || objects.length === 0) return;
+  const handleQrCodeScanned = useCallback(async value => {
+    const payload = identifyQrPayload(value);
 
-      const value = objects.find(object => object.value)?.value;
-      if (!value) return;
-
-      setIsScanLocked(true);
+    if (payload.type !== QR_TYPE.VENUE_QR) {
       setScannerVisible(false);
-      console.log('[Clarity] Gym checked in:', gymName);
-      try {
-        Clarity.sendCustomEvent('gym_checked_in');
-        if (gymName) {
-          Clarity.setCustomTag('checked_in_gym', gymName);
-        }
-      } catch (e) {
-        console.error('[Clarity] Failed to send gym_checked_in:', e);
-      }
-      Alert.alert('QR Scanned', value, [
-        { text: 'Scan Again', onPress: () => setScannerVisible(true) },
-        { text: 'Done', style: 'cancel' },
-      ]);
-    },
-  });
+      Alert.alert(
+        'Unsupported QR Code',
+        'Please scan the venue QR poster displayed at the facility.',
+        [
+          { text: 'Scan Again', onPress: () => {
+            setIsScanLocked(false);
+            setScannerVisible(true);
+          } },
+          { text: 'Done', style: 'cancel' },
+        ],
+      );
+      return;
+    }
+
+    setIsCheckingIn(true);
+    setScannerVisible(false);
+
+    try {
+      const result = await venueScanCheckIn({
+        providerId: payload.providerId,
+        sig: payload.sig,
+        categoryId: selectedCategoryId || undefined,
+      });
+
+      Alert.alert(
+        'Check-in Successful',
+        result.message || 'You have successfully checked in.',
+        [{ text: 'Done', style: 'default' }],
+      );
+    } catch (error) {
+      Alert.alert(
+        'Check-in Failed',
+        parseApiFailure(error, 'Unable to complete check-in. Please try again.'),
+        [
+          { text: 'Scan Again', onPress: () => {
+            setIsScanLocked(false);
+            setScannerVisible(true);
+          } },
+          { text: 'Done', style: 'cancel' },
+        ],
+      );
+    } finally {
+      setIsCheckingIn(false);
+    }
+  }, [selectedCategoryId]);
+
+  const handleGenerateBookingQr = useCallback(async booking => {
+    if (!userLocation?.latitude || !userLocation?.longitude) {
+      Alert.alert(
+        'Location Required',
+        'Location is required to generate a booking check-in pass.',
+        [
+          { text: 'Enable Location', onPress: () => locationActions?.requestPermission?.() },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+      return;
+    }
+
+    setIsGeneratingQr(true);
+    try {
+      const result = await generateBookingQr(booking.id, userLocation);
+      setQrPass({
+        booking,
+        qrToken: result.qrToken,
+        expiresInSeconds: result.expiresInSeconds,
+      });
+    } catch (error) {
+      Alert.alert(
+        'QR Pass Failed',
+        parseApiFailure(error, 'Unable to generate a booking check-in pass.'),
+      );
+    } finally {
+      setIsGeneratingQr(false);
+    }
+  }, [locationActions, userLocation]);
+
+  useEffect(() => {
+    if (
+      isOpenAccess &&
+      route?.params?.openAccessAutoOpenScanner &&
+      (!isGlobalBundlePackage || selectedCategoryId) &&
+      device &&
+      !didAutoOpenScannerRef.current
+    ) {
+      didAutoOpenScannerRef.current = true;
+      openScanner();
+    }
+  }, [device, isGlobalBundlePackage, isOpenAccess, openScanner, route?.params?.openAccessAutoOpenScanner, selectedCategoryId]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -171,7 +711,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           <Image source={{ uri: image }} style={styles.gymImage} resizeMode="cover" />
           <TouchableOpacity
             style={styles.qrMark}
-            onPress={openScanner}
+            onPress={openBooking}
             activeOpacity={0.85}
           >
             <Icon name="qr-code-outline" size={30} color="#FFF" />
@@ -187,6 +727,34 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.activeText}>ACTIVE</Text>
           </View>
         </View>
+
+        {membershipChoices.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membershipChoicesRow}
+          >
+            {membershipChoices.map(choice => {
+              const isSelected = choice.id === subscription?.id;
+              return (
+                <TouchableOpacity
+                  key={choice.id}
+                  style={[styles.membershipChoicePill, isSelected && styles.membershipChoicePillActive]}
+                  onPress={() => {
+                    setSelectedMembershipId(choice.id);
+                    const nextSubscription = subscriptions.find(sub => sub?.id === choice.id);
+                    navigation.replace('MembershipDetails', { subscription: nextSubscription, membershipId: choice.id });
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.membershipChoiceText, isSelected && styles.membershipChoiceTextActive]}>
+                    {choice.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={styles.curveLayer}>
           <Svg height="90" width="100%" viewBox="0 0 360 90">
@@ -220,9 +788,11 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           <View style={styles.progressTrack}>
             <LinearGradient
               colors={['#744194', '#4F276B']}
-              style={styles.progressFill}
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
             />
-            <Text style={styles.daysLeft}>239 Days Left</Text>
+            <Text style={styles.daysLeft}>
+              {daysLeft > 0 ? `${daysLeft} Days Left` : 'Expired'}
+            </Text>
           </View>
         </View>
 
@@ -230,11 +800,25 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           <Icon name="sync" size={22} color="#FFF" />
           <View style={styles.renewCopy}>
             <Text style={styles.renewTitle}>Auto-Renew</Text>
-            <Text style={styles.renewSub}>Renews Jan 20, 2027</Text>
+            <Text style={styles.renewSub}>
+              {autoRenew ? `Renews ${endDate}` : `Expires ${endDate} (Auto-Renew Off)`}
+            </Text>
           </View>
-          <View style={styles.toggleTrack}>
+          <TouchableOpacity
+            style={[
+              styles.toggleTrack,
+              {
+                backgroundColor: autoRenew ? '#6A3C91' : '#281E31',
+                alignItems: autoRenew ? 'flex-end' : 'flex-start',
+                opacity: isTogglingRenew ? 0.6 : 1,
+              },
+            ]}
+            onPress={handleToggleAutoRenew}
+            disabled={isTogglingRenew}
+            activeOpacity={0.8}
+          >
             <View style={styles.toggleKnob} />
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsGrid}>
@@ -242,79 +826,141 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             colors={['#100714', '#251032']}
             style={styles.statCard}
           >
-            <Text style={styles.statMain}>TODAY</Text>
+            <Text style={styles.statMain}>
+              {latestCheckIn ? formatBookingDate(latestCheckIn.date || latestCheckIn.checkedAt) : 'NONE'}
+            </Text>
             <Text style={styles.statSub}>Last Check-in</Text>
-            <Text style={styles.statTiny}>7:42 AM · 53 min</Text>
+            <Text style={styles.statTiny}>
+              {latestCheckIn ? formatTime(latestCheckIn.date || latestCheckIn.checkedAt) : 'No visits yet'}
+            </Text>
           </LinearGradient>
           <LinearGradient
             colors={['#100714', '#251032']}
             style={styles.statCard}
           >
-            <Icon name="flame" size={34} color="#FFF" />
+            <Icon name="flame" size={28} color="#FF6B4A" style={{ marginBottom: 2 }} />
+            <Text style={[styles.statNumber, { fontWeight: '700' }]}>{streakDays}</Text>
             <Text style={styles.statSub}>Day Streak</Text>
           </LinearGradient>
           <LinearGradient
             colors={['#100714', '#251032']}
             style={styles.statCard}
           >
-            <Text style={styles.statNumber}>58 M</Text>
+            <Text style={styles.statNumber}>{avgDuration} M</Text>
             <Text style={styles.statSub}>Avg Duration</Text>
-            <Text style={styles.statTiny}>+12% vs last month</Text>
+            <Text style={styles.statTiny}>Based on visits</Text>
           </LinearGradient>
           <LinearGradient
             colors={['#100714', '#251032']}
             style={styles.statCard}
           >
-            <Text style={styles.statNumber}>18</Text>
-            <Text style={styles.statSub}>Visits this month</Text>
+            <Text style={styles.statNumber}>{remainingCredits}</Text>
+            <Text style={styles.statSub}>Credits Left</Text>
+            <Text style={styles.statTiny}>{userPlanStatus}</Text>
           </LinearGradient>
         </View>
 
+        {isGlobalBundlePackage && packageCategories.length > 0 && (
+          <View style={styles.categoryPickerBlock}>
+            <Text style={styles.sectionKicker}>CHOOSE ACCESS</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.membershipChoicesRow}
+            >
+              {packageCategories.map(category => {
+                const isSelected = selectedCategoryId === category.id;
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[styles.membershipChoicePill, isSelected && styles.membershipChoicePillActive]}
+                    onPress={() => setSelectedCategoryId(category.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.membershipChoiceText, isSelected && styles.membershipChoiceTextActive]}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.bookNowButton}
-          onPress={openBooking}
+          onPress={isAccessModeLoading ? undefined : openBooking}
           activeOpacity={0.88}
+          disabled={isAccessModeLoading || isUpgradeOnlyPackage}
         >
-          <Icon name="calendar-outline" size={22} color="#FFF" />
-          <Text style={styles.bookNowText}>Book Now</Text>
+          <Icon
+            name={isUpgradeOnlyPackage ? 'lock-closed-outline' : isOpenAccess ? 'qr-code-outline' : 'calendar-outline'}
+            size={22}
+            color="#FFF"
+          />
+          <Text style={styles.bookNowText}>
+            {isAccessModeLoading
+              ? 'Loading...'
+              : isUpgradeOnlyPackage
+                ? 'Upgrade Only'
+                : isOpenAccess
+                ? 'Scan Venue QR'
+                : isAppointmentOnly
+                  ? 'Request Appointment'
+                  : 'Book Session'}
+          </Text>
         </TouchableOpacity>
 
-        <Text style={styles.sectionKicker}>UPCOMING FIT7 SESSIONS</Text>
-        <View style={styles.sessionRow}>
-          <View style={styles.sessionTime}>
-            <Text style={styles.sessionHour}>06:30</Text>
-            <Text style={styles.sessionDay}>TOMORROW</Text>
-          </View>
-          <View style={styles.sessionCopy}>
-            <Text style={styles.sessionTitle}>HIIT Burn Circuit</Text>
-            <Text style={styles.sessionSub}>Studio B · 45 min · 8 spots</Text>
-          </View>
-          <View style={styles.sessionPill}>
-            <Text style={styles.sessionPillText}>HIIT</Text>
-          </View>
-        </View>
-        <View style={styles.sessionRow}>
-          <View style={styles.sessionTime}>
-            <Text style={styles.sessionHour}>09:00</Text>
-            <Text style={styles.sessionDay}>THU</Text>
-          </View>
-          <View style={styles.sessionCopy}>
-            <Text style={styles.sessionTitle}>Flow & Restore Yoga</Text>
-            <Text style={styles.sessionSub}>Zen Room · 60 min</Text>
-          </View>
-          <View style={styles.sessionPill}>
-            <Text style={styles.sessionPillText}>YOGA</Text>
-          </View>
-        </View>
+        {!isOpenAccess && (
+          <>
+            <Text style={styles.sectionKicker}>UPCOMING BOOKINGS</Text>
+            {isLoadingHistory ? (
+              <View style={styles.historyLoadingRow}>
+                <ActivityIndicator color="#FFF" />
+                <Text style={styles.historyLoadingText}>Loading bookings...</Text>
+              </View>
+            ) : upcomingBookings.length === 0 ? (
+              <View style={styles.emptySessionRow}>
+                <Text style={styles.emptySessionText}>No upcoming bookings yet.</Text>
+              </View>
+            ) : upcomingBookings.map(booking => {
+              const status = booking.bookingStatus || booking.status;
+              const canGenerateQr = status === 'CONFIRMED';
+              return (
+                <View style={styles.sessionRow} key={booking.id}>
+                  <View style={styles.sessionTime}>
+                    <Text style={styles.sessionHour}>{formatTime(booking.startTime)}</Text>
+                    <Text style={styles.sessionDay}>{formatBookingDate(booking.startTime)}</Text>
+                  </View>
+                  <View style={styles.sessionCopy}>
+                    <Text style={styles.sessionTitle}>{booking.provider?.name || gymName}</Text>
+                    <Text style={styles.sessionSub}>{status}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.sessionPill, (!canGenerateQr || isGeneratingQr) && styles.sessionPillDisabled]}
+                    onPress={() => handleGenerateBookingQr(booking)}
+                    disabled={!canGenerateQr || isGeneratingQr}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.sessionPillText}>{isGeneratingQr ? '...' : 'QR'}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </>
+        )}
+
+
+
 
         <View style={styles.infoPanel}>
-          <InfoRow title="Opening Hours" value="05:00 - 23:00" />
-          <InfoRow title="Current Crowd" value="• Low" valuePill />
-          <InfoRow title="Parking" value="12 spots free" />
-          <InfoRow title="Lockers" value="Available" />
+          <InfoRow title="Opening Hours" value={openingHours} />
+          <InfoRow title="Current Crowd" value={crowdLevel} valuePill />
+          <InfoRow title="Parking" value={parkingText} />
+          <InfoRow title="Lockers" value={lockersText} />
 
           <View style={styles.amenityWrap}>
-            {['Pool', 'Spa', 'Boxing', 'Sauna', 'Cafe', 'Wi-Fi'].map(item => (
+            {amenities.map(item => (
               <View key={item} style={styles.amenityPill}>
                 <Text style={styles.amenityText}>{item}</Text>
               </View>
@@ -345,17 +991,20 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             >
               <Icon name="close" size={26} color="#FFF" />
             </TouchableOpacity>
-            <Text style={styles.scannerTitle}>Scan Gym QR</Text>
-            <View style={styles.scannerCloseButton} />
+            <Text style={styles.scannerTitle}>Scan Venue QR</Text>
+        <View style={styles.scannerCloseButton} />
           </View>
 
           <View style={styles.cameraWrap}>
             {device && hasPermission ? (
-              <Camera
-                style={StyleSheet.absoluteFill}
+              <QRScanner
                 device={device}
                 isActive={scannerVisible}
-                outputs={[objectOutput]}
+                isScanLocked={isScanLocked}
+                onQrCodeScanned={value => {
+                  setIsScanLocked(true);
+                  handleQrCodeScanned(value);
+                }}
               />
             ) : (
               <View style={styles.cameraUnavailable}>
@@ -374,8 +1023,42 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             </View>
           </View>
 
-          <Text style={styles.scanHint}>Place the gym QR inside the frame</Text>
+          <Text style={styles.scanHint}>
+            {isCheckingIn ? 'Checking you in...' : 'Place the venue QR inside the frame'}
+          </Text>
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={Boolean(qrPass)}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setQrPass(null)}
+      >
+        <View style={styles.qrPassBackdrop}>
+          <View style={styles.qrPassCard}>
+            <Text style={styles.qrPassTitle}>Booking Check-in Pass</Text>
+            <Text style={styles.qrPassMeta}>
+              {qrPass?.booking ? `${formatBookingDate(qrPass.booking.startTime)} · ${formatTime(qrPass.booking.startTime)}` : ''}
+            </Text>
+            <View style={styles.qrTokenBox}>
+              <Icon name="qr-code-outline" size={54} color="#FFF" />
+              <Text style={styles.qrTokenText} numberOfLines={6}>
+                {qrPass?.qrToken || 'No token'}
+              </Text>
+            </View>
+            <Text style={styles.qrPassHint}>
+              Expires in {qrPass?.expiresInSeconds || 60}s. Keep this pass open while staff completes the scan.
+            </Text>
+            <TouchableOpacity
+              style={styles.qrPassClose}
+              onPress={() => setQrPass(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.qrPassCloseText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -438,11 +1121,40 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
-  qrMark: { position: 'absolute', right: sp(28), bottom: sp(26) },
-  titleBlock: { alignItems: 'center', marginTop: sp(18), paddingHorizontal: sp(24) },
-  gymName: { color: '#FFF', fontSize: fs(24), fontWeight: '900', textAlign: 'center' },
-  planName: { color: '#B8B1C2', fontSize: fs(14), marginTop: sp(3), textAlign: 'center' },
-  tierName: { color: '#D8D1E1', fontSize: fs(13), marginTop: sp(2), textAlign: 'center' },
+  qrMark: { position: 'absolute', right: 28, bottom: 26 },
+  titleBlock: { alignItems: 'center', marginTop: 18 },
+  membershipChoicesRow: {
+    paddingHorizontal: 18,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  membershipChoicePill: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#140B1D',
+  },
+  membershipChoicePillActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#2C1640',
+  },
+  membershipChoiceText: {
+    color: '#C8C3CE',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  membershipChoiceTextActive: {
+    color: '#FFFFFF',
+  },
+  categoryPickerBlock: {
+    marginTop: 18,
+    marginBottom: 2,
+  },
+  gymName: { color: '#FFF', fontSize: 24, fontWeight: '900' },
+  planName: { color: '#B8B1C2', fontSize: 14, marginTop: 3 },
+  tierName: { color: '#D8D1E1', fontSize: 13, marginTop: 2 },
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -597,7 +1309,36 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     paddingVertical: sp(6),
     borderRadius: ms(14),
   },
-  sessionPillText: { color: '#FFF', fontSize: fs(8), fontWeight: '900' },
+  sessionPillDisabled: {
+    opacity: 0.45,
+  },
+  sessionPillText: { color: '#FFF', fontSize: 8, fontWeight: '900' },
+  historyLoadingRow: {
+    minHeight: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    gap: 8,
+  },
+  historyLoadingText: {
+    color: '#AFA7B8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptySessionRow: {
+    marginHorizontal: 34,
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySessionText: {
+    color: '#AFA7B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   infoPanel: {
     marginHorizontal: sp(isTablet ? 48 : 26),
     borderRadius: ms(22),
@@ -744,6 +1485,71 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     fontWeight: '700',
     paddingHorizontal: sp(24),
     paddingBottom: Math.max(insets.bottom, sp(18)),
+  },
+  qrPassBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  qrPassCard: {
+    width: '100%',
+    borderRadius: 22,
+    backgroundColor: '#08050C',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    padding: 22,
+    alignItems: 'center',
+  },
+  qrPassTitle: {
+    color: '#FFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  qrPassMeta: {
+    color: '#AFA7B8',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  qrTokenBox: {
+    width: '100%',
+    minHeight: 178,
+    borderRadius: 16,
+    backgroundColor: '#170B20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    padding: 18,
+  },
+  qrTokenText: {
+    color: '#D9D1E4',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+    marginTop: 14,
+  },
+  qrPassHint: {
+    color: '#8F8797',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 14,
+  },
+  qrPassClose: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#4A2666',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    marginTop: 18,
+  },
+  qrPassCloseText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });
 

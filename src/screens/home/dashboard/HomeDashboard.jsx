@@ -153,6 +153,7 @@ export const HomeDashboard = ({ navigation }) => {
 
   useEffect(() => {
     if (serverActiveSubscription && pendingSubscription) {
+      // Server has confirmed the subscription — clear local optimistic state
       AsyncStorage.removeItem(PENDING_SUBSCRIPTION_KEY);
       setPendingSubscription(null);
     }
@@ -165,19 +166,6 @@ export const HomeDashboard = ({ navigation }) => {
     }, [refreshAuthStatus, loadPendingSubscription]),
   );
 
-  useEffect(() => {
-    console.log('[HomeDashboard] subscription state:', {
-      serverSubscriptions: subscriptions.length,
-      hasServerActiveSubscription: Boolean(serverActiveSubscription),
-      hasPendingSubscription: Boolean(pendingSubscription),
-      activeGym: subscribedGymName,
-    });
-  }, [
-    subscriptions.length,
-    serverActiveSubscription,
-    pendingSubscription,
-    subscribedGymName,
-  ]);
 
   useEffect(() => {
     if (!hasActiveSubscription) return;
@@ -543,42 +531,6 @@ export const HomeDashboard = ({ navigation }) => {
 
   const renderSubscribedTop = () => (
     <View style={styles.subscribedTop}>
-      <View style={styles.subscribedHeader}>
-        <View style={styles.subscribedHeaderTop}>
-          {userAvatar ? (
-            <Image source={{ uri: userAvatar }} style={styles.heroProfilePic} />
-          ) : (
-            <View style={styles.heroProfilePicPlaceholder}>
-              <Icon name="person" size={28} color="#BBB" />
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.roundIconButton}
-            onPress={() =>
-              navigation.navigate('DiscoverProvidersMap', {
-                query: searchQuery,
-              })
-            }
-            activeOpacity={0.85}
-          >
-            <Icon name="search" size={24} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.welcomeRow}>
-          <View style={styles.welcomeBlock}>
-            <Text style={styles.welcomeText}>Welcome back</Text>
-            <Text style={styles.welcomeText}>{userName} !!</Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.roundIconButton, styles.notificationButton]}
-            activeOpacity={0.85}
-          >
-            <Icon name="notifications" size={20} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
       <ScrollView
         ref={subscriptionCarouselRef}
         horizontal
@@ -641,45 +593,41 @@ export const HomeDashboard = ({ navigation }) => {
           </View>
         </Modal>
 
-        {hasActiveSubscription ? (
-          renderSubscribedTop()
-        ) : (
-          <>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.greeting}>Welcome {userName} !</Text>
-              {userAvatar ? (
-                <Image source={{ uri: userAvatar }} style={styles.profilePic} />
-              ) : (
-                <View style={styles.profilePicPlaceholder}>
-                  <Icon name="person-circle" size={44} color="#888" />
-                </View>
-              )}
+        {/* Unified Header */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Welcome {userName} !</Text>
+          {userAvatar ? (
+            <Image source={{ uri: userAvatar }} style={styles.profilePic} />
+          ) : (
+            <View style={styles.profilePicPlaceholder}>
+              <Icon name="person-circle" size={44} color="#888" />
             </View>
+          )}
+        </View>
 
-            {/* Search */}
-            <View style={styles.searchContainer}>
-              <Icon
-                name="search"
-                size={20}
-                color="#888"
-                style={styles.searchIcon}
-              />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search providers, trainers, classes..."
-                placeholderTextColor="#888"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={() =>
-                  navigation.navigate('DiscoverProvidersMap', {
-                    query: searchQuery,
-                  })
-                }
-              />
-            </View>
-          </>
-        )}
+        {/* Unified Search */}
+        <View style={styles.searchContainer}>
+          <Icon
+            name="search"
+            size={20}
+            color="#888"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search providers, trainers, classes..."
+            placeholderTextColor="#888"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={() =>
+              navigation.navigate('DiscoverProvidersMap', {
+                query: searchQuery,
+              })
+            }
+          />
+        </View>
+
+        {hasActiveSubscription && renderSubscribedTop()}
 
         {activeCategory === 'trainer' ? (
           <FindTrainers />
@@ -892,8 +840,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subscribedTop: {
-    paddingTop: 22,
-    paddingBottom: 26,
+    paddingBottom: 20,
     backgroundColor: '#050505',
   },
   subscribedHeader: {

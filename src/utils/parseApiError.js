@@ -11,11 +11,6 @@ const parseApiError = (error) => {
       return error;
     }
 
-    // Handle Error objects
-    if (error instanceof Error) {
-      return error.message || 'An unexpected error occurred. Please try again.';
-    }
-
     // Handle axios response errors
     if (error.response && error.response.data) {
       if (typeof error.response.data.message === 'string') {
@@ -27,6 +22,11 @@ const parseApiError = (error) => {
       if (typeof error.response.data === 'string') {
         return error.response.data;
       }
+    }
+
+    // Handle Error objects after axios payloads so backend validation messages win.
+    if (error instanceof Error) {
+      return error.message || 'An unexpected error occurred. Please try again.';
     }
 
     // Handle axios request errors (network errors)
