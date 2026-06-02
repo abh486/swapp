@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   SafeAreaView,
@@ -11,38 +12,284 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { createBooking } from '../../api/bookingApi';
+import { parseApiFailure } from '../../api/apiUtils';
+import { fetchMemberProviderAvailability } from '../../api/scheduleApi';
+import { isOpenAccessMode, resolveAccessMode } from '../../utils/accessMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 20;
 const SLOT_CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
 
-const DATES = [
-  { month: 'May', day: '22' },
-  { month: 'May', day: '23' },
-  { month: 'May', day: '24' },
-  { month: 'May', day: '25' },
-  { month: 'May', day: '26' },
-  { month: 'May', day: '27' },
-  { month: 'May', day: '28' },
-];
 
-const CATEGORIES = ['Gym Floor', 'Class', 'Spa', 'Other'];
 
-const SLOTS = [
-  { time: '6:00 AM - 7:00 AM', status: 'Available' },
-  { time: '7:00 AM - 8:00 AM', status: 'Available' },
-  { time: '8:00 AM - 9:00 AM', status: 'Filling Fast', warning: true },
-  { time: '9:00 AM - 10:00 AM', status: 'Available' },
-  { time: '10:00 AM - 11:00 AM', status: 'Available' },
-];
+const formatSlotTime = slot => {
+  const start = new Date(slot.startTime);
+  const end = new Date(slot.endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return slot.time || 'Available slot';
+  }
+
+  const options = { hour: 'numeric', minute: '2-digit' };
+  return `${start.toLocaleTimeString('en-US', options)} - ${end.toLocaleTimeString('en-US', options)}`;
+};
+
+const getSlotStatusText = slot => {
+  switch (slot.availabilityState) {
+    case 'FILLING_FAST':
+      return 'Filling Fast';
+    case 'FULL':
+      return 'Full';
+    case 'PAST':
+      return 'Unavailable';
+    default:
+      return slot.isPeak ? 'Peak Slot' : 'Available';
+  }
+};
+
+const normalizePackageType = value => {
+  const raw = String(value || '').trim().toUpperCase();
+  if (raw === 'BUNDLE') return 'GLOBAL_BUNDLE';
+  if (raw === 'GLOBAL_BUNDLE') return 'GLOBAL_BUNDLE';
+  if (raw === 'UPGRADE_ONLY') return 'UPGRADE_ONLY';
+  return 'STANDALONE';
+};
 
 const MembershipBookingScreen = ({ route, navigation }) => {
-  const { gymName = 'FitZone Premium' } = route?.params || {};
-  const [activeCategory, setActiveCategory] = useState('Gym Floor');
-  const [selectedDate, setSelectedDate] = useState('25');
+  const {
+    gymName = 'FitZone Premium',
+    subscription = {},
+    categoryId: routeCategoryId = null,
+    packageType: routePackageType = null,
+  } = route?.params || {};
+  const packageType = useMemo(
+    () =>
+      normalizePackageType(
+        routePackageType ||
+          subscription?.packageType ||
+          subscription?.package?.package_type ||
+          subscription?.package?.packageType ||
+          subscription?.userPlan?.packageSubscription?.package?.package_type ||
+          ''
+      ),
+    [routePackageType, subscription],
+  );
+  const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
+  const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
+  const entitlements = useMemo(() => {
+    return (
+      subscription.package?.items ||
+      subscription.packageSubscription?.package?.items ||
+      subscription.userPlan?.packageSubscription?.package?.items ||
+      []
+    );
+  }, [subscription]);
 
-  const bookSlot = slot => {
-    Alert.alert('Booking Confirmed', `${gymName}\n${slot.time}`);
+  const categories = useMemo(() => {
+    return entitlements
+      .map(item => ({
+        id: item.category?.id || item.categoryId || item.id,
+        name: item.category?.name || item.name || 'Category',
+      }))
+      .filter(item => item.id && item.name);
+  }, [entitlements]);
+
+  const [activeCategoryId, setActiveCategoryId] = useState(routeCategoryId || '');
+
+  useEffect(() => {
+    if (!isGlobalBundlePackage) {
+      setActiveCategoryId('');
+      return;
+    }
+    if (routeCategoryId && categories.some(category => category.id === routeCategoryId)) {
+      setActiveCategoryId(routeCategoryId);
+    }
+  }, [categories, isGlobalBundlePackage, routeCategoryId]);
+
+  const activeEntitlement = useMemo(() => {
+    return entitlements.find(item => {
+      const itemCategoryId = item.category?.id || item.categoryId || item.id;
+      return itemCategoryId === activeCategoryId;
+    });
+  }, [entitlements, activeCategoryId]);
+  const activeCategory = useMemo(
+    () => categories.find(category => category.id === activeCategoryId),
+    [categories, activeCategoryId],
+  );
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [bookingSlotKey, setBookingSlotKey] = useState(null);
+  const [bookedSlotKeys, setBookedSlotKeys] = useState(new Set());
+  const [slots, setSlots] = useState([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState('');
+  const [slotRefreshTick, setSlotRefreshTick] = useState(0);
+
+  const dates = useMemo(() => {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index + 1);
+      return {
+        key: date.toISOString().split('T')[0],
+        month: date.toLocaleDateString('en-US', { month: 'short' }),
+        day: String(date.getDate()).padStart(2, '0'),
+        date,
+      };
+    });
+  }, []);
+
+  const activeDateKey = selectedDate || dates[0]?.key;
+
+  const provider =
+    subscription.provider ||
+    subscription.gym ||
+    subscription.partner ||
+    subscription.package?.provider ||
+    {};
+
+  const providerId =
+    provider.id ||
+    subscription.providerId ||
+    subscription.gymId ||
+    subscription.partnerId ||
+    subscription.package?.providerId;
+  const accessMode = useMemo(
+    () =>
+      resolveAccessMode(
+        subscription?.provider?.accessConfig?.accessMode,
+        subscription?.accessConfig?.accessMode,
+        provider?.accessConfig?.accessMode,
+      ),
+    [provider, subscription],
+  );
+  const isOpenAccess = isOpenAccessMode(accessMode);
+  const isAppointmentOnly = accessMode === 'APPOINTMENT_ONLY';
+
+  // Only pass a real UserPlan ID. If none is available, send null so the
+  // backend resolves the correct plan from the user's active subscription.
+  const userPlanId =
+    subscription.userPlanId ||
+    subscription.userPlan?.id ||
+    subscription.planSubscriptionId ||
+    null;
+
+  useEffect(() => {
+    if (isUpgradeOnlyPackage) {
+      navigation.replace('MembershipDetails', { subscription });
+      return;
+    }
+    if (!isOpenAccess) return;
+    navigation.replace('MembershipDetails', {
+      subscription,
+      categoryId: activeCategoryId || routeCategoryId || null,
+      openAccessAutoOpenScanner: true,
+    });
+  }, [activeCategoryId, isOpenAccess, isUpgradeOnlyPackage, navigation, routeCategoryId, subscription]);
+
+  useEffect(() => {
+    if (isOpenAccess || isUpgradeOnlyPackage) return;
+    if (isGlobalBundlePackage && !activeCategoryId) {
+      setSlots([]);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadSlots = async () => {
+      if (!providerId || !activeDateKey) {
+        setSlots([]);
+        return;
+      }
+
+      setIsLoadingSlots(true);
+      setSlotError('');
+
+      try {
+        const result = await fetchMemberProviderAvailability({
+          providerId,
+          date: activeDateKey,
+          categoryId: activeCategoryId || undefined,
+        });
+        if (isActive) setSlots(result.slots || []);
+      } catch (error) {
+        if (isActive) {
+          setSlots([]);
+          setSlotError(parseApiFailure(error, 'Availability is not available for this date.'));
+        }
+      } finally {
+        if (isActive) setIsLoadingSlots(false);
+      }
+    };
+
+    loadSlots();
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isOpenAccess, isUpgradeOnlyPackage, providerId, slotRefreshTick]);
+
+  if (isOpenAccess) {
+    return null;
+  }
+
+  const buildSlotTimes = slot => ({
+    startTime: new Date(slot.startTime).toISOString(),
+    endTime: new Date(slot.endTime).toISOString(),
+  });
+
+  const bookSlot = async slot => {
+    if (!providerId) {
+      Alert.alert(
+        'Booking Unavailable',
+        'This membership does not include a provider ID yet. Please reopen the provider from your active membership.',
+      );
+      return;
+    }
+    if (isUpgradeOnlyPackage) {
+      Alert.alert('Upgrade Package', 'This package is for upgrades only and cannot create bookings.');
+      return;
+    }
+    if (isGlobalBundlePackage && !activeCategoryId) {
+      Alert.alert('Select Category', 'Choose a category before creating this booking.');
+      return;
+    }
+
+    const slotKey = slot.slotId || `${activeDateKey}-${slot.startTime}`;
+    setBookingSlotKey(slotKey);
+
+    try {
+      const { startTime, endTime } = buildSlotTimes(slot);
+      const result = await createBooking({
+        targetId: providerId,
+        targetType: 'PROVIDER',
+        startTime,
+        endTime,
+        userPlanId,
+        categoryId: activeCategoryId || undefined,
+        bookingMode: isAppointmentOnly ? 'APPOINTMENT' : 'SLOT_BASED',
+      });
+
+      const status = result.booking?.bookingStatus || result.booking?.status || 'CONFIRMED';
+
+      // Optimistically mark slot as booked, then re-fetch to get server state
+      setBookedSlotKeys(prev => new Set(prev).add(slotKey));
+      setSlotRefreshTick(t => t + 1);
+
+      Alert.alert(
+        status === 'PENDING_CONFIRMATION'
+          ? 'Appointment Requested'
+          : isAppointmentOnly
+            ? 'Appointment Confirmed'
+            : 'Booking Confirmed',
+        `${gymName}\n${formatSlotTime(slot)}\nStatus: ${status}`,
+      );
+    } catch (error) {
+      Alert.alert(
+        'Booking Failed',
+        parseApiFailure(error, 'Unable to create this booking. Please try another slot.'),
+      );
+    } finally {
+      setBookingSlotKey(null);
+    }
   };
 
   return (
@@ -61,7 +308,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         >
           <Icon name="chevron-back" size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Bookings</Text>
+        <Text style={styles.title}>{isAppointmentOnly ? 'Appointments' : 'Bookings'}</Text>
         <TouchableOpacity style={styles.calendarButton} activeOpacity={0.8}>
           <Icon name="calendar-outline" size={22} color="#FFF" />
         </TouchableOpacity>
@@ -74,16 +321,16 @@ const MembershipBookingScreen = ({ route, navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.dateStrip}
         >
-          {DATES.map(date => {
-            const isActive = selectedDate === date.day;
+          {dates.map(date => {
+            const isActive = activeDateKey === date.key;
             return (
               <TouchableOpacity
-                key={date.day}
+                key={date.key}
                 style={[
                   styles.dateChip,
                   isActive && styles.dateChipActive,
                 ]}
-                onPress={() => setSelectedDate(date.day)}
+                onPress={() => setSelectedDate(date.key)}
                 activeOpacity={0.85}
               >
                 {isActive ? (
@@ -107,19 +354,20 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       </View>
 
       {/* Category Pills */}
+      {isGlobalBundlePackage && (
       <View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryStrip}
         >
-          {CATEGORIES.map(category => {
-            const isActive = activeCategory === category;
+          {categories.map(category => {
+            const isActive = activeCategoryId === category.id;
             return (
               <TouchableOpacity
-                key={category}
+                key={category.id}
                 style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-                onPress={() => setActiveCategory(category)}
+                onPress={() => setActiveCategoryId(category.id)}
                 activeOpacity={0.85}
               >
                 <Text
@@ -128,13 +376,14 @@ const MembershipBookingScreen = ({ route, navigation }) => {
                     isActive && styles.categoryTextActive,
                   ]}
                 >
-                  {category}
+                  {category.name}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
       </View>
+      )}
 
       {/* Slot List */}
       <ScrollView
@@ -142,29 +391,106 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.slotContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>AVAILABLE SLOTS</Text>
-        {SLOTS.map(slot => (
-          <View key={slot.time} style={styles.slotCard}>
+        {activeEntitlement && (
+          <View style={styles.entitlementCard}>
+            <View style={styles.entitlementHeader}>
+              <Icon name="shield-checkmark" size={18} color="#A78BFA" />
+              <Text style={styles.entitlementTitle}>{activeCategory?.name || 'Category'} Entitlements</Text>
+            </View>
+            
+            <View style={styles.entitlementGrid}>
+              <View style={styles.entitlementItem}>
+                <Text style={styles.entitlementLabel}>Soft Limit</Text>
+                <Text style={styles.entitlementValue}>{activeEntitlement.softLimit ?? 'N/A'}</Text>
+              </View>
+              <View style={styles.entitlementItem}>
+                <Text style={styles.entitlementLabel}>Premium Slots</Text>
+                <Text style={styles.entitlementValue}>{activeEntitlement.premiumSlots ?? 0}</Text>
+              </View>
+              <View style={styles.entitlementItem}>
+                <Text style={styles.entitlementLabel}>Surcharge %</Text>
+                <Text style={styles.entitlementValue}>
+                  {activeEntitlement.premiumSurchargePct ? `${parseFloat(activeEntitlement.premiumSurchargePct)}%` : '0%'}
+                </Text>
+              </View>
+              <View style={styles.entitlementItem}>
+                <Text style={styles.entitlementLabel}>Trainer Settlement %</Text>
+                <Text style={styles.entitlementValue}>
+                  {activeEntitlement.trainer_settlement_pct ? `${parseFloat(activeEntitlement.trainer_settlement_pct)}%` : '0%'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.entitlementPreviewDivider} />
+            <Text style={styles.entitlementPreviewText}>
+              Preview: Standard: {activeEntitlement.softLimit ?? 'N/A'} sessions | Premium: {activeEntitlement.premiumSlots ?? 0} slots at +{activeEntitlement.premiumSurchargePct ? parseFloat(activeEntitlement.premiumSurchargePct) : 0}% surcharge
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle}>
+          {isAppointmentOnly ? 'REQUEST WINDOWS' : 'AVAILABLE SLOTS'}
+        </Text>
+        {isGlobalBundlePackage && !activeCategoryId ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>Choose a category to see availability.</Text>
+          </View>
+        ) : isLoadingSlots ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color="#FFF" />
+            <Text style={styles.emptyStateText}>Loading availability...</Text>
+          </View>
+        ) : slotError ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>{slotError}</Text>
+          </View>
+        ) : slots.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No available slots for this date.</Text>
+          </View>
+        ) : slots.map(slot => {
+          const slotKey = slot.slotId || `${activeDateKey}-${slot.startTime}`;
+          const isBooking = bookingSlotKey === slotKey;
+          const isBooked = bookedSlotKeys.has(slotKey) || slot.availabilityState === 'BOOKED';
+          const isDisabled = Boolean(bookingSlotKey) || !slot.isAvailable || isBooked;
+          return (
+          <View key={slotKey} style={[styles.slotCard, isBooked && styles.slotCardBooked]}>
             <View style={styles.slotInfo}>
-              <Text style={styles.slotTime}>{slot.time}</Text>
+              <Text style={styles.slotTime}>{formatSlotTime(slot)}</Text>
               <Text
                 style={[
                   styles.slotStatus,
-                  slot.warning ? styles.slotStatusWarning : styles.slotStatusAvailable,
+                  isBooked
+                    ? styles.slotStatusBooked
+                    : slot.availabilityState === 'FILLING_FAST' || slot.isPeak
+                      ? styles.slotStatusWarning
+                      : slot.isAvailable
+                        ? styles.slotStatusAvailable
+                        : styles.slotStatusUnavailable,
                 ]}
               >
-                {slot.status}
+                {isBooked ? 'Booked ✓' : getSlotStatusText(slot)}
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.bookButton}
+              style={[styles.bookButton, isDisabled && styles.bookButtonDisabled, isBooked && styles.bookButtonBooked]}
               onPress={() => bookSlot(slot)}
+              disabled={isDisabled}
               activeOpacity={0.85}
             >
-              <Text style={styles.bookButtonText}>Book</Text>
+              <Text style={styles.bookButtonText}>
+                {isBooking
+                  ? (isAppointmentOnly ? 'Requesting...' : 'Booking...')
+                  : isBooked
+                    ? (isAppointmentOnly ? 'Requested' : 'Booked')
+                    : slot.isAvailable
+                      ? (isAppointmentOnly ? 'Request' : 'Book')
+                      : 'Closed'}
+              </Text>
             </TouchableOpacity>
           </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -360,6 +686,36 @@ const styles = StyleSheet.create({
   slotStatusWarning: {
     color: '#E07538',
   },
+  slotStatusUnavailable: {
+    color: '#777177',
+  },
+  slotStatusBooked: {
+    color: '#00E96A',
+    fontWeight: '700',
+  },
+  slotCardBooked: {
+    borderColor: 'rgba(0, 233, 106, 0.25)',
+    backgroundColor: 'rgba(0, 233, 106, 0.05)',
+  },
+  bookButtonBooked: {
+    backgroundColor: '#1A5C35',
+  },
+  emptyState: {
+    minHeight: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 18,
+  },
+  emptyStateText: {
+    color: '#A2A1A6',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+  },
   bookButton: {
     width: 80,
     height: 38,
@@ -368,10 +724,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bookButtonDisabled: {
+    opacity: 0.65,
+  },
   bookButtonText: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  entitlementCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.18)',
+    padding: 16,
+    marginBottom: 20,
+    backgroundColor: '#08030B',
+  },
+  entitlementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  entitlementTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  entitlementGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  entitlementItem: {
+    width: '48%',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  entitlementLabel: {
+    color: '#A2A1A6',
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  entitlementValue: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  entitlementPreviewDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 12,
+  },
+  entitlementPreviewText: {
+    color: '#A78BFA',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 16,
   },
 });
 

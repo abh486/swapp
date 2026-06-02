@@ -233,10 +233,6 @@ const MembershipPlanModal = ({ visible, onClose }) => {
                       image: selectedTier.imageUrl,
                       isActive: true,
                     };
-                    await AsyncStorage.setItem(
-                      PENDING_SUBSCRIPTION_KEY,
-                      JSON.stringify(pendingSubscription),
-                    );
                     const response = await dispatch(
                       createCheckoutSession(selectedTier.id, 'MULTI_GYM'),
                     );
