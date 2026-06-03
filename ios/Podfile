@@ -5,10 +5,7 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]}
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
-
-# FIX non-modular include issues
-use_modular_headers!
+platform :ios, '15.5'
 
 prepare_react_native_project!
 
@@ -24,13 +21,12 @@ target 'SwappIos' do
   use_react_native!(
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/..",
-    :fabric_enabled => false,
-    :new_arch_enabled => false
+    :fabric_enabled => true,
+    :new_arch_enabled => true
   )
 
   rn_maps_path = '../node_modules/react-native-maps'
-  pod 'react-native-maps', :path => rn_maps_path
-  pod 'GoogleMaps', :modular_headers => true
+  pod 'react-native-maps/Google', :path => rn_maps_path
 
   post_install do |installer|
     react_native_post_install(
@@ -38,6 +34,10 @@ target 'SwappIos' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
+
+    # Clear the modulemap file for ReactCodegen to prevent modular duplicate definition conflicts
+    react_codegen_map = 'Pods/Target Support Files/ReactCodegen/ReactCodegen.modulemap'
+    File.write(react_codegen_map, '') if File.exist?(react_codegen_map)
 
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
@@ -47,22 +47,35 @@ target 'SwappIos' do
         build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-        # NUCLEAR FIX: Remove RCT_NEW_ARCH_ENABLED=1 from ALL pods.
+        # GCC PREPROCESSOR DEFINITIONS: Define RCT_DEPRECATED globally
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].reject! { |s| s == 'RCT_NEW_ARCH_ENABLED=1' }
-        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'RCT_NEW_ARCH_ENABLED=0'
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'RCT_DEPRECATED='
 
-        # Fix for RN 0.74+ headers containing C++ code
-        if target.name == 'ChargebeeReactNative'
+        # Turn off modules for ReactCodegen only to avoid duplicate declaration issues
+        if target.name == 'ReactCodegen'
+          build_config.build_settings['DEFINES_MODULE'] = 'NO'
+          build_config.build_settings['MODULEMAP_FILE'] = ''
+        end
+
+        # Enable SWIFT_OBJC_INTEROP_MODE = objcxx ONLY for JSI / Nitro C++ Swift modules.
+        objcxx_targets = ['VisionCamera', 'VisionCameraBarcodeScanner', 'NitroModules', 'NitroImage']
+        if objcxx_targets.include?(target.name)
           build_config.build_settings['SWIFT_OBJC_INTEROP_MODE'] = 'objcxx'
+        end
+
+        if target.name == 'ChargebeeReactNative'
           build_config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
-          build_config.build_settings['OTHER_CFLAGS'] ||= ['$(inherited)']
-          build_config.build_settings['OTHER_CFLAGS'] << '-x' << 'objective-c++'
         end
 
         if target.name == 'Auth0' || target.name == 'A0Auth0'
           build_config.build_settings['SWIFT_VERSION'] = '5'
           build_config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+        end
+
+        # Ensure SwappIos target can import GoogleMaps xcframework modules
+        if target.name == 'SwappIos'
+          build_config.build_settings['SWIFT_INCLUDE_PATHS'] ||= '$(inherited)'
+          build_config.build_settings['SWIFT_INCLUDE_PATHS'] += ' "${PODS_ROOT}/GoogleMaps/Maps/Frameworks"'
         end
       end
     end

@@ -23,6 +23,7 @@ import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/h
 import { useLocation } from '../../../context/LocationContext';
 import { useProviderData } from '../../../hooks/useProviderData';
 import { useResponsiveMetrics } from '../../../utils/responsive';
+import LocationSelectorModal from './components/LocationSelectorModal';
 
 // Categories are now dynamic from Redux
 
@@ -40,7 +41,8 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     [metrics, insets, SNAP_TOP],
   );
   
-  const { userLocation, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
+  const { userLocation, locationName, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
+  const [isLocationModalVisible, setLocationModalVisible] = useState(false);
   const { feed } = useSelector(state => state.home);
   const mapRef = React.useRef(null);
 
@@ -268,6 +270,21 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Location Selector Bar */}
+        <View style={styles.locationBar}>
+          <TouchableOpacity 
+            style={styles.locationButton} 
+            onPress={() => setLocationModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Icon name="location" size={14} color="#e74c3c" />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {locationName || 'Select Location'}
+            </Text>
+            <Icon name="chevron-down" size={10} color="#888" />
+          </TouchableOpacity>
+        </View>
+
         {/* Location Permission Modal */}
         <Modal
           visible={showPermissionModal}
@@ -298,6 +315,14 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
             </View>
           </View>
         </Modal>
+
+        {/* Location Selector Modal */}
+        <LocationSelectorModal
+          visible={isLocationModalVisible}
+          onClose={() => setLocationModalVisible(false)}
+          actions={locationActions}
+          activeLocationName={locationName}
+        />
 
         <View style={styles.categoriesWrapper}>
           <FlatList
@@ -360,6 +385,29 @@ const createStyles = ({ fs, sp, ms, wp, height, isTablet }, insets, SNAP_TOP) =>
     paddingBottom: sp(10),
   },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sp(15), paddingBottom: sp(10), backgroundColor: 'transparent' },
+  locationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: sp(15),
+    paddingBottom: sp(8),
+    backgroundColor: 'transparent',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    paddingHorizontal: sp(12),
+    paddingVertical: sp(6),
+    borderRadius: ms(15),
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  locationText: {
+    color: '#fff',
+    fontSize: fs(12),
+    fontWeight: '600',
+    marginHorizontal: sp(6),
+  },
   backBtn: { marginRight: sp(10), minWidth: ms(40), minHeight: ms(40), alignItems: 'center', justifyContent: 'center' },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#000', borderRadius: ms(20), borderWidth: 1, borderColor: '#333', minHeight: ms(40), paddingHorizontal: sp(15) },
   searchIcon: { marginRight: sp(8) },

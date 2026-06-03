@@ -6,7 +6,6 @@ import {
   Linking,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -26,14 +25,15 @@ import {
   useObjectOutput,
 } from 'react-native-vision-camera';
 import { useBarcodeScannerOutput } from 'react-native-vision-camera-barcode-scanner';
-import apiClient from '../../api/apiClient';
-import { generateBookingQr, getMyBookings } from '../../api/bookingApi';
-import { getCheckInHistory, venueScanCheckIn } from '../../api/checkinApi';
-import { parseApiFailure } from '../../api/apiUtils';
-import { isOpenAccessMode, resolveAccessMode } from '../../utils/accessMode';
-import { useLocation } from '../../context/LocationContext';
-import { useAuth } from '../../context/AuthContext';
-import { identifyQrPayload, QR_TYPE } from '../../utils/qrParser';
+import apiClient from '../../../api/apiClient';
+import { generateBookingQr, getMyBookings } from '../../../api/bookingApi';
+import { getCheckInHistory, venueScanCheckIn } from '../../../api/checkinApi';
+import { parseApiFailure } from '../../../api/apiUtils';
+import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
+import { useLocation } from '../../../context/LocationContext';
+import { useAuth } from '../../../context/AuthContext';
+import { identifyQrPayload, QR_TYPE } from '../../../utils/qrParser';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const IOSScannerCamera = ({ device, isActive, isScanLocked, onQrCodeScanned }) => {
   const objectOutput = useObjectOutput({
@@ -154,6 +154,9 @@ const normalizePackageType = value => {
 const MembershipDetailsScreen = ({ route, navigation }) => {
   const { subscription: routeSubscription = {}, membershipId, categoryId: routeCategoryId = '' } = route.params || {};
   const { user } = useAuth();
+  const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(metrics, insets);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [isScanLocked, setIsScanLocked] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -954,10 +957,10 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
 
 
         <View style={styles.infoPanel}>
-          <InfoRow title="Opening Hours" value={openingHours} />
-          <InfoRow title="Current Crowd" value={crowdLevel} valuePill />
-          <InfoRow title="Parking" value={parkingText} />
-          <InfoRow title="Lockers" value={lockersText} />
+          <InfoRow title="Opening Hours" value={openingHours} styles={styles} />
+          <InfoRow title="Current Crowd" value={crowdLevel} valuePill styles={styles} />
+          <InfoRow title="Parking" value={parkingText} styles={styles} />
+          <InfoRow title="Lockers" value={lockersText} styles={styles} />
 
           <View style={styles.amenityWrap}>
             {amenities.map(item => (
@@ -1064,7 +1067,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   );
 };
 
-const InfoRow = ({ title, value, valuePill }) => (
+const InfoRow = ({ title, value, valuePill, styles }) => (
   <View style={styles.infoRow}>
     <View style={styles.infoIcon} />
     <Text style={styles.infoTitle}>{title}</Text>

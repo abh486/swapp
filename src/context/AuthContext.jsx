@@ -20,6 +20,7 @@ import apiClient, {
   getToken,
   debugStorage,
 } from '../api/apiClient';
+import { AUTH_CONFIG } from '../config/config';
 
 // Initialize Auth0
 const auth0 = new Auth0({
@@ -67,6 +68,48 @@ const generateCodeVerifier = () => {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+};
+
+const decodeBase64Url = (value) => {
+  try {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let input = value.replace(/-/g, '+').replace(/_/g, '/');
+    while (input.length % 4) input += '=';
+
+    let output = '';
+    let buffer = 0;
+    let bits = 0;
+
+    for (const char of input) {
+      if (char === '=') break;
+      const index = chars.indexOf(char);
+      if (index === -1) return null;
+      buffer = (buffer << 6) | index;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        output += String.fromCharCode((buffer >> bits) & 0xff);
+      }
+    }
+
+    return output;
+  } catch (e) {
+    return null;
+  }
+};
+
+const extractNonceFromIdToken = (idToken) => {
+  try {
+    const part = idToken?.split('.')?.[1];
+    if (!part) return null;
+    const decoded = decodeBase64Url(part);
+    if (!decoded) return null;
+    const payload = JSON.parse(decoded);
+    return payload?.nonce || null;
+  } catch (e) {
+    console.log('[AuthContext] Failed to parse ID Token payload for nonce:', e.message);
+    return null;
+  }
 };
 
 const getQueryParam = (url, param) => {
@@ -248,7 +291,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async () => {
+  const loginWithWebView = async () => {
     setIsLoggingIn(true);
     try {
       const verifier = generateCodeVerifier();
@@ -275,7 +318,151 @@ export const AuthProvider = ({ children }) => {
       setAuthUrl(url);
       setShowWebViewModal(true);
     } catch (e) {
-      console.error('🔴 [login] failed:', e.message);
+      console.error('🔴 [loginWithWebView] failed:', e.message);
+      setIsLoggingIn(false);
+    }
+  };
+
+  const loginWithEmailPassword = async (email, password) => {
+    setIsLoggingIn(true);
+    try {
+      console.log('[AuthContext] loginWithEmailPassword starting...');
+      const credentials = await auth0.auth.passwordRealm({
+        username: email,
+        password: password,
+        realm: AUTH_CONFIG.databaseConnection,
+        audience: AUTH0_API_AUDIENCE,
+        scope: AUTH0_LOGIN_SCOPE,
+      });
+
+      console.log('[AuthContext] loginWithEmailPassword credentials received!');
+      await auth0.credentialsManager.saveCredentials(credentials);
+      await AsyncStorage.setItem('accessToken', credentials.accessToken);
+      await checkAuthStatus();
+      return credentials;
+    } catch (err) {
+      console.error('[AuthContext] loginWithEmailPassword failed:', err);
+      if (AUTH_CONFIG.enableLegacyWebviewLogin) {
+        console.log('[AuthContext] Falling back to WebView login...');
+        await loginWithWebView();
+      }
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const loginWithGoogle = async (googleIdToken) => {
+    setIsLoggingIn(true);
+    try {
+      console.log('[AuthContext] loginWithGoogle starting direct token exchange...');
+      
+      const part = googleIdToken?.split('.')?.[1];
+      const decoded = decodeBase64Url(part);
+      const nonce = extractNonceFromIdToken(googleIdToken);
+
+      const tokenUrl = 'https://login.swapp.fit/oauth/token';
+      const requestBody = {
+        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+        client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+        subject_token: googleIdToken,
+        subject_token_type: 'http://auth0.com/oauth/token-type/google-id-token',
+        audience: AUTH0_API_AUDIENCE,
+        scope: AUTH0_LOGIN_SCOPE,
+        ...(nonce ? { nonce } : {}),
+      };
+
+      console.log('[AuthContext] Sending token exchange request to Auth0 with body keys:', Object.keys(requestBody));
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const tokenData = await response.json();
+
+      if (!response.ok) {
+        console.error('[AuthContext] Token exchange failed response:', tokenData);
+        throw new Error(tokenData.error_description || tokenData.error || 'Token exchange failed.');
+      }
+
+      console.log('[AuthContext] Token exchange successful, formatting credentials...');
+      const credentials = {
+        accessToken: tokenData.access_token,
+        idToken: tokenData.id_token,
+        refreshToken: tokenData.refresh_token,
+        expiresAt: Date.now() + (tokenData.expires_in || 86400) * 1000,
+        scope: tokenData.scope || AUTH0_LOGIN_SCOPE,
+        tokenType: tokenData.token_type || 'Bearer',
+      };
+
+      await auth0.credentialsManager.saveCredentials(credentials);
+      await AsyncStorage.setItem('accessToken', credentials.accessToken);
+      await checkAuthStatus();
+      return credentials;
+    } catch (err) {
+      console.error('[AuthContext] loginWithGoogle failed:', err);
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const loginWithApple = async (appleAuthCode) => {
+    setIsLoggingIn(true);
+    try {
+      console.log('[AuthContext] loginWithApple starting token exchange...');
+      const credentials = await auth0.auth.exchangeNativeSocial({
+        subjectToken: appleAuthCode,
+        subjectTokenType: 'http://auth0.com/oauth/token-type/apple-authz-code',
+        audience: AUTH0_API_AUDIENCE,
+        scope: AUTH0_LOGIN_SCOPE,
+      });
+
+      console.log('[AuthContext] loginWithApple credentials received!');
+      await auth0.credentialsManager.saveCredentials(credentials);
+      await AsyncStorage.setItem('accessToken', credentials.accessToken);
+      await checkAuthStatus();
+      return credentials;
+    } catch (err) {
+      console.error('[AuthContext] loginWithApple failed:', err);
+      if (AUTH_CONFIG.enableLegacyWebviewLogin) {
+        console.log('[AuthContext] Falling back to WebView login...');
+        await loginWithWebView();
+      }
+      throw err;
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const login = async () => {
+    console.log('[AuthContext] login called, triggering fallback webview...');
+    await loginWithWebView();
+  };
+
+  const createAccount = async (email, password) => {
+    setIsLoggingIn(true);
+    try {
+      console.log('[AuthContext] createAccount starting...');
+      const user = await auth0.auth.createUser({
+        email: email,
+        password: password,
+        connection: AUTH_CONFIG.databaseConnection,
+      });
+      console.log('[AuthContext] createAccount successful:', user);
+
+      // Auto-login the user immediately
+      console.log('[AuthContext] Auto-logging in user...');
+      const credentials = await loginWithEmailPassword(email, password);
+      return { user, credentials };
+    } catch (err) {
+      console.error('[AuthContext] createAccount failed:', err);
+      throw err;
+    } finally {
       setIsLoggingIn(false);
     }
   };
@@ -305,6 +492,11 @@ export const AuthProvider = ({ children }) => {
         loading,
         isLoggingIn,
         login,
+        loginWithEmailPassword,
+        loginWithGoogle,
+        loginWithApple,
+        loginWithWebView,
+        createAccount,
         logout,
         refreshAuthStatus,
         debugStorage,

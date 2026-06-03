@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,8 @@ import {
   TextInput,
   FlatList,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -22,14 +24,116 @@ const POPULAR_CITIES = [
   { id: '6', name: 'Pune', latitude: 18.5204, longitude: 73.8567, icon: 'leaf' },
 ];
 
+const GOOGLE_MAPS_API_KEY = Platform.select({
+  ios: 'AIzaSyDbCCPsto9OSDAYX7D9vm1ibB1VKVOoTeI',
+  android: 'AIzaSyCYCaA0JTX_cpFbDbe3rlX764XyRsCUYPk',
+  default: 'AIzaSyCYCaA0JTX_cpFbDbe3rlX764XyRsCUYPk',
+});
+
 export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, activeLocationName }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [predictions, setPredictions] = useState([]);
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
+  const [isSelectingPlace, setIsSelectingPlace] = useState(false);
+
   const metrics = useResponsiveMetrics();
   const { ms, sp, fs } = metrics;
 
   const filteredCities = POPULAR_CITIES.filter(city =>
     city.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Debounced search for places
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setPredictions([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      fetchPlaces(searchQuery);
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const fetchPlaces = async (query) => {
+    setIsLoadingPredictions(true);
+    try {
+      const headers = Platform.select({
+        ios: { 'X-Ios-Bundle-Identifier': 'com.swapp.swappfit' },
+        android: { 'X-Android-Package': 'com.swappios' },
+        default: {},
+      });
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          query
+        )}&key=${GOOGLE_MAPS_API_KEY}&components=country:in`,
+        { headers }
+      );
+      const resJson = await response.json();
+      console.log('[Autocomplete] Response:', resJson);
+      if (resJson?.status === 'OK' && resJson?.predictions) {
+        // Map Google predictions and add source: 'google'
+        const googleResults = resJson.predictions.map(p => ({
+          ...p,
+          source: 'google'
+        }));
+        setPredictions(googleResults);
+      } else if (resJson?.status === 'ZERO_RESULTS') {
+        setPredictions([]);
+      } else {
+        console.warn('[Autocomplete] Google Places API failed, using Nominatim fallback:', resJson.status, resJson.error_message);
+        await fetchNominatim(query);
+      }
+    } catch (error) {
+      console.warn('[Autocomplete] Google fetch error, using Nominatim fallback:', error);
+      await fetchNominatim(query);
+    } finally {
+      setIsLoadingPredictions(false);
+    }
+  };
+
+  const fetchNominatim = async (query) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          query
+        )}&format=json&limit=8&countrycodes=in&accept-language=en`,
+        {
+          headers: {
+            'User-Agent': 'SwappFitnessApp/1.0',
+          }
+        }
+      );
+      const resJson = await response.json();
+      console.log('[Autocomplete] Nominatim Response:', resJson);
+      if (Array.isArray(resJson)) {
+        const nominatimResults = resJson.map((item, idx) => {
+          const parts = item.display_name.split(',');
+          const title = parts[0]?.trim() || item.display_name;
+          const subtitle = parts.slice(1).map(p => p.trim()).join(', ');
+          return {
+            place_id: `nominatim-${item.place_id || idx}`,
+            description: item.display_name,
+            structured_formatting: {
+              main_text: title,
+              secondary_text: subtitle
+            },
+            source: 'nominatim',
+            latitude: parseFloat(item.lat),
+            longitude: parseFloat(item.lon)
+          };
+        });
+        setPredictions(nominatimResults);
+      } else {
+        setPredictions([]);
+      }
+    } catch (error) {
+      console.error('[Autocomplete] Nominatim fetch error:', error);
+      setPredictions([]);
+    }
+  };
 
   const handleUseCurrentLocation = async () => {
     try {
@@ -46,6 +150,87 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
       onSelect({ latitude: city.latitude, longitude: city.longitude, name: city.name });
     }
     onClose();
+  };
+
+  const handleSelectPrediction = async (prediction) => {
+    if (prediction.source === 'nominatim') {
+      const lat = prediction.latitude;
+      const lng = prediction.longitude;
+      const displayName = prediction.structured_formatting?.main_text || prediction.description;
+      actions.selectLocation(lat, lng, displayName);
+      if (onSelect) {
+        onSelect({ latitude: lat, longitude: lng, name: displayName });
+      }
+      onClose();
+      return;
+    }
+
+    setIsSelectingPlace(true);
+    try {
+      const headers = Platform.select({
+        ios: { 'X-Ios-Bundle-Identifier': 'com.swapp.swappfit' },
+        android: { 'X-Android-Package': 'com.swappios' },
+        default: {},
+      });
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=geometry&key=${GOOGLE_MAPS_API_KEY}`,
+        { headers }
+      );
+      const resJson = await response.json();
+      console.log('[PlaceDetails] Response:', resJson);
+      if (resJson?.result?.geometry?.location) {
+        const { lat, lng } = resJson.result.geometry.location;
+        const displayName = prediction.structured_formatting?.main_text || prediction.description;
+        actions.selectLocation(lat, lng, displayName);
+        if (onSelect) {
+          onSelect({ latitude: lat, longitude: lng, name: displayName });
+        }
+        onClose();
+      } else {
+        console.warn('[PlaceDetails] Google details failed, trying Nominatim geocode fallback', resJson);
+        await geocodeWithNominatim(prediction.description);
+      }
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+      await geocodeWithNominatim(prediction.description);
+    } finally {
+      setIsSelectingPlace(false);
+    }
+  };
+
+  const geocodeWithNominatim = async (description) => {
+    setIsSelectingPlace(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          description
+        )}&format=json&limit=1&countrycodes=in&accept-language=en`,
+        {
+          headers: {
+            'User-Agent': 'SwappFitnessApp/1.0',
+          }
+        }
+      );
+      const resJson = await response.json();
+      if (Array.isArray(resJson) && resJson.length > 0) {
+        const item = resJson[0];
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lon);
+        const displayName = description.split(',')[0] || description;
+        actions.selectLocation(lat, lng, displayName);
+        if (onSelect) {
+          onSelect({ latitude: lat, longitude: lng, name: displayName });
+        }
+        onClose();
+      } else {
+        Alert.alert('Location Error', 'Could not resolve the selected location coordinates.');
+      }
+    } catch (error) {
+      console.error('Nominatim geocoding error:', error);
+      Alert.alert('Location Error', 'Could not resolve the selected location coordinates.');
+    } finally {
+      setIsSelectingPlace(false);
+    }
   };
 
   return (
@@ -95,7 +280,10 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
               autoCapitalize="none"
               autoCorrect={false}
             />
-            {searchQuery.length > 0 && (
+            {isLoadingPredictions && (
+              <ActivityIndicator size="small" color="#e74c3c" style={{ marginRight: 8 }} />
+            )}
+            {searchQuery.length > 0 && !isLoadingPredictions && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
                 <Icon name="close-circle" size={18} color="#888" />
               </TouchableOpacity>
@@ -118,50 +306,86 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
             <Icon name="chevron-forward" size={16} color="#555" />
           </TouchableOpacity>
 
-          <Text style={[styles.sectionLabel, { fontSize: fs(11), marginBottom: sp(8) }]}>POPULAR CITIES</Text>
-
-          {/* Cities List */}
-          <FlatList
-            data={filteredCities}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => {
-              const isSelected = activeLocationName?.toLowerCase() === item.name.toLowerCase();
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.cityRow, 
-                    { paddingVertical: sp(14) },
-                    isSelected && styles.cityRowSelected
-                  ]}
-                  onPress={() => handleSelectCity(item)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.cityIconContainer, isSelected && styles.cityIconContainerSelected]}>
-                    <Icon name={item.icon} size={18} color={isSelected ? '#fff' : '#888'} />
-                  </View>
-                  <Text style={[
-                    styles.cityName, 
-                    { fontSize: fs(14) },
-                    isSelected && styles.cityNameSelected
-                  ]}>
-                    {item.name}
-                  </Text>
-                  {isSelected ? (
-                    <Icon name="checkmark-circle" size={20} color="#e74c3c" />
-                  ) : (
-                    <Icon name="chevron-forward" size={16} color="#333" />
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-            ListEmptyComponent={
-              <Text style={[styles.emptyText, { fontSize: fs(12), marginVertical: sp(20) }]}>
-                No cities found matching search query
+          {isSelectingPlace ? (
+            <View style={styles.selectingPlaceContainer}>
+              <ActivityIndicator size="large" color="#e74c3c" />
+              <Text style={[styles.emptyText, { fontSize: fs(12), marginTop: sp(12) }]}>
+                Loading place details...
               </Text>
-            }
-            contentContainerStyle={{ paddingBottom: sp(30) }}
-            showsVerticalScrollIndicator={false}
-          />
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.sectionLabel, { fontSize: fs(11), marginBottom: sp(8) }]}>
+                {searchQuery ? 'SEARCH RESULTS' : 'POPULAR CITIES'}
+              </Text>
+
+              {/* Cities / Predictions List */}
+              <FlatList
+                data={searchQuery ? predictions : filteredCities}
+                keyExtractor={item => searchQuery ? item.place_id : item.id}
+                renderItem={({ item }) => {
+                  if (searchQuery) {
+                    return (
+                      <TouchableOpacity
+                        style={[styles.cityRow, { paddingVertical: sp(14) }]}
+                        onPress={() => handleSelectPrediction(item)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.cityIconContainer}>
+                          <Icon name="location-outline" size={18} color="#888" />
+                        </View>
+                        <View style={styles.flex1}>
+                          <Text style={[styles.cityName, { fontSize: fs(14), color: '#fff' }]}>
+                            {item.structured_formatting?.main_text || item.description}
+                          </Text>
+                          <Text style={[styles.currentLocationSub, { fontSize: fs(11) }]} numberOfLines={1}>
+                            {item.structured_formatting?.secondary_text || ''}
+                          </Text>
+                        </View>
+                        <Icon name="chevron-forward" size={16} color="#333" />
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  const isSelected = activeLocationName?.toLowerCase() === item.name.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.cityRow, 
+                        { paddingVertical: sp(14) },
+                        isSelected && styles.cityRowSelected
+                      ]}
+                      onPress={() => handleSelectCity(item)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.cityIconContainer, isSelected && styles.cityIconContainerSelected]}>
+                        <Icon name={item.icon} size={18} color={isSelected ? '#fff' : '#888'} />
+                      </View>
+                      <Text style={[
+                        styles.cityName, 
+                        { fontSize: fs(14) },
+                        isSelected && styles.cityNameSelected
+                      ]}>
+                        {item.name}
+                      </Text>
+                      {isSelected ? (
+                        <Icon name="checkmark-circle" size={20} color="#e74c3c" />
+                      ) : (
+                        <Icon name="chevron-forward" size={16} color="#333" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={[styles.emptyText, { fontSize: fs(12), marginVertical: sp(20) }]}>
+                    {searchQuery ? 'No locations found matching search query' : 'No cities found'}
+                  </Text>
+                }
+                contentContainerStyle={{ paddingBottom: sp(30) }}
+                showsVerticalScrollIndicator={false}
+              />
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -318,6 +542,12 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#555',
     textAlign: 'center',
+  },
+  selectingPlaceContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
   },
 });
 

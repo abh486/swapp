@@ -31,6 +31,7 @@ import MembershipBookingScreen from '../screens/home/booking/MembershipBookingSc
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
+import LoginScreen from '../screens/LoginScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,115 +41,121 @@ const AppNavigator = () => {
   const { isAuthenticated, hasProfile, loading, isLoggingIn } = useAuth();
   const navigationRef = React.useRef();
 
-  if (loading || isLoggingIn) {
+  if (loading) {
     return <FullScreenLoader />;
   }
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onStateChange={() => {
-        const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
-        if (currentRouteName) {
-          console.log('[Clarity] Screen viewed:', currentRouteName);
-          try {
-            Clarity.setCustomTag('CurrentScreen', currentRouteName);
-            Clarity.sendCustomEvent(`Viewed_${currentRouteName}`);
-          } catch (err) {
-            console.error('[Clarity] Navigation tracking failed:', err);
+    <View style={{ flex: 1 }}>
+      <NavigationContainer
+        ref={navigationRef}
+        onStateChange={() => {
+          const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+          if (currentRouteName) {
+            console.log('[Clarity] Screen viewed:', currentRouteName);
+            try {
+              Clarity.setCustomTag('CurrentScreen', currentRouteName);
+              Clarity.sendCustomEvent(`Viewed_${currentRouteName}`);
+            } catch (err) {
+              console.error('[Clarity] Navigation tracking failed:', err);
+            }
           }
-        }
-      }}
-    >
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          hasProfile ? (
-            // ✅ User authenticated + has profile → go to main app
-            <>
-              <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-              <Stack.Screen name="Community" component={Community} />
-              <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
+        }}
+      >
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {isAuthenticated ? (
+            hasProfile ? (
+              // ✅ User authenticated + has profile → go to main app
+              <>
+                <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+                <Stack.Screen name="Community" component={Community} />
+                <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
 
-              <Stack.Screen
-                name="DiscoverProvidersMap"
-                component={DiscoverProvidersMapScreen}
-              />
-              <Stack.Screen
-                name="ProviderDetails"
-                component={ProviderDetailScreen}
-              />
-              <Stack.Screen name="Dietplan" component={Dietplan} />
-              <Stack.Screen name="Workouts" component={WorkoutsScreen} />
-              <Stack.Screen
-                name="CreateFastWorkoutScreen"
-                component={CreateFastWorkoutScreen}
-              />
-              <Stack.Screen
-                name="CreateCustomWorkoutScreen"
-                component={CreateCustomWorkoutScreen}
-              />
-              <Stack.Screen
-                name="WorkoutEditorScreen"
-                component={WorkoutEditorScreen}
-              />
-              <Stack.Screen
-                name="FastWorkoutActive"
-                component={FastWorkoutActiveScreen}
-                options={{ gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="WorkoutSummary"
-                component={WorkoutSummaryScreen}
-              />
-              <Stack.Screen
-                name="CurrentWorkoutPlanScreen"
-                component={CurrentWorkoutPlanScreen}
-              />
-              <Stack.Screen
-                name="CheckoutWebView"
-                component={CheckoutWebViewScreen}
-              />
-              <Stack.Screen
-                name="PaymentProcessing"
-                component={PaymentProcessingScreen}
-              />
-              <Stack.Screen
-                name="SubscriptionSuccess"
-                component={SubscriptionSuccessScreen}
-              />
-              <Stack.Screen
-                name="MembershipDetails"
-                component={MembershipDetailsScreen}
-              />
-              <Stack.Screen
-                name="MembershipBooking"
-                component={MembershipBookingScreen}
-              />
-              <Stack.Screen
-                name="ProfileSettings"
-                component={ProfileSettingsScreen}
-              />
-              <Stack.Screen
-                name="EditPersonalInfo"
-                component={EditPersonalInfoScreen}
-              />
-              <Stack.Screen
-                name="Support"
-                component={SupportScreen}
-              />
-              {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
-            </>
+                <Stack.Screen
+                  name="DiscoverProvidersMap"
+                  component={DiscoverProvidersMapScreen}
+                />
+                <Stack.Screen
+                  name="ProviderDetails"
+                  component={ProviderDetailScreen}
+                />
+                <Stack.Screen name="Dietplan" component={Dietplan} />
+                <Stack.Screen name="Workouts" component={WorkoutsScreen} />
+                <Stack.Screen
+                  name="CreateFastWorkoutScreen"
+                  component={CreateFastWorkoutScreen}
+                />
+                <Stack.Screen
+                  name="CreateCustomWorkoutScreen"
+                  component={CreateCustomWorkoutScreen}
+                />
+                <Stack.Screen
+                  name="WorkoutEditorScreen"
+                  component={WorkoutEditorScreen}
+                />
+                <Stack.Screen
+                  name="FastWorkoutActive"
+                  component={FastWorkoutActiveScreen}
+                  options={{ gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="WorkoutSummary"
+                  component={WorkoutSummaryScreen}
+                />
+                <Stack.Screen
+                  name="CurrentWorkoutPlanScreen"
+                  component={CurrentWorkoutPlanScreen}
+                />
+                <Stack.Screen
+                  name="CheckoutWebView"
+                  component={CheckoutWebViewScreen}
+                />
+                <Stack.Screen
+                  name="PaymentProcessing"
+                  component={PaymentProcessingScreen}
+                />
+                <Stack.Screen
+                  name="SubscriptionSuccess"
+                  component={SubscriptionSuccessScreen}
+                />
+                <Stack.Screen
+                  name="MembershipDetails"
+                  component={MembershipDetailsScreen}
+                />
+                <Stack.Screen
+                  name="MembershipBooking"
+                  component={MembershipBookingScreen}
+                />
+                <Stack.Screen
+                  name="ProfileSettings"
+                  component={ProfileSettingsScreen}
+                />
+                <Stack.Screen
+                  name="EditPersonalInfo"
+                  component={EditPersonalInfoScreen}
+                />
+                <Stack.Screen
+                  name="Support"
+                  component={SupportScreen}
+                />
+                {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
+              </>
+            ) : (
+              // ✅ User authenticated but no profile → go to profile setup
+              <Stack.Screen name="MemberProfile" component={MemberProfile} />
+            )
           ) : (
-            // ✅ User authenticated but no profile → go to profile setup
-            <Stack.Screen name="MemberProfile" component={MemberProfile} />
-          )
-        ) : (
-          // ✅ User not logged in → onboarding then login flow
-          <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
-        )}
+            // ✅ User not logged in → onboarding then login flow
+            <>
+              <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
+              <Stack.Screen name="LoginScreen" component={LoginScreen} />
+            </>
+          )}
 
-      </Stack.Navigator>
-    </NavigationContainer>
+        </Stack.Navigator>
+      </NavigationContainer>
+      {isLoggingIn && <FullScreenLoader />}
+    </View>
   );
 };
 

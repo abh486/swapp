@@ -1,4 +1,8 @@
-// src/config/config.js
+export const AUTH_CONFIG = {
+  enableLegacyWebviewLogin: false,
+  googleWebClientId: '98784636409-tjgc2nab2tqpfrppuivhie79ulr0v8os.apps.googleusercontent.com', // Placeholder web client ID
+  databaseConnection: 'Username-Password-Authentication',
+};
 
 export const Strings = {
     

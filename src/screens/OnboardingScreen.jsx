@@ -165,29 +165,15 @@ const OnboardingScreen = () => {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const scrollX = useRef(0);
   const flatListRef = useRef(null);
-  const { login, isLoggingIn: loading } = useAuth();
+  const navigation = useNavigation();
+  const { isLoggingIn: loading } = useAuth();
   const { width: screenWidth, height: screenHeight, wp, hp, ms, fs, sp } = useResponsiveMetrics();
   const styles = createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp });
 
   const handleLogin = () => {
-    console.log('Initiating login from onboarding...');
-    setTimeout(async () => {
-      try {
-        await login();
-      } catch (err) {
-        console.error('Login failed full error:', JSON.stringify(err, null, 2));
-        if (err.message && err.message.includes('mismatch')) {
-          Alert.alert(
-            'Configuration Error',
-            'There is a URL mismatch between your App and Auth0 Dashboard. Check your console logs for the Redirect URI.'
-          );
-        } else {
-          Alert.alert('Login Error', err.message || 'An unexpected error occurred.');
-        }
-      }
-    }, 100);
+    console.log('Navigating from onboarding to LoginScreen...');
+    navigation.navigate('LoginScreen');
   };
-
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,10 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { createBooking } from '../../api/bookingApi';
-import { parseApiFailure } from '../../api/apiUtils';
-import { fetchMemberProviderAvailability } from '../../api/scheduleApi';
-import { isOpenAccessMode, resolveAccessMode } from '../../utils/accessMode';
+import { createBooking } from '../../../api/bookingApi';
+import { parseApiFailure } from '../../../api/apiUtils';
+import { fetchMemberProviderAvailability } from '../../../api/scheduleApi';
+import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 20;

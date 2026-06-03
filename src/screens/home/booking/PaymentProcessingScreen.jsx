@@ -7,11 +7,13 @@ import {
   Animated,
   Easing,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useAuth } from '../../context/AuthContext';
-import apiClient from '../../api/apiClient';
+import { useAuth } from '../../../context/AuthContext';
+import apiClient from '../../../api/apiClient';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const PaymentProcessingScreen = ({ route, navigation }) => {
   const {
