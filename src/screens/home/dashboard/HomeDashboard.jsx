@@ -29,6 +29,8 @@ import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/h
 import FindTrainers from './components/FindTrainers';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import LocationSelectorModal from './components/LocationSelectorModal';
+import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
+import { TrainerDetailsModal } from './components/TrainerDetailsModal';
 
 const PROMOS = [
   {
@@ -61,6 +63,10 @@ export const HomeDashboard = ({ navigation }) => {
   const [isLocationModalVisible, setLocationModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingSubscription, setPendingSubscription] = useState(null);
+  const [trainers, setTrainers] = useState([]);
+  const [isTrainersLoading, setIsTrainersLoading] = useState(false);
+  const [selectedTrainerDetails, setSelectedTrainerDetails] = useState(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
   const subscriptionCarouselRef = useRef(null);
 
   const {
@@ -180,9 +186,46 @@ export const HomeDashboard = ({ navigation }) => {
     }
   };
 
+  const fetchTrainersData = useCallback(async () => {
+    setIsTrainersLoading(true);
+    try {
+      const result = await dispatch(browseTrainers());
+      const trainersList = Array.isArray(result) ? result : (result?.trainers || result?.data || []);
+      setTrainers(trainersList);
+    } catch (err) {
+      console.error("HomeDashboard - Fetch Trainers Error:", err);
+    } finally {
+      setIsTrainersLoading(false);
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (activeCategory === 'trainer') {
+      fetchTrainersData();
+    }
+  }, [activeCategory, fetchTrainersData]);
+
+  const handleViewTrainerProfile = async (trainerFromList) => {
+    setIsModalLoading(true);
+    setSelectedTrainerDetails(trainerFromList);
+    try {
+      const fullProfile = await dispatch(getTrainerById(trainerFromList.user.id));
+      setSelectedTrainerDetails(fullProfile);
+    } catch (err) {
+      console.error("Failed to load full trainer profile:", err);
+      setSelectedTrainerDetails(null);
+    } finally {
+      setIsModalLoading(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchFeed();
+    if (activeCategory === 'trainer') {
+      await Promise.all([fetchFeed(), fetchTrainersData()]);
+    } else {
+      await fetchFeed();
+    }
     setRefreshing(false);
   };
 
@@ -213,7 +256,7 @@ export const HomeDashboard = ({ navigation }) => {
             <Icon
               name={item.icon || 'apps'}
               size={18}
-              color="#1a1a1a"
+              color="#e74c3c"
             />
           </View>
 
@@ -353,6 +396,65 @@ export const HomeDashboard = ({ navigation }) => {
             {provider.lowest_price
               ? `₹${provider.lowest_price}/mo*`
               : 'View Plans'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderTrainerCard = ({ item: trainer }) => {
+    if (!trainer) return null;
+    const distanceValue =
+      typeof trainer.distance === 'number'
+        ? trainer.distance.toFixed(1)
+        : null;
+    const distanceText = distanceValue ? `${distanceValue} miles` : null;
+    const verticalLabel = 'Trainer';
+
+    const trainerPlans = Array.isArray(trainer.plans) ? trainer.plans : [];
+    const lowestPrice = trainerPlans.length > 0 
+      ? Math.min(...trainerPlans.map(p => parseFloat(p.price) || 0)) 
+      : null;
+
+    const trainerName = trainer.name || trainer.user?.name || trainer.user?.email?.split('@')[0] || 'Trainer';
+
+    return (
+      <TouchableOpacity
+        style={styles.providerCard}
+        onPress={() => handleViewTrainerProfile(trainer)}
+      >
+        <ImageBackground
+          source={{
+            uri:
+              trainer.gallery?.[0] ||
+              'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400',
+          }}
+          style={styles.providerImage}
+          imageStyle={styles.providerImageStyle}
+        >
+          <View style={styles.badgeContainer}>
+            <View style={[styles.badge, styles.partnerBadge]}>
+              <Icon
+                name="star"
+                size={8}
+                color="#fff"
+                style={{ marginRight: 2 }}
+              />
+              <Text style={styles.badgeText}>{trainer.rating || 4.8}</Text>
+            </View>
+          </View>
+        </ImageBackground>
+        <View style={styles.providerDetails}>
+          <Text style={styles.providerName} numberOfLines={1}>
+            {trainerName}
+          </Text>
+          <Text style={styles.providerDistance}>
+            {verticalLabel} {distanceText ? `• ${distanceText}` : ''}
+          </Text>
+          <Text style={styles.providerPrice}>
+            {lowestPrice
+              ? `₹${lowestPrice}/mo*`
+              : 'View Profile'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -652,141 +754,141 @@ export const HomeDashboard = ({ navigation }) => {
 
         {hasActiveSubscription && renderSubscribedTop()}
 
-        {activeCategory === 'trainer' ? (
-          <FindTrainers />
-        ) : (
-          <>
-            {/* Promos Carousel */}
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.promoCarousel}
+        {/* Promos Carousel */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.promoCarousel}
+        >
+          {PROMOS.map((promo, index) => (
+            <ImageBackground
+              key={promo.id}
+              source={{ uri: promo.image }}
+              style={[styles.promoCard, { width: promoCardWidth, height: promoCardHeight, marginHorizontal: promoCardSpacing }]}
+              imageStyle={{ borderRadius: 16 }}
             >
-              {PROMOS.map((promo, index) => (
-                <ImageBackground
-                  key={promo.id}
-                  source={{ uri: promo.image }}
-                  style={[styles.promoCard, { width: promoCardWidth, height: promoCardHeight, marginHorizontal: promoCardSpacing }]}
-                  imageStyle={{ borderRadius: 16 }}
+              <View style={styles.promoContent}>
+                <Text style={styles.promoTitle}>{promo.title}</Text>
+                <Text style={styles.promoSubtitle}>{promo.subtitle}</Text>
+                <TouchableOpacity
+                  style={styles.promoButton}
+                  onPress={() => setMembershipModalVisible(true)}
                 >
-                  <View style={styles.promoContent}>
-                    <Text style={styles.promoTitle}>{promo.title}</Text>
-                    <Text style={styles.promoSubtitle}>{promo.subtitle}</Text>
-                    <TouchableOpacity
-                      style={styles.promoButton}
-                      onPress={() => setMembershipModalVisible(true)}
-                    >
-                      <Text style={styles.promoButtonText}>BOOK NOW</Text>
-                    </TouchableOpacity>
-                    <View style={styles.pagination}>
-                      {PROMOS.map((_, i) => (
-                        <View
-                          key={i}
-                          style={[styles.dot, i === index && styles.dotActive]}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                </ImageBackground>
-              ))}
-            </ScrollView>
-
-            {/* Categories */}
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={dashboardCategories}
-              renderItem={renderCategory}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.categoriesList}
-            />
-
-            {feed && feed.top_offerings?.length > 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
-                  <Icon name="arrow-forward-circle" size={28} color="#555" />
+                  <Text style={styles.promoButtonText}>BOOK NOW</Text>
+                </TouchableOpacity>
+                <View style={styles.pagination}>
+                  {PROMOS.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.dot, i === index && styles.dotActive]}
+                    />
+                  ))}
                 </View>
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={feed.top_offerings}
-                  renderItem={renderOffering}
-                  keyExtractor={item => item.id}
-                  contentContainerStyle={styles.offeringsList}
-                />
-              </>
-            )}
+              </View>
+            </ImageBackground>
+          ))}
+        </ScrollView>
 
-            {/* Discover Fitness Near You */}
-            <View style={styles.discoverSection}>
-              <Text style={styles.discoverBold}>Discover</Text>
-              <Text style={styles.discoverThin}>Partners Near You</Text>
-              <TouchableOpacity
-                onPress={() => setLocationModalVisible(true)}
-                activeOpacity={0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
-              >
-                <Text style={styles.partnersText}>
-                  100+ Partners In {locationName || 'Bangalore'}
-                </Text>
-                <Icon name="chevron-down" size={14} color="#888" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            </View>
+        {/* Categories */}
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={dashboardCategories}
+          renderItem={renderCategory}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.categoriesList}
+        />
 
-            {/* Centers Near You */}
+        {feed && feed.top_offerings?.length > 0 && (
+          <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                PARTNERS NEAR{' '}
-                <Text
-                  style={{ textDecorationLine: 'underline', color: '#e74c3c' }}
-                  onPress={() => setLocationModalVisible(true)}
-                >
-                  {locationName ? locationName.toUpperCase() : 'YOU'}
-                </Text>
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('DiscoverProvidersMap')}
-              >
-                <Icon name="arrow-forward-circle" size={28} color="#555" />
-              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
+              <Icon name="arrow-forward-circle" size={28} color="#555" />
             </View>
-
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
-              data={feed?.nearby_providers || []}
-              renderItem={renderProvider}
+              data={feed.top_offerings}
+              renderItem={renderOffering}
               keyExtractor={item => item.id}
-              contentContainerStyle={styles.providersList}
-              ListEmptyComponent={
-                loading ? null : (
-                  <Text style={{ color: '#888', marginLeft: 16 }}>
-                    No partners found nearby
-                  </Text>
-                )
-              }
+              contentContainerStyle={styles.offeringsList}
             />
           </>
         )}
 
+        {/* Discover Fitness Near You */}
+        <View style={styles.discoverSection}>
+          <Text style={styles.discoverBold}>Discover</Text>
+          <Text style={styles.discoverThin}>
+            {activeCategory === 'trainer' ? 'Trainers Near You' : 'Partners Near You'}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLocationModalVisible(true)}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+          >
+            <Text style={styles.partnersText}>
+              {activeCategory === 'trainer' 
+                ? `100+ Trainers In ${locationName || 'Bangalore'}`
+                : `100+ Partners In ${locationName || 'Bangalore'}`}
+            </Text>
+            <Icon name="chevron-down" size={14} color="#888" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Centers Near You */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {activeCategory === 'trainer' ? 'TRAINERS NEAR' : 'PARTNERS NEAR'}{' '}
+            <Text
+              style={{ textDecorationLine: 'underline', color: '#e74c3c' }}
+              onPress={() => setLocationModalVisible(true)}
+            >
+              {locationName ? locationName.toUpperCase() : 'YOU'}
+            </Text>
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('DiscoverProvidersMap')}
+          >
+            <Icon name="arrow-forward-circle" size={28} color="#555" />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={activeCategory === 'trainer' ? trainers : (feed?.nearby_providers || [])}
+          renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.providersList}
+          ListEmptyComponent={
+            (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
+              <Text style={{ color: '#888', marginLeft: 16 }}>
+                {activeCategory === 'trainer' ? 'No trainers found nearby' : 'No partners found nearby'}
+              </Text>
+            )
+          }
+        />
+
         {/* Trending Partners */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>TRENDING PARTNERS</Text>
+          <Text style={styles.sectionTitle}>
+            {activeCategory === 'trainer' ? 'TRENDING TRAINERS' : 'TRENDING PARTNERS'}
+          </Text>
           <Icon name="arrow-forward-circle" size={28} color="#555" />
         </View>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={feed?.trending_providers || []}
-          renderItem={renderProvider}
+          data={activeCategory === 'trainer' ? trainers : (feed?.trending_providers || [])}
+          renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.providersList}
           ListEmptyComponent={
-            loading ? null : (
+            (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
               <Text style={{ color: '#888', marginLeft: 16 }}>
-                No trending partners found for this category
+                {activeCategory === 'trainer' ? 'No trending trainers found' : 'No trending partners found for this category'}
               </Text>
             )
           }
@@ -808,6 +910,14 @@ export const HomeDashboard = ({ navigation }) => {
         onSelect={(newLoc) => {
           navigation.navigate('DiscoverProvidersMap', { selectedLocation: newLoc });
         }}
+      />
+      <TrainerDetailsModal
+        trainer={selectedTrainerDetails}
+        isVisible={!!selectedTrainerDetails}
+        isLoading={isModalLoading}
+        onClose={() => setSelectedTrainerDetails(null)}
+        user={user}
+        navigation={navigation}
       />
     </SafeAreaView>
   );
@@ -1164,14 +1274,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#A5A5A5',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
     zIndex: 10,
   },
   activeCategoryText: {
@@ -1199,7 +1304,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#3E3E3E',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

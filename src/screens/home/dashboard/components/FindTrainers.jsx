@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
-import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
+import { browseTrainers, getTrainerById } from '../../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { useAuth } from '../../../../context/AuthContext';
 import { Strings } from '../../../../config/config'; // Import Config
