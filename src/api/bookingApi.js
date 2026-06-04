@@ -35,3 +35,15 @@ export const generateBookingQr = async (bookingId, location) => {
     expiresInSeconds: data?.expiresInSeconds || data?.expiresIn || 60,
   };
 };
+
+export const checkoutBooking = async (bookingId) => {
+  const response = await apiClient.post(`${API_ROUTES.bookings.base}/${bookingId}/checkout`);
+  const data = unwrapApiData(response);
+
+  return {
+    raw: response.data,
+    message: unwrapApiMessage(response, 'Checked out successfully.'),
+    booking: normalizeBooking(data),
+  };
+};
+

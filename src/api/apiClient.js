@@ -14,7 +14,7 @@ export const AUTH0_LOGIN_SCOPE = 'openid profile email offline_access';
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = 'https://test-api.swapp.fit/api';
+export const API_BASE_URL = 'https://f05b-2402-e280-2107-e0-f4d8-b322-8be4-1069.ngrok-free.app/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

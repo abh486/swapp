@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -86,50 +86,39 @@ export const HomeDashboard = ({ navigation }) => {
     profileData.profilePicture ||
     profileData.avatar;
   const subscriptions = user?.subscriptions || profileData.subscriptions || [];
-  const serverActiveSubscription = subscriptions.find(sub => {
-    const status = String(
-      sub.status || sub.subscriptionStatus || '',
-    ).toUpperCase();
-    return (
-      !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status) ||
-      sub.isActive ||
-      sub.active
-    );
-  });
-  const activeSubscription = serverActiveSubscription || pendingSubscription;
-  const subscribedProvider =
-    activeSubscription?.provider ||
-    activeSubscription?.gym ||
-    activeSubscription?.partner ||
-    activeSubscription?.package?.provider ||
-    null;
-  const subscribedPlan =
-    activeSubscription?.plan ||
-    activeSubscription?.package ||
-    activeSubscription?.membershipTier ||
-    activeSubscription?.tier ||
-    null;
-  const hasActiveSubscription = Boolean(activeSubscription);
-  const subscribedGymName =
-    subscribedProvider?.name ||
-    activeSubscription?.providerName ||
-    activeSubscription?.gymName ||
-    'FitZone Premium';
-  const subscribedPlanName =
-    subscribedPlan?.name ||
-    activeSubscription?.planName ||
-    activeSubscription?.tierName ||
-    'Premium Membership';
-  const subscribedTierName =
-    subscribedPlan?.tier ||
-    activeSubscription?.tier ||
-    activeSubscription?.membershipTierName ||
-    'Gold Tier';
-  const subscribedImage =
-    subscribedProvider?.photos?.[0] ||
-    activeSubscription?.image ||
-    activeSubscription?.photoUrl ||
-    'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
+  const serverActiveSubscription = useMemo(() => {
+    return subscriptions.find(sub => {
+      const status = String(
+        sub.status || sub.subscriptionStatus || '',
+      ).toUpperCase();
+      return (
+        !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status) ||
+        sub.isActive ||
+        sub.active
+      );
+    });
+  }, [subscriptions]);
+
+  const activeSubscriptions = useMemo(() => {
+    const activeFromCached = subscriptions.filter(sub => {
+      const status = String(
+        sub.status || sub.subscriptionStatus || '',
+      ).toUpperCase();
+      return (
+        !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status) ||
+        sub.isActive ||
+        sub.active
+      );
+    });
+
+    const list = [...activeFromCached];
+    if (pendingSubscription && !list.find(sub => sub.id === pendingSubscription.id)) {
+      list.push(pendingSubscription);
+    }
+    return list;
+  }, [subscriptions, pendingSubscription]);
+
+  const hasActiveSubscription = activeSubscriptions.length > 0;
 
   useEffect(() => {
     fetchFeed();
@@ -409,18 +398,52 @@ export const HomeDashboard = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderActiveSubscriptionCard = () => {
+  const renderActiveSubscriptionCard = (sub, index) => {
+    const subscribedProvider =
+      sub?.provider ||
+      sub?.gym ||
+      sub?.partner ||
+      sub?.package?.provider ||
+      null;
+    const subscribedPlan =
+      sub?.plan ||
+      sub?.package ||
+      sub?.membershipTier ||
+      sub?.tier ||
+      null;
+    const subscribedGymName =
+      subscribedProvider?.name ||
+      sub?.providerName ||
+      sub?.gymName ||
+      'FitZone Premium';
+    const subscribedPlanName =
+      subscribedPlan?.name ||
+      sub?.planName ||
+      sub?.tierName ||
+      'Premium Membership';
+    const subscribedTierName =
+      subscribedPlan?.tier ||
+      sub?.tier ||
+      sub?.membershipTierName ||
+      'Gold Tier';
+    const subscribedImage =
+      subscribedProvider?.photos?.[0] ||
+      sub?.image ||
+      sub?.photoUrl ||
+      'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
+
     const arcOneWidth = subscriptionCardWidth * 1.2;
     const arcTwoWidth = subscriptionCardWidth * 1.35;
     const arcThreeWidth = subscriptionCardWidth * 1.5;
 
     return (
       <TouchableOpacity
+        key={sub.id || index}
         style={[styles.carouselCard, styles.activeCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
         activeOpacity={0.9}
         onPress={() =>
           navigation.navigate('MembershipDetails', {
-            subscription: activeSubscription,
+            subscription: sub,
           })
         }
       >
@@ -541,7 +564,7 @@ export const HomeDashboard = ({ navigation }) => {
         contentContainerStyle={[styles.subscriptionCarouselContent, { paddingHorizontal: subscriptionSidePadding }]}
       >
         {renderRewardsCard()}
-        {renderActiveSubscriptionCard()}
+        {activeSubscriptions.map((sub, index) => renderActiveSubscriptionCard(sub, index))}
         {renderPassesCard()}
       </ScrollView>
     </View>
