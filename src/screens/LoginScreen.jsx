@@ -12,6 +12,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  NativeModules,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -66,19 +67,20 @@ const LoginScreen = () => {
   // Initialize Google Sign-in
   useEffect(() => {
     try {
-      console.log('[DEBUG-GoogleAuth] Starting Google Sign-In configuration...');
-      console.log('[DEBUG-GoogleAuth] Package Name (Android): com.swappios');
-      console.log('[DEBUG-GoogleAuth] Bundle ID (iOS): com.swapp.swappfit');
-      console.log('[DEBUG-GoogleAuth] Web Client ID used:', AUTH_CONFIG.googleWebClientId);
-      console.log('[DEBUG-GoogleAuth] Platform:', Platform.OS);
+      if (Platform.OS === 'android') {
+        const { GoogleCredentialManager } = NativeModules;
+        if (GoogleCredentialManager) {
+          GoogleCredentialManager.configure(AUTH_CONFIG.googleWebClientId)
+            .catch((err) => console.error('GoogleCredentialManager configure failed:', err.message));
+        }
+      }
 
       GoogleSignin.configure({
         webClientId: AUTH_CONFIG.googleWebClientId,
         offlineAccess: true,
       });
-      console.log('[DEBUG-GoogleAuth] Google Sign-In configured successfully.');
     } catch (e) {
-      console.error('[DEBUG-GoogleAuth] Google Sign-In configuration failed:', e);
+      console.error('Google Sign-In configuration failed:', e.message);
     }
   }, []);
 
@@ -264,42 +266,49 @@ const LoginScreen = () => {
 
   const handleGoogleLogin = async () => {
     if (operationInProgress.current) {
-      console.log('[LoginScreen] Operation already in progress, ignoring Google Sign-In tap');
       return;
     }
     operationInProgress.current = true;
     setActiveSocial('google');
     try {
-      console.log('Initiating native Google login...');
-      await GoogleSignin.hasPlayServices();
-      
-      // Clear any stuck/previous native Google sign-in session
-      try {
-        await GoogleSignin.signOut();
-      } catch (signOutError) {
-        console.log('GoogleSignin.signOut failed or no user logged in:', signOutError.message);
-      }
-
-      // Generate Cryptographic Nonce before login
       const rawNonce = generateNonce();
       const hashedNonce = CryptoJS.SHA256(rawNonce).toString();
-      console.log('[LoginScreen] Generated OIDC nonces - Raw:', rawNonce, 'Hashed:', hashedNonce);
 
-      const userInfo = await GoogleSignin.signIn({
-        nonce: hashedNonce,
-      });
-      
-      const idToken = userInfo.data?.idToken || userInfo.idToken;
+      let idToken;
+      if (Platform.OS === 'android') {
+        const { GoogleCredentialManager } = NativeModules;
+        if (!GoogleCredentialManager) {
+          throw new Error('GoogleCredentialManager native module is not registered.');
+        }
+        
+        await GoogleCredentialManager.configure(AUTH_CONFIG.googleWebClientId);
+        const userInfo = await GoogleCredentialManager.signIn(hashedNonce);
+        idToken = userInfo.idToken;
+      } else {
+        await GoogleSignin.hasPlayServices();
+        
+        try {
+          await GoogleSignin.signOut();
+        } catch (signOutError) {
+          // ignore
+        }
+
+        const userInfo = await GoogleSignin.signIn({
+          nonce: hashedNonce,
+        });
+
+        idToken = userInfo.data?.idToken || userInfo.idToken;
+      }
+
       if (!idToken) {
         throw new Error('Google ID Token could not be retrieved.');
       }
 
-      console.log('Google ID Token:', idToken);
       console.log('Google login code received, exchanging with Auth0...');
-      await loginWithGoogle(idToken);
+      await loginWithGoogle(idToken, rawNonce);
     } catch (err) {
-      console.error('Google Native Login failed:', err);
-      const isCancel = err.code === statusCodes.SIGN_IN_CANCELLED || err.message === 'Sign in action cancelled';
+      console.error('Google Native Login failed:', err.message || err);
+      const isCancel = err.code === statusCodes.SIGN_IN_CANCELLED || err.message === 'Sign in action cancelled' || err.code === 'SIGN_IN_CANCELLED';
       const isInProgress = err.code === statusCodes.IN_PROGRESS || err.message?.includes('Sign-in in progress') || err.message?.includes('in progress');
 
       if (!isCancel && !isInProgress) {

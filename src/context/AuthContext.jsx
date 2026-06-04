@@ -352,14 +352,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginWithGoogle = async (googleIdToken) => {
+  const loginWithGoogle = async (googleIdToken, rawNonce) => {
     setIsLoggingIn(true);
     try {
       console.log('[AuthContext] loginWithGoogle starting direct token exchange...');
-      
-      const part = googleIdToken?.split('.')?.[1];
-      const decoded = decodeBase64Url(part);
-      const nonce = extractNonceFromIdToken(googleIdToken);
 
       const tokenUrl = 'https://login.swapp.fit/oauth/token';
       const requestBody = {
@@ -369,10 +365,8 @@ export const AuthProvider = ({ children }) => {
         subject_token_type: 'http://auth0.com/oauth/token-type/google-id-token',
         audience: AUTH0_API_AUDIENCE,
         scope: AUTH0_LOGIN_SCOPE,
-        ...(nonce ? { nonce } : {}),
+        nonce: rawNonce,
       };
-
-      console.log('[AuthContext] Sending token exchange request to Auth0 with body keys:', Object.keys(requestBody));
 
       const response = await fetch(tokenUrl, {
         method: 'POST',
@@ -385,11 +379,11 @@ export const AuthProvider = ({ children }) => {
       const tokenData = await response.json();
 
       if (!response.ok) {
-        console.error('[AuthContext] Token exchange failed response:', tokenData);
+        console.error('[AuthContext] Token exchange failed: ' + (tokenData.error_description || tokenData.error || 'Unknown error'));
         throw new Error(tokenData.error_description || tokenData.error || 'Token exchange failed.');
       }
 
-      console.log('[AuthContext] Token exchange successful, formatting credentials...');
+      console.log('[AuthContext] Token exchange successful.');
       const credentials = {
         accessToken: tokenData.access_token,
         idToken: tokenData.id_token,
@@ -404,7 +398,7 @@ export const AuthProvider = ({ children }) => {
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.error('[AuthContext] loginWithGoogle failed:', err);
+      console.error('[AuthContext] loginWithGoogle failed:', err.message);
       throw err;
     } finally {
       setIsLoggingIn(false);
@@ -422,13 +416,13 @@ export const AuthProvider = ({ children }) => {
         scope: AUTH0_LOGIN_SCOPE,
       });
 
-      console.log('[AuthContext] loginWithApple credentials received!');
+      console.log('[AuthContext] loginWithApple credentials received.');
       await auth0.credentialsManager.saveCredentials(credentials);
       await AsyncStorage.setItem('accessToken', credentials.accessToken);
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.error('[AuthContext] loginWithApple failed:', err);
+      console.error('[AuthContext] loginWithApple failed:', err.message);
       if (AUTH_CONFIG.enableLegacyWebviewLogin) {
         console.log('[AuthContext] Falling back to WebView login...');
         await loginWithWebView();
@@ -453,14 +447,14 @@ export const AuthProvider = ({ children }) => {
         password: password,
         connection: AUTH_CONFIG.databaseConnection,
       });
-      console.log('[AuthContext] createAccount successful:', user);
+      console.log('[AuthContext] createAccount successful');
 
       // Auto-login the user immediately
       console.log('[AuthContext] Auto-logging in user...');
       const credentials = await loginWithEmailPassword(email, password);
       return { user, credentials };
     } catch (err) {
-      console.error('[AuthContext] createAccount failed:', err);
+      console.error('[AuthContext] createAccount failed:', err.message);
       throw err;
     } finally {
       setIsLoggingIn(false);
