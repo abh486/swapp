@@ -1,6 +1,19 @@
+
+
+
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, useWindowDimensions, Platform} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  SafeAreaView,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -134,6 +147,10 @@ const ProfileDashboard = () => {
     navigation.navigate('ProfileSettings');
   };
 
+  const openFollowList = type => {
+    navigation.navigate('FollowList', { type });
+  };
+
   // Dynamic calculations based on screen width
   const avatarSize = width * 0.28;
   const avatarImageSize = avatarSize - 12;
@@ -242,18 +259,26 @@ const ProfileDashboard = () => {
               </Text>
               <Text style={styles.statLabel}>Workouts</Text>
             </View>
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => openFollowList('followers')}
+              activeOpacity={0.75}
+            >
               <Text style={styles.statValue}>
                 {formatCount(stats.followersCount)}
               </Text>
               <Text style={styles.statLabel}>Followers</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => openFollowList('following')}
+              activeOpacity={0.75}
+            >
               <Text style={styles.statValue}>
                 {formatCount(stats.followingCount)}
               </Text>
               <Text style={styles.statLabel}>Following</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -349,8 +374,17 @@ const ProfileDashboard = () => {
                       style={styles.workoutAvatar}
                     />
                   ) : (
-                    <View style={[styles.workoutAvatar, styles.workoutAvatarFallback]}>
-                      <Icon name="person" size={22} color="rgba(255,255,255,0.72)" />
+                    <View
+                      style={[
+                        styles.workoutAvatar,
+                        styles.workoutAvatarFallback,
+                      ]}
+                    >
+                      <Icon
+                        name="person"
+                        size={22}
+                        color="rgba(255,255,255,0.72)"
+                      />
                     </View>
                   )}
                   <View>
