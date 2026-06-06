@@ -16,6 +16,7 @@ import { createBooking } from '../../../api/bookingApi';
 import { parseApiFailure } from '../../../api/apiUtils';
 import { fetchMemberProviderAvailability } from '../../../api/scheduleApi';
 import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 20;
@@ -62,6 +63,9 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     categoryId: routeCategoryId = null,
     packageType: routePackageType = null,
   } = route?.params || {};
+  const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(metrics, insets);
   const packageType = useMemo(
     () =>
       normalizePackageType(

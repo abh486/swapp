@@ -26,7 +26,7 @@ import {
 } from 'react-native-vision-camera';
 import { useBarcodeScannerOutput } from 'react-native-vision-camera-barcode-scanner';
 import apiClient from '../../../api/apiClient';
-import { generateBookingQr, getMyBookings } from '../../../api/bookingApi';
+import { generateBookingQr, getMyBookings, checkoutBooking } from '../../../api/bookingApi';
 import { getCheckInHistory, venueScanCheckIn } from '../../../api/checkinApi';
 import { parseApiFailure } from '../../../api/apiUtils';
 import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
@@ -170,6 +170,9 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     routeSubscription?.cancelAtPeriodEnd !== true
   );
   const didAutoOpenScannerRef = useRef(false);
+  const isScanLockedRef = useRef(false);
+  const isMounted = useRef(true);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const subscriptions = useMemo(() => {
     const profileData = user?.userProfile || user?.memberProfile || user || {};
     const fromUser = user?.subscriptions || profileData.subscriptions || [];
@@ -265,6 +268,15 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     subscription.gymId ||
     subscription.partnerId ||
     subscription.package?.providerId;
+
+  const currentCheckedInBooking = useMemo(() => {
+    return bookings.find(
+      booking =>
+        booking.providerId === providerId &&
+        booking.bookingStatus === 'CHECKED_IN'
+    );
+  }, [bookings, providerId]);
+
   const packageType = useMemo(
     () =>
       normalizePackageType(
@@ -457,38 +469,41 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     }).length;
   }, [checkInHistory]);
 
-  useEffect(() => {
-    let isActive = true;
+  const fetchLifecycleData = useCallback(async () => {
+    setIsLoadingHistory(true);
+    try {
+      const [bookingRows, historyRows, providerDataResp] = await Promise.all([
+        getMyBookings(),
+        getCheckInHistory(providerId ? { providerId } : undefined),
+        providerId ? apiClient.get(`/providers/profile/${providerId}`) : Promise.resolve(null),
+      ]);
 
-    const loadLifecycle = async () => {
-      setIsLoadingHistory(true);
-      try {
-        const [bookingRows, historyRows, providerDataResp] = await Promise.all([
-          getMyBookings(),
-          getCheckInHistory(providerId ? { providerId } : undefined),
-          providerId ? apiClient.get(`/providers/profile/${providerId}`) : Promise.resolve(null),
-        ]);
-
-        if (isActive) {
-          setBookings(bookingRows || []);
-          setCheckInHistory(historyRows || []);
-          if (providerDataResp?.data?.success && providerDataResp?.data?.data) {
-            setProviderDetails(providerDataResp.data.data);
-          }
+      if (isMounted.current) {
+        setBookings(bookingRows || []);
+        setCheckInHistory(historyRows || []);
+        if (providerDataResp?.data?.success && providerDataResp?.data?.data) {
+          setProviderDetails(providerDataResp.data.data);
         }
-      } catch (error) {
-        console.warn('[MembershipDetails] Lifecycle load failed:', parseApiFailure(error));
-      } finally {
-        if (isActive) setIsLoadingHistory(false);
       }
-    };
-
-    loadLifecycle();
-
-    return () => {
-      isActive = false;
-    };
+    } catch (error) {
+      console.warn('[MembershipDetails] Lifecycle load failed:', parseApiFailure(error));
+    } finally {
+      if (isMounted.current) {
+        setIsLoadingHistory(false);
+      }
+    }
   }, [providerId]);
+
+  useEffect(() => {
+    fetchLifecycleData();
+  }, [fetchLifecycleData]);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const openDirections = () => {
     if (locationUrl) {
@@ -513,7 +528,11 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     }
 
     if (isOpenAccess) {
-      openScanner();
+      if (currentCheckedInBooking) {
+        handleCheckout();
+      } else {
+        openScanner();
+      }
       return;
     }
 
@@ -590,12 +609,14 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
+    isScanLockedRef.current = false;
     setIsScanLocked(false);
     setScannerVisible(true);
   }, [device, hasPermission, requestPermission]);
 
   const closeScanner = useCallback(() => {
     setScannerVisible(false);
+    isScanLockedRef.current = false;
     setIsScanLocked(false);
     setIsCheckingIn(false);
   }, []);
@@ -610,6 +631,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         'Please scan the venue QR poster displayed at the facility.',
         [
           { text: 'Scan Again', onPress: () => {
+            isScanLockedRef.current = false;
             setIsScanLocked(false);
             setScannerVisible(true);
           } },
@@ -634,12 +656,14 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         result.message || 'You have successfully checked in.',
         [{ text: 'Done', style: 'default' }],
       );
+      fetchLifecycleData();
     } catch (error) {
       Alert.alert(
         'Check-in Failed',
         parseApiFailure(error, 'Unable to complete check-in. Please try again.'),
         [
           { text: 'Scan Again', onPress: () => {
+            isScanLockedRef.current = false;
             setIsScanLocked(false);
             setScannerVisible(true);
           } },
@@ -649,7 +673,44 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, fetchLifecycleData]);
+
+  const handleCheckout = useCallback(async () => {
+    if (!currentCheckedInBooking) return;
+
+    Alert.alert(
+      'Confirm Checkout',
+      'Are you sure you want to checkout from this facility?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Checkout',
+          style: 'destructive',
+          onPress: async () => {
+            setIsCheckingOut(true);
+            try {
+              const result = await checkoutBooking(currentCheckedInBooking.id);
+
+              Alert.alert(
+                'Checkout Successful',
+                result.message || 'You have successfully checked out.',
+                [{ text: 'Done', style: 'default' }],
+              );
+
+              fetchLifecycleData();
+            } catch (error) {
+              Alert.alert(
+                'Checkout Failed',
+                parseApiFailure(error, 'Unable to complete checkout. Please try again.'),
+              );
+            } finally {
+              setIsCheckingOut(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [currentCheckedInBooking, fetchLifecycleData]);
 
   const handleGenerateBookingQr = useCallback(async booking => {
     if (!userLocation?.latitude || !userLocation?.longitude) {
@@ -892,25 +953,41 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
 
         <TouchableOpacity
           style={styles.bookNowButton}
-          onPress={isAccessModeLoading ? undefined : openBooking}
+          onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
           activeOpacity={0.88}
-          disabled={isAccessModeLoading || isUpgradeOnlyPackage}
+          disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut}
         >
-          <Icon
-            name={isUpgradeOnlyPackage ? 'lock-closed-outline' : isOpenAccess ? 'qr-code-outline' : 'calendar-outline'}
-            size={22}
-            color="#FFF"
-          />
+          {isCheckingOut ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <Icon
+              name={
+                isUpgradeOnlyPackage
+                  ? 'lock-closed-outline'
+                  : isOpenAccess
+                  ? currentCheckedInBooking
+                    ? 'log-out-outline'
+                    : 'qr-code-outline'
+                  : 'calendar-outline'
+              }
+              size={22}
+              color="#FFF"
+            />
+          )}
           <Text style={styles.bookNowText}>
             {isAccessModeLoading
               ? 'Loading...'
+              : isCheckingOut
+              ? 'Checking out...'
               : isUpgradeOnlyPackage
-                ? 'Upgrade Only'
-                : isOpenAccess
-                ? 'Scan Venue QR'
-                : isAppointmentOnly
-                  ? 'Request Appointment'
-                  : 'Book Session'}
+              ? 'Upgrade Only'
+              : isOpenAccess
+              ? currentCheckedInBooking
+                ? 'Checkout'
+                : 'Scan Venue QR'
+              : isAppointmentOnly
+              ? 'Request Appointment'
+              : 'Book Session'}
           </Text>
         </TouchableOpacity>
 
@@ -1005,6 +1082,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
                 isActive={scannerVisible}
                 isScanLocked={isScanLocked}
                 onQrCodeScanned={value => {
+                  if (isScanLockedRef.current) return;
+                  isScanLockedRef.current = true;
                   setIsScanLocked(true);
                   handleQrCodeScanned(value);
                 }}
