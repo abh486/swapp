@@ -11,14 +11,29 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChatScreen } from './ChatScreen';
 import { getToken } from '../../../../api/apiClient';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLocation } from '../../../../context/LocationContext';
 import { Strings } from '../../../../config/config'; // Import Config
 import * as Clarity from '@microsoft/react-native-clarity';
+
+const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 const { height: screenHeight } = Dimensions.get('window');
 
 export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, navigation }) => {
   const dispatch = useDispatch();
   const { userProfile, isAuthenticated } = useAuth();
+  const { userLocation } = useLocation();
   const strings = Strings.TrainerDetailsModal;
   const alerts = Strings.TrainerDetailsModal.alerts;
   
@@ -304,6 +319,49 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                     <Text style={styles.sectionTitle}>{strings.about}</Text>
                     <Text style={styles.bio}>{trainer.bio}</Text>
                     <Text style={styles.experience}>{trainer.experience || 0} {strings.yearsExp}</Text>
+                    
+                    {/* Location & Service Mode Details */}
+                    <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Icon name="navigate-outline" size={16} color="#452829" style={{ marginRight: 8 }} />
+                        <Text style={{ fontSize: 14, color: '#57595B' }}>
+                          Service Mode: <Text style={{ fontWeight: '600' }}>
+                            {(trainerDetails?.serviceMode || trainer.serviceMode) === 'HYBRID' ? 'Hybrid (Online/In-person)' : (trainerDetails?.serviceMode || trainer.serviceMode) === 'ONLINE' ? 'Online Only' : 'In-Person'}
+                          </Text>
+                        </Text>
+                      </View>
+                      
+                      {(trainerDetails?.serviceMode || trainer.serviceMode) !== 'ONLINE' && (trainerDetails?.address || trainer.address) ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                          <Icon name="location-outline" size={16} color="#452829" style={{ marginRight: 8 }} />
+                          <Text style={{ fontSize: 14, color: '#57595B', flex: 1 }} numberOfLines={2}>
+                            Address: {trainerDetails?.address || trainer.address}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {(() => {
+                        const rawLat = trainerDetails?.latitude || trainer.latitude;
+                        const rawLng = trainerDetails?.longitude || trainer.longitude;
+                        const dist = (trainerDetails?.distance !== undefined && trainerDetails?.distance !== null)
+                          ? trainerDetails.distance
+                          : (trainer.distance !== undefined && trainer.distance !== null)
+                            ? trainer.distance
+                            : calculateHaversineDistance(userLocation?.latitude, userLocation?.longitude, rawLat, rawLng);
+                        
+                        if (dist !== null && dist !== undefined) {
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Icon name="compass-outline" size={16} color="#452829" style={{ marginRight: 8 }} />
+                              <Text style={{ fontSize: 14, color: '#57595B' }}>
+                                Distance: {dist.toFixed(1)} km away
+                              </Text>
+                            </View>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </View>
                   </View>
                   
                   {gallery.length >1 && (

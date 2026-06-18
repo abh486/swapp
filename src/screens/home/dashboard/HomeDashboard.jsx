@@ -35,10 +35,12 @@ import { TrainerDetailsModal } from './components/TrainerDetailsModal';
 const PROMOS = [
   {
     id: '1',
-    title: 'TRAIN LIKE\nAN ATHLETE',
-    subtitle: 'Unlock your true potential',
+    title: 'PERSONAL\nAI DIETICIAN',
+    subtitle: 'Unlock customized meal plans & scan insights',
     image:
-      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=600&auto=format&fit=crop',
+    ctaText: 'ACTIVATE NOW',
+    navigateTo: 'AIDieticianSubscription',
   },
   {
     id: '2',
@@ -46,6 +48,7 @@ const PROMOS = [
     subtitle: 'Join our new intensive program',
     image:
       'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1470&auto=format&fit=crop',
+    ctaText: 'BOOK NOW',
   },
 ];
 
@@ -78,10 +81,10 @@ export const HomeDashboard = ({ navigation }) => {
   const { feed, loading } = useSelector(state => state.home);
   const metrics = useResponsiveMetrics();
   const { ms, sp, wp, hp } = metrics;
-  const subscriptionCardWidth = Math.min(wp(74), ms(330));
+  const subscriptionCardWidth = wp(92);
   const subscriptionCardHeight = Math.min(ms(168), hp(22));
   const subscriptionCardSpacing = sp(SUBSCRIPTION_CARD_SPACING);
-  const subscriptionSidePadding = sp(14);
+  const subscriptionSidePadding = wp(4);
   const promoCardWidth = Math.min(wp(92), ms(462));
   const promoCardHeight = Math.min(hp(27), ms(204));
   const promoCardSpacing = sp(20);
@@ -105,26 +108,138 @@ export const HomeDashboard = ({ navigation }) => {
     });
   }, [subscriptions]);
 
-  const activeSubscriptions = useMemo(() => {
-    const activeFromCached = subscriptions.filter(sub => {
-      const status = String(
-        sub.status || sub.subscriptionStatus || '',
-      ).toUpperCase();
-      return (
-        !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status) ||
-        sub.isActive ||
-        sub.active
-      );
+  const activeAccessItems = useMemo(() => {
+    // 1. Core Platform Subscriptions (Filter out GYM_PACKAGE duplicates if needed, though they shouldn't be here)
+    const fromUser = subscriptions.filter(sub => {
+      const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+      const isActive = !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status) || sub.isActive || sub.active;
+      // Exclude Partner Packages that will be handled by activePackages
+      const isProviderPlan = sub.packageId || sub.package || sub.productId;
+      return isActive && !isProviderPlan;
     });
 
-    const list = [...activeFromCached];
-    if (pendingSubscription && !list.find(sub => sub.id === pendingSubscription.id)) {
-      list.push(pendingSubscription);
-    }
-    return list;
-  }, [subscriptions, pendingSubscription]);
+    // Count upcoming bookings by package / entitlement
+    const upcomingByPackage = {};
+    const upcomingByEntitlement = {};
+    (user?.upcomingBookings || []).forEach(b => {
+      if (b.packageSubscriptionId) {
+        upcomingByPackage[b.packageSubscriptionId] = (upcomingByPackage[b.packageSubscriptionId] || 0) + 1;
+      }
+      if (b.entitlementId) {
+        upcomingByEntitlement[b.entitlementId] = (upcomingByEntitlement[b.entitlementId] || 0) + 1;
+      }
+    });
 
-  const hasActiveSubscription = activeSubscriptions.length > 0;
+    const upcoming = (user?.upcomingBookings || []).map(b => ({
+      ...b,
+      type: 'UPCOMING_BOOKING',
+      isBooking: true
+    }));
+
+    const pkgs = (user?.activePackages || [])
+      .map(p => {
+        const pPkgId = p.packageId || p.package?.id;
+        const matchingEnt = (user?.activeEntitlements || user?.entitlements || []).find(e => {
+          const ePkgId = e.packageId || e.package?.id;
+          const samePackage = ePkgId && ePkgId === pPkgId;
+          const samePayment = e.paymentReference && p.chargebeeSubscriptionId && e.paymentReference === p.chargebeeSubscriptionId;
+          return samePackage || samePayment;
+        });
+        return {
+          ...p,
+          type: 'GYM_PACKAGE',
+          package: p.package,
+          totalSessions: matchingEnt ? matchingEnt.totalSessions : p.totalSessions,
+          usedSessions: matchingEnt ? matchingEnt.usedSessions : p.usedSessions,
+          entitlementId: matchingEnt ? matchingEnt.id : undefined,
+        };
+      })
+      .filter(p => {
+        // If it has session limits, hide only if all available sessions are used/booked
+        if (p.totalSessions > 0) {
+          const upcomingCount = upcomingByPackage[p.id] || 0;
+          const available = p.totalSessions - (p.usedSessions || 0) - upcomingCount;
+          return available > 0;
+        }
+        // Unlimited or non-session packages never hide
+        return true;
+      });
+
+    const ents = (user?.activeEntitlements || [])
+      .filter(e => {
+        // Front-end deduplication: if this entitlement matches an activePackage, skip it
+        const ePkgId = e.packageId || e.package?.id;
+        if (!ePkgId) return true;
+
+        const isDupe = (user?.activePackages || []).some(p => {
+          const pPkgId = p.packageId || p.package?.id;
+          const samePackage = pPkgId === ePkgId;
+          const samePayment = e.paymentReference && p.chargebeeSubscriptionId && e.paymentReference === p.chargebeeSubscriptionId;
+          return samePackage || samePayment;
+        });
+        if (isDupe) return false;
+
+        if (e.totalSessions > 0) {
+          const upcomingCount = upcomingByEntitlement[e.id] || 0;
+          const available = e.totalSessions - (e.usedSessions || 0) - upcomingCount;
+          return available > 0;
+        }
+        return true;
+      })
+      .map(e => ({
+        ...e,
+        type: 'ENTITLEMENT',
+        package: e.package
+      }));
+
+    const list = [...fromUser, ...pkgs, ...ents, ...upcoming];
+    
+    // Deduplicate the final list by type and ID/packageId to be absolutely safe
+    const seen = new Set();
+    const uniqueList = [];
+    list.forEach(item => {
+      // Create a unique key for each item
+      let key = '';
+      if (item.isBooking) {
+        key = `booking_${item.id}`;
+      } else if (item.type === 'GYM_PACKAGE') {
+        key = `pkg_${item.id}`;
+      } else if (item.type === 'ENTITLEMENT') {
+        key = `ent_${item.id}`;
+      } else {
+        key = `sub_${item.id || item.subscriptionId || item.chargebeeSubscriptionId}`;
+      }
+
+      // Also generate a business-key based on packageId to prevent cross-type duplicate rendering
+      const pkgId = item.packageId || item.package?.id;
+      const bizKey = pkgId ? `biz_${pkgId}` : '';
+
+      if (!seen.has(key) && (!bizKey || !seen.has(bizKey))) {
+        seen.add(key);
+        if (bizKey) seen.add(bizKey);
+        uniqueList.push(item);
+      }
+    });
+
+    if (pendingSubscription) {
+      const alreadyExists = uniqueList.some(item => {
+        if (pendingSubscription.id && item.id === pendingSubscription.id) return true;
+        const pendingPkgId = pendingSubscription.packageId || pendingSubscription.package?.id;
+        if (pendingPkgId) {
+          const itemPkgId = item.packageId || item.package?.id;
+          if (itemPkgId === pendingPkgId) return true;
+        }
+        return false;
+      });
+
+      if (!alreadyExists) {
+        uniqueList.push(pendingSubscription);
+      }
+    }
+    return uniqueList;
+  }, [subscriptions, pendingSubscription, user]);
+
+  const hasActiveSubscription = activeAccessItems.length > 0;
 
   useEffect(() => {
     fetchFeed();
@@ -162,18 +277,7 @@ export const HomeDashboard = ({ navigation }) => {
   );
 
 
-  useEffect(() => {
-    if (!hasActiveSubscription) return;
-
-    const centerActiveCard = setTimeout(() => {
-      subscriptionCarouselRef.current?.scrollTo({
-        x: subscriptionCardWidth + subscriptionCardSpacing,
-        animated: false,
-      });
-    }, 80);
-
-    return () => clearTimeout(centerActiveCard);
-  }, [hasActiveSubscription]);
+  // Center active card scroll removed since hardcoded cards are deleted
 
   const fetchFeed = async () => {
     const vertical = activeVertical || undefined;
@@ -477,62 +581,69 @@ export const HomeDashboard = ({ navigation }) => {
     },
   ];
 
-  const renderRewardsCard = () => (
-    <TouchableOpacity
-      style={[styles.carouselCard, styles.sideCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
-      activeOpacity={0.9}
-    >
-      <LinearGradient
-        colors={['#130919', '#240B32', '#0A050E']}
-        style={styles.sideCardGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.ribbonBadge}>
-          <Icon name="ribbon" size={16} color="#FFF" />
-        </View>
-        <Text style={styles.sideCardKicker}>Rewards</Text>
-        <Text style={styles.sideCardTitle}>Member Perks</Text>
-        <Text style={styles.sideCardSub} numberOfLines={2}>
-          Unlock offers from your favorite partners
-        </Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-
   const renderActiveSubscriptionCard = (sub, index) => {
+    const isBooking = sub.isBooking;
+    const isPackage = sub.type === 'GYM_PACKAGE' || sub.type === 'ENTITLEMENT' || sub.package;
+
     const subscribedProvider =
+      isBooking ? sub.provider :
       sub?.provider ||
       sub?.gym ||
       sub?.partner ||
       sub?.package?.provider ||
       null;
+
     const subscribedPlan =
+      isBooking ? null :
       sub?.plan ||
       sub?.package ||
       sub?.membershipTier ||
       sub?.tier ||
       null;
+
     const subscribedGymName =
       subscribedProvider?.name ||
       sub?.providerName ||
       sub?.gymName ||
       'FitZone Premium';
-    const subscribedPlanName =
+
+    let subscribedPlanName =
       subscribedPlan?.name ||
       sub?.planName ||
       sub?.tierName ||
       'Premium Membership';
-    const subscribedTierName =
-      subscribedPlan?.tier ||
+
+    let subscribedTierName =
+      subscribedPlan?.tier?.name ||
       sub?.tier ||
       sub?.membershipTierName ||
       'Gold Tier';
+
+    if (isBooking) {
+      subscribedPlanName = 'Upcoming Session';
+      subscribedTierName = new Date(sub.startTime).toLocaleString([], {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } else if (isPackage && sub.totalSessions > 0) {
+      const upcomingCount = sub.type === 'GYM_PACKAGE' 
+        ? (user?.upcomingBookings || []).filter(b => b.packageSubscriptionId === sub.id).length
+        : sub.type === 'ENTITLEMENT' 
+          ? (user?.upcomingBookings || []).filter(b => b.entitlementId === sub.id).length 
+          : 0;
+      const remaining = sub.totalSessions - (sub.usedSessions || 0) - upcomingCount;
+      subscribedTierName = `${remaining} Sessions Left`;
+    } else if (sub.currentTermEnd) {
+      subscribedTierName = `Renews ${new Date(sub.currentTermEnd).toLocaleDateString()}`;
+    }
+
     const subscribedImage =
+      isBooking ? (sub.provider?.images?.[0]?.url || sub.provider?.photos?.[0] || 'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop') :
       subscribedProvider?.photos?.[0] ||
       sub?.image ||
       sub?.photoUrl ||
       'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
+
+    const statusText = isBooking ? 'UPCOMING' : 'ACTIVE';
 
     const arcOneWidth = subscriptionCardWidth * 1.2;
     const arcTwoWidth = subscriptionCardWidth * 1.35;
@@ -543,11 +654,15 @@ export const HomeDashboard = ({ navigation }) => {
         key={sub.id || index}
         style={[styles.carouselCard, styles.activeCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
         activeOpacity={0.9}
-        onPress={() =>
-          navigation.navigate('MembershipDetails', {
-            subscription: sub,
-          })
-        }
+        onPress={() => {
+          if (sub.isBooking) {
+            navigation.navigate('BookingDetails', { bookingId: sub.id });
+          } else {
+            navigation.navigate('MembershipDetails', {
+              subscription: sub,
+            });
+          }
+        }}
       >
         <LinearGradient
           colors={['#030303', '#09050D', '#160420']}
@@ -593,7 +708,7 @@ export const HomeDashboard = ({ navigation }) => {
           />
           <View style={styles.activeBadge}>
             <View style={styles.activeDot} />
-            <Text style={styles.activeText}>ACTIVE</Text>
+            <Text style={styles.activeText}>{statusText}</Text>
           </View>
 
           <View style={styles.membershipImageWrap}>
@@ -631,28 +746,13 @@ export const HomeDashboard = ({ navigation }) => {
     );
   };
 
-  const renderPassesCard = () => (
-    <TouchableOpacity
-      style={[styles.carouselCard, styles.sideCarouselCard, { width: subscriptionCardWidth, height: subscriptionCardHeight }]}
-      activeOpacity={0.9}
-    >
-      <LinearGradient
-        colors={['#07070A', '#17131F', '#100718']}
-        style={styles.sideCardGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.passBadge}>
-          <Icon name="card" size={16} color="#FFF" />
-        </View>
-        <Text style={styles.sideCardKicker}>Passes</Text>
-        <Text style={styles.sideCardTitle}>Memberships</Text>
-        <Text style={styles.sideCardSub} numberOfLines={2}>
-          Manage your gym access and check-ins
-        </Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+
+  const handleScroll = (event) => {
+    const slideSize = subscriptionCardWidth + subscriptionCardSpacing;
+    const index = event.nativeEvent.contentOffset.x / slideSize;
+    setActiveCardIndex(Math.round(index));
+  };
 
   const renderSubscribedTop = () => (
     <View style={styles.subscribedTop}>
@@ -664,11 +764,24 @@ export const HomeDashboard = ({ navigation }) => {
         snapToInterval={subscriptionCardWidth + subscriptionCardSpacing}
         snapToAlignment="start"
         contentContainerStyle={[styles.subscriptionCarouselContent, { paddingHorizontal: subscriptionSidePadding }]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {renderRewardsCard()}
-        {activeSubscriptions.map((sub, index) => renderActiveSubscriptionCard(sub, index))}
-        {renderPassesCard()}
+        {activeAccessItems.map((sub, index) => renderActiveSubscriptionCard(sub, index))}
       </ScrollView>
+      {activeAccessItems.length > 1 && (
+        <View style={styles.paginationContainer}>
+          {Array.from({ length: activeAccessItems.length }).map((_, i) => (
+            <View 
+              key={i} 
+              style={[
+                styles.paginationDot, 
+                activeCardIndex === i ? styles.paginationDotActive : null
+              ]} 
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 
@@ -773,9 +886,15 @@ export const HomeDashboard = ({ navigation }) => {
                 <Text style={styles.promoSubtitle}>{promo.subtitle}</Text>
                 <TouchableOpacity
                   style={styles.promoButton}
-                  onPress={() => setMembershipModalVisible(true)}
+                  onPress={() => {
+                    if (promo.navigateTo) {
+                      navigation.navigate(promo.navigateTo);
+                    } else {
+                      setMembershipModalVisible(true);
+                    }
+                  }}
                 >
-                  <Text style={styles.promoButtonText}>BOOK NOW</Text>
+                  <Text style={styles.promoButtonText}>{promo.ctaText || 'BOOK NOW'}</Text>
                 </TouchableOpacity>
                 <View style={styles.pagination}>
                   {PROMOS.map((_, i) => (
@@ -926,6 +1045,23 @@ export const HomeDashboard = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#050505' },
   container: { flex: 1 },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    width: 16,
+    backgroundColor: '#8B5CF6',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1345,14 +1481,14 @@ const styles = StyleSheet.create({
   },
   promoTitle: {
     color: '#fff',
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '900',
     marginBottom: 8,
   },
   promoSubtitle: {
     color: '#ddd',
-    fontSize: 20,
+    fontSize: 13,
     marginBottom: 10,
   },
   promoButton: {

@@ -10,6 +10,10 @@ const ACCESS_MODE_ALIASES = {
   APPOINTMENT_ONLY: 'APPOINTMENT_ONLY',
   'APPOINTMENT ONLY': 'APPOINTMENT_ONLY',
   'APPOINTMENT-ONLY': 'APPOINTMENT_ONLY',
+  // Resource-based access: sports facilities with bookable courts/lanes
+  RESOURCE_BASED: 'RESOURCE_BASED',
+  'RESOURCE BASED': 'RESOURCE_BASED',
+  'RESOURCE-BASED': 'RESOURCE_BASED',
 };
 
 export const normalizeAccessMode = value => {

@@ -26,7 +26,8 @@ import {
 } from 'react-native-vision-camera';
 import { useBarcodeScannerOutput } from 'react-native-vision-camera-barcode-scanner';
 import apiClient from '../../../api/apiClient';
-import { generateBookingQr, getMyBookings, checkoutBooking } from '../../../api/bookingApi';
+import QRCode from 'react-native-qrcode-svg';
+import { generateBookingQr, getMyBookings, checkoutBooking, cancelBooking } from '../../../api/bookingApi';
 import { getCheckInHistory, venueScanCheckIn } from '../../../api/checkinApi';
 import { parseApiFailure } from '../../../api/apiUtils';
 import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
@@ -153,7 +154,7 @@ const normalizePackageType = value => {
 
 const MembershipDetailsScreen = ({ route, navigation }) => {
   const { subscription: routeSubscription = {}, membershipId, categoryId: routeCategoryId = '' } = route.params || {};
-  const { user } = useAuth();
+  const { user, refreshAuthStatus } = useAuth();
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
   const styles = createStyles(metrics, insets);
@@ -244,7 +245,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     plan.tier ||
     subscription.tier ||
     subscription.membershipTierName ||
-    'Gold Tier';
+    '';
   const image =
     provider.photos?.[0] ||
     subscription.image ||
@@ -291,6 +292,22 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   );
   const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
   const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
+  
+  const isOneTime = useMemo(() => {
+    const model = subscription?.package?.commerce_model || 
+                  subscription?.package?.commerceModel || 
+                  subscription?.packageSubscription?.package?.commerce_model ||
+                  subscription?.packageSubscription?.package?.commerceModel ||
+                  subscription?.userPlan?.packageSubscription?.package?.commerce_model ||
+                  subscription?.userPlan?.packageSubscription?.package?.commerceModel ||
+                  subscription?.commerce_model ||
+                  subscription?.commerceModel ||
+                  plan?.commerce_model ||
+                  plan?.commerceModel ||
+                  '';
+    return String(model).toUpperCase() === 'ONE_TIME';
+  }, [subscription, plan]);
+
   const isAccessModeLoading = Boolean(providerId) && !providerDetails;
   const isAppointmentOnly = accessMode === 'APPOINTMENT_ONLY';
   const userPlanStatus = String(
@@ -299,13 +316,46 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       subscription?.status ||
       'UNKNOWN'
   ).toUpperCase();
-  const remainingCredits = Number(
-    subscription?.creditLedger?.remainingCredits ??
-      subscription?.creditLedger?.availableCredits ??
-      subscription?.remainingCredits ??
-      subscription?.remainingSessions ??
-      0
+  const matchedUserPlan = user?.userPlans?.find(
+    up => up.packageSubscriptionId === subscription?.id || up.id === subscription?.userPlanId
   );
+
+  const matchedEntitlement = user?.activeEntitlements?.find(
+    ent => ent.package?.id === (subscription?.packageId || subscription?.package?.id) || ent.id === subscription?.entitlementId
+  ) || user?.entitlements?.find(
+    ent => ent.package?.id === (subscription?.packageId || subscription?.package?.id) || ent.id === subscription?.entitlementId
+  );
+
+  const activeEscrowed = useMemo(() => {
+    return bookings.reduce((sum, b) => {
+      const status = b.bookingStatus || b.status;
+      if (['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED'].includes(status)) {
+        if (matchedUserPlan && b.userPlanId === matchedUserPlan.id) {
+          return sum + (Number(b.escrowedCredits) || 0);
+        }
+        if (matchedEntitlement && b.entitlementId === matchedEntitlement.id) {
+          return sum + 1;
+        }
+      }
+      return sum;
+    }, 0);
+  }, [bookings, matchedUserPlan, matchedEntitlement]);
+
+  const remainingCredits = useMemo(() => {
+    if (matchedUserPlan?.creditledger) {
+      return Math.max(0, matchedUserPlan.creditledger.totalCredits - matchedUserPlan.creditledger.usedCredits - activeEscrowed);
+    }
+    if (matchedEntitlement) {
+      return Math.max(0, matchedEntitlement.totalSessions - matchedEntitlement.usedSessions - activeEscrowed);
+    }
+    return Number(
+      subscription?.creditLedger?.remainingCredits ??
+        subscription?.creditLedger?.availableCredits ??
+        subscription?.remainingCredits ??
+        subscription?.remainingSessions ??
+        0
+    );
+  }, [matchedUserPlan, matchedEntitlement, subscription, activeEscrowed]);
   const membershipChoices = useMemo(
     () =>
       subscriptions
@@ -476,6 +526,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         getMyBookings(),
         getCheckInHistory(providerId ? { providerId } : undefined),
         providerId ? apiClient.get(`/providers/profile/${providerId}`) : Promise.resolve(null),
+        refreshAuthStatus?.()
       ]);
 
       if (isMounted.current) {
@@ -492,7 +543,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         setIsLoadingHistory(false);
       }
     }
-  }, [providerId]);
+  }, [providerId, refreshAuthStatus]);
 
   useEffect(() => {
     fetchLifecycleData();
@@ -536,12 +587,22 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
-    navigation.navigate('MembershipBooking', {
-      gymName,
-      subscription,
-      packageType,
-      categoryId: selectedCategoryId || null,
-    });
+    if (subscription.trainer || packageType === 'TRAINER_PACKAGE') {
+      navigation.navigate('TrainerBooking', {
+        gymName,
+        subscription,
+        packageType,
+        categoryId: selectedCategoryId || null,
+        trainerId: subscription.trainer?.id || subscription.trainerId || providerId,
+      });
+    } else {
+      navigation.navigate('MembershipBooking', {
+        gymName,
+        subscription,
+        packageType,
+        categoryId: selectedCategoryId || null,
+      });
+    }
   };
 
   const [isTogglingRenew, setIsTogglingRenew] = useState(false);
@@ -712,6 +773,43 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     );
   }, [currentCheckedInBooking, fetchLifecycleData]);
 
+  const handleCancelBooking = useCallback((booking) => {
+    const noticeHrs = providerDetails?.accessConfig?.cancelNoticeHrs || booking.provider?.accessConfig?.cancelNoticeHrs || 12;
+    const now = new Date();
+    const start = new Date(booking.startTime);
+    const diffHrs = (start - now) / (1000 * 60 * 60);
+    const isLateCancel = diffHrs < noticeHrs;
+    
+    const warningText = isLateCancel 
+      ? `\n\n⚠️ WARNING: This is a late cancellation (less than ${noticeHrs} hours notice). You will not be refunded your session/credit and it cannot be rescheduled.`
+      : `\n\nYou will be fully refunded and can reschedule another time.`;
+
+    Alert.alert(
+      'Cancel Booking',
+      `Are you sure you want to cancel your booking at ${booking.provider?.name || gymName}?${warningText}`,
+      [
+        { text: 'No, Keep it', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoadingHistory(true);
+              await cancelBooking(booking.id);
+              fetchLifecycleData();
+              Alert.alert('Success', 'Booking cancelled successfully.');
+            } catch (err) {
+              const msg = parseApiFailure(err);
+              Alert.alert('Error', msg || 'Failed to cancel booking.');
+            } finally {
+              setIsLoadingHistory(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [gymName, fetchLifecycleData]);
+
   const handleGenerateBookingQr = useCallback(async booking => {
     if (!userLocation?.latitude || !userLocation?.longitude) {
       Alert.alert(
@@ -785,40 +883,12 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         <View style={styles.titleBlock}>
           <Text style={styles.gymName}>{gymName}</Text>
           <Text style={styles.planName}>{planName}</Text>
-          <Text style={styles.tierName}>{tierName}</Text>
+          {!!tierName && <Text style={styles.tierName}>{tierName}</Text>}
           <View style={styles.activeBadge}>
             <View style={styles.activeDot} />
             <Text style={styles.activeText}>ACTIVE</Text>
           </View>
         </View>
-
-        {membershipChoices.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.membershipChoicesRow}
-          >
-            {membershipChoices.map(choice => {
-              const isSelected = choice.id === subscription?.id;
-              return (
-                <TouchableOpacity
-                  key={choice.id}
-                  style={[styles.membershipChoicePill, isSelected && styles.membershipChoicePillActive]}
-                  onPress={() => {
-                    setSelectedMembershipId(choice.id);
-                    const nextSubscription = subscriptions.find(sub => sub?.id === choice.id);
-                    navigation.replace('MembershipDetails', { subscription: nextSubscription, membershipId: choice.id });
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.membershipChoiceText, isSelected && styles.membershipChoiceTextActive]}>
-                    {choice.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
 
         <View style={styles.curveLayer}>
           <Svg height="90" width="100%" viewBox="0 0 360 90">
@@ -951,45 +1021,62 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.bookNowButton}
-          onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
-          activeOpacity={0.88}
-          disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut}
-        >
-          {isCheckingOut ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <Icon
-              name={
-                isUpgradeOnlyPackage
-                  ? 'lock-closed-outline'
-                  : isOpenAccess
-                  ? currentCheckedInBooking
-                    ? 'log-out-outline'
-                    : 'qr-code-outline'
-                  : 'calendar-outline'
-              }
-              size={22}
-              color="#FFF"
-            />
-          )}
-          <Text style={styles.bookNowText}>
-            {isAccessModeLoading
-              ? 'Loading...'
-              : isCheckingOut
-              ? 'Checking out...'
-              : isUpgradeOnlyPackage
-              ? 'Upgrade Only'
-              : isOpenAccess
-              ? currentCheckedInBooking
-                ? 'Checkout'
-                : 'Scan Venue QR'
-              : isAppointmentOnly
-              ? 'Request Appointment'
-              : 'Book Session'}
-          </Text>
-        </TouchableOpacity>
+        {console.log('[DEBUG_CTA] Values:', {
+          isAccessModeLoading,
+          isUpgradeOnlyPackage,
+          isCheckingOut,
+          isOpenAccess,
+          currentCheckedInBooking: !!currentCheckedInBooking,
+          remainingCredits,
+          matchedUserPlan: !!matchedUserPlan,
+          baseCredits: matchedUserPlan?.creditledger ? (matchedUserPlan.creditledger.totalCredits - matchedUserPlan.creditledger.usedCredits) : 0,
+          activeEscrowed,
+          subscriptionId: subscription?.id,
+          userPlanCount: user?.userPlans?.length
+        })}
+        {!isOneTime && false} 
+          <TouchableOpacity
+            style={[
+              styles.bookNowButton,
+              (isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)) && { opacity: 0.5 }
+            ]}
+            onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
+            activeOpacity={0.88}
+            disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)}
+          >
+            {isCheckingOut ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Icon
+                name={
+                  isUpgradeOnlyPackage
+                    ? 'lock-closed-outline'
+                    : isOpenAccess
+                    ? currentCheckedInBooking
+                      ? 'log-out-outline'
+                      : 'qr-code-outline'
+                    : 'calendar-outline'
+                }
+                size={22}
+                color="#FFF"
+              />
+            )}
+            <Text style={styles.bookNowText}>
+              {isAccessModeLoading
+                ? 'Loading...'
+                : isCheckingOut
+                ? 'Checking out...'
+                : isUpgradeOnlyPackage
+                ? 'Upgrade Only'
+                : isOpenAccess
+                ? currentCheckedInBooking
+                  ? 'Checkout'
+                  : 'Scan Venue QR'
+                : isAppointmentOnly
+                ? 'Request Appointment'
+                : 'Book Session'}
+            </Text>
+          </TouchableOpacity>
 
         {!isOpenAccess && (
           <>
@@ -1016,14 +1103,23 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
                     <Text style={styles.sessionTitle}>{booking.provider?.name || gymName}</Text>
                     <Text style={styles.sessionSub}>{status}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.sessionPill, (!canGenerateQr || isGeneratingQr) && styles.sessionPillDisabled]}
-                    onPress={() => handleGenerateBookingQr(booking)}
-                    disabled={!canGenerateQr || isGeneratingQr}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.sessionPillText}>{isGeneratingQr ? '...' : 'QR'}</Text>
-                  </TouchableOpacity>
+                  <View style={styles.sessionActions}>
+                    <TouchableOpacity
+                      style={[styles.sessionPill, styles.sessionPillCancel]}
+                      onPress={() => handleCancelBooking(booking)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.sessionPillText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.sessionPill, (!canGenerateQr || isGeneratingQr) && styles.sessionPillDisabled]}
+                      onPress={() => handleGenerateBookingQr(booking)}
+                      disabled={!canGenerateQr || isGeneratingQr}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.sessionPillText}>{isGeneratingQr ? '...' : 'QR'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -1123,11 +1219,17 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.qrPassMeta}>
               {qrPass?.booking ? `${formatBookingDate(qrPass.booking.startTime)} · ${formatTime(qrPass.booking.startTime)}` : ''}
             </Text>
-            <View style={styles.qrTokenBox}>
-              <Icon name="qr-code-outline" size={54} color="#FFF" />
-              <Text style={styles.qrTokenText} numberOfLines={6}>
-                {qrPass?.qrToken || 'No token'}
-              </Text>
+            <View style={styles.qrCodeWrapper}>
+              {qrPass?.qrToken ? (
+                <QRCode
+                  value={qrPass.qrToken}
+                  size={160}
+                  color="#000"
+                  backgroundColor="#FFF"
+                />
+              ) : (
+                <Text style={styles.qrTokenText}>No token generated</Text>
+              )}
             </View>
             <Text style={styles.qrPassHint}>
               Expires in {qrPass?.expiresInSeconds || 60}s. Keep this pass open while staff completes the scan.
@@ -1364,6 +1466,18 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     fontSize: fs(18),
     fontWeight: '900',
   },
+  sessionPillText: {
+    color: '#000',
+    fontSize: fs(12),
+    fontWeight: '800',
+  },
+  sessionActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sessionPillCancel: {
+    backgroundColor: '#FF4A4A',
+  },
   sectionKicker: {
     color: '#7E7788',
     fontSize: fs(12),
@@ -1595,15 +1709,15 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     fontWeight: '700',
     marginTop: 6,
   },
-  qrTokenBox: {
-    width: '100%',
-    minHeight: 178,
+  qrCodeWrapper: {
+    width: 196,
+    height: 196,
     borderRadius: 16,
-    backgroundColor: '#170B20',
+    backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
-    padding: 18,
+    marginBottom: 4,
   },
   qrTokenText: {
     color: '#D9D1E4',

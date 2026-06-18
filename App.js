@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, ImageSelectionProvider } from './src/context/AuthContext';
 import { LocationProvider } from './src/context/LocationContext';
 import store from './src/redux/store/store';
+import GlobalAlert from './src/components/GlobalAlert';
 import { useEffect } from 'react';
 import * as Clarity from '@microsoft/react-native-clarity';
 import {
@@ -49,6 +50,7 @@ const App = () => {
             >
               <AuthProvider>
                 <AppNavigator />
+                <GlobalAlert />
               </AuthProvider>
             </Auth0Provider>
           </ImageSelectionProvider>

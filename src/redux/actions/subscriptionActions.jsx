@@ -2,14 +2,19 @@ import apiClient from '../../api/apiClient';
 import parseApiError from '../../utils/parseApiError';
 import { Alert } from 'react-native';
 
-export const createCheckoutSession = (planId, planType = 'PARTNER_PACKAGE') => async (dispatch) => {
+export const createCheckoutSession = (planId, planType = 'PARTNER_PACKAGE', reservationId = null, commerceModel = 'RECURRING') => async (dispatch) => {
   try {
-    console.log('[SubscriptionAction] Creating web checkout session for:', planId, planType);
+    console.log('[SubscriptionAction] Creating web checkout session for:', planId, planType, commerceModel);
     
-    const response = await apiClient.post('/subscriptions/create-checkout-session', {
-      planId,
-      planType
-    });
+    let endpoint = '/subscriptions/create-checkout-session';
+    let payload = { planId, planType };
+
+    if (commerceModel === 'ONE_TIME') {
+       endpoint = '/v1/partner-packages/checkout';
+       payload = { packageId: planId, reservationId };
+    }
+
+    const response = await apiClient.post(endpoint, payload);
 
     if (response.data && response.data.success) {
       return response.data;

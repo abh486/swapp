@@ -6,11 +6,16 @@ import {
   StatusBar,
   Alert,
   Platform,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
+  TouchableOpacity,
+  Text
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useFocusEffect } from '@react-navigation/native';
+import { getAccessStatus } from '../../../services/aiDieticianService';
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -20,10 +25,43 @@ import DietWaterWidget from './components/DietWaterWidget';
 import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
+import AIDieticianPaywallScreen from '../../AIDieticianPaywallScreen';
 
 const { width } = Dimensions.get('window');
 
 const Dietplan = ({ navigation }) => {
+  const [loadingAccess, setLoadingAccess] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const checkAccess = async () => {
+        try {
+          const res = await getAccessStatus();
+          if (isMounted) {
+            setHasAccess(res?.hasAccess === true);
+          }
+        } catch (err) {
+          console.warn('[Dietplan] Failed to check access:', err);
+          if (isMounted) {
+            setHasAccess(false);
+          }
+        } finally {
+          if (isMounted) {
+            setLoadingAccess(false);
+          }
+        }
+      };
+      checkAccess();
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
+
+
+
   const cameraRef = useRef(null);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -151,6 +189,23 @@ const Dietplan = ({ navigation }) => {
   const handleIOSDonePress = () => {
     setShowDatePicker(false);
   };
+
+  if (loadingAccess) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#050505', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#e74c3c" />
+      </View>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <AIDieticianPaywallScreen 
+        navigation={navigation} 
+        onUnlock={() => setHasAccess(true)} 
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>

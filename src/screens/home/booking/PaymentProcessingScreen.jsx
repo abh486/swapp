@@ -20,6 +20,8 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
     planName = 'Elite',
     price = '2499',
     pendingSubscription,
+    reservationId = null,
+    hostedPageId = null,
   } = route.params || {};
   const { refreshAuthStatus } = useAuth();
   const metrics = useResponsiveMetrics();
@@ -81,19 +83,13 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
         console.log(`[PaymentProcessing] Polling verification attempt #${pollCountLocal}`);
 
         try {
-          const resp = await apiClient.post('/subscriptions/sync');
-          if (resp.data?.success && resp.data.data) {
-            const userObj = resp.data.data.user;
-            const subs = userObj?.subscriptions || [];
-            
-            // Check if there is an active subscription on the server
-            const serverActiveSub = subs.find(sub => {
-              const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
-              return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+          if (reservationId && hostedPageId) {
+            // Under Reservation Checkout flow, verify and convert reservation
+            const resp = await apiClient.post(`/v1/reservations/${reservationId}/verify`, {
+              paymentSessionId: hostedPageId,
             });
-
-            if (serverActiveSub) {
-              // Found active subscription! Stop polling.
+            if (resp.data?.success) {
+              // Found success! Stop polling.
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
 
@@ -130,11 +126,123 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
                     planName,
                     price,
                     pendingSubscription,
+                    reservationId,
+                    hostedPageId,
                   });
                 }, 1000);
               }, 1500);
 
               return;
+            }
+          } else if (pendingSubscription?.productCode === 'AI_DIETICIAN') {
+            // AI Dietician verification: sync subscriptions, then check access status
+            await apiClient.post('/subscriptions/sync');
+            const accessResp = await apiClient.get('/subscriptions/ai-dietician/access');
+            if (accessResp.data?.success && accessResp.data?.data?.hasAccess) {
+              // Found success! Stop polling.
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+
+              // Step 2 Success
+              setStep2Status('success');
+              Animated.spring(bounce2, {
+                toValue: 1,
+                friction: 4,
+                tension: 40,
+                useNativeDriver: true,
+              }).start();
+
+              // Start Step 3: Confirming details
+              setStep3Status('loading');
+              setActiveStep(2);
+
+              // Wait 1.5s to finish step 3 visual transition
+              setTimeout(async () => {
+                if (!isMounted) return;
+                setStep3Status('success');
+                Animated.spring(bounce3, {
+                  toValue: 1,
+                  friction: 4,
+                  tension: 40,
+                  useNativeDriver: true,
+                }).start();
+                setActiveStep(3);
+
+                // Wait 1s and replace screen
+                setTimeout(async () => {
+                  if (!isMounted) return;
+                  await refreshAuthStatus?.();
+                  navigation.replace('SubscriptionSuccess', {
+                    planName,
+                    price,
+                    pendingSubscription,
+                    reservationId,
+                    hostedPageId,
+                  });
+                }, 1000);
+              }, 1500);
+
+              return;
+            }
+          } else {
+            // Existing purchase-first sync logic
+            const resp = await apiClient.post('/subscriptions/sync');
+            if (resp.data?.success && resp.data.data) {
+              const userObj = resp.data.data.user;
+              const subs = userObj?.subscriptions || [];
+              
+              // Check if there is an active subscription on the server
+              const serverActiveSub = subs.find(sub => {
+                const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+                return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+              });
+
+              if (serverActiveSub) {
+                // Found active subscription! Stop polling.
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+
+                // Step 2 Success
+                setStep2Status('success');
+                Animated.spring(bounce2, {
+                  toValue: 1,
+                  friction: 4,
+                  tension: 40,
+                  useNativeDriver: true,
+                }).start();
+
+                // Start Step 3: Confirming details
+                setStep3Status('loading');
+                setActiveStep(2);
+
+                // Wait 1.5s to finish step 3 visual transition
+                setTimeout(async () => {
+                  if (!isMounted) return;
+                  setStep3Status('success');
+                  Animated.spring(bounce3, {
+                    toValue: 1,
+                    friction: 4,
+                    tension: 40,
+                    useNativeDriver: true,
+                  }).start();
+                  setActiveStep(3);
+
+                  // Wait 1s and replace screen
+                  setTimeout(async () => {
+                    if (!isMounted) return;
+                    await refreshAuthStatus?.();
+                    navigation.replace('SubscriptionSuccess', {
+                      planName,
+                      price,
+                      pendingSubscription,
+                      reservationId,
+                      hostedPageId,
+                    });
+                  }, 1000);
+                }, 1500);
+
+                return;
+              }
             }
           }
         } catch (error) {

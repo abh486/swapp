@@ -11,6 +11,7 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
     planName = 'Elite',
     price = '2499',
     pendingSubscription,
+    reservationId = null,
   } = route.params || {};
   const [loading, setLoading] = useState(true);
   const successHandledRef = useRef(false);
@@ -44,10 +45,17 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
       console.log(
         '[CheckoutWebView] Success URL detected! Transitioning to Payment Processing Screen.',
       );
+      let hostedPageId = null;
+      const match = currentUrl.match(/[?&]id=([^&]+)/);
+      if (match) {
+        hostedPageId = match[1];
+      }
       navigation.replace('PaymentProcessing', {
         planName,
         price,
         pendingSubscription,
+        reservationId,
+        hostedPageId,
       });
     }
   };
@@ -80,10 +88,17 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
         console.log(
           '[CheckoutWebView] Deep link Success! Transitioning to Payment Processing Screen.',
         );
+        let hostedPageId = null;
+        const match = currentUrl.match(/[?&]id=([^&]+)/);
+        if (match) {
+          hostedPageId = match[1];
+        }
         navigation.replace('PaymentProcessing', {
           planName,
           price,
           pendingSubscription,
+          reservationId,
+          hostedPageId,
         });
       } else if (isCancel) {
         console.log('[CheckoutWebView] Deep link Cancelled! Going back.');

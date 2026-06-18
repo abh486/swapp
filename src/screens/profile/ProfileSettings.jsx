@@ -127,7 +127,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('ManageSubscriptions')}>
             <View style={styles.rowLeft}>
               <Icon name="shield-half-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Manage Subscription</Text>

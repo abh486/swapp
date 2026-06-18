@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Clarity from '@microsoft/react-native-clarity';
 import { useAuth } from '../context/AuthContext';
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 
 // Screens
 import MemberProfile from '../screens/MemberProfile'; // 👈 Profile creation/edit screen
@@ -28,18 +28,46 @@ import SubscriptionSuccessScreen from '../screens/home/booking/SubscriptionSucce
 import PaymentProcessingScreen from '../screens/home/booking/PaymentProcessingScreen';
 import MembershipDetailsScreen from '../screens/home/booking/MembershipDetailsScreen';
 import MembershipBookingScreen from '../screens/home/booking/MembershipBookingScreen';
+import TrainerBookingScreen from '../screens/home/trainer/TrainerBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
 import LoginScreen from '../screens/LoginScreen';
+import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
+import AIDieticianPaywallScreen from '../screens/AIDieticianPaywallScreen';
+import AIDieticianSubscriptionScreen from '../screens/AIDieticianSubscriptionScreen';
+import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 
 const Stack = createNativeStackNavigator();
 
 import { FullScreenLoader } from '../components/GlobalLoader';
 
 const AppNavigator = () => {
-  const { isAuthenticated, hasProfile, loading, isLoggingIn } = useAuth();
+  const { isAuthenticated, hasProfile, loading, isLoggingIn, refreshAuthStatus } = useAuth();
   const navigationRef = React.useRef();
+
+  React.useEffect(() => {
+    const handleDeepLink = ({ url }) => {
+      if (url && url.includes('subscription=success')) {
+        console.log('[DeepLink] Success callback matched:', url);
+        refreshAuthStatus?.();
+        if (url.includes('ai-dietician')) {
+          navigationRef.current?.navigate('MainTabs', { screen: 'Diet' });
+        } else {
+          navigationRef.current?.navigate('MainTabs', { screen: 'Home' });
+        }
+      }
+    };
+
+    const sub = Linking.addEventListener('url', handleDeepLink);
+    Linking.getInitialURL().then(url => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [refreshAuthStatus]);
 
   if (loading) {
     return <FullScreenLoader />;
@@ -78,6 +106,10 @@ const AppNavigator = () => {
                 <Stack.Screen
                   name="ProviderDetails"
                   component={ProviderDetailScreen}
+                />
+                <Stack.Screen
+                  name="TrainerDetailScreen"
+                  component={TrainerDetailScreen}
                 />
                 <Stack.Screen name="Dietplan" component={Dietplan} />
                 <Stack.Screen name="Workouts" component={WorkoutsScreen} />
@@ -127,6 +159,10 @@ const AppNavigator = () => {
                   component={MembershipBookingScreen}
                 />
                 <Stack.Screen
+                  name="TrainerBooking"
+                  component={TrainerBookingScreen}
+                />
+                <Stack.Screen
                   name="ProfileSettings"
                   component={ProfileSettingsScreen}
                 />
@@ -137,6 +173,18 @@ const AppNavigator = () => {
                 <Stack.Screen
                   name="Support"
                   component={SupportScreen}
+                />
+                <Stack.Screen
+                  name="AIDieticianPaywall"
+                  component={AIDieticianPaywallScreen}
+                />
+                <Stack.Screen
+                  name="AIDieticianSubscription"
+                  component={AIDieticianSubscriptionScreen}
+                />
+                <Stack.Screen
+                  name="ManageSubscriptions"
+                  component={ManageSubscriptionsScreen}
                 />
                 {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
               </>

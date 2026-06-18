@@ -32,29 +32,32 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
 
   useEffect(() => {
     if (conversationId) {
-      if (!currentToken) {
-        const getTokenFromStorage = async () => {
-          try {
-            const userToken = await getToken();
-            setCurrentToken(userToken);
-            if (userToken) {
-              loadMessages();
-              initializeChat();
-            } else {
-              setError(strings.auth.required);
-              setLoading(false);
-            }
-          } catch (error) {
-            console.error('Error getting token:', error);
-            setError(strings.auth.required);
-            setLoading(false);
+      const setupChat = async () => {
+        setLoading(true);
+        try {
+          let token = currentToken;
+          if (!token) {
+            token = await getToken();
+            setCurrentToken(token);
           }
-        };
-        getTokenFromStorage();
-      } else {
-        loadMessages();
-        initializeChat();
-      }
+          
+          if (!token) {
+            setError(strings.auth.required);
+            return;
+          }
+
+          await Promise.all([
+            loadMessagesInternal(),
+            initializeChatInternal(token)
+          ]);
+        } catch (error) {
+          console.error('Setup error:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      setupChat();
     }
 
     return () => {
@@ -62,13 +65,17 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
         dispatch(endTrainerChat(conversationId));
       }
     };
-  }, [conversationId, currentToken]);
+  }, [conversationId]);
 
   const loadMessages = async () => {
+    setLoading(true);
+    await loadMessagesInternal();
+    setLoading(false);
+  };
+
+  const loadMessagesInternal = async () => {
     try {
-      setLoading(true);
       setError('');
-      
       console.log('Loading messages for conversation:', conversationId);
       const fetchedMessages = await dispatch(getTrainerMessages(conversationId));
       console.log('Loaded messages:', fetchedMessages);
@@ -81,8 +88,6 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
       }
     } catch (err) {
       console.error("Error loading messages:", err);
-      console.error("Error status:", err.response?.status);
-      console.error("Error data:", err.response?.data);
       
       if (err.response?.status === 401) {
         await AsyncStorage.removeItem('accessToken');
@@ -95,17 +100,15 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
       } else {
         setError(`${strings.alerts.loadError}${err.message || 'Unknown error'}`);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
-  const initializeChat = async () => {
+  const initializeChatInternal = async (token) => {
     try {
       setConnectionStatus('connecting');
       console.log('Initializing chat for conversation:', conversationId);
       await initializeTrainerChat(
-        currentToken, 
+        token, 
         conversationId, 
         handleNewMessage
       );
@@ -114,7 +117,8 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
     } catch (err) {
       console.error("Error initializing chat:", err);
       setConnectionStatus('error');
-      setError(`${strings.alerts.sendSocketError}${err.message}. Messages may not update in real-time.`);
+      // Intentionally not setting a generic blocking error here. 
+      // The app will silently fall back to HTTP if the socket fails.
     }
   };
 
@@ -260,10 +264,7 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.chatHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Icon name="arrow-back" size={24} color="#452829" />
-        </TouchableOpacity>
-        <Image source={{ uri: trainer.gallery?.[0] || 'https://via.placeholder.com/150' }} style={styles.chatAvatar} />
+        <Image source={{ uri: trainer.gallery?.[0] || 'https://via.placeholder.com/150' }} style={[styles.chatAvatar, { marginLeft: 0 }]} />
         <View style={styles.chatHeaderInfo}>
           <Text style={styles.chatHeaderName}>{trainer.user?.email.split('@')[0] || 'Trainer'}</Text>
           <View style={styles.statusContainer}>
@@ -272,15 +273,13 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
           </View>
         </View>
         <TouchableOpacity style={styles.closeChatButton} onPress={onClose}>
-          <Icon name="close" size={24} color="#452829" />
+          <Icon name="close" size={24} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
-      {renderConnectionStatus()}
-
       {!currentToken ? (
         <View style={styles.authRequiredContainer}>
-          <Icon name="lock-closed" size={48} color="#452829" />
+          <Icon name="lock-closed" size={48} color="#ffffff" />
           <Text style={styles.authRequiredText}>{strings.emptyState.loginRequired}</Text>
           <Text style={styles.authRequiredSubtext}>{strings.emptyState.loginSubtext}</Text>
           <TouchableOpacity style={styles.loginButton} onPress={handleLoginRedirect}>
@@ -345,16 +344,16 @@ export const ChatScreen = ({ trainer, user, onBack, onClose, conversationId, tok
 const styles = StyleSheet.create({
   chatContainer: { 
     flex:1, 
-    backgroundColor: '#ffffff' 
+    backgroundColor: '#000000' 
   },
   chatHeader: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: '#ffffff', 
+    backgroundColor: '#111111', 
     paddingVertical: 15, 
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2dfdf'
+    borderBottomColor: '#222222'
   },
   backButton: { 
     padding: 5 
@@ -370,7 +369,7 @@ const styles = StyleSheet.create({
     marginLeft: 15 
   },
   chatHeaderName: { 
-    color: '#000000', 
+    color: '#ffffff', 
     fontSize: 18, 
     fontWeight: 'bold' 
   },
@@ -385,13 +384,13 @@ const styles = StyleSheet.create({
     marginRight: 5 
   },
   statusOnline: { 
-    backgroundColor: '#27ae60' 
+    backgroundColor: '#10B981' 
   },
   statusOffline: { 
-    backgroundColor: '#999' 
+    backgroundColor: '#6B7280' 
   },
   chatHeaderStatus: { 
-    color: '#000000', 
+    color: '#9CA3AF', 
     fontSize: 12 
   },
   closeChatButton: { 
@@ -404,19 +403,19 @@ const styles = StyleSheet.create({
     padding: 20
   },
   authRequiredText: {
-    color: '#000000',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 10
   },
   authRequiredSubtext: {
-    color: '#57595B',
+    color: '#9CA3AF',
     fontSize: 14,
     marginTop: 5,
     marginBottom: 20
   },
   loginButton: {
-    backgroundColor: '#452829',
+    backgroundColor: '#9333EA',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8
@@ -432,7 +431,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20 
   },
   loadingText: { 
-    color: '#000000', 
+    color: '#ffffff', 
     marginTop: 10,
     fontSize: 14
   },
@@ -443,13 +442,13 @@ const styles = StyleSheet.create({
     padding: 20 
   },
   errorText: { 
-    color: '#ff4d4d', 
+    color: '#EF4444', 
     textAlign: 'center', 
     marginVertical: 10,
     fontSize: 14
   },
   retryButton: { 
-    backgroundColor: '#452829', 
+    backgroundColor: '#9333EA', 
     paddingVertical: 10, 
     paddingHorizontal: 20, 
     borderRadius: 8, 
@@ -466,16 +465,14 @@ const styles = StyleSheet.create({
     paddingVertical: 40 
   },
   emptyStateText: { 
-    color: '#888', 
+    color: '#9CA3AF', 
     marginTop: 10,
     fontSize: 14
   },
   messagesContent: { 
     flex:1, 
-    padding: 10 
-  },
-  messagesContent: { 
-    paddingBottom: 20 
+    padding: 10,
+    paddingBottom: 20
   },
   messageBubble: { 
     maxWidth: '80%', 
@@ -484,12 +481,12 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   userMessage: { 
-    backgroundColor: '#452829', 
+    backgroundColor: '#9333EA', 
     alignSelf: 'flex-end', 
     borderBottomRightRadius: 5 
   },
   trainerMessage: { 
-    backgroundColor: '#f7f6f6', 
+    backgroundColor: '#1E1E1E', 
     alignSelf: 'flex-start', 
     borderBottomLeftRadius: 5 
   },
@@ -504,7 +501,7 @@ const styles = StyleSheet.create({
     color: '#ffffff' 
   },
   trainerMessageText: { 
-    color: '#000000' 
+    color: '#ffffff' 
   },
   messageFooter: {
     flexDirection: 'row',
@@ -514,17 +511,17 @@ const styles = StyleSheet.create({
   },
   messageTime: { 
     fontSize: 10, 
-    color: '#888',
+    color: '#9CA3AF',
     marginRight: 5
   },
   userMessageTime: { 
-    color: '#ffffff' 
+    color: 'rgba(255,255,255,0.7)' 
   },
   trainerMessageTime: { 
-    color: '#57595B' 
+    color: '#9CA3AF' 
   },
   sendingMessage: { 
-    backgroundColor: '#452829', 
+    backgroundColor: '#9333EA', 
     alignSelf: 'flex-end', 
     borderBottomRightRadius: 5,
     opacity: 0.7 
@@ -537,10 +534,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 5,
-    backgroundColor: 'rgba(0,0,0,0.05)'
+    backgroundColor: 'rgba(255,255,255,0.05)'
   },
   connectionStatusText: {
-    color: '#ff9800',
+    color: '#F59E0B',
     fontSize: 12,
     marginLeft: 5
   },
@@ -548,14 +545,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     padding: 16, 
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111111',
     borderTopWidth: 1,
-    borderTopColor: '#e2dfdf'
+    borderTopColor: '#222222'
   },
   messageInput: { 
     flex:1, 
-    backgroundColor: '#f7f6f6', 
-    color: '#000000', 
+    backgroundColor: '#1E1E1E', 
+    color: '#ffffff', 
     borderRadius: 20, 
     paddingHorizontal: 15, 
     paddingVertical: 10, 
@@ -563,7 +560,7 @@ const styles = StyleSheet.create({
     maxHeight: 100
   },
   sendButton: { 
-    backgroundColor: '#452829', 
+    backgroundColor: '#9333EA', 
     width: 40, 
     height: 40, 
     borderRadius: 20,
@@ -571,6 +568,6 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   disabledSendButton: {
-    backgroundColor: '#cccccc',
+    backgroundColor: '#374151',
   }
 });

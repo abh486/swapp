@@ -5,10 +5,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getProviderDetails } from '../../../redux/actions/providersActions';
+import { getTrainerById, startConversationWithTrainer } from '../../../redux/actions/trainerActions';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '@microsoft/react-native-clarity';
+import { getToken } from '../../../api/apiClient';
+import { ChatScreen } from '../dashboard/components/ChatScreen';
 
 import { FullScreenLoader } from '../../../components/GlobalLoader';
 
@@ -52,45 +54,49 @@ const getFacilityIcon = label => {
   return map[label] || 'construct-outline';
 };
 
-const ProviderDetailScreen = ({ route, navigation }) => {
+const TrainerDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
   const dispatch = useDispatch();
-  const { user } = useAuth();
-  const [provider, setProvider] = useState(null);
+  const { user, isAuthenticated } = useAuth();
+  const [trainer, setTrainer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Overview');
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showChat, setShowChat] = useState(false);
+  const [conversationId, setConversationId] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const { wp, hp, ms, sp, fs, isTablet } = useResponsiveMetrics();
   const styles = createStyles({ wp, hp, ms, sp, fs, isTablet });
 
   // Vertical-aware flags — derived once provider loads
   const primaryVertical = (() => {
-    const v = provider?.vertical || [];
+    const v = trainer?.vertical || [];
     return Array.isArray(v) ? v[0] : v;
   })();
   const isGymLike = ['GYM', 'BOXING', 'YOGA', 'MARTIAL_ARTS'].includes(primaryVertical) || !primaryVertical;
   const isSports  = primaryVertical === 'SPORTS_FACILITY';
   const isClinic  = ['WELLNESS', 'CLINIC'].includes(primaryVertical);
   const professionalLabel = isClinic ? 'Professionals' : 'Trainers';
-  const resourceCount = provider?.resources?.length || 0;
+  const resourceCount = trainer?.resources?.length || 0;
 
   const fetchDetails = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await dispatch(getProviderDetails(id));
-      if (response && response.success) {
-        setProvider(response.data);
-        if (response.data.packages && response.data.packages.length > 0) {
-          setSelectedPlan(response.data.packages[0]);
+      const response = await dispatch(getTrainerById(id));
+      if (response) {
+        setTrainer(response);
+        if (response.packages && response.packages.length > 0) {
+          setSelectedPlan(response.packages[0]);
         }
       } else {
-        Alert.alert('Error', 'Failed to fetch partner details');
+        Alert.alert('Error', 'Failed to fetch trainer details');
         navigation.goBack();
       }
     } catch (error) {
-      console.error('[ProviderDetail] Error:', error);
+      console.error('[TrainerDetail] Error:', error);
       Alert.alert('Error', 'An unexpected error occurred');
       navigation.goBack();
     } finally {
@@ -102,10 +108,79 @@ const ProviderDetailScreen = ({ route, navigation }) => {
     fetchDetails();
   }, [fetchDetails]);
 
+  useEffect(() => {
+    const getTokenFromStorage = async () => {
+      try {
+        const userToken = await getToken();
+        setToken(userToken);
+      } catch (error) {
+        console.error('[TrainerDetail] Error getting token:', error);
+      }
+    };
+    getTokenFromStorage();
+  }, []);
+
+  const handleChatPress = async () => {
+    if (!isAuthenticated || !user || !user.id) {
+      Alert.alert(
+        'Authentication Required', 
+        'You must be logged in to chat with trainers.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Login', onPress: () => navigation?.navigate('Login') }
+        ]
+      );
+      return;
+    }
+
+    setIsCheckingAuth(true);
+    try {
+      let userToken = token || await getToken();
+      if (!userToken) {
+        Alert.alert(
+          'Session Expired', 
+          'Authentication token not found. Please login again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Login', onPress: () => navigation?.navigate('Login') }
+          ]
+        );
+        setIsCheckingAuth(false);
+        return;
+      }
+      setToken(userToken);
+
+      const response = await dispatch(startConversationWithTrainer(trainer.user?.id || id));
+      if (response && response.id) {
+        setConversationId(response.id);
+        setShowChat(true);
+      }
+    } catch (err) {
+      console.error("[TrainerDetail] Error starting conversation:", err);
+      if (err.response?.status === 401) {
+        await AsyncStorage.removeItem('accessToken');
+        setToken(null);
+        Alert.alert(
+          'Session Expired', 
+          'Your session has expired. Please log in again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Login', onPress: () => navigation?.navigate('Login') }
+          ]
+        );
+      } else {
+        const errorMessage = err.response?.data?.message || err.message || 'Could not start conversation.';
+        Alert.alert('Error', errorMessage);
+      }
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
   if (loading) {
     return <FullScreenLoader />;
   }
-  if (!provider) return null;
+  if (!trainer) return null;
 
   const isPlanActive = (planId) => {
     const activeSubs = user?.subscriptions || [];
@@ -117,10 +192,10 @@ const ProviderDetailScreen = ({ route, navigation }) => {
            activeEnts.some(e => e.packageId === planId && e.status === 'ACTIVE' && (e.totalSessions - e.usedSessions > 0));
   };
 
-  const getPackageCTA = (plan, provider) => {
+  const getPackageCTA = (plan, trainer) => {
     if (!plan) return 'Choose Plan';
     
-    const accessMode = plan.accessMode || provider.accessConfig?.accessMode || 'SLOT_BASED';
+    const accessMode = plan.accessMode || trainer.accessConfig?.accessMode || 'SLOT_BASED';
     const flow = plan.consumptionFlow || (() => {
       const totalSessions = (plan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
       if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
@@ -161,7 +236,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         <Image
           source={{
             uri:
-              (provider.photos || [])[selectedPhotoIndex] ||
+              (trainer.photos || [])[selectedPhotoIndex] ||
               'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
           }}
           style={styles.mainImage}
@@ -176,7 +251,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         showsHorizontalScrollIndicator={false}
         style={styles.thumbnailScroll}
       >
-        {(provider.photos || []).map((photo, i) => (
+        {(trainer.photos || []).map((photo, i) => (
           <TouchableOpacity
             key={i}
             onPress={() => setSelectedPhotoIndex(i)}
@@ -200,14 +275,14 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
 
           <Image
-            source={{ uri: (provider.photos || [])[selectedPhotoIndex] }}
+            source={{ uri: (trainer.photos || [])[selectedPhotoIndex] }}
             style={styles.viewerImage}
             resizeMode="contain"
           />
 
           <View style={styles.viewerFooter}>
             <Text style={styles.viewerText}>
-              Photo {selectedPhotoIndex + 1} of {provider.photos?.length}
+              Photo {selectedPhotoIndex + 1} of {trainer.photos?.length}
             </Text>
           </View>
         </View>
@@ -217,20 +292,20 @@ const ProviderDetailScreen = ({ route, navigation }) => {
 
   const renderTitleBlock = () => {
     const isVerified =
-      provider.status === 'APPROVED' ||
-      provider.status === 'approved' ||
-      provider.isSwappPartner;
+      trainer.status === 'APPROVED' ||
+      trainer.status === 'approved' ||
+      trainer.isSwappPartner;
 
     return (
       <View style={styles.titleBlockContainer}>
-        {provider.badges?.is_swapp_partner && (
+        {trainer.badges?.is_swapp_partner && (
           <View style={styles.premiumBadge}>
             <Text style={styles.premiumText}>Swapp Partner</Text>
           </View>
         )}
         <View style={styles.titleRow}>
           <Text style={styles.gymTitle} numberOfLines={2}>
-            {provider.name}
+            {trainer.name}
           </Text>
           {isVerified && (
             <Icon
@@ -242,7 +317,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           )}
           <View style={styles.ratingContainer}>
             <Text style={styles.ratingScore}>
-              {provider.rating?.toFixed(1) || '4.5'}
+              {trainer.rating?.toFixed(1) || '4.5'}
             </Text>
             <Icon
               name="star"
@@ -254,17 +329,17 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         </View>
         <View style={styles.subtitleRow}>
           <Text style={styles.gymSubtitle} numberOfLines={1}>
-            {provider.address || 'Location Details'}
+            {trainer.address || 'Location Details'}
           </Text>
           <Text style={styles.reviewsText}>
-            ({provider.review?.length || 0} reviews)
+            ({trainer.review?.length || 0} reviews)
           </Text>
         </View>
         <View style={styles.hoursRow}>
           <Text style={styles.openNowText}>Open Now</Text>
           <Text style={styles.closesText}>
             {' '}
-            • Closes at {provider.closeTime || '10:00 PM'}
+            • Closes at {trainer.closeTime || '10:00 PM'}
           </Text>
         </View>
       </View>
@@ -273,35 +348,30 @@ const ProviderDetailScreen = ({ route, navigation }) => {
 
   const renderActionBar = () => (
     <View style={styles.actionBar}>
-      <TouchableOpacity style={styles.actionButton} onPress={() => Linking.openURL(provider.locationLink || '')}>
+      <TouchableOpacity style={styles.actionButton} onPress={() => Linking.openURL(trainer.locationLink || '')}>
         <Icon name="location-outline" size={24} color="#aaa" />
         <Text style={styles.actionText}>Directions</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => {
-          if (provider.phone) {
-            Linking.openURL(`tel:${provider.phone}`);
-          } else {
-            Alert.alert('Contact info not available.');
-          }
-        }}
+        onPress={handleChatPress}
+        disabled={isCheckingAuth}
       >
-        <Icon name="call-outline" size={24} color="#aaa" />
-        <Text style={styles.actionText}>Call</Text>
+        <Icon name="chatbubble-ellipses-outline" size={24} color="#aaa" />
+        <Text style={styles.actionText}>Chat</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => {
-          if (provider.website) {
-            Linking.openURL(provider.website);
+          if (trainer.instagram || trainer.facebook || trainer.website) {
+            Linking.openURL(trainer.instagram || trainer.facebook || trainer.website);
           } else {
-            Alert.alert('Website not available.');
+            Alert.alert('Social accounts not available.');
           }
         }}
       >
-        <Icon name="globe-outline" size={24} color="#aaa" />
-        <Text style={styles.actionText}>Website</Text>
+        <Icon name="logo-instagram" size={24} color="#aaa" />
+        <Text style={styles.actionText}>Social</Text>
       </TouchableOpacity>
     </View>
   );
@@ -332,52 +402,39 @@ const ProviderDetailScreen = ({ route, navigation }) => {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.aboutText}>
-          {provider.about ||
+          {trainer.about ||
             'Swapp partner venue providing premier fitness experiences. Access premium amenities, professional trainers, and state of the art equipment.'}
         </Text>
       </View>
 
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Amenities</Text>
+        <Text style={styles.sectionTitle}>Expertise</Text>
         <View style={styles.amenitiesGrid}>
-          {(provider.amenities || []).map((item, index) => {
-            const isObject = typeof item === 'object' && item !== null;
-            const title = isObject ? item.title || item.name : item;
-
-            return (
+          {(() => {
+            const expList = trainer.specialties ? (Array.isArray(trainer.specialties) ? trainer.specialties : [trainer.specialties]) : (trainer.expertise ? [trainer.expertise] : []);
+            if (expList.length === 0) {
+              return (
+                <Text style={{ color: '#666', fontSize: 14 }}>
+                  Expertise not specified.
+                </Text>
+              );
+            }
+            return expList.map((item, index) => (
               <View key={index} style={styles.amenityBox}>
-                <Icon name={getAmenityIcon(title)} size={24} color="#aaa" />
-                <Text style={styles.amenityLabel}>{title}</Text>
+                <Icon name="star-outline" size={24} color="#aaa" />
+                <Text style={styles.amenityLabel}>{item}</Text>
               </View>
-            );
-          })}
-          {(!provider.amenities || provider.amenities.length === 0) && (
-            <Text style={{ color: '#666', fontSize: 12, marginLeft: 0 }}>
-              Amenities list not available.
-            </Text>
-          )}
+            ));
+          })()}
         </View>
       </View>
 
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Facilities</Text>
+        <Text style={styles.sectionTitle}>Years of Experience</Text>
         <View style={styles.amenitiesGrid}>
-          {(provider.facilities || []).map((item, index) => {
-            const isObject = typeof item === 'object' && item !== null;
-            const title = isObject ? item.title || item.name : item;
-
-            return (
-              <View key={index} style={styles.amenityBox}>
-                <Icon name={getFacilityIcon(title)} size={24} color="#aaa" />
-                <Text style={styles.amenityLabel}>{title}</Text>
-              </View>
-            );
-          })}
-          {(!provider.facilities || provider.facilities.length === 0) && (
-            <Text style={{ color: '#666', fontSize: 12, marginLeft: 0 }}>
-              Facilities list not available.
-            </Text>
-          )}
+          <Text style={{ color: '#ccc', fontSize: 14, marginTop: 4, lineHeight: 22 }}>
+            {trainer.experienceYears ? `${trainer.experienceYears} Years` : (trainer.experience ? `${trainer.experience} Years` : 'Not specified')}
+          </Text>
         </View>
       </View>
     </View>
@@ -386,7 +443,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   const renderPlans = () => (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>Membership Plans</Text>
-      {(provider.packages || []).map(plan => (
+      {(trainer.packages || []).map(plan => (
         <TouchableOpacity
           key={plan.id}
           style={[
@@ -444,7 +501,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             </Text>
 
             {(() => {
-              const accessMode = plan.accessMode || provider.accessConfig?.accessMode || 'SLOT_BASED';
+              const accessMode = plan.accessMode || trainer.accessConfig?.accessMode || 'SLOT_BASED';
               const totalSessions = (plan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
               const flow = plan.consumptionFlow || (() => {
                 if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
@@ -491,7 +548,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
       ))}
-      {(provider.packages?.length === 0 || !provider.packages) && (
+      {(trainer.packages?.length === 0 || !trainer.packages) && (
         <Text style={{ color: '#666', textAlign: 'center' }}>
           No plans available at the moment.
         </Text>
@@ -507,7 +564,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         showsHorizontalScrollIndicator={false}
         style={styles.trainersScroll}
       >
-        {(provider.trainers || []).map(trainer => (
+        {(trainer.trainers || []).map(trainer => (
           <View key={trainer.id} style={styles.trainerCard}>
             <View style={styles.trainerImageContainer}>
               <Image
@@ -538,7 +595,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             </View>
           </View>
         ))}
-        {(provider.trainers?.length === 0 || !provider.trainers) && (
+        {(trainer.trainers?.length === 0 || !trainer.trainers) && (
           <Text style={{ color: '#666', fontSize: 12 }}>
             No {professionalLabel.toLowerCase()} listed for this location.
           </Text>
@@ -548,8 +605,8 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   );
 
   const renderReviews = () => {
-    const reviews = provider.review || [];
-    const avgRating = provider.rating || 4.5;
+    const reviews = trainer.review || [];
+    const avgRating = trainer.rating || 4.5;
 
     return (
       <View style={styles.sectionContainer}>
@@ -637,17 +694,17 @@ const ProviderDetailScreen = ({ route, navigation }) => {
 
   // ─── FOOTER ──────────────────────────────────────────────────────────────────
   const renderFooter = () => {
-    // Derive lowest price from packages if provider.lowest_price is missing
+    // Derive lowest price from packages if trainer.lowest_price is missing
     const lowestPackagePrice =
-      provider.packages && provider.packages.length > 0
-        ? Math.min(...provider.packages.map(p => p.basePrice || 0))
+      trainer.packages && trainer.packages.length > 0
+        ? Math.min(...trainer.packages.map(p => p.basePrice || 0))
         : null;
     const price = selectedPlan
       ? selectedPlan.basePrice
-      : provider.lowest_price || lowestPackagePrice || null;
+      : trainer.lowest_price || lowestPackagePrice || null;
     const isSubscribe = !!selectedPlan;
 
-    const activePkgForUnit = selectedPlan || (provider.packages && provider.packages.find(p => p.basePrice === price));
+    const activePkgForUnit = selectedPlan || (trainer.packages && trainer.packages.find(p => p.basePrice === price));
     let priceUnit = '/month';
     if (activePkgForUnit) {
       if (activePkgForUnit.commerce_model === 'ONE_TIME' || activePkgForUnit.commerceModel === 'ONE_TIME') {
@@ -703,38 +760,41 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                   const pendingSubscription = {
                     status: 'ACTIVE',
                     provider: {
-                      id: provider.id,
-                      name: provider.name,
-                      photos: provider.photos,
+                      id: trainer.id,
+                      name: trainer.name,
+                      photos: trainer.photos,
                     },
                     package: selectedPlan,
                     planName: selectedPlan.name,
-                    providerName: provider.name,
-                    gymName: provider.name,
+                    providerName: trainer.name,
+                    gymName: trainer.name,
                     tier: selectedPlan.tier || selectedPlan.name,
-                    image: provider.photos?.[0] || selectedPlan.imageUrl,
+                    image: trainer.photos?.[0] || selectedPlan.imageUrl,
                     isActive: true,
                   };
 
                   if (isPlanActive(selectedPlan.id)) {
-                    navigation.navigate('MembershipBooking', {
-                      gymName: provider.name,
+                    navigation.navigate('TrainerBooking', {
+                      gymName: trainer.name,
                       subscription: {
                         provider: {
-                          id: provider.id,
-                          name: provider.name,
-                          photos: provider.photos,
+                          id: trainer.id,
+                          name: trainer.name,
+                          photos: trainer.photos,
                         },
                         package: selectedPlan,
                       },
                       isReservationCheckout: false,
+                      targetType: 'TRAINER',
+                      trainerId: trainer.id,
                       selectedPlan,
+                      packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
                     });
                     return;
                   }
 
                   const flow = selectedPlan.consumptionFlow || (() => {
-                    const accessMode = provider.accessConfig?.accessMode || 'SLOT_BASED';
+                    const accessMode = trainer.accessConfig?.accessMode || 'SLOT_BASED';
                     const totalSessions = (selectedPlan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
                     if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
                       return 'RESERVATION_CHECKOUT';
@@ -743,18 +803,21 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                   })();
 
                   if (flow === 'RESERVATION_CHECKOUT') {
-                    navigation.navigate('MembershipBooking', {
-                      gymName: provider.name,
+                    navigation.navigate('TrainerBooking', {
+                      gymName: trainer.name,
                       subscription: {
                         provider: {
-                          id: provider.id,
-                          name: provider.name,
-                          photos: provider.photos,
+                          id: trainer.id,
+                          name: trainer.name,
+                          photos: trainer.photos,
                         },
                         package: selectedPlan,
                       },
                       isReservationCheckout: true,
+                      targetType: 'TRAINER',
+                      trainerId: trainer.id,
                       selectedPlan,
+                      packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
                     });
                     return;
                   }
@@ -788,9 +851,9 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             }}
           >
             <Text style={styles.footerBtnText} numberOfLines={1} adjustsFontSizeToFit={true}>
-              {selectedPlan ? getPackageCTA(selectedPlan, provider) : 'Choose Plan'}
+              {selectedPlan ? getPackageCTA(selectedPlan, trainer) : 'Choose Plan'}
             </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
             </>
           )}
         </LinearGradient>
@@ -816,6 +879,23 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         {activeTab === 'Reviews' && renderReviews()}
         {renderFooter()}
       </ScrollView>
+
+      {/* Chat Modal */}
+      <Modal visible={showChat} transparent animationType="slide" onRequestClose={() => setShowChat(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <View style={{ width: '100%', height: '90%', backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
+            <ChatScreen 
+              trainer={trainer}
+              user={user}
+              onBack={() => setShowChat(false)}
+              onClose={() => setShowChat(false)}
+              conversationId={conversationId}
+              token={token}
+            />
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -1201,4 +1281,4 @@ const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
   },
 });
 
-export default ProviderDetailScreen;
+export default TrainerDetailScreen;
