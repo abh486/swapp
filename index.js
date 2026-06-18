@@ -6,6 +6,19 @@ import React from 'react';
 import { AppRegistry, Text, StyleSheet } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
+import firebase from '@react-native-firebase/app';
+
+// Register background handler safely
+if (firebase.apps.length > 0) {
+  try {
+    const messaging = require('@react-native-firebase/messaging').default;
+    messaging().setBackgroundMessageHandler(async remoteMessage => {
+      console.log('[FCM] Message handled in the background:', remoteMessage);
+    });
+  } catch (err) {
+    console.warn('[Firebase] Background messaging registration skipped:', err.message);
+  }
+}
 
 // Global Berlin Sans FB Font Family Interceptor
 const setGlobalFont = () => {

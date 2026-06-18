@@ -8,6 +8,7 @@ import { View, Text } from 'react-native';
 // Screens
 import MemberProfile from '../screens/MemberProfile'; // 👈 Profile creation/edit screen
 import DietAllLogs from '../screens/activity/diet/DietAllLogs';
+import DietPreferences from '../screens/activity/diet/DietPreferences';
 
 import BottomTabNavigator from './BottomTabNavigator';
 import Community from '../screens/community/Community';
@@ -33,6 +34,7 @@ import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
 import LoginScreen from '../screens/LoginScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
+import Reminders from '../screens/profile/Reminders';
 
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +74,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
                 <Stack.Screen name="Community" component={Community} />
                 <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
+                <Stack.Screen name="DietPreferences" component={DietPreferences} />
+                <Stack.Screen name="Reminders" component={Reminders} />
 
                 <Stack.Screen
                   name="DiscoverProvidersMap"

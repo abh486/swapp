@@ -8,16 +8,17 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
-  ImageBackground,
+  Image,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
   NativeModules,
+  StatusBar,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useResponsiveMetrics } from '../utils/responsive';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { AUTH_CONFIG } from '../config/config';
@@ -84,15 +85,7 @@ const LoginScreen = () => {
     }
   }, []);
 
-  // Redirect after login success
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MemberProfile' }],
-      });
-    }
-  }, [isAuthenticated, navigation]);
+
 
   // Real-time validations
   const handleEmailChange = (text) => {
@@ -121,7 +114,6 @@ const LoginScreen = () => {
       setPasswordError('');
     }
 
-    // Recalculate confirm password matching if it has value
     if (mode === 'signup' && confirmPassword) {
       if (confirmPassword !== text) {
         setConfirmPasswordError('Passwords do not match.');
@@ -219,7 +211,6 @@ const LoginScreen = () => {
     if (operationInProgress.current) return;
     const emailTrimmed = email.trim();
     
-    // Explicit checks
     if (!emailTrimmed) {
       setEmailError('Email cannot be empty.');
       return;
@@ -360,17 +351,21 @@ const LoginScreen = () => {
     }
   };
 
-
-
   return (
-    <ImageBackground
-      source={{
-        uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDktQktk9aC8_aO96JBFXzdis2IEo1DzGlpZuK1s4av5oWSlAehHsxUxZ5rjzygc0OppXATgwAK2SZ1QIaSLDguEvCTgmNhH0oV8AX44zWbawYjuz28ZQ_6uVbLCeX4sepdvj8ILLY77q75xgdtuU3lfOB0qfmUbBVrnNf1_l-aqjyYISAKO99BF66duHj3mPzukanjr90ZcnZmf1L3fG7hcCdSM85HeYHhnm04EGcCuM3TX3OPrjhzCa6zm_d2sVT0ZFJOofAE-MM',
-      }}
-      style={styles.backgroundImage}
-      imageStyle={styles.backgroundImageStyle}
-    >
-      <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      
+      {/* Decorative Glowing Rings Overlay */}
+      <Image
+        source={require('../assets/image/rings.png')}
+        style={styles.ringTopRight}
+      />
+      <Image
+        source={require('../assets/image/rings.png')}
+        style={styles.ringBottomLeft}
+      />
+
+      <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -378,73 +373,46 @@ const LoginScreen = () => {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerContainer}>
-              <TouchableOpacity activeOpacity={1} onPress={handleSecretTap}>
-                <Text style={styles.headlineText}>Welcome to Swappfit</Text>
-              </TouchableOpacity>
-              <Text style={styles.subtitleText}>Your fitness journey starts here</Text>
-            </View>
+            {/* Headline */}
+            <TouchableOpacity activeOpacity={1} onPress={handleSecretTap}>
+              <Text style={styles.headlineText}>
+                {mode === 'login' ? 'Sign In To Swapp' : 'Sign Up To Swapp'}
+              </Text>
+            </TouchableOpacity>
 
-            {/* Mode Switcher Tabs */}
-            <View style={styles.modeSelectorContainer}>
-              <View style={styles.modeSelector}>
-                <TouchableOpacity
-                  style={[styles.modeTab, mode === 'login' && styles.activeModeTab]}
-                  onPress={() => {
-                    setMode('login');
-                    setEmailError('');
-                    setPasswordError('');
-                    setConfirmPasswordError('');
-                  }}
-                  disabled={loading || socialLoading}
-                >
-                  <Text style={[styles.modeTabText, mode === 'login' && styles.activeModeTabText]}>
-                    Log In
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modeTab, mode === 'signup' && styles.activeModeTab]}
-                  onPress={() => {
-                    setMode('signup');
-                    setEmailError('');
-                    setPasswordError('');
-                    setConfirmPasswordError('');
-                  }}
-                  disabled={loading || socialLoading}
-                >
-                  <Text style={[styles.modeTabText, mode === 'signup' && styles.activeModeTabText]}>
-                    Sign Up
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.cardContainer}>
-              {/* Email Input */}
+            {/* Inputs & Form Wrapper */}
+            <View style={styles.formContainer}>
+              
+              {/* Email Address */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <TextInput
-                  style={[styles.textInput, emailError ? styles.textInputError : null]}
-                  placeholder="Enter your email"
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  editable={!loading && !socialLoading}
-                />
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <View style={[styles.inputWrapper, emailError ? styles.inputWrapperError : null]}>
+                  <Icon name="mail-outline" size={18} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Support@swappfit.com"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={email}
+                    onChangeText={handleEmailChange}
+                    editable={!loading && !socialLoading}
+                  />
+                </View>
                 {emailError ? <Text style={styles.errorLabel}>{emailError}</Text> : null}
               </View>
 
-              {/* Password Input */}
+              {/* Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Password</Text>
                 <View style={[styles.inputWrapper, passwordError ? styles.inputWrapperError : null]}>
+                  <Icon name="lock-closed-outline" size={18} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
                   <TextInput
-                    style={styles.textInputInline}
-                    placeholder="Enter your password"
+                    style={styles.textInput}
+                    placeholder="************"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     secureTextEntry={securePassword}
                     autoCapitalize="none"
@@ -458,8 +426,8 @@ const LoginScreen = () => {
                     onPress={() => setSecurePassword(!securePassword)}
                     disabled={loading || socialLoading}
                   >
-                    <FontAwesome
-                      name={securePassword ? 'eye-slash' : 'eye'}
+                    <Icon
+                      name={securePassword ? 'eye-off-outline' : 'eye-outline'}
                       size={18}
                       color="rgba(255, 255, 255, 0.6)"
                     />
@@ -468,14 +436,15 @@ const LoginScreen = () => {
                 {passwordError ? <Text style={styles.errorLabel}>{passwordError}</Text> : null}
               </View>
 
-              {/* Confirm Password Input (Sign Up Mode Only) */}
+              {/* Confirm Password (only for signup) */}
               {mode === 'signup' && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Confirm Password</Text>
                   <View style={[styles.inputWrapper, confirmPasswordError ? styles.inputWrapperError : null]}>
+                    <Icon name="lock-closed-outline" size={18} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
                     <TextInput
-                      style={styles.textInputInline}
-                      placeholder="Confirm your password"
+                      style={styles.textInput}
+                      placeholder="Confirm password"
                       placeholderTextColor="rgba(255, 255, 255, 0.4)"
                       secureTextEntry={secureConfirmPassword}
                       autoCapitalize="none"
@@ -489,20 +458,18 @@ const LoginScreen = () => {
                       onPress={() => setSecureConfirmPassword(!secureConfirmPassword)}
                       disabled={loading || socialLoading}
                     >
-                      <FontAwesome
-                        name={secureConfirmPassword ? 'eye-slash' : 'eye'}
+                      <Icon
+                        name={secureConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                         size={18}
                         color="rgba(255, 255, 255, 0.6)"
                       />
                     </TouchableOpacity>
                   </View>
-                  {confirmPasswordError ? (
-                    <Text style={styles.errorLabel}>{confirmPasswordError}</Text>
-                  ) : null}
+                  {confirmPasswordError ? <Text style={styles.errorLabel}>{confirmPasswordError}</Text> : null}
                 </View>
               )}
 
-              {/* Action Button */}
+              {/* Submit Button */}
               <TouchableOpacity
                 style={styles.signInButton}
                 onPress={mode === 'login' ? handleEmailPasswordLogin : handleSignUpSubmit}
@@ -513,18 +480,19 @@ const LoginScreen = () => {
                   <GlobalLoader size={30} />
                 ) : (
                   <Text style={styles.signInButtonText}>
-                    {mode === 'login' ? 'CONTINUE' : 'CREATE ACCOUNT'}
+                    {mode === 'login' ? 'Sign In  ➔' : 'Sign Up  ➔'}
                   </Text>
                 )}
               </TouchableOpacity>
 
+              {/* Divider */}
               <View style={styles.dividerRow}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.dividerText}>OR</Text>
                 <View style={styles.dividerLine} />
               </View>
 
-              {/* Google Login Button */}
+              {/* Google Social */}
               <TouchableOpacity
                 style={styles.socialButton}
                 onPress={handleGoogleLogin}
@@ -536,17 +504,20 @@ const LoginScreen = () => {
                 ) : (
                   <>
                     <View style={styles.socialIconWrapper}>
-                      <FontAwesome name="google" size={20} color="#ffffff" />
+                      <Image
+                        source={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH5gYJDQ4X7Q2cswAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLm4nAAACyklEQVRIx+2VS08TURSGv9OZ6XQqtFCLFhJ5iBBiYkKwMfG+Gzcm7oqurG5NdO3GjQt/gRujGgMxhhijiQkkBAtCoC1Q2ulMp3NnOlPAQkpbwMXGczk7957zne+ee+5F+M/lOq5c+U+P+A5wM7D/HMA64GtgFzCBfWDvswBLgA1YA4SBW8BtwAmsD3+31+qPzUAbcBPYB2oA4uU+YAbIAh0gAax/FmAFWAIeAhngEXALcKEEsA08BLpAG8Bf7gLmgCwwBLwGHgAOFJ8H2ABeATlgCHgNPIA3u4H1p6p64WJz3/8BvAHywFDXq/oHqjPzF1QJgCJA5nL5C5W+3KjOAPeBLNAF1oDXQAa4XzYAbABvgLvuUfUD1Rn1E1V5sKpeUOW+X9UPVAZ4AHSAN4C7w9uAew275727h80DXffZ9QPVoepW1Vf1t6rG/Wv1XjWv6kfVEfWTeqGqZ0AG6AJv7mE0gQ1gDTAJ3AQywH0gC3SBN4BbVd+omlF3VL2pZlWDqm9VTaqZ4fWqetUzIAO8BTKAhx/jEXgD3AYywH0gC3SBB1XfqJpRs+qOqjfVrGowvF5Vr3oGZIA3QAbw8E+fN/fQhruHdg+tB2ruoeVAFXWfVRVVD1SV1T1W76tZtV/NjKzPqf3qZ+oe2gCee+gc6k+oA+rP6PewOaDOqX1Vv6q/VTXq32sQVWfUYfVn1EH1E3XhVbYBHGBm0K8/og6oP6Pf/eawOqf2Vf2q/lbVqH+vQVSdUYfVn1EH1U/UhU9ZBzjAzCDW7uVndY+rO1y9X1XPq5pSd1X9qOap6nlVTaqvqkeq6lUPgPMA+285e6/q7Dqrv+bsPqqz46xecFYfsLNDznY4W1vOVjlbO2db1zZ4y1gHOAiw95C9l5zte/brnL2Xne17Vp+z+oC99dhbi72tsLVqWzP+A38BLq83H+r7e38AAAAASUVORK5CYII=' }}
+                        style={{ width: 18, height: 18 }}
+                      />
                     </View>
                     <Text style={styles.socialButtonText}>Continue with Google</Text>
                   </>
                 )}
               </TouchableOpacity>
 
-              {/* Apple Login Button */}
+              {/* Apple Social */}
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
-                  style={[styles.socialButton, styles.appleButton]}
+                  style={styles.socialButton}
                   onPress={handleAppleLogin}
                   disabled={loading || socialLoading}
                   activeOpacity={0.8}
@@ -556,156 +527,128 @@ const LoginScreen = () => {
                   ) : (
                     <>
                       <View style={styles.socialIconWrapper}>
-                        <FontAwesome name="apple" size={22} color="#000000" />
+                        <Icon name="logo-apple" size={20} color="#FFF" />
                       </View>
-                      <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                        Continue with Apple
-                      </Text>
+                      <Text style={styles.socialButtonText}>Continue with Apple</Text>
                     </>
                   )}
                 </TouchableOpacity>
               )}
-            </View>
 
-            <View style={styles.footerContainer}>
-              <Text style={styles.legalText}>
-                By continuing, you agree to our{' '}
-                <Text style={styles.underlineText}>Terms</Text> &{' '}
-                <Text style={styles.underlineText}>Privacy Policy</Text>
-              </Text>
+              {/* Mode Switcher Link */}
+              <TouchableOpacity
+                style={styles.footerLinkRow}
+                onPress={() => {
+                  setMode(mode === 'login' ? 'signup' : 'login');
+                  setEmailError('');
+                  setPasswordError('');
+                  setConfirmPasswordError('');
+                }}
+              >
+                <Text style={styles.footerLinkText}>
+                  {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+                  <Text style={styles.linkHighlight}>
+                    {mode === 'login' ? 'Sign Up.' : 'Sign In.'}
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+
+              {/* Forgot Password */}
+              {mode === 'login' && (
+                <TouchableOpacity
+                  onPress={() => Alert.alert('Reset Password', 'A password reset link will be sent to your email.')}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password</Text>
+                </TouchableOpacity>
+              )}
+
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 
 const createStyles = ({ wp, ms, fs, sp }) =>
   StyleSheet.create({
-    backgroundImage: {
-      flex: 1,
-      width: '100%',
-      height: '100%',
-    },
-    backgroundImageStyle: {
-      resizeMode: 'cover',
-    },
     container: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+      backgroundColor: '#000',
     },
     keyboardView: {
       flex: 1,
     },
     scrollContent: {
       flexGrow: 1,
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       paddingHorizontal: sp(24),
       paddingVertical: sp(32),
     },
-    headerContainer: {
-      alignItems: 'center',
-      marginTop: sp(15),
-      marginBottom: sp(15),
+    ringTopRight: {
+      position: 'absolute',
+      top: -sp(60),
+      right: -sp(60),
+      width: sp(260),
+      height: sp(260),
+      resizeMode: 'contain',
+      opacity: 0.8,
+    },
+    ringBottomLeft: {
+      position: 'absolute',
+      bottom: -sp(60),
+      left: -sp(60),
+      width: sp(260),
+      height: sp(260),
+      resizeMode: 'contain',
+      opacity: 0.6,
+      transform: [{ rotate: '180deg' }],
     },
     headlineText: {
       color: '#ffffff',
-      fontSize: fs(34),
-      fontFamily: 'BRLNSR',
-      fontWeight: 'normal',
+      fontSize: fs(32),
+      fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
       textAlign: 'center',
-      marginBottom: sp(8),
+      marginTop: sp(50),
+      marginBottom: sp(30),
     },
-    subtitleText: {
-      color: '#A0A0A0',
-      fontSize: fs(16),
-      textAlign: 'center',
-    },
-    modeSelectorContainer: {
-      alignItems: 'center',
-      marginBottom: sp(20),
-    },
-    modeSelector: {
-      flexDirection: 'row',
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-      borderRadius: ms(25),
-      padding: ms(4),
+    formContainer: {
       width: '100%',
       maxWidth: Math.min(ms(380), wp(90)),
-    },
-    modeTab: {
-      flex: 1,
-      paddingVertical: sp(10),
-      alignItems: 'center',
-      borderRadius: ms(21),
-    },
-    activeModeTab: {
-      backgroundColor: '#ffffff',
-    },
-    modeTabText: {
-      color: 'rgba(255, 255, 255, 0.6)',
-      fontSize: fs(14),
-      fontWeight: '600',
-    },
-    activeModeTabText: {
-      color: '#000000',
-    },
-    cardContainer: {
-      width: '100%',
-      backgroundColor: 'rgba(30, 30, 30, 0.75)',
-      borderRadius: ms(20),
-      padding: sp(24),
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.1)',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.35,
-      shadowRadius: 15,
-      elevation: 8,
       alignSelf: 'center',
-      maxWidth: Math.min(ms(380), wp(90)),
     },
     inputGroup: {
-      marginBottom: sp(16),
+      marginBottom: sp(20),
+      width: '100%',
     },
     inputLabel: {
-      color: '#E0E0E0',
-      fontSize: fs(14),
-      fontWeight: '600',
-      marginBottom: sp(6),
+      color: 'rgba(255, 255, 255, 0.7)',
+      fontSize: fs(13),
+      fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+      marginBottom: sp(8),
       marginLeft: sp(4),
-    },
-    textInput: {
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderColor: 'rgba(255, 255, 255, 0.15)',
-      borderWidth: 1,
-      borderRadius: ms(12),
-      paddingHorizontal: sp(16),
-      paddingVertical: Platform.OS === 'ios' ? sp(14) : sp(10),
-      color: '#ffffff',
-      fontSize: fs(15),
-    },
-    textInputError: {
-      borderColor: '#ff4a4a',
     },
     inputWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: '#000',
+      borderColor: 'rgba(255, 255, 255, 0.2)',
       borderWidth: 1,
       borderRadius: ms(12),
       paddingHorizontal: sp(16),
+      height: sp(54),
     },
     inputWrapperError: {
       borderColor: '#ff4a4a',
     },
-    textInputInline: {
+    inputIcon: {
+      marginRight: sp(12),
+    },
+    textInput: {
       flex: 1,
       color: '#ffffff',
       fontSize: fs(15),
-      paddingVertical: Platform.OS === 'ios' ? sp(14) : sp(10),
+      paddingVertical: 0,
     },
     eyeIconButton: {
       padding: sp(8),
@@ -717,20 +660,17 @@ const createStyles = ({ wp, ms, fs, sp }) =>
       marginLeft: sp(6),
     },
     signInButton: {
-      backgroundColor: '#ffffff',
-      paddingVertical: sp(14),
+      backgroundColor: '#000',
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderWidth: 1,
+      height: sp(54),
       borderRadius: ms(12),
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: sp(8),
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 5,
-      elevation: 3,
+      marginTop: sp(10),
     },
     signInButtonText: {
-      color: '#000000',
+      color: '#ffffff',
       fontSize: fs(16),
       fontWeight: 'bold',
     },
@@ -753,41 +693,41 @@ const createStyles = ({ wp, ms, fs, sp }) =>
     socialButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: '#000',
+      borderColor: 'rgba(255, 255, 255, 0.3)',
       borderWidth: 1,
-      paddingVertical: sp(12),
-      borderRadius: ms(12),
-      marginBottom: sp(12),
+      height: sp(50),
+      borderRadius: ms(25),
+      marginBottom: sp(14),
       justifyContent: 'center',
     },
     socialIconWrapper: {
       position: 'absolute',
-      left: sp(16),
+      left: sp(20),
     },
     socialButtonText: {
       color: '#ffffff',
       fontSize: fs(15),
       fontWeight: '600',
     },
-    appleButton: {
-      backgroundColor: '#ffffff',
-      borderColor: '#ffffff',
+    footerLinkRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: sp(24),
     },
-    appleButtonText: {
-      color: '#000000',
+    footerLinkText: {
+      color: 'rgba(255, 255, 255, 0.6)',
+      fontSize: fs(14),
     },
-    footerContainer: {
-      marginTop: sp(20),
-      alignItems: 'center',
+    linkHighlight: {
+      color: '#7C4DFF',
+      fontWeight: 'bold',
     },
-    legalText: {
-      color: '#AFA7A7',
-      fontSize: fs(12),
+    forgotPasswordText: {
+      color: 'rgba(255, 255, 255, 0.4)',
+      fontSize: fs(13),
       textAlign: 'center',
-      paddingHorizontal: sp(16),
-    },
-    underlineText: {
+      marginTop: sp(16),
       textDecorationLine: 'underline',
     },
   });

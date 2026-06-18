@@ -6,11 +6,21 @@ import {
   StatusBar,
   Alert,
   Platform,
-  Dimensions
+  Dimensions,
+  TextInput,
+  ActivityIndicator,
+  Text,
+  TouchableOpacity
 } from 'react-native';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
+import LinearGradient from 'react-native-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import apiClient from '../../../api/apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useDispatch } from 'react-redux';
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -21,9 +31,37 @@ import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
 
+import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
+import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
+
 const { width } = Dimensions.get('window');
 
+const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const getMondayBasedIndex = (date) => {
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+};
+
+const buildCalendarDays = (selectedDate) => {
+  const activeIndex = getMondayBasedIndex(selectedDate);
+
+  return WEEKDAY_LABELS.map((label, index) => {
+    const dayDate = new Date(selectedDate);
+    dayDate.setDate(selectedDate.getDate() + index - activeIndex);
+
+    return {
+      label,
+      date: String(dayDate.getDate()).padStart(2, '0'),
+      active: index === activeIndex,
+      month: dayDate.toLocaleDateString('en-US', { month: 'short' }),
+    };
+  });
+};
+
 const Dietplan = ({ navigation }) => {
+  const dispatch = useDispatch();
   const cameraRef = useRef(null);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -31,26 +69,183 @@ const Dietplan = ({ navigation }) => {
     quality: 0.8,
   });
 
+  // --- MODAL & LOG STATE ---
   const [showMealModal, setShowMealModal] = useState(false);
+
+  // --- NUTRITION ENGINE STATES ---
+  const [dailySummary, setDailySummary] = useState(null);
+  const [recommendation, setRecommendation] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [isNutritionLoading, setIsNutritionLoading] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [activeTab, setActiveTab] = useState('tracker'); // 'tracker' or 'analytics'
+  const [newWeight, setNewWeight] = useState('');
+  const [isUpdatingWeight, setIsUpdatingWeight] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedPlanDay, setSelectedPlanDay] = useState(() => {
+    return PLAN_DAY_NAMES[new Date().getDay()] || 'Monday';
+  });
+
+  const fetchNutritionData = useCallback(async (dateToFetch = selectedDate, showLoader = false) => {
+    if (showLoader) {
+      setIsNutritionLoading(true);
+    }
+    try {
+      const year = dateToFetch.getFullYear();
+      const month = String(dateToFetch.getMonth() + 1).padStart(2, '0');
+      const day = String(dateToFetch.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      // Fetch user preferences from AsyncStorage to send to the backend
+      const [
+        savedPreference,
+        savedSkipDays,
+        savedMeals,
+        savedAllergies,
+        savedCuisines,
+        savedOtherInfo
+      ] = await Promise.all([
+        AsyncStorage.getItem('diet_preference'),
+        AsyncStorage.getItem('diet_skip_days'),
+        AsyncStorage.getItem('diet_meals'),
+        AsyncStorage.getItem('diet_allergies'),
+        AsyncStorage.getItem('diet_cuisines'),
+        AsyncStorage.getItem('diet_other_info')
+      ]);
+
+      const recommendationsParams = {
+        dietPreference: savedPreference || 'Selective Non-Veg',
+        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
+        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
+        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
+        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
+        generate: 'false'
+      };
+
+      const [summaryResponse, recsResponse, analyticsResponse] = await Promise.all([
+        apiClient.get(`/summary/daily?date=${formattedDate}`),
+        apiClient.get('/recommendations', { params: recommendationsParams }),
+        apiClient.get('/analytics')
+      ]);
+
+      if (summaryResponse.data?.success) {
+        setDailySummary(summaryResponse.data.data);
+      }
+      if (recsResponse.data?.success) {
+        setRecommendation(recsResponse.data.data);
+      }
+      if (analyticsResponse.data?.success) {
+        setAnalyticsData(analyticsResponse.data.data);
+      }
+    } catch (error) {
+      console.warn('[Dietplan] Failed to fetch nutrition/analytics data:', error.message);
+    } finally {
+      if (showLoader) {
+        setIsNutritionLoading(false);
+      }
+    }
+  }, [selectedDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNutritionData(selectedDate, false);
+    }, [fetchNutritionData, selectedDate])
+  );
+
+  useEffect(() => {
+    if (!showMealModal) {
+      fetchNutritionData(selectedDate, false);
+    }
+  }, [showMealModal, fetchNutritionData, selectedDate]);
+
+  const handleGenerateWeeklyPlan = useCallback(async () => {
+    setIsGeneratingPlan(true);
+    try {
+      const [
+        savedPreference,
+        savedSkipDays,
+        savedMeals,
+        savedAllergies,
+        savedCuisines,
+        savedOtherInfo
+      ] = await Promise.all([
+        AsyncStorage.getItem('diet_preference'),
+        AsyncStorage.getItem('diet_skip_days'),
+        AsyncStorage.getItem('diet_meals'),
+        AsyncStorage.getItem('diet_allergies'),
+        AsyncStorage.getItem('diet_cuisines'),
+        AsyncStorage.getItem('diet_other_info')
+      ]);
+
+      const recommendationsParams = {
+        dietPreference: savedPreference || 'Selective Non-Veg',
+        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
+        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
+        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
+        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
+        generate: 'true'
+      };
+
+      console.log('[Dietplan] Generating weekly diet plan...');
+      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
+      if (response.data?.success) {
+        setRecommendation(response.data.data);
+        Alert.alert('Success', 'Weekly diet plan generated successfully!');
+      }
+    } catch (error) {
+      console.warn('[Dietplan] Failed to generate weekly diet plan:', error.message);
+      Alert.alert('Error', 'Failed to generate weekly diet plan.');
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  }, []);
+
+
+  const handleUpdateWeight = async () => {
+    if (!newWeight || isNaN(parseFloat(newWeight))) {
+      Alert.alert('Invalid Input', 'Please enter a valid weight number in kg.');
+      return;
+    }
+
+    setIsUpdatingWeight(true);
+    try {
+      const response = await apiClient.post('/weight/update', { weight: parseFloat(newWeight) });
+      if (response.data?.success) {
+        Alert.alert('Success', 'Weight log recorded and goals updated.');
+        setNewWeight('');
+        fetchNutritionData();
+      }
+    } catch (error) {
+      console.warn('[Dietplan] Weight update error:', error.message);
+      Alert.alert('Error', 'Failed to update weight.');
+    } finally {
+      setIsUpdatingWeight(false);
+    }
+  };
   const [showCameraOverlay, setShowCameraOverlay] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [mealQuantity, setMealQuantity] = useState(1);
   const [mealStep, setMealStep] = useState(1);
   const [trackedMealImage, setTrackedMealImage] = useState(null);
-  const [detectedMealName, setDetectedMealName] = useState('Green Luxe Bowl');
+  
+  // --- AI LOG STATE ---
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState('Lunch');
+  const [mealDescription, setMealDescription] = useState('');
+  const [nutritionData, setNutritionData] = useState({
+    mealName: 'Green Luxe Bowl',
+    calories: 360,
+    protein: 12,
+    carbs: 18,
+    fats: 8
+  });
 
   // --- CALENDAR STATE ---
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [calendarDays, setCalendarDays] = useState([
-    { label: 'M', date: '27', active: false },
-    { label: 'T', date: '28', active: false },
-    { label: 'W', date: '29', active: false },
-    { label: 'T', date: '30', active: false },
-    { label: 'F', date: '01', active: true },
-    { label: 'S', date: '02', active: false },
-    { label: 'S', date: '03', active: false },
-  ]);
+  const [calendarDays, setCalendarDays] = useState(() => buildCalendarDays(new Date()));
 
   useEffect(() => {
     if (!hasPermission) requestPermission();
@@ -60,6 +255,10 @@ const Dietplan = ({ navigation }) => {
     navigation.navigate('DietAllLogs');
   }, [navigation]);
 
+  const handleGoToPreferences = useCallback(() => {
+    navigation.navigate('DietPreferences');
+  }, [navigation]);
+
   const handleTrackWithCamera = useCallback(() => {
     setShowCameraOverlay(true);
   }, []);
@@ -67,17 +266,38 @@ const Dietplan = ({ navigation }) => {
   const handleUploadPhoto = useCallback(() => {
     launchImageLibrary(
       { mediaType: 'photo', quality: 0.8 },
-      (response) => {
+      async (response) => {
         if (!response.didCancel && !response.errorCode && response.assets?.[0]?.uri) {
-          setSelectedImage(response.assets[0].uri);
+          const imageAsset = response.assets[0];
+          setSelectedImage(imageAsset.uri);
           setMealStep(1);
           setMealQuantity(1);
           setShowCameraOverlay(false);
           setShowMealModal(true);
+          setAiLoading(true);
+
+          try {
+            console.log('[Dietplan] Uploading picked photo to Cloudinary...');
+            const uploadedUrl = await uploadToCloudinary(imageAsset);
+            setUploadedImageUrl(uploadedUrl);
+            
+            console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
+            const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
+            if (aiResponse.success && aiResponse.data) {
+              setNutritionData(aiResponse.data);
+            } else {
+              Alert.alert("AI Error", aiResponse.message || "Failed to analyze image.");
+            }
+          } catch (err) {
+            console.error('[Dietplan] Image library upload/analysis error:', err);
+            Alert.alert("Analysis Error", "Failed to upload or analyze the food image.");
+          } finally {
+            setAiLoading(false);
+          }
         }
       }
     );
-  }, []);
+  }, [dispatch]);
 
   const handleCameraShot = useCallback(async () => {
     try {
@@ -98,6 +318,31 @@ const Dietplan = ({ navigation }) => {
         setMealQuantity(1);
         setShowCameraOverlay(false);
         setShowMealModal(true);
+        setAiLoading(true);
+
+        try {
+          const imageAsset = {
+            uri: imagePath,
+            type: 'image/jpeg',
+            fileName: `photo_${Date.now()}.jpg`
+          };
+          console.log('[Dietplan] Uploading captured photo to Cloudinary...');
+          const uploadedUrl = await uploadToCloudinary(imageAsset);
+          setUploadedImageUrl(uploadedUrl);
+          
+          console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
+          const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
+          if (aiResponse.success && aiResponse.data) {
+            setNutritionData(aiResponse.data);
+          } else {
+            Alert.alert("AI Error", aiResponse.message || "Failed to analyze captured image.");
+          }
+        } catch (err) {
+          console.error('[Dietplan] Camera shot upload/analysis error:', err);
+          Alert.alert("Analysis Error", "Failed to upload or analyze the food image.");
+        } finally {
+          setAiLoading(false);
+        }
       } else {
         throw new Error("Captured photo had no file path.");
       }
@@ -108,7 +353,7 @@ const Dietplan = ({ navigation }) => {
       );
       console.error('Camera capture error:', error);
     }
-  }, [photoOutput]);
+  }, [photoOutput, dispatch]);
 
   // --- CALENDAR HANDLER ---
   const handleCalendarPress = () => {
@@ -129,22 +374,12 @@ const Dietplan = ({ navigation }) => {
         setShowDatePicker(false);
       }
       
-      const dayOfWeek = date.getDay();
-      let activeIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      // Automatically switch the weekly diet plan tab to match the selected calendar day
+      setSelectedPlanDay(PLAN_DAY_NAMES[date.getDay()]);
+      setCalendarDays(buildCalendarDays(date));
 
-      const newDays = calendarDays.map((day, idx) => ({
-        ...day,
-        active: idx === activeIndex,
-      }));
-      
-      for(let i=0; i<7; i++) {
-        const offset = i - activeIndex;
-        const d = new Date(date);
-        d.setDate(date.getDate() + offset);
-        newDays[i].date = d.getDate().toString();
-      }
-
-      setCalendarDays(newDays);
+      // Trigger daily summary fetch for the new selected date with loader enabled
+      fetchNutritionData(date, true);
     }
   };
 
@@ -152,37 +387,420 @@ const Dietplan = ({ navigation }) => {
     setShowDatePicker(false);
   };
 
+  const renderAnalyticsView = () => {
+    const {
+      weightTrend = [],
+      weightChange = 0,
+      averages = { weeklyCalories: 0, weeklyProtein: 0 },
+      goalProgress = { caloriesPercentage: 0, proteinPercentage: 0 },
+      nutritionScore = 0,
+      consistencyScore = 0,
+    } = analyticsData || {};
+
+    const renderWeightChart = () => {
+      if (!weightTrend || weightTrend.length === 0) {
+        return (
+          <View style={styles.emptyChartContainer}>
+            <Text style={styles.emptyChartText}>No weight logs available yet.</Text>
+          </View>
+        );
+      }
+
+      const chartWidth = width - 40;
+      const chartHeight = 150;
+      const padding = 20;
+
+      const weights = weightTrend.map((t) => t.weight);
+      const maxWeight = Math.max(...weights) + 1;
+      const minWeight = Math.min(...weights) - 1;
+      const range = maxWeight - minWeight || 1;
+
+      const points = weightTrend.map((t, idx) => {
+        const x = padding + (idx / (weightTrend.length - 1 || 1)) * (chartWidth - 2 * padding);
+        const y = chartHeight - padding - ((t.weight - minWeight) / range) * (chartHeight - 2 * padding);
+        return { x, y };
+      });
+
+      const pathD = points.length > 0 ? `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}` : '';
+
+      return (
+        <View style={styles.chartWrapper}>
+          <View style={styles.chartHeaderRow}>
+            <Text style={styles.chartTitle}>Weight Progress</Text>
+            <Text style={[styles.chartChangeText, { color: weightChange <= 0 ? '#2ecc71' : '#e74c3c' }]}>
+              {weightChange <= 0 ? '' : '+'}{weightChange.toFixed(1)} kg
+            </Text>
+          </View>
+          <View style={styles.chartContainer}>
+            <View style={styles.yAxisLabels}>
+              <Text style={styles.axisLabelText}>{maxWeight.toFixed(1)}</Text>
+              <Text style={styles.axisLabelText}>{minWeight.toFixed(1)}</Text>
+            </View>
+            <View style={styles.chartArea}>
+              <Svg width={chartWidth - 40} height={chartHeight}>
+                <Line x1={padding} y1={padding} x2={chartWidth - 40 - padding} y2={padding} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+                <Line x1={padding} y1={chartHeight / 2} x2={chartWidth - 40 - padding} y2={chartHeight / 2} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+                <Line x1={padding} y1={chartHeight - padding} x2={chartWidth - 40 - padding} y2={chartHeight - padding} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+
+                {points.length > 1 && (
+                  <Path d={pathD} fill="none" stroke="#e74c3c" strokeWidth={3} />
+                )}
+
+                {points.map((p, idx) => (
+                  <Circle
+                    key={idx}
+                    cx={p.x}
+                    cy={p.y}
+                    r={points.length === 1 ? 6 : 4}
+                    fill="#FFF"
+                    stroke="#e74c3c"
+                    strokeWidth={2}
+                  />
+                ))}
+              </Svg>
+            </View>
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View style={styles.analyticsSection}>
+        {/* KPI Cards */}
+        <View style={styles.kpiRow}>
+          <LinearGradient
+            colors={['#1a1c23', '#0f1013']}
+            style={styles.kpiCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.kpiLabel}>Avg Calories</Text>
+            <Text style={styles.kpiValue}>{averages.weeklyCalories}</Text>
+            <Text style={styles.kpiSub}>kcal / day</Text>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={['#1a1c23', '#0f1013']}
+            style={styles.kpiCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.kpiLabel}>Avg Protein</Text>
+            <Text style={styles.kpiValue}>{averages.weeklyProtein}g</Text>
+            <Text style={styles.kpiSub}>/ day</Text>
+          </LinearGradient>
+        </View>
+
+        {/* Engine Performance Card */}
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={styles.analyticsCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={styles.cardSectionTitle}>Engine Performance</Text>
+          <View style={styles.scoreRow}>
+            <View style={styles.scoreBlock}>
+              <Text style={styles.scoreValue}>{nutritionScore}%</Text>
+              <Text style={styles.scoreLabel}>Nutrition Score</Text>
+            </View>
+            <View style={styles.dividerLine} />
+            <View style={styles.scoreBlock}>
+              <Text style={[styles.scoreValue, { color: '#2ecc71' }]}>{consistencyScore}%</Text>
+              <Text style={styles.scoreLabel}>Consistency Score</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Goal Alignment */}
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={styles.analyticsCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={styles.cardSectionTitle}>Goal Alignment</Text>
+
+          <View style={styles.progressRow}>
+            <View style={styles.progressInfo}>
+              <Text style={styles.progressLabel}>Calorie Target Compliance</Text>
+              <Text style={styles.progressPercent}>{goalProgress.caloriesPercentage}%</Text>
+            </View>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.min(100, goalProgress.caloriesPercentage)}%`, backgroundColor: '#e74c3c' }]} />
+            </View>
+          </View>
+
+          <View style={[styles.progressRow, { marginTop: 14 }]}>
+            <View style={styles.progressInfo}>
+              <Text style={styles.progressLabel}>Protein Target Compliance</Text>
+              <Text style={styles.progressPercent}>{goalProgress.proteinPercentage}%</Text>
+            </View>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.min(100, goalProgress.proteinPercentage)}%`, backgroundColor: '#4B6EE1' }]} />
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Weight Progress Chart */}
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={styles.analyticsCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {renderWeightChart()}
+        </LinearGradient>
+
+        {/* Update Weight Log */}
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={styles.analyticsCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={styles.cardSectionTitle}>Log Weight Update</Text>
+          <Text style={styles.inputInstructions}>
+            This recalculates your daily BMR and updates target calorie splits.
+          </Text>
+
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 78.5"
+              placeholderTextColor="#555"
+              keyboardType="decimal-pad"
+              value={newWeight}
+              onChangeText={setNewWeight}
+            />
+            <TouchableOpacity 
+              style={styles.submitButton} 
+              onPress={handleUpdateWeight}
+              disabled={isUpdatingWeight}
+            >
+              {isUpdatingWeight ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Log Weight</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
+
+  const renderWeeklyDietPlan = () => {
+    if (!recommendation || !recommendation.weeklyPlan) return null;
+
+    const { weeklyPlan } = recommendation;
+    const planDays = weeklyPlan.days || {};
+    const userProfile = weeklyPlan.userProfile || {};
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const activeMeals = planDays[selectedPlanDay] || [];
+
+    const getMealIcon = (type) => {
+      switch (type.toLowerCase()) {
+        case 'breakfast':
+          return { name: 'sunny-outline', color: '#FF9800', bg: 'rgba(255, 152, 0, 0.1)' };
+        case 'lunch':
+          return { name: 'restaurant-outline', color: '#4CAF50', bg: 'rgba(76, 175, 80, 0.1)' };
+        case 'snack':
+          return { name: 'cafe-outline', color: '#FFC107', bg: 'rgba(255, 193, 7, 0.1)' };
+        case 'dinner':
+          return { name: 'moon-outline', color: '#2196F3', bg: 'rgba(33, 150, 243, 0.1)' };
+        default:
+          return { name: 'nutrition-outline', color: '#9C27B0', bg: 'rgba(156, 39, 176, 0.1)' };
+      }
+    };
+
+    return (
+      <View style={styles.weeklyPlanSection}>
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={styles.weeklyPlanCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.planHeaderRow}>
+            <View>
+              <View style={styles.titleRow}>
+                <Icon name="sparkles" size={16} color="#e74c3c" />
+                <Text style={styles.planTitle}>WEEKLY DIET PLAN</Text>
+                {weeklyPlan.isGenerating && (
+                  <View style={styles.generatingBadge}>
+                    <ActivityIndicator size="small" color="#e74c3c" style={{ marginRight: 6 }} />
+                    <Text style={styles.generatingText}>Updating via AI...</Text>
+                  </View>
+                )}
+              </View>
+              {userProfile.weight ? (
+                <Text style={styles.planSubtitle}>
+                  Tailored for: {userProfile.weight}kg • {userProfile.height}cm • {userProfile.age}yo • {userProfile.dietPreference || 'Standard'}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.dayTabsWrapper}
+          >
+            {days.map((day) => {
+              const isActive = selectedPlanDay === day;
+              return (
+                <TouchableOpacity
+                  key={day}
+                  style={[styles.dayTab, isActive && styles.activeDayTab]}
+                  onPress={() => setSelectedPlanDay(day)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.dayTabText, isActive && styles.activeDayTabText]}>
+                    {day.substring(0, 3)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.mealsList}>
+            {activeMeals.map((mealItem, index) => {
+              const iconInfo = getMealIcon(mealItem.mealType);
+              return (
+                <View key={index} style={styles.mealCard}>
+                  <View style={[styles.mealIconWrapper, { backgroundColor: iconInfo.bg }]}>
+                    <Icon name={iconInfo.name} size={18} color={iconInfo.color} />
+                  </View>
+                  <View style={styles.mealDetails}>
+                    <View style={styles.mealTypeRow}>
+                      <Text style={[styles.mealTypeText, { color: iconInfo.color }]}>
+                        {mealItem.mealType.toUpperCase()}
+                      </Text>
+                      <Text style={styles.mealCaloriesText}>
+                        {mealItem.calories} kcal
+                      </Text>
+                    </View>
+                    <Text style={styles.mealDescriptionText}>
+                      {mealItem.meal}
+                    </Text>
+                    
+                    <View style={styles.macroBadgesRow}>
+                      <View style={styles.macroBadge}>
+                        <Text style={styles.macroBadgeText}>P: {mealItem.protein}g</Text>
+                      </View>
+                      <View style={[styles.macroBadge, { marginLeft: 6 }]}>
+                        <Text style={styles.macroBadgeText}>C: {mealItem.carbs}g</Text>
+                      </View>
+                      <View style={[styles.macroBadge, { marginLeft: 6 }]}>
+                        <Text style={styles.macroBadgeText}>F: {mealItem.fats}g</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
       
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
+      {isNutritionLoading ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#e74c3c" />
+          <Text style={styles.loadingText}>Loading nutrition details...</Text>
+          <Text style={styles.loadingSubtext}>Please wait a moment...</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
         
         <DietHeader 
           calendarDays={calendarDays} 
           handleCalendarPress={handleCalendarPress} 
+          dailySummary={dailySummary}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          setCalendarDays={setCalendarDays}
+          PLAN_DAY_NAMES={PLAN_DAY_NAMES}
+          setSelectedPlanDay={setSelectedPlanDay}
+          fetchNutritionData={fetchNutritionData}
+          buildCalendarDays={buildCalendarDays}
+          handleTrackFood={handleTrackFood}
+          handleGoToPreferences={handleGoToPreferences}
         />
+            <DietMacros 
+              handleTrackWithCamera={handleTrackWithCamera} 
+              dailySummary={dailySummary} 
+            />
 
-        {/* Navigation Toggle Overlap */}
-        <View style={styles.toggleContainer}>
-          <View style={styles.navToggle}>
-            <Icon name="chevron-back" size={18} color="#FFF" style={styles.navIcon} />
-            <Icon name="chevron-forward" size={18} color="#FFF" style={styles.navIcon} />
-          </View>
-        </View>
+            <DietWaterWidget dailySummary={dailySummary} />
 
-        <DietMacros handleTrackWithCamera={handleTrackWithCamera} />
+            {!recommendation ? (
+              <View style={styles.weeklyPlanSection}>
+                <LinearGradient
+                  colors={['#1a1c23', '#0f1013']}
+                  style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <ActivityIndicator size="small" color="#e74c3c" />
+                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
+                  <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
+                </LinearGradient>
+              </View>
+            ) : (
+              isGeneratingPlan ? (
+                <View style={styles.weeklyPlanSection}>
+                  <LinearGradient
+                    colors={['#1a1c23', '#0f1013']}
+                    style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <ActivityIndicator size="large" color="#e74c3c" />
+                    <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
+                    <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
+                  </LinearGradient>
+                </View>
+              ) : (
+                recommendation.weeklyPlan ? renderWeeklyDietPlan() : (
+                  <View style={styles.weeklyPlanSection}>
+                    <LinearGradient
+                      colors={['#1a1c23', '#0f1013']}
+                      style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 30 }]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
+                      <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 6 }]}>NO DIET PLAN GENERATED YET</Text>
+                      <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 16 }]}>
+                        Customize your preferences and click below to generate your weekly diet plan using AI.
+                      </Text>
+                      <TouchableOpacity 
+                        style={[styles.submitButton, { backgroundColor: '#e74c3c', width: '80%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 0 }]}
+                        onPress={handleGenerateWeeklyPlan}
+                      >
+                        <Text style={[styles.submitButtonText, { fontSize: 14, fontWeight: 'bold' }]}>Generate Weekly Diet Plan</Text>
+                      </TouchableOpacity>
+                    </LinearGradient>
+                  </View>
+                )
+              )
+            )}
 
-        <DietBanners />
+            <DietLogs 
+              trackedMealImage={trackedMealImage} 
+              handleTrackFood={handleTrackFood} 
+              navigation={navigation}
+            />
 
-        <DietLogs 
-          trackedMealImage={trackedMealImage} 
-          handleTrackFood={handleTrackFood} 
-        />
-
-      </ScrollView>
-
-      <DietWaterWidget />
+        </ScrollView>
+      )}
 
       {/* The ref is passed down here */}
       <DietCameraModal 
@@ -212,7 +830,16 @@ const Dietplan = ({ navigation }) => {
         selectedImage={selectedImage}
         mealQuantity={mealQuantity}
         setMealQuantity={setMealQuantity}
-        detectedMealName={detectedMealName}
+        nutritionData={nutritionData}
+        setNutritionData={setNutritionData}
+        aiLoading={aiLoading}
+        setAiLoading={setAiLoading}
+        uploadedImageUrl={uploadedImageUrl}
+        setUploadedImageUrl={setUploadedImageUrl}
+        selectedMealType={selectedMealType}
+        setSelectedMealType={setSelectedMealType}
+        mealDescription={mealDescription}
+        setMealDescription={setMealDescription}
         setTrackedMealImage={setTrackedMealImage}
       />
 
@@ -224,6 +851,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#050505',
+  },
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#050505',
+    paddingHorizontal: 40,
+  },
+  loadingText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   scrollContent: {
     flexGrow: 1,
@@ -244,6 +892,392 @@ const styles = StyleSheet.create({
   },
   navIcon: {
     marginHorizontal: 4,
+  },
+  toggleContainer: {
+    alignItems: 'center',
+    marginTop: -16,
+    zIndex: 10,
+    marginBottom: 20,
+  },
+  navToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#111',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tabText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginHorizontal: 12,
+  },
+  activeTabText: {
+    color: '#FFF',
+  },
+  tabSeparator: {
+    color: 'rgba(255, 255, 255, 0.2)',
+  },
+  recommendationContainer: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  recommendationCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  recHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  recHeaderTitle: {
+    color: '#e74c3c',
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    letterSpacing: 0.5,
+  },
+  recMealText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  recBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  recBadgeText: {
+    color: '#AAA',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  analyticsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  kpiCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  kpiLabel: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  kpiValue: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  kpiSub: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  analyticsCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  cardSectionTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  scoreBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  scoreValue: {
+    color: '#e74c3c',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  scoreLabel: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  dividerLine: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  progressRow: {
+    marginBottom: 6,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  progressLabel: {
+    color: '#DDD',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  progressPercent: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  chartWrapper: {
+    marginTop: 4,
+  },
+  chartHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  chartTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  chartChangeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  yAxisLabels: {
+    justifyContent: 'space-between',
+    height: 110,
+    paddingRight: 10,
+  },
+  chartArea: {
+    flex: 1,
+  },
+  axisLabelText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  emptyChartContainer: {
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyChartText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+  },
+  inputInstructions: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    color: '#FFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  submitButton: {
+    backgroundColor: '#e74c3c',
+    height: 44,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  submitButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  weeklyPlanSection: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  weeklyPlanCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  planHeaderRow: {
+    marginBottom: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  planTitle: {
+    color: '#e74c3c',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    letterSpacing: 0.5,
+  },
+  planSubtitle: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  dayTabsWrapper: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  dayTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  activeDayTab: {
+    backgroundColor: '#e74c3c',
+    borderColor: '#e74c3c',
+  },
+  dayTabText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  activeDayTabText: {
+    color: '#FFF',
+  },
+  mealsList: {
+    marginTop: 4,
+  },
+  mealCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  mealIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  mealDetails: {
+    flex: 1,
+  },
+  mealTypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  mealTypeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  mealCaloriesText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mealDescriptionText: {
+    color: '#DDD',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  macroBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  macroBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  macroBadgeText: {
+    color: '#AAA',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  generatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.2)',
+  },
+  generatingText: {
+    color: '#e74c3c',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

@@ -6,258 +6,557 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
+  Image,
+  Alert,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import apiClient from '../../../../api/apiClient';
 
 const { width } = Dimensions.get('window');
 
-const DietHeader = ({ calendarDays, handleCalendarPress }) => {
+const getMondayBasedIndex = (date) => {
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+};
+
+const DietHeader = ({
+  calendarDays,
+  handleCalendarPress,
+  dailySummary,
+  selectedDate,
+  setSelectedDate,
+  setCalendarDays,
+  PLAN_DAY_NAMES,
+  setSelectedPlanDay,
+  fetchNutritionData,
+  buildCalendarDays,
+  handleTrackFood,
+  handleGoToPreferences,
+}) => {
+  const summary = dailySummary?.summary || {};
+  const targets = dailySummary?.targets || {};
+
+  const targetCals = targets.calories || 2000;
+  const consumedCals = summary.calories || 0;
+  const targetBurn = 800;
+  const burnedCals = summary.burned || 432;
+  const targetSleep = 8;
+  const sleptHours = summary.sleep || 5.0;
+
+  const burnProgress = Math.min(1, burnedCals / targetBurn);
+  const sleepProgress = Math.min(1, sleptHours / targetSleep);
+  const foodProgress = Math.min(1, consumedCals / targetCals);
+
+  const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long' });
+  const yearName = selectedDate.getFullYear();
+
+  const handlePrevMonth = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setMonth(newDate.getMonth() - 1);
+    setSelectedDate(newDate);
+    setSelectedPlanDay(PLAN_DAY_NAMES[newDate.getDay()]);
+    setCalendarDays(buildCalendarDays(newDate));
+    fetchNutritionData(newDate, true);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setMonth(newDate.getMonth() + 1);
+    setSelectedDate(newDate);
+    setSelectedPlanDay(PLAN_DAY_NAMES[newDate.getDay()]);
+    setCalendarDays(buildCalendarDays(newDate));
+    fetchNutritionData(newDate, true);
+  };
+
+  const handleSelectDay = (dayIndex) => {
+    const newDate = new Date(selectedDate);
+    const activeIndex = getMondayBasedIndex(selectedDate);
+    newDate.setDate(selectedDate.getDate() + dayIndex - activeIndex);
+    setSelectedDate(newDate);
+    setSelectedPlanDay(PLAN_DAY_NAMES[newDate.getDay()]);
+    setCalendarDays(buildCalendarDays(newDate));
+    fetchNutritionData(newDate, true);
+  };
+
+  // SVG parameters for 270-degree partial arcs
+  // Outer circle (BURN): r=80, C ~ 502.65, 270 deg length = 377
+  // Middle circle (SLEEP): r=60, C ~ 376.99, 270 deg length = 282.7
+  // Inner circle (FOOD INTAKE): r=40, C ~ 251.33, 270 deg length = 188.5
+  
+  const burnCirc = 2 * Math.PI * 80;
+  const burnArcLen = burnCirc * 0.75;
+
+  const sleepCirc = 2 * Math.PI * 60;
+  const sleepArcLen = sleepCirc * 0.75;
+
+  const foodCirc = 2 * Math.PI * 40;
+  const foodArcLen = foodCirc * 0.75;
+
+  const handleWeightCardPress = () => {
+    Alert.alert(
+      'Log Weight',
+      'Please switch to the ANALYTICS tab below to log and update your current weight.'
+    );
+  };
+
   return (
-    <View style={styles.topCurveContainer}>
-      <View style={styles.blackCurve} />
-      
-      <SafeAreaView style={styles.topContent}>
-        {/* Header Area */}
-        <View style={styles.headerArea}>
-          <View style={styles.flamePill}>
-            <MaterialCommunityIcons name="fire" size={16} color="#FF9800" />
-            <Text style={styles.flamePillText}>1</Text>
-          </View>
+    <SafeAreaView style={styles.headerContainer}>
+      {/* Top Profile + Streak Row */}
+      <View style={styles.topRow}>
+        <View style={styles.profileContainer}>
+          <Image
+            source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80' }}
+            style={styles.avatar}
+          />
+          <LinearGradient
+            colors={['rgba(124, 77, 255, 0.15)', 'rgba(255, 255, 255, 0.03)']}
+            style={styles.profileBadge}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.profileName}>Brian</Text>
+            <Text style={styles.profileStatus}>Premium User</Text>
+          </LinearGradient>
         </View>
 
-        {/* Calendar Row */}
-        <TouchableOpacity style={styles.calendarRow} onPress={handleCalendarPress} activeOpacity={0.7}>
-          {calendarDays.map((day, idx) => (
-            <View key={idx} style={styles.dayContainer}>
-              <View style={[styles.dayCircle, day.active && styles.activeDayCircle]}>
-                <Text style={styles.dayLabel}>{day.label}</Text>
-              </View>
-              <Text style={styles.dateLabel}>{day.date}</Text>
+        <View style={styles.headerActions}>
+          <LinearGradient
+            colors={['rgba(255, 122, 0, 0.2)', 'rgba(255, 82, 82, 0.2)']}
+            style={styles.streakBadge}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.streakText}>🔥 1</Text>
+          </LinearGradient>
+          <TouchableOpacity style={styles.settingsBtn} onPress={handleGoToPreferences}>
+            <Icon name="options-outline" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Month Navigation */}
+      <View style={styles.monthNavRow}>
+        <TouchableOpacity onPress={handlePrevMonth} style={styles.monthNavBtn}>
+          <Icon name="chevron-back" size={20} color="#AAA" />
+        </TouchableOpacity>
+        <Text style={styles.monthNavTitle}>{`${monthName} ${yearName}`}</Text>
+        <TouchableOpacity onPress={handleNextMonth} style={styles.monthNavBtn}>
+          <Icon name="chevron-forward" size={20} color="#AAA" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Calendar Row */}
+      <View style={styles.calendarRow}>
+        {calendarDays.map((day, idx) => {
+          const isActive = day.active;
+          return (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.calendarCapsule, isActive && styles.activeCalendarCapsule]}
+              onPress={() => handleSelectDay(idx)}
+              activeOpacity={0.8}
+            >
+              {isActive ? (
+                <>
+                  <Text style={styles.activeDateText}>{day.date}</Text>
+                  <Text style={styles.activeMonthText}>{day.month}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.inactiveMonthText}>{day.month}</Text>
+                  <Text style={styles.inactiveDateText}>{day.date}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Concentric Progress Rings + Legend */}
+      <View style={styles.ringsSection}>
+        <View style={styles.svgWrapper}>
+          <Svg width={170} height={170} viewBox="0 0 200 200">
+            <Defs>
+              <SvgLinearGradient id="burnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#FF5252" />
+                <Stop offset="100%" stopColor="#FF7A00" />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="sleepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#7C4DFF" />
+                <Stop offset="100%" stopColor="#00E5FF" />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="foodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#00E676" />
+                <Stop offset="100%" stopColor="#AEEA00" />
+              </SvgLinearGradient>
+            </Defs>
+
+            {/* Rotate 135 degrees to place the 90 degrees gap exactly at the bottom */}
+            <G rotation={135} origin="100, 100">
+              {/* Outer circle (BURN) */}
+              <Circle
+                cx="100"
+                cy="100"
+                r="80"
+                stroke="rgba(255, 82, 82, 0.08)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${burnArcLen} ${burnCirc}`}
+                strokeLinecap="round"
+              />
+              <Circle
+                cx="100"
+                cy="100"
+                r="80"
+                stroke="url(#burnGrad)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${burnProgress * burnArcLen} ${burnCirc}`}
+                strokeLinecap="round"
+              />
+
+              {/* Middle circle (SLEEP) */}
+              <Circle
+                cx="100"
+                cy="100"
+                r="60"
+                stroke="rgba(124, 77, 255, 0.08)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${sleepArcLen} ${sleepCirc}`}
+                strokeLinecap="round"
+              />
+              <Circle
+                cx="100"
+                cy="100"
+                r="60"
+                stroke="url(#sleepGrad)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${sleepProgress * sleepArcLen} ${sleepCirc}`}
+                strokeLinecap="round"
+              />
+
+              {/* Inner circle (FOOD INTAKE) */}
+              <Circle
+                cx="100"
+                cy="100"
+                r="40"
+                stroke="rgba(0, 230, 118, 0.08)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${foodArcLen} ${foodCirc}`}
+                strokeLinecap="round"
+              />
+              <Circle
+                cx="100"
+                cy="100"
+                r="40"
+                stroke="url(#foodGrad)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={`${foodProgress * foodArcLen} ${foodCirc}`}
+                strokeLinecap="round"
+              />
+            </G>
+          </Svg>
+        </View>
+
+        {/* Legend */}
+        <View style={styles.legendContainer}>
+          {/* Burn Info */}
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#FF5252' }]} />
+            <View>
+              <Text style={styles.legendLabel}>BURN</Text>
+              <Text style={styles.legendValue}>{`${burnedCals} / ${targetBurn} kcal`}</Text>
             </View>
-          ))}
+          </View>
+
+          {/* Sleep Info */}
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#7C4DFF' }]} />
+            <View>
+              <Text style={styles.legendLabel}>SLEEP</Text>
+              <Text style={styles.legendValue}>{`${sleptHours} / ${targetSleep} hours`}</Text>
+            </View>
+          </View>
+
+          {/* Food Intake Info */}
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#00E676' }]} />
+            <View>
+              <Text style={styles.legendLabel}>FOOD INTAKE</Text>
+              <Text style={styles.legendValue}>{`${consumedCals} / ${targetCals} kcal`}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Side-by-side Metric Cards */}
+      <View style={styles.metricCardsRow}>
+        <TouchableOpacity style={styles.cardTouch} onPress={handleWeightCardPress} activeOpacity={0.9}>
+          <LinearGradient
+            colors={['#111115', '#08080A']}
+            style={styles.metricCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.metricCardLabel}>Current Weight</Text>
+            <Text style={styles.metricCardValue}>78.5 kg</Text>
+            <View style={styles.trendBadge}>
+              <Icon name="arrow-down-outline" size={10} color="#00E676" />
+              <Text style={styles.trendText}>3 Kg (-3.8%)</Text>
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
 
-        {/* Main Stats Row */}
-        <View style={styles.statsRow}>
-          {/* Burn Stat */}
-          <View style={styles.sideStat}>
-            <MaterialCommunityIcons name="fire" size={28} color="#FF9800" />
-            <Text style={styles.sideStatValue}>690</Text>
-            <Text style={styles.sideStatLabel}>burn</Text>
-          </View>
-
-          {/* Center Circle */}
-          <View style={styles.centerCircleContainer}>
-            <View style={styles.circleBackground} />
-            <View style={styles.circleOrangeArc} />
-            <View style={styles.circleGreenArc} />
-            
-            <View style={styles.circleInner}>
-              <Text style={styles.centerValue}>1645</Text>
-              <Text style={styles.centerLabel}>Kcal available</Text>
-              <View style={styles.dotsRow}>
-                <View style={styles.dotActive} />
-                <View style={styles.dotInactive} />
-              </View>
+        <TouchableOpacity style={styles.cardTouch} onPress={handleTrackFood} activeOpacity={0.8}>
+          <LinearGradient
+            colors={['#111115', '#08080A']}
+            style={styles.metricCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.metricCardLabel}>Today's Calories</Text>
+            <Text style={styles.metricCardValue}>{`${consumedCals} kcal`}</Text>
+            <View style={[styles.trendBadge, { backgroundColor: 'rgba(255, 82, 82, 0.1)' }]}>
+              <Icon name="arrow-down-outline" size={10} color="#FF5252" />
+              <Text style={[styles.trendText, { color: '#FF5252' }]}>5.6%</Text>
             </View>
-          </View>
-
-          {/* Eaten Stat */}
-          <View style={styles.sideStat}>
-            <MaterialCommunityIcons name="silverware-fork-knife" size={24} color="#4CAF50" style={{marginBottom: 4}} />
-            <Text style={styles.sideStatValue}>536</Text>
-            <Text style={styles.sideStatLabel}>eaten</Text>
-          </View>
-        </View>
-
-        {/* Goal Text */}
-        <View style={styles.goalContainer}>
-          <Text style={styles.goalValue}>2131</Text>
-          <Text style={styles.goalLabel}>Kcal Goal</Text>
-        </View>
-      </SafeAreaView>
-    </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  topCurveContainer: {
-    width: width,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  blackCurve: {
-    position: 'absolute',
-    top: 0,
-    width: width * 1.5,
-    height: '100%',
-    backgroundColor: '#050505',
-    borderBottomLeftRadius: width * 0.75,
-    borderBottomRightRadius: width * 0.75,
-  },
-  topContent: {
-    width: width,
-    alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
-  headerArea: {
+  headerContainer: {
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    backgroundColor: '#050505',
+    paddingBottom: 20,
   },
-  flamePill: {
+  topRow: {
     flexDirection: 'row',
-    backgroundColor: '#EAEAEA',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 15,
+  },
+  profileContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  flamePillText: {
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 77, 255, 0.5)',
+  },
+  profileBadge: {
+    marginLeft: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  profileName: {
+    color: '#FFF',
+    fontSize: 13,
     fontWeight: 'bold',
-    marginLeft: 4,
-    color: '#000',
-    fontSize: 14,
+  },
+  profileStatus: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  streakBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 122, 0, 0.3)',
+    marginRight: 10,
+  },
+  streakText: {
+    color: '#FF7A00',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  settingsBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 25,
+    paddingHorizontal: 20,
+  },
+  monthNavBtn: {
+    padding: 8,
+  },
+  monthNavTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginHorizontal: 20,
+    letterSpacing: 0.5,
   },
   calendarRow: {
     flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
+    gap: 6,
     paddingHorizontal: 20,
-    marginBottom: 40,
+    marginTop: 20,
+    marginBottom: 20,
   },
-  dayContainer: {
-    alignItems: 'center',
-  },
-  dayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#FFF',
-    borderStyle: 'dashed',
+  calendarCapsule: {
+    flex: 1,
+    height: 70,
+    borderRadius: 21,
+    backgroundColor: '#111115',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  activeDayCircle: {
-    borderColor: '#FF5722',
-    borderStyle: 'solid',
-    backgroundColor: 'rgba(255, 87, 34, 0.15)',
+  activeCalendarCapsule: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  dayLabel: {
-    color: '#FFF',
-    fontSize: 14,
-  },
-  dateLabel: {
-    color: '#FFF',
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 25,
-    marginBottom: 30,
-  },
-  sideStat: {
-    alignItems: 'center',
-    width: 70,
-  },
-  sideStatValue: {
-    color: '#FFF',
-    fontSize: 26,
+  activeDateText: {
+    color: '#000',
+    fontSize: 15,
     fontWeight: 'bold',
-    marginTop: 4,
   },
-  sideStatLabel: {
-    color: '#888',
-    fontSize: 14,
+  activeMonthText: {
+    color: '#666',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
     marginTop: 2,
   },
-  centerCircleContainer: {
+  inactiveMonthText: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  inactiveDateText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  ringsSection: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 15,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  svgWrapper: {
     width: 170,
     height: 170,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  circleBackground: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 85,
-    borderWidth: 6,
-    borderColor: '#FFF',
+  legendContainer: {
+    flex: 1,
+    minWidth: 140,
+    marginLeft: 10,
+    justifyContent: 'center',
   },
-  circleOrangeArc: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 85,
-    borderWidth: 6,
-    borderColor: 'transparent',
-    borderLeftColor: '#FF5722',
-    borderTopColor: '#FF5722',
-    transform: [{ rotate: '-25deg' }],
-  },
-  circleGreenArc: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 85,
-    borderWidth: 6,
-    borderColor: 'transparent',
-    borderRightColor: '#4CAF50',
-    transform: [{ rotate: '-25deg' }],
-  },
-  circleInner: {
-    alignItems: 'center',
-  },
-  centerValue: {
-    color: '#4CAF50',
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  centerLabel: {
-    color: '#888',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  dotsRow: {
+  legendItem: {
     flexDirection: 'row',
-  },
-  dotActive: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4CAF50',
-    marginHorizontal: 4,
-  },
-  dotInactive: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#333',
-    marginHorizontal: 4,
-  },
-  goalContainer: {
     alignItems: 'center',
+    marginVertical: 8,
   },
-  goalValue: {
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  legendLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  legendValue: {
     color: '#FFF',
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: 2,
-    lineHeight: 40,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 1,
   },
-  goalLabel: {
-    color: '#666',
-    fontSize: 12,
-    marginTop: -2,
+  metricCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  cardTouch: {
+    flex: 1,
+  },
+  metricCard: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  metricCardLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  metricCardValue: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 6,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 230, 118, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  trendText: {
+    color: '#00E676',
+    fontSize: 9,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
 });
 

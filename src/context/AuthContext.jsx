@@ -8,7 +8,8 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { Platform, Modal, SafeAreaView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, Modal, SafeAreaView, View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { GlobalLoader } from '../components/GlobalLoader';
 import { WebView } from 'react-native-webview';
 import Auth0 from 'react-native-auth0';
@@ -21,6 +22,8 @@ import apiClient, {
   debugStorage,
 } from '../api/apiClient';
 import { AUTH_CONFIG } from '../config/config';
+import { registerFcmToken, initNotificationListeners } from '../utils/notifications';
+import { syncLocalNotifications } from '../utils/localNotifications';
 
 // Initialize Auth0
 const auth0 = new Auth0({
@@ -118,6 +121,52 @@ const getQueryParam = (url, param) => {
   return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
 };
 
+const NotificationBanner = ({ title, body, onClose }) => {
+  const slideAnim = useRef(new Animated.Value(-150)).current;
+
+  useEffect(() => {
+    // Slide down
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 40,
+      friction: 8,
+    }).start();
+  }, []);
+
+  const handleClose = () => {
+    Animated.timing(slideAnim, {
+      toValue: -150,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.bannerContainer,
+        {
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.bannerIconContainer}>
+        <Icon name="alarm-outline" size={24} color="#7C4DFF" />
+      </View>
+      <View style={styles.bannerTextContainer}>
+        <Text style={styles.bannerTitle}>{title}</Text>
+        <Text style={styles.bannerBody} numberOfLines={2}>{body}</Text>
+      </View>
+      <TouchableOpacity onPress={handleClose} style={styles.bannerCloseBtn}>
+        <Icon name="close" size={16} color="rgba(255,255,255,0.4)" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 export const AuthProvider = ({ children }) => {
   const { isImageSelectionInProgress } = useImageSelection();
 
@@ -129,6 +178,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [notificationBanner, setNotificationBanner] = useState(null);
 
   const checkAuthStatus = useCallback(
     async ({ silent = false } = {}) => {
@@ -207,6 +257,72 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     checkAuthStatus();
   }, [checkAuthStatus]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerFcmToken();
+      const cleanUp = initNotificationListeners();
+
+      const syncReminders = async () => {
+        try {
+          let loadedData = null;
+          // Try local storage first for offline capability
+          const saved = await AsyncStorage.getItem('user_reminders');
+          if (saved) {
+            loadedData = JSON.parse(saved);
+          }
+
+          // Try fetching from backend as well
+          try {
+            const response = await apiClient.get('/users/reminders');
+            if (response.data?.success && response.data.data) {
+              loadedData = response.data.data;
+              await AsyncStorage.setItem('user_reminders', JSON.stringify(loadedData));
+            }
+          } catch (apiErr) {
+            console.log('[AuthContext] Offline or backend reminder fetch failed, using local/default:', apiErr.message);
+          }
+
+          // Default fallback
+          if (!loadedData) {
+            loadedData = {
+              Breakfast: { enabled: true, hour: 8, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+              Lunch: { enabled: true, hour: 1, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+              Snacks: { enabled: true, hour: 4, minute: 30, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+              Dinner: { enabled: true, hour: 8, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+              Water: { enabled: true, hour: 9, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+            };
+            await AsyncStorage.setItem('user_reminders', JSON.stringify(loadedData));
+          }
+
+          await syncLocalNotifications(loadedData);
+        } catch (err) {
+          console.error('[AuthContext] Failed to sync reminders on login:', err);
+        }
+      };
+
+      syncReminders();
+      
+      let socketCleanUp = () => {};
+      import('../api/socketService').then(({ default: socketService }) => {
+        socketService.connect().then(() => {
+          socketService.onNotification((notif) => {
+            setNotificationBanner({ title: notif.title, body: notif.body });
+          });
+          socketCleanUp = () => {
+            socketService.disconnect();
+          };
+        }).catch(err => {
+          console.error('[Socket.IO] Failed to connect globally:', err);
+        });
+      });
+
+      return () => {
+        cleanUp();
+        socketCleanUp();
+      };
+    }
+  }, [isAuthenticated]);
 
   const handleRedirect = async (url) => {
     setShowWebViewModal(false);
@@ -341,7 +457,21 @@ export const AuthProvider = ({ children }) => {
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.error('[AuthContext] loginWithEmailPassword failed:', err);
+      console.warn('[AuthContext] Auth0 native login failed, trying direct backend login as fallback:', err.message);
+      try {
+        const response = await apiClient.post('/auth/login', { email, password });
+        if (response.data?.success && response.data.data?.token) {
+          const { token, user: userObj } = response.data.data;
+          await AsyncStorage.setItem('accessToken', token);
+          await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
+          setUserProfile(userObj);
+          setIsAuthenticated(true);
+          setHasProfile((userObj.userProfile && userObj.userProfile.name) ? true : false);
+          return { accessToken: token };
+        }
+      } catch (fallbackErr) {
+        console.error('[AuthContext] Fallback backend login also failed:', fallbackErr.message);
+      }
       if (AUTH_CONFIG.enableLegacyWebviewLogin) {
         console.log('[AuthContext] Falling back to WebView login...');
         await loginWithWebView();
@@ -454,7 +584,21 @@ export const AuthProvider = ({ children }) => {
       const credentials = await loginWithEmailPassword(email, password);
       return { user, credentials };
     } catch (err) {
-      console.error('[AuthContext] createAccount failed:', err.message);
+      console.warn('[AuthContext] Auth0 native signup failed, trying direct backend registration as fallback:', err.message);
+      try {
+        const response = await apiClient.post('/auth/register', { email, password });
+        if (response.data?.success && response.data.data?.token) {
+          const { token, user: userObj } = response.data.data;
+          await AsyncStorage.setItem('accessToken', token);
+          await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
+          setUserProfile(userObj);
+          setIsAuthenticated(true);
+          setHasProfile(false); // New signup needs profile creation
+          return { user: userObj };
+        }
+      } catch (fallbackErr) {
+        console.error('[AuthContext] Fallback backend signup also failed:', fallbackErr.message);
+      }
       throw err;
     } finally {
       setIsLoggingIn(false);
@@ -536,6 +680,13 @@ export const AuthProvider = ({ children }) => {
           />
         </SafeAreaView>
       </Modal>
+      {notificationBanner && (
+        <NotificationBanner
+          title={notificationBanner.title}
+          body={notificationBanner.body}
+          onClose={() => setNotificationBanner(null)}
+        />
+      )}
     </AuthContext.Provider>
   );
 };
@@ -576,6 +727,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
+  },
+  bannerContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#16161a',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 9999,
+  },
+  bannerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(124, 77, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bannerTextContainer: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  bannerTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
+  },
+  bannerBody: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginTop: 2,
+    fontFamily: 'BRLNSR',
+  },
+  bannerCloseBtn: {
+    padding: 4,
   },
 });
 

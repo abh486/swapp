@@ -242,7 +242,7 @@ export const HomeDashboard = ({ navigation }) => {
           }}
         >
           <View style={styles.svgWrapper}>
-            <Svg width={110} height={60} viewBox="0 0 110 60">
+            <Svg width={85} height={46} viewBox="0 0 110 60">
               <Path
                 d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
                 fill="none"
@@ -255,7 +255,7 @@ export const HomeDashboard = ({ navigation }) => {
           <View style={styles.activeCircleIcon}>
             <Icon
               name={item.icon || 'apps'}
-              size={18}
+              size={14}
               color="#e74c3c"
             />
           </View>
@@ -276,7 +276,7 @@ export const HomeDashboard = ({ navigation }) => {
         <View style={styles.inactiveCircleIcon}>
           <Icon
             name={item.icon || 'apps'}
-            size={18}
+            size={14}
             color="#A5A5A5"
           />
         </View>
@@ -1250,11 +1250,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
     marginBottom: 24,
-    height: 95,
+    height: 75,
   },
   categoryItemActive: {
-    width: 110,
-    height: 90,
+    width: 85,
+    height: 70,
     alignItems: 'center',
     justifyContent: 'flex-end',
     position: 'relative',
@@ -1263,17 +1263,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    width: 110,
-    height: 60,
+    width: 85,
+    height: 46,
   },
   activeCircleIcon: {
     position: 'absolute',
-    top: 9,
+    top: 7,
     left: '50%',
-    marginLeft: -18,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    marginLeft: -14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1281,39 +1281,39 @@ const styles = StyleSheet.create({
   },
   activeCategoryText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
     position: 'absolute',
-    bottom: 18,
+    bottom: 12,
     left: 0,
     right: 0,
     textAlign: 'center',
     zIndex: 5,
   },
   categoryItemInactive: {
-    width: 100,
-    height: 90,
+    width: 75,
+    height: 70,
     alignItems: 'center',
     position: 'relative',
   },
   inactiveCircleIcon: {
     position: 'absolute',
-    top: 9,
+    top: 7,
     left: '50%',
-    marginLeft: -18,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    marginLeft: -14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   inactiveCategoryText: {
     color: '#888888',
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '500',
     position: 'absolute',
-    bottom: 18,
+    bottom: 12,
     left: 0,
     right: 0,
     textAlign: 'center',
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
     height: 1.5,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
     position: 'absolute',
-    bottom: 5,
+    bottom: 3,
     left: 0,
     right: 0,
   },

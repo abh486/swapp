@@ -8,9 +8,9 @@ export const saveDietEntry = (dietData) => async (dispatch) => {
   try {
     console.log('[DietService] Saving diet entry:', dietData);
     
-    let photoUrl = null;
+    let photoUrl = dietData.photoUrl || null;
     
-    if (dietData.photo) {
+    if (dietData.photo && (!photoUrl || !photoUrl.startsWith('http'))) {
       try {
         photoUrl = await uploadToCloudinary(dietData.photo);
         console.log('[DietService] Image uploaded successfully:', photoUrl);
@@ -188,4 +188,24 @@ export const deleteDietLog = (logId) => async (dispatch) => {
     return result;
   }
 };
+
+export const analyzeMealWithAI = (photoUrl, description) => async () => {
+  try {
+    console.log('[DietService] Requesting AI analysis:', { photoUrl, description });
+    const response = await apiClient.post('/diet/analyze-meal', { photoUrl, description });
+    
+    return {
+      success: true,
+      data: response.data.data || response.data
+    };
+  } catch (error) {
+    console.error('[DietService] AI analysis failed:', error);
+    return {
+      success: false,
+      message: parseApiError(error),
+      data: null
+    };
+  }
+};
+
 

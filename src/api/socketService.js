@@ -161,6 +161,23 @@ class SocketService {
       console.log('Stopped listening for newMessage events');
     }
   }
+
+  onNotification(callback) {
+    if (this.socket) {
+      this.socket.on('notification', (data) => {
+        console.log('Received notification event over Socket.IO:', data);
+        callback(data);
+      });
+      console.log('Listening for notification events');
+    }
+  }
+
+  offNotification(callback) {
+    if (this.socket) {
+      this.socket.off('notification', callback);
+      console.log('Stopped listening for notification events');
+    }
+  }
 }
 
 export default new SocketService();

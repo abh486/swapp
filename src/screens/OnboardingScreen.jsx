@@ -7,10 +7,6 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useAuth } from '../context/AuthContext';
 import { useResponsiveMetrics } from '../utils/responsive';
 
-// NOTE: For SVG support, ensure you have react-native-svg and react-native-svg-transformer installed.
-// In metro.config.js add the svg transformer. Then you can import SVGs as components:
-// import RingsGraphic from '../assets/image/grop 20000260.svg';
-
 const slides = [
   {
     id: '1',
@@ -66,7 +62,6 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd,
       onPanResponderRelease: (e, gesture) => {
         pan.flattenOffset();
         if (onSwipeEnd) onSwipeEnd();
-
 
         if (pan.x._value > maxTravel * 0.50 || gesture.vx > 1.5) {
           if (!triggered.current) {
@@ -168,6 +163,7 @@ const OnboardingScreen = () => {
   const navigation = useNavigation();
   const { isLoggingIn: loading } = useAuth();
   const { width: screenWidth, height: screenHeight, wp, hp, ms, fs, sp } = useResponsiveMetrics();
+  const isSmallScreen = screenHeight < 720;
   const styles = createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp });
 
   const handleLogin = () => {
@@ -196,15 +192,15 @@ const OnboardingScreen = () => {
           {/* Watch — top (flipped 180°) */}
           <Image
             source={require('../assets/image/watch.png')}
-            style={[styles.watchTop, { width: screenWidth * 1.4, height: screenHeight * 0.30, top: screenHeight * 0.02 }]}
+            style={[styles.watchTop, { width: screenWidth * 1.4, height: isSmallScreen ? screenHeight * 0.20 : screenHeight * 0.30, top: screenHeight * 0.02 }]}
             resizeMode="contain"
           />
 
           {/* Centre content */}
-          <View style={[styles.watchMiddleContent, { paddingHorizontal: sp(20), marginTop: screenHeight * 0.26, marginBottom: screenHeight * 0.26 }]}>
+          <View style={[styles.watchMiddleContent, { paddingHorizontal: sp(20), marginTop: isSmallScreen ? screenHeight * 0.14 : screenHeight * 0.26, marginBottom: isSmallScreen ? screenHeight * 0.14 : screenHeight * 0.26 }]}>
             {/* Activity rings + labels */}
-            <View style={[styles.activityRingsContainer, { width: screenWidth * 0.95, height: ms(280) }]}> 
-              <RingsGraphic style={[styles.ringsImage, { width: screenWidth * 0.95, height: ms(280) }]} />
+            <View style={[styles.activityRingsContainer, { width: screenWidth * 0.95, height: isSmallScreen ? ms(180) : ms(280) }]}> 
+              <RingsGraphic style={[styles.ringsImage, { width: screenWidth * 0.95, height: isSmallScreen ? ms(180) : ms(280) }]} />
             </View>
             {/* Text block */}
             <View style={styles.healthTextContainer}>
@@ -216,7 +212,7 @@ const OnboardingScreen = () => {
           {/* Watch — bottom (normal orientation) */}
           <Image
             source={require('../assets/image/watch.png')}
-            style={[styles.watchBottom, { width: screenWidth * 1.4, height: screenHeight * 0.30, bottom: screenHeight * 0.02 }]}
+            style={[styles.watchBottom, { width: screenWidth * 1.4, height: isSmallScreen ? screenHeight * 0.20 : screenHeight * 0.30, bottom: screenHeight * 0.02 }]}
             resizeMode="contain"
           />
         </View>
@@ -314,8 +310,9 @@ const OnboardingScreen = () => {
 // ─────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────
-const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) =>
-  StyleSheet.create({
+const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) => {
+  const isSmallScreen = screenHeight < 720;
+  return StyleSheet.create({
     // ── Shared ──────────────────────────────────
     container: {
       flex: 1,
@@ -325,188 +322,185 @@ const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) =>
       overflow: 'hidden',
     },
 
-  // ── Image-bg slides ─────────────────────────
-  imageBackground: {
-    width: '100%',
-    height: '100%',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  textContent: {
-    flex: 1,
-    paddingHorizontal: sp(30),
-    paddingBottom: sp(80),
-  },
-  spacer: {
-    flex: 1,
-  },
-  titleContainer: {
-    marginBottom: sp(40),
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: fs(56),
-    fontFamily: 'BRLNSR',
-    fontWeight: 'normal',
-    fontStyle: 'italic',
-    lineHeight: fs(64),
-  },
-  buttonContainer: {
-    alignItems: 'center',
-    marginBottom: sp(20),
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(70, 70, 70, 0.8)',
-    paddingVertical: sp(12),
-    paddingHorizontal: sp(16),
-    borderRadius: ms(40),
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  buttonIconContainer: {
-    backgroundColor: '#FFF',
-    width: ms(40),
-    height: ms(40),
-    borderRadius: ms(20),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: '#FFF',
-    fontSize: fs(18),
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: sp(10),
-  },
-  chevronGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    // ── Image-bg slides ─────────────────────────
+    imageBackground: {
+      width: '100%',
+      height: '100%',
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    safeArea: {
+      flex: 1,
+    },
+    textContent: {
+      flex: 1,
+      paddingHorizontal: sp(30),
+      paddingBottom: isSmallScreen ? sp(45) : sp(80),
+    },
+    spacer: {
+      flex: 1,
+    },
+    titleContainer: {
+      marginBottom: isSmallScreen ? sp(20) : sp(40),
+    },
+    title: {
+      color: '#FFFFFF',
+      fontSize: isSmallScreen ? fs(38) : fs(56),
+      fontFamily: 'BRLNSR',
+      fontWeight: 'normal',
+      fontStyle: 'italic',
+      lineHeight: isSmallScreen ? fs(44) : fs(64),
+    },
+    buttonContainer: {
+      alignItems: 'center',
+      marginBottom: sp(20),
+    },
+    startButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(70, 70, 70, 0.8)',
+      paddingVertical: sp(12),
+      paddingHorizontal: sp(16),
+      borderRadius: ms(40),
+      width: '100%',
+      justifyContent: 'space-between',
+    },
+    buttonIconContainer: {
+      backgroundColor: '#FFF',
+      width: ms(40),
+      height: ms(40),
+      borderRadius: ms(20),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    startButtonText: {
+      color: '#FFF',
+      fontSize: fs(18),
+      fontWeight: '600',
+      flex: 1,
+      textAlign: 'center',
+      marginRight: sp(10),
+    },
+    chevronGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
 
-  // ── Swipe button ─────────────────────────────
-  swipeTrack: {
-    width: '100%',
-    height: ms(62),
-    backgroundColor: 'rgba(70, 70, 70, 0.8)',
-    borderRadius: ms(31),
-    justifyContent: 'center',
-    padding: ms(6),
-  },
-  swipeThumb: {
-    width: ms(50),
-    height: ms(50),
-    borderRadius: ms(25),
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    left: ms(6),
-    zIndex: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  swipeText: {
-    color: '#FFF',
-    fontSize: fs(18),
-    fontWeight: '600',
-    textAlign: 'center',
-    position: 'absolute',
-    width: '100%',
-    zIndex: 1,
-  },
-  swipeChevronGroup: {
-    flexDirection: 'row',
-    position: 'absolute',
-    right: sp(20),
-    zIndex: 1,
-    opacity: 0.8,
-  },
+    // ── Swipe button ─────────────────────────────
+    swipeTrack: {
+      width: '100%',
+      height: ms(62),
+      backgroundColor: 'rgba(70, 70, 70, 0.8)',
+      borderRadius: ms(31),
+      justifyContent: 'center',
+      padding: ms(6),
+    },
+    swipeThumb: {
+      width: ms(50),
+      height: ms(50),
+      borderRadius: ms(25),
+      backgroundColor: '#FFF',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'absolute',
+      left: ms(6),
+      zIndex: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      elevation: 5,
+    },
+    swipeText: {
+      color: '#FFF',
+      fontSize: fs(18),
+      fontWeight: '600',
+      textAlign: 'center',
+      position: 'absolute',
+      width: '100%',
+      zIndex: 1,
+    },
+    swipeChevronGroup: {
+      flexDirection: 'row',
+      position: 'absolute',
+      right: sp(20),
+      zIndex: 1,
+      opacity: 0.8,
+    },
 
-  // ── Pagination ───────────────────────────────
-  paginationContainer: {
-    position: 'absolute',
-    bottom: sp(40),
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dot: {
-    height: ms(4),
-    borderRadius: ms(2),
-    marginHorizontal: sp(4),
-  },
-  activeDot: {
-    width: ms(30),
-    backgroundColor: '#FFF',
-  },
-  inactiveDot: {
-    width: ms(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
+    // ── Pagination ───────────────────────────────
+    paginationContainer: {
+      position: 'absolute',
+      bottom: isSmallScreen ? sp(20) : sp(40),
+      flexDirection: 'row',
+      width: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dot: {
+      height: ms(4),
+      borderRadius: ms(2),
+      marginHorizontal: sp(4),
+    },
+    activeDot: {
+      width: ms(30),
+      backgroundColor: '#FFF',
+    },
+    inactiveDot: {
+      width: ms(20),
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    },
 
-  // ── Watch layout (slide 2) ───────────────────
-  watchTop: {
-    position: 'absolute',
-    alignSelf: 'center',
-    transform: [{ rotate: '180deg' }],
-  },
-  watchBottom: {
-    position: 'absolute',
-    alignSelf: 'center',
-  },
-  watchMiddleContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: sp(20),
-  },
+    // ── Watch layout (slide 2) ───────────────────
+    watchTop: {
+      position: 'absolute',
+      alignSelf: 'center',
+      transform: [{ rotate: '180deg' }],
+    },
+    watchBottom: {
+      position: 'absolute',
+      alignSelf: 'center',
+    },
+    watchMiddleContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: sp(20),
+    },
 
-  // ── Activity rings ───────────────────────────
-  activityRingsContainer: {
-    alignSelf: 'center',
-    justifyContent: 'center',
-    marginVertical: sp(10),
-  },
-  ringsImage: {
-    alignSelf: 'center',
-  },
+    // ── Activity rings ───────────────────────────
+    activityRingsContainer: {
+      alignSelf: 'center',
+      justifyContent: 'center',
+      marginVertical: sp(10),
+    },
+    ringsImage: {
+      alignSelf: 'center',
+    },
 
-
-
-
-
-  // ── Health text block ────────────────────────
-  healthTextContainer: {
-    alignItems: 'flex-start',
-    width: '100%',
-    paddingHorizontal: 10,
-  },
-  healthTitle: {
-    fontSize: fs(42),
-    fontFamily: 'BRLNSR',
-    fontWeight: 'normal',
-    color: '#000',
-    marginBottom: sp(12),
-    lineHeight: fs(50),
-  },
-  healthSubtitle: {
-    fontSize: fs(15),
-    color: '#555',
-    lineHeight: 22,
-    fontWeight: '400',
-  },
-});
+    // ── Health text block ────────────────────────
+    healthTextContainer: {
+      alignItems: 'flex-start',
+      width: '100%',
+      paddingHorizontal: 10,
+    },
+    healthTitle: {
+      fontSize: isSmallScreen ? fs(30) : fs(42),
+      fontFamily: 'BRLNSR',
+      fontWeight: 'normal',
+      color: '#000',
+      marginBottom: sp(12),
+      lineHeight: isSmallScreen ? fs(36) : fs(50),
+    },
+    healthSubtitle: {
+      fontSize: fs(15),
+      color: '#555',
+      lineHeight: 22,
+      fontWeight: '400',
+    },
+  });
+};
 
 export default OnboardingScreen;

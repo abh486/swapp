@@ -1,10 +1,12 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { launchImageLibrary } from 'react-native-image-picker';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import * as Clarity from '@microsoft/react-native-clarity';
 
 const OPTION_FIELDS = {
@@ -53,6 +55,43 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     country: getValue(profile, ['country'], 'India'),
   });
 
+  const [profileImage, setProfileImage] = useState(
+    profile.profileImage || profile.profilePicture || profile.profilePhoto || profile.avatar || ''
+  );
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handlePickImage = () => {
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        includeBase64: false,
+        maxHeight: 600,
+        maxWidth: 600,
+        quality: 0.8,
+        selectionLimit: 1,
+      },
+      async (response) => {
+        if (response.didCancel) return;
+        if (response.errorCode) {
+          Alert.alert('Image Error', response.errorMessage || 'Could not pick image.');
+          return;
+        }
+        if (response.assets && response.assets.length > 0) {
+          const selectedImage = response.assets[0];
+          setUploadingImage(true);
+          try {
+            const uploadedUrl = await uploadToCloudinary(selectedImage);
+            setProfileImage(uploadedUrl);
+          } catch (error) {
+            Alert.alert('Upload Failed', 'Failed to upload the image. Please try again.');
+          } finally {
+            setUploadingImage(false);
+          }
+        }
+      }
+    );
+  };
+
   const updateField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -73,6 +112,8 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     phoneNumber: form.phone.trim(),
     email: form.email.trim(),
     country: form.country.trim(),
+    profileImage: profileImage || undefined,
+    profilePicture: profileImage || undefined,
   });
 
   const handleSave = async () => {
@@ -84,6 +125,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     setSaving(true);
     const payload = buildPayload();
     const endpoints = [
+      { method: 'put', url: '/users/profile' },
       { method: 'put', url: '/v1/auth/update-user-profile' },
       { method: 'patch', url: '/v1/auth/user-profile' },
       { method: 'put', url: '/v1/auth/user-profile' },
@@ -160,6 +202,31 @@ const EditPersonalInfoScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
         >
+          {/* Circular avatar uploader at the top of the form */}
+          <View style={styles.avatarContainer}>
+            <TouchableOpacity onPress={handlePickImage} activeOpacity={0.85}>
+              <View style={styles.avatarCircle}>
+                {uploadingImage ? (
+                  <GlobalLoader size={30} />
+                ) : profileImage ? (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Icon name="person" size={40} color="rgba(255, 255, 255, 0.4)" />
+                  </View>
+                )}
+              </View>
+              {/* Camera Icon edit badge overlay */}
+              <View style={styles.editBadge}>
+                <Icon name="camera" size={16} color="#0055FF" />
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <Field label="Name" value={form.name} onChangeText={value => updateField('name', value)} />
           <Field
             label="Bio"
@@ -405,6 +472,48 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 10,
+  },
+  avatarCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: '#000',
   },
 });
 

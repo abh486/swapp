@@ -186,7 +186,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Reminders')}>
             <View style={[styles.rowLeft, { paddingLeft: 30 }]}>
               <Text style={styles.rowText}>Reminders</Text>
             </View>
