@@ -37,6 +37,7 @@ import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
 import AIDieticianPaywallScreen from '../screens/AIDieticianPaywallScreen';
 import AIDieticianSubscriptionScreen from '../screens/AIDieticianSubscriptionScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
+import FollowListScreen from '../screens/profile/FollowListScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -78,7 +79,8 @@ const AppNavigator = () => {
       <NavigationContainer
         ref={navigationRef}
         onStateChange={() => {
-          const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+          const currentRouteName =
+            navigationRef.current?.getCurrentRoute()?.name;
           if (currentRouteName) {
             console.log('[Clarity] Screen viewed:', currentRouteName);
             try {
@@ -186,6 +188,8 @@ const AppNavigator = () => {
                   name="ManageSubscriptions"
                   component={ManageSubscriptionsScreen}
                 />
+                <Stack.Screen name="Support" component={SupportScreen} />
+                <Stack.Screen name="FollowList" component={FollowListScreen} />
                 {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
               </>
             ) : (
@@ -195,11 +199,13 @@ const AppNavigator = () => {
           ) : (
             // ✅ User not logged in → onboarding then login flow
             <>
-              <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
+              <Stack.Screen
+                name="OnboardingScreen"
+                component={OnboardingScreen}
+              />
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
             </>
           )}
-
         </Stack.Navigator>
       </NavigationContainer>
       {isLoggingIn && <FullScreenLoader />}
