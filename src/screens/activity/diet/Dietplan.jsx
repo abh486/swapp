@@ -7,6 +7,10 @@ import {
   Alert,
   Platform,
   Dimensions,
+  ActivityIndicator,
+  TouchableOpacity,
+  Text
+  Dimensions,
   TextInput,
   ActivityIndicator,
   Text,
@@ -20,7 +24,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useDispatch } from 'react-redux';
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -30,9 +33,6 @@ import DietWaterWidget from './components/DietWaterWidget';
 import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
-
-import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
-import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 
 const { width } = Dimensions.get('window');
 
@@ -61,7 +61,6 @@ const buildCalendarDays = (selectedDate) => {
 };
 
 const Dietplan = ({ navigation }) => {
-  const dispatch = useDispatch();
   const cameraRef = useRef(null);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -385,325 +384,6 @@ const Dietplan = ({ navigation }) => {
 
   const handleIOSDonePress = () => {
     setShowDatePicker(false);
-  };
-
-  const renderAnalyticsView = () => {
-    const {
-      weightTrend = [],
-      weightChange = 0,
-      averages = { weeklyCalories: 0, weeklyProtein: 0 },
-      goalProgress = { caloriesPercentage: 0, proteinPercentage: 0 },
-      nutritionScore = 0,
-      consistencyScore = 0,
-    } = analyticsData || {};
-
-    const renderWeightChart = () => {
-      if (!weightTrend || weightTrend.length === 0) {
-        return (
-          <View style={styles.emptyChartContainer}>
-            <Text style={styles.emptyChartText}>No weight logs available yet.</Text>
-          </View>
-        );
-      }
-
-      const chartWidth = width - 40;
-      const chartHeight = 150;
-      const padding = 20;
-
-      const weights = weightTrend.map((t) => t.weight);
-      const maxWeight = Math.max(...weights) + 1;
-      const minWeight = Math.min(...weights) - 1;
-      const range = maxWeight - minWeight || 1;
-
-      const points = weightTrend.map((t, idx) => {
-        const x = padding + (idx / (weightTrend.length - 1 || 1)) * (chartWidth - 2 * padding);
-        const y = chartHeight - padding - ((t.weight - minWeight) / range) * (chartHeight - 2 * padding);
-        return { x, y };
-      });
-
-      const pathD = points.length > 0 ? `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}` : '';
-
-      return (
-        <View style={styles.chartWrapper}>
-          <View style={styles.chartHeaderRow}>
-            <Text style={styles.chartTitle}>Weight Progress</Text>
-            <Text style={[styles.chartChangeText, { color: weightChange <= 0 ? '#2ecc71' : '#e74c3c' }]}>
-              {weightChange <= 0 ? '' : '+'}{weightChange.toFixed(1)} kg
-            </Text>
-          </View>
-          <View style={styles.chartContainer}>
-            <View style={styles.yAxisLabels}>
-              <Text style={styles.axisLabelText}>{maxWeight.toFixed(1)}</Text>
-              <Text style={styles.axisLabelText}>{minWeight.toFixed(1)}</Text>
-            </View>
-            <View style={styles.chartArea}>
-              <Svg width={chartWidth - 40} height={chartHeight}>
-                <Line x1={padding} y1={padding} x2={chartWidth - 40 - padding} y2={padding} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-                <Line x1={padding} y1={chartHeight / 2} x2={chartWidth - 40 - padding} y2={chartHeight / 2} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-                <Line x1={padding} y1={chartHeight - padding} x2={chartWidth - 40 - padding} y2={chartHeight - padding} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-
-                {points.length > 1 && (
-                  <Path d={pathD} fill="none" stroke="#e74c3c" strokeWidth={3} />
-                )}
-
-                {points.map((p, idx) => (
-                  <Circle
-                    key={idx}
-                    cx={p.x}
-                    cy={p.y}
-                    r={points.length === 1 ? 6 : 4}
-                    fill="#FFF"
-                    stroke="#e74c3c"
-                    strokeWidth={2}
-                  />
-                ))}
-              </Svg>
-            </View>
-          </View>
-        </View>
-      );
-    };
-
-    return (
-      <View style={styles.analyticsSection}>
-        {/* KPI Cards */}
-        <View style={styles.kpiRow}>
-          <LinearGradient
-            colors={['#1a1c23', '#0f1013']}
-            style={styles.kpiCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.kpiLabel}>Avg Calories</Text>
-            <Text style={styles.kpiValue}>{averages.weeklyCalories}</Text>
-            <Text style={styles.kpiSub}>kcal / day</Text>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={['#1a1c23', '#0f1013']}
-            style={styles.kpiCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.kpiLabel}>Avg Protein</Text>
-            <Text style={styles.kpiValue}>{averages.weeklyProtein}g</Text>
-            <Text style={styles.kpiSub}>/ day</Text>
-          </LinearGradient>
-        </View>
-
-        {/* Engine Performance Card */}
-        <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
-          style={styles.analyticsCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.cardSectionTitle}>Engine Performance</Text>
-          <View style={styles.scoreRow}>
-            <View style={styles.scoreBlock}>
-              <Text style={styles.scoreValue}>{nutritionScore}%</Text>
-              <Text style={styles.scoreLabel}>Nutrition Score</Text>
-            </View>
-            <View style={styles.dividerLine} />
-            <View style={styles.scoreBlock}>
-              <Text style={[styles.scoreValue, { color: '#2ecc71' }]}>{consistencyScore}%</Text>
-              <Text style={styles.scoreLabel}>Consistency Score</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Goal Alignment */}
-        <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
-          style={styles.analyticsCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.cardSectionTitle}>Goal Alignment</Text>
-
-          <View style={styles.progressRow}>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressLabel}>Calorie Target Compliance</Text>
-              <Text style={styles.progressPercent}>{goalProgress.caloriesPercentage}%</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${Math.min(100, goalProgress.caloriesPercentage)}%`, backgroundColor: '#e74c3c' }]} />
-            </View>
-          </View>
-
-          <View style={[styles.progressRow, { marginTop: 14 }]}>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressLabel}>Protein Target Compliance</Text>
-              <Text style={styles.progressPercent}>{goalProgress.proteinPercentage}%</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${Math.min(100, goalProgress.proteinPercentage)}%`, backgroundColor: '#4B6EE1' }]} />
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Weight Progress Chart */}
-        <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
-          style={styles.analyticsCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {renderWeightChart()}
-        </LinearGradient>
-
-        {/* Update Weight Log */}
-        <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
-          style={styles.analyticsCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.cardSectionTitle}>Log Weight Update</Text>
-          <Text style={styles.inputInstructions}>
-            This recalculates your daily BMR and updates target calorie splits.
-          </Text>
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. 78.5"
-              placeholderTextColor="#555"
-              keyboardType="decimal-pad"
-              value={newWeight}
-              onChangeText={setNewWeight}
-            />
-            <TouchableOpacity 
-              style={styles.submitButton} 
-              onPress={handleUpdateWeight}
-              disabled={isUpdatingWeight}
-            >
-              {isUpdatingWeight ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.submitButtonText}>Log Weight</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </View>
-    );
-  };
-
-  const renderWeeklyDietPlan = () => {
-    if (!recommendation || !recommendation.weeklyPlan) return null;
-
-    const { weeklyPlan } = recommendation;
-    const planDays = weeklyPlan.days || {};
-    const userProfile = weeklyPlan.userProfile || {};
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const activeMeals = planDays[selectedPlanDay] || [];
-
-    const getMealIcon = (type) => {
-      switch (type.toLowerCase()) {
-        case 'breakfast':
-          return { name: 'sunny-outline', color: '#FF9800', bg: 'rgba(255, 152, 0, 0.1)' };
-        case 'lunch':
-          return { name: 'restaurant-outline', color: '#4CAF50', bg: 'rgba(76, 175, 80, 0.1)' };
-        case 'snack':
-          return { name: 'cafe-outline', color: '#FFC107', bg: 'rgba(255, 193, 7, 0.1)' };
-        case 'dinner':
-          return { name: 'moon-outline', color: '#2196F3', bg: 'rgba(33, 150, 243, 0.1)' };
-        default:
-          return { name: 'nutrition-outline', color: '#9C27B0', bg: 'rgba(156, 39, 176, 0.1)' };
-      }
-    };
-
-    return (
-      <View style={styles.weeklyPlanSection}>
-        <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
-          style={styles.weeklyPlanCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.planHeaderRow}>
-            <View>
-              <View style={styles.titleRow}>
-                <Icon name="sparkles" size={16} color="#e74c3c" />
-                <Text style={styles.planTitle}>WEEKLY DIET PLAN</Text>
-                {weeklyPlan.isGenerating && (
-                  <View style={styles.generatingBadge}>
-                    <ActivityIndicator size="small" color="#e74c3c" style={{ marginRight: 6 }} />
-                    <Text style={styles.generatingText}>Updating via AI...</Text>
-                  </View>
-                )}
-              </View>
-              {userProfile.weight ? (
-                <Text style={styles.planSubtitle}>
-                  Tailored for: {userProfile.weight}kg • {userProfile.height}cm • {userProfile.age}yo • {userProfile.dietPreference || 'Standard'}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.dayTabsWrapper}
-          >
-            {days.map((day) => {
-              const isActive = selectedPlanDay === day;
-              return (
-                <TouchableOpacity
-                  key={day}
-                  style={[styles.dayTab, isActive && styles.activeDayTab]}
-                  onPress={() => setSelectedPlanDay(day)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dayTabText, isActive && styles.activeDayTabText]}>
-                    {day.substring(0, 3)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <View style={styles.mealsList}>
-            {activeMeals.map((mealItem, index) => {
-              const iconInfo = getMealIcon(mealItem.mealType);
-              return (
-                <View key={index} style={styles.mealCard}>
-                  <View style={[styles.mealIconWrapper, { backgroundColor: iconInfo.bg }]}>
-                    <Icon name={iconInfo.name} size={18} color={iconInfo.color} />
-                  </View>
-                  <View style={styles.mealDetails}>
-                    <View style={styles.mealTypeRow}>
-                      <Text style={[styles.mealTypeText, { color: iconInfo.color }]}>
-                        {mealItem.mealType.toUpperCase()}
-                      </Text>
-                      <Text style={styles.mealCaloriesText}>
-                        {mealItem.calories} kcal
-                      </Text>
-                    </View>
-                    <Text style={styles.mealDescriptionText}>
-                      {mealItem.meal}
-                    </Text>
-                    
-                    <View style={styles.macroBadgesRow}>
-                      <View style={styles.macroBadge}>
-                        <Text style={styles.macroBadgeText}>P: {mealItem.protein}g</Text>
-                      </View>
-                      <View style={[styles.macroBadge, { marginLeft: 6 }]}>
-                        <Text style={styles.macroBadgeText}>C: {mealItem.carbs}g</Text>
-                      </View>
-                      <View style={[styles.macroBadge, { marginLeft: 6 }]}>
-                        <Text style={styles.macroBadgeText}>F: {mealItem.fats}g</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </LinearGradient>
-      </View>
-    );
   };
 
   return (

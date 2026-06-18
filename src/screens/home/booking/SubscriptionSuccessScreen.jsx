@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  Linking,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +17,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '@microsoft/react-native-clarity';
+import apiClient from '../../../api/apiClient';
+import { getAccessStatus } from '../../../services/aiDieticianService';
 
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
 
@@ -22,8 +27,13 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
     planName = 'Elite',
     price = '2499',
     pendingSubscription,
+    reservationId = null,
+    hostedPageId = null,
   } = route.params || {};
-  const { refreshAuthStatus } = useAuth();
+  const { refreshAuthStatus, user } = useAuth();
+  const [activationStatus, setActivationStatus] = useState('activating'); // 'activating', 'active', 'timeout'
+  const pollIntervalRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
     if (pendingSubscription) {
@@ -32,27 +42,108 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
         JSON.stringify(pendingSubscription),
       );
     }
+    // Start polling immediately
     refreshAuthStatus?.().catch(err => console.log('Error refreshing user status:', err));
+
+    pollIntervalRef.current = setInterval(() => {
+      refreshAuthStatus?.().catch(err => console.log('Poll err:', err));
+    }, 2500);
+
+    timeoutRef.current = setTimeout(() => {
+      clearInterval(pollIntervalRef.current);
+      setActivationStatus(prev => prev === 'activating' ? 'timeout' : prev);
+    }, 15000);
+
+    return () => {
+      clearInterval(pollIntervalRef.current);
+      clearTimeout(timeoutRef.current);
+    };
   }, [pendingSubscription, refreshAuthStatus]);
 
   useEffect(() => {
-    console.log('[Clarity] User subscribed. Plan:', planName, 'Price:', price);
+    // If user state becomes active, stop polling
+    if (pendingSubscription?.productCode === 'AI_DIETICIAN') {
+      const checkDietAccess = async () => {
+        try {
+          const res = await getAccessStatus();
+          if (res?.hasAccess) {
+            clearInterval(pollIntervalRef.current);
+            clearTimeout(timeoutRef.current);
+            setActivationStatus('active');
+          }
+        } catch (e) {
+          console.log('Error checking dietician access:', e);
+        }
+      };
+      
+      checkDietAccess();
+      const interval = setInterval(checkDietAccess, 2500);
+      return () => clearInterval(interval);
+    } else {
+      if (user?.hasActiveMembership) {
+        clearInterval(pollIntervalRef.current);
+        clearTimeout(timeoutRef.current);
+        setActivationStatus('active');
+      }
+    }
+  }, [user?.hasActiveMembership, pendingSubscription]);
+
+  useEffect(() => {
+    console.log('[Clarity] User subscribed. Plan:', planName, 'Price:', price, 'Reservation:', reservationId);
     try {
       Clarity.sendCustomEvent('payment_success');
-      Clarity.sendCustomEvent('user_subscribed_gym');
+      Clarity.sendCustomEvent(reservationId ? 'booking_confirmed' : 'user_subscribed_gym');
       Clarity.setCustomTag('subscribed_plan', planName);
       Clarity.setCustomTag('subscribed_price', String(price));
+      if (reservationId) {
+        Clarity.setCustomTag('reservation_id', reservationId);
+      }
       if (pendingSubscription?.gymName || pendingSubscription?.providerName) {
         Clarity.setCustomTag('subscribed_gym', pendingSubscription.gymName || pendingSubscription.providerName);
       }
     } catch (err) {
       console.error('[Clarity] Failed to send subscription event/tags:', err);
     }
-  }, [planName, price, pendingSubscription]);
+  }, [planName, price, pendingSubscription, reservationId]);
 
   const metrics = useResponsiveMetrics();
   const { sp, ms, fs, wp } = metrics;
   const styles = createStyles(metrics);
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadReceipt = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      console.log('[Invoice PDF] Requesting invoice download URL. hostedPageId:', hostedPageId, 'reservationId:', reservationId);
+      const response = await apiClient.get('/subscriptions/invoice/download-url', {
+        params: {
+          hostedPageId,
+          reservationId,
+        },
+      });
+
+      const downloadUrl = response.data?.data?.downloadUrl;
+      if (downloadUrl) {
+        console.log('[Invoice PDF] Opening download URL:', downloadUrl);
+        const supported = await Linking.canOpenURL(downloadUrl);
+        if (supported) {
+          await Linking.openURL(downloadUrl);
+        } else {
+          Alert.alert('Error', 'Cannot open download link on this device.');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to retrieve invoice download link.');
+      }
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      const errMsg = error.response?.data?.message || 'Failed to download receipt from Chargebee.';
+      Alert.alert('Download Failed', errMsg);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const cleanPlanName = planName.trim().toUpperCase();
   const displayPlanName =
@@ -109,9 +200,10 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
 
   const handleStart = () => {
     refreshAuthStatus?.().catch(err => console.log('Error refreshing status on click:', err));
+    const targetScreen = pendingSubscription?.productCode === 'AI_DIETICIAN' ? 'Diet' : 'Home';
     navigation.reset({
       index: 0,
-      routes: [{ name: 'MainTabs', params: { screen: 'Home' } }],
+      routes: [{ name: 'MainTabs', params: { screen: targetScreen } }],
     });
   };
 
@@ -158,11 +250,13 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
 
       {/* Heading Text */}
       <View style={styles.headingContainer}>
-        <Text style={styles.congratsText}>CONGRATULATIONS</Text>
+        <Text style={styles.congratsText}>
+          {reservationId ? 'BOOKING CONFIRMED' : 'CONGRATULATIONS'}
+        </Text>
         <Text style={styles.planActiveText}>
-          Your{' '}
-          {displayPlanName.charAt(0) + displayPlanName.slice(1).toLowerCase()}{' '}
-          Plan is Active !!
+          {reservationId
+            ? 'Your Session Booking is Confirmed !!'
+            : `Your ${displayPlanName.charAt(0) + displayPlanName.slice(1).toLowerCase()} Plan is Active !!`}
         </Text>
       </View>
 
@@ -193,16 +287,20 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
                 </Svg>
               </View>
               <View style={styles.textColumn}>
-                <Text style={styles.cardPlanTitle}>{displayPlanName} PLAN</Text>
+                <Text style={styles.cardPlanTitle}>
+                  {reservationId ? displayPlanName : `${displayPlanName} PLAN`}
+                </Text>
                 <Text style={styles.cardPlanSubtitle}>
-                  All Access · Unlimited
+                  {reservationId ? 'Session Booking · 1 Slot' : 'All Access · Unlimited'}
                 </Text>
               </View>
             </View>
 
             {/* Active Capsule Badge */}
             <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>Active</Text>
+              <Text style={styles.activeBadgeText}>
+                {reservationId ? 'Confirmed' : 'Active'}
+              </Text>
             </View>
           </View>
 
@@ -210,16 +308,20 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
           <View style={styles.featureGrid}>
             <View style={styles.featureItem}>
               <View style={styles.featureIconBox}>
-                <Icon name="infinite-outline" size={20} color="#FFF" />
+                <Icon name={reservationId ? 'calendar-outline' : 'infinite-outline'} size={20} color="#FFF" />
               </View>
-              <Text style={styles.featureLabel}>Unlimited Visits</Text>
+              <Text style={styles.featureLabel}>
+                {reservationId ? 'Reserved Slot' : 'Unlimited Visits'}
+              </Text>
             </View>
 
             <View style={styles.featureItem}>
               <View style={styles.featureIconBox}>
                 <Icon name="people-outline" size={20} color="#FFF" />
               </View>
-              <Text style={styles.featureLabel}>All Group Classes</Text>
+              <Text style={styles.featureLabel}>
+                {reservationId ? 'Venue Access' : 'All Group Classes'}
+              </Text>
             </View>
 
             <View style={styles.featureItem}>
@@ -248,10 +350,14 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
             color="#2ecc71"
             style={styles.receiptCheckIcon}
           />
-          <View>
-            <Text style={styles.receiptTitle}>Payment Successfull</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.receiptTitle}>
+              {reservationId ? 'Booking Successful' : 'Payment Successfull'}
+            </Text>
             <Text style={styles.receiptSubtitle}>
-              Payment of ₹{price} has been processed successfully
+              {reservationId
+                ? 'Your reservation has been confirmed and booking created!'
+                : `Payment of ₹${price} has been processed successfully`}
             </Text>
           </View>
         </View>
@@ -260,8 +366,12 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
 
         {/* Details Fields */}
         <View style={styles.receiptRow}>
-          <Text style={styles.rowLabel}>Transaction ID</Text>
-          <Text style={styles.rowValue}>{transactionId}</Text>
+          <Text style={styles.rowLabel}>
+            {reservationId ? 'Booking ID' : 'Transaction ID'}
+          </Text>
+          <Text style={styles.rowValue}>
+            {reservationId ? reservationId : transactionId}
+          </Text>
         </View>
 
         <View style={styles.receiptRow}>
@@ -272,12 +382,36 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.letsStartBtn} onPress={handleStart}>
-          <Text style={styles.letsStartBtnText}>Let's Start</Text>
+        {activationStatus === 'activating' && (
+           <Text style={{ color: '#aaa', textAlign: 'center', marginBottom: 10, fontSize: 13 }}>
+             Activating your membership...
+           </Text>
+        )}
+        <TouchableOpacity style={styles.letsStartBtn} onPress={handleStart} disabled={activationStatus === 'activating'}>
+          {activationStatus === 'activating' ? (
+             <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+             <Text style={styles.letsStartBtnText}>Let's Start</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.downloadBtn} activeOpacity={0.8}>
-          <Text style={styles.downloadBtnText}>Download Receipt</Text>
+        {activationStatus === 'timeout' && (
+          <Text style={{ color: 'orange', textAlign: 'center', marginBottom: 10, paddingHorizontal: 20, fontSize: 12 }}>
+            Your payment was successful. Activation is taking longer than expected. Please wait a few minutes and refresh.
+          </Text>
+        )}
+
+        <TouchableOpacity
+          style={styles.downloadBtn}
+          activeOpacity={0.8}
+          onPress={handleDownloadReceipt}
+          disabled={downloading}
+        >
+          {downloading ? (
+            <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+          ) : (
+            <Text style={styles.downloadBtnText}>Download Receipt</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -47,3 +47,19 @@ export const checkoutBooking = async (bookingId) => {
   };
 };
 
+export const cancelBooking = async (bookingId) => {
+  const response = await apiClient.post(`${API_ROUTES.bookings.base}/${bookingId}/cancel`);
+  const data = unwrapApiData(response);
+
+  return {
+    raw: response.data,
+    message: unwrapApiMessage(response, 'Booking cancelled successfully.'),
+    booking: normalizeBooking(data),
+  };
+};
+
+export const createReservation = async payload => {
+  const response = await apiClient.post('/v1/reservations', payload);
+  return unwrapApiData(response);
+};
+

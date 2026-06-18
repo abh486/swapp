@@ -17,15 +17,12 @@ import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { parseApiFailure } from '../../../api/apiUtils';
 import apiClient from '../../../api/apiClient';
-import { fetchMemberProviderAvailability } from '../../../api/scheduleApi';
-import { isOpenAccessMode, resolveAccessMode } from '../../../utils/accessMode';
 import { useResponsiveMetrics } from '../../../utils/responsive';
+import { useAuth } from '../../../context/AuthContext';
+import LinearGradient from 'react-native-linear-gradient';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PADDING = 20;
-const SLOT_CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
-
-
 
 const formatSlotTime = slot => {
   const start = new Date(slot.startTime);
@@ -59,19 +56,27 @@ const normalizePackageType = value => {
   return 'STANDALONE';
 };
 
-const MembershipBookingScreen = ({ route, navigation }) => {
+const TrainerBookingScreen = ({ route, navigation }) => {
   const {
-    gymName = 'FitZone Premium',
+    gymName = 'Trainer Session',
     subscription = {},
     categoryId: routeCategoryId = null,
     packageType: routePackageType = null,
     isReservationCheckout = false,
     selectedPlan = null,
+    trainerId = null,
   } = route?.params || {};
+
+  const { user } = useAuth();
+  const dispatch = useDispatch();
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
-  const dispatch = useDispatch();
   const styles = createStyles(metrics, insets);
+
+  const targetId = useMemo(() => {
+    return trainerId || subscription.trainerId || subscription.trainer?.id || subscription.providerId;
+  }, [trainerId, subscription]);
+
   const packageType = useMemo(
     () =>
       normalizePackageType(
@@ -84,8 +89,10 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       ),
     [routePackageType, subscription],
   );
+
   const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
   const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
+
   const entitlements = useMemo(() => {
     return (
       subscription.package?.items ||
@@ -107,6 +114,10 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   const [activeCategoryId, setActiveCategoryId] = useState(routeCategoryId || '');
 
   useEffect(() => {
+    if (categories.length === 1) {
+      setActiveCategoryId(categories[0].id);
+      return;
+    }
     if (!isGlobalBundlePackage) {
       setActiveCategoryId('');
       return;
@@ -122,10 +133,12 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       return itemCategoryId === activeCategoryId;
     });
   }, [entitlements, activeCategoryId]);
+
   const activeCategory = useMemo(
     () => categories.find(category => category.id === activeCategoryId),
     [categories, activeCategoryId],
   );
+
   const [selectedDate, setSelectedDate] = useState(null);
   const [bookingSlotKey, setBookingSlotKey] = useState(null);
   const [bookedSlotKeys, setBookedSlotKeys] = useState(new Set());
@@ -133,16 +146,17 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [slotError, setSlotError] = useState('');
   const [slotRefreshTick, setSlotRefreshTick] = useState(0);
+  const [bookingContext, setBookingContext] = useState(null);
 
   const dates = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date();
       date.setDate(date.getDate() + index);
       const year = date.getFullYear();
-      const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
       const dayStr = String(date.getDate()).padStart(2, '0');
       return {
-        key: `${year}-${monthStr}-${dayStr}`,
+        key: `${year}-${month}-${dayStr}`,
         month: date.toLocaleDateString('en-US', { month: 'short' }),
         day: dayStr,
         date,
@@ -152,54 +166,47 @@ const MembershipBookingScreen = ({ route, navigation }) => {
 
   const activeDateKey = selectedDate || dates[0]?.key;
 
-  const provider =
-    subscription.provider ||
-    subscription.gym ||
-    subscription.partner ||
-    subscription.package?.provider ||
-    {};
+  const userPlanId = useMemo(() => {
+    return (
+      subscription.userPlanId ||
+      subscription.userPlan?.id ||
+      subscription.planSubscriptionId ||
+      null
+    );
+  }, [subscription]);
 
-  const providerId =
-    provider.id ||
-    subscription.providerId ||
-    subscription.gymId ||
-    subscription.partnerId ||
-    subscription.package?.providerId;
-  const accessMode = useMemo(
-    () =>
-      resolveAccessMode(
-        subscription?.provider?.accessConfig?.accessMode,
-        subscription?.accessConfig?.accessMode,
-        provider?.accessConfig?.accessMode,
-      ),
-    [provider, subscription],
-  );
-  const isOpenAccess = isOpenAccessMode(accessMode);
-  const isAppointmentOnly = accessMode === 'APPOINTMENT_ONLY';
+  // Load Booking Context (sessionDuration, cancellationWindow)
+  useEffect(() => {
+    let isMounted = true;
+    const loadContext = async () => {
+      try {
+        const res = await apiClient.get(`/trainers/${targetId}/booking-context`);
+        if (isMounted) {
+          setBookingContext(res.data?.data || res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load booking context:', err);
+      }
+    };
+    if (targetId) {
+      loadContext();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [targetId]);
 
-  // Only pass a real UserPlan ID. If none is available, send null so the
-  // backend resolves the correct plan from the user's active subscription.
-  const userPlanId =
-    subscription.userPlanId ||
-    subscription.userPlan?.id ||
-    subscription.planSubscriptionId ||
-    null;
-
+  // Handle Redirect for Upgrade or OpenAccess if applicable
   useEffect(() => {
     if (isUpgradeOnlyPackage) {
       navigation.replace('MembershipDetails', { subscription });
       return;
     }
-    if (!isOpenAccess) return;
-    navigation.replace('MembershipDetails', {
-      subscription,
-      categoryId: activeCategoryId || routeCategoryId || null,
-      openAccessAutoOpenScanner: true,
-    });
-  }, [activeCategoryId, isOpenAccess, isUpgradeOnlyPackage, navigation, routeCategoryId, subscription]);
+  }, [isUpgradeOnlyPackage, navigation, subscription]);
 
+  // Load Trainer Slots with Past Slot Lockout Check
   useEffect(() => {
-    if (isOpenAccess || isUpgradeOnlyPackage) return;
+    if (isUpgradeOnlyPackage) return;
     if (isGlobalBundlePackage && !activeCategoryId) {
       setSlots([]);
       return;
@@ -208,7 +215,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     let isActive = true;
 
     const loadSlots = async () => {
-      if (!providerId || !activeDateKey) {
+      if (!targetId || !activeDateKey) {
         setSlots([]);
         return;
       }
@@ -217,74 +224,51 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       setSlotError('');
 
       try {
-        const isTrainer = packageType === 'TRAINER_PACKAGE' || subscription.trainer || route.params?.targetType === 'TRAINER';
-        
-        let mappedSlots = [];
-        if (isTrainer) {
-          const res = await apiClient.get(`/trainers/${providerId}/available-slots`, {
-            params: {
-              date: activeDateKey,
-              categoryId: activeCategoryId || undefined,
-            }
-          });
-          const [y, m, d] = activeDateKey.split('-');
-          const selectedDayOfWeek = new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).getDay();
-          const slotsData = res.data?.data?.slots || res.data?.slots || [];
-          mappedSlots = slotsData
-            .filter(s => {
-              if (s.availDate) {
-                const sDateStr = new Date(s.availDate).toISOString().split('T')[0];
-                return sDateStr === activeDateKey;
-              }
-              return s.dayOfWeek === selectedDayOfWeek;
-            })
-            .map(s => {
-              let startTime = s.startTime;
-              let endTime = s.endTime;
-              if (typeof s.startTime === 'string' && !s.startTime.includes('T')) {
-                const startDt = new Date(`${activeDateKey}T${s.startTime}:00`);
-                startTime = startDt.toISOString();
-              }
-              if (typeof s.endTime === 'string' && !s.endTime.includes('T')) {
-                const endDt = new Date(`${activeDateKey}T${s.endTime}:00`);
-                endTime = endDt.toISOString();
-              }
-              
-              const slotStart = new Date(startTime);
-              const now = new Date();
-              const isPast = slotStart <= now;
-
-              return {
-                ...s,
-                id: s.id || s.slotId,
-                slotId: s.slotId || s.id,
-                startTime,
-                endTime,
-                isAvailable: !isPast && !s.isBooked,
-                availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
-              };
-            });
-        } else {
-          const result = await fetchMemberProviderAvailability({
-            providerId,
+        const res = await apiClient.get(`/trainers/${targetId}/available-slots`, {
+          params: {
             date: activeDateKey,
             categoryId: activeCategoryId || undefined,
-          });
-          mappedSlots = (result.slots || []).map(s => {
-            const slotStart = new Date(s.startTime);
+          }
+        });
+        const [y, m, d] = activeDateKey.split('-');
+        const selectedDayOfWeek = new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).getDay();
+        const slotsData = res.data?.data?.slots || res.data?.slots || [];
+        const filteredSlots = slotsData
+          .filter(s => {
+            if (s.availDate) {
+              const sDateStr = new Date(s.availDate).toISOString().split('T')[0];
+              return sDateStr === activeDateKey;
+            }
+            return s.dayOfWeek === selectedDayOfWeek;
+          })
+          .map(s => {
+            let startTime = s.startTime;
+            let endTime = s.endTime;
+            if (typeof s.startTime === 'string' && !s.startTime.includes('T')) {
+              const startDt = new Date(`${activeDateKey}T${s.startTime}:00`);
+              startTime = startDt.toISOString();
+            }
+            if (typeof s.endTime === 'string' && !s.endTime.includes('T')) {
+              const endDt = new Date(`${activeDateKey}T${s.endTime}:00`);
+              endTime = endDt.toISOString();
+            }
+            
+            const slotStart = new Date(startTime);
             const now = new Date();
             const isPast = slotStart <= now;
+
             return {
               ...s,
-              isAvailable: !isPast && s.isAvailable,
-              availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : (s.availabilityState || 'AVAILABLE'),
+              id: s.id || s.slotId,
+              slotId: s.slotId || s.id,
+              startTime,
+              endTime,
+              isAvailable: !isPast && !s.isBooked,
+              availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
             };
           });
-        }
-
-        if (isActive) {
-          setSlots(mappedSlots);
-        }
+        
+        if (isActive) setSlots(filteredSlots);
       } catch (error) {
         if (isActive) {
           setSlots([]);
@@ -300,11 +284,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     return () => {
       isActive = false;
     };
-  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isOpenAccess, isUpgradeOnlyPackage, providerId, slotRefreshTick]);
-
-  if (isOpenAccess) {
-    return null;
-  }
+  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isUpgradeOnlyPackage, targetId, slotRefreshTick]);
 
   const buildSlotTimes = slot => ({
     startTime: new Date(slot.startTime).toISOString(),
@@ -312,10 +292,10 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   });
 
   const bookSlot = async slot => {
-    if (!providerId) {
+    if (!targetId) {
       Alert.alert(
         'Booking Unavailable',
-        'This membership does not include a provider ID yet. Please reopen the provider from your active membership.',
+        'Trainer details not loaded. Please try again.',
       );
       return;
     }
@@ -332,17 +312,16 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     setBookingSlotKey(slotKey);
 
     try {
-      const isTrainer = packageType === 'TRAINER_PACKAGE' || subscription.trainer || route.params?.targetType === 'TRAINER';
       const { startTime, endTime } = buildSlotTimes(slot);
 
       if (isReservationCheckout) {
         // Create reservation hold first
         const result = await createReservation({
-          providerId: providerId,
-          targetType: isTrainer ? 'TRAINER' : 'PROVIDER',
+          providerId: targetId,
+          targetType: 'TRAINER',
           startTime,
           endTime,
-          selectedPackageId: selectedPlan?.id || subscription.package?.id,
+          selectedPackageId: selectedPlan?.id,
         });
 
         const reservation = result.reservation;
@@ -354,21 +333,21 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         const pendingSubscription = {
           status: 'ACTIVE',
           provider: {
-            id: providerId,
+            id: targetId,
             name: gymName,
             photos: [],
           },
           package: selectedPlan,
-          planName: selectedPlan?.name,
+          planName: selectedPlan.name,
           providerName: gymName,
           gymName: gymName,
-          tier: selectedPlan?.tier || selectedPlan?.name,
-          image: selectedPlan?.imageUrl,
+          tier: selectedPlan.tier || selectedPlan.name,
+          image: selectedPlan.imageUrl,
           isActive: true,
         };
 
         const checkoutResponse = await dispatch(
-          createCheckoutSession(selectedPlan?.id || subscription.package?.id, 'PARTNER_PACKAGE', reservation.id, selectedPlan?.commerce_model || 'ONE_TIME'),
+          createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE', reservation.id, selectedPlan.commerce_model || 'ONE_TIME'),
         );
 
         if (
@@ -378,8 +357,8 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         ) {
           navigation.navigate('CheckoutWebView', {
             url: checkoutResponse.data.checkoutUrl,
-            planName: selectedPlan?.name,
-            price: selectedPlan?.basePrice,
+            planName: selectedPlan.name,
+            price: selectedPlan.basePrice,
             pendingSubscription,
             reservationId: reservation.id,
           });
@@ -393,27 +372,24 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       }
 
       const result = await createBooking({
-        targetId: providerId,
-        targetType: isTrainer ? 'TRAINER' : 'PROVIDER',
+        targetId,
+        targetType: 'TRAINER',
         startTime,
         endTime,
         userPlanId,
         categoryId: activeCategoryId || undefined,
-        bookingMode: isAppointmentOnly ? 'APPOINTMENT' : 'SLOT_BASED',
+        bookingMode: 'SLOT_BASED',
       });
 
       const status = result.booking?.bookingStatus || result.booking?.status || 'CONFIRMED';
 
-      // Optimistically mark slot as booked, then re-fetch to get server state
       setBookedSlotKeys(prev => new Set(prev).add(slotKey));
       setSlotRefreshTick(t => t + 1);
 
       Alert.alert(
         status === 'PENDING_CONFIRMATION'
           ? 'Appointment Requested'
-          : isAppointmentOnly
-            ? 'Appointment Confirmed'
-            : 'Booking Confirmed',
+          : 'Booking Confirmed',
         `${gymName}\n${formatSlotTime(slot)}\nStatus: ${status}`,
       );
     } catch (error) {
@@ -442,7 +418,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         >
           <Icon name="chevron-back" size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>{isAppointmentOnly ? 'Appointments' : 'Bookings'}</Text>
+        <Text style={styles.title}>Bookings</Text>
         <TouchableOpacity style={styles.calendarButton} activeOpacity={0.8}>
           <Icon name="calendar-outline" size={22} color="#FFF" />
         </TouchableOpacity>
@@ -488,7 +464,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       </View>
 
       {/* Category Pills */}
-      {isGlobalBundlePackage && (
+      {isGlobalBundlePackage && categories.length > 1 && (
       <View>
         <ScrollView
           horizontal
@@ -525,6 +501,70 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.slotContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Context Summary Card */}
+        {(() => {
+          const contextPlanName = selectedPlan?.name || subscription?.plan?.name || subscription?.package?.name || 'Active Trainer Plan';
+          const contextProviderName = gymName || 'Trainer';
+          const contextBalance = subscription?.remainingSessions ?? subscription?.remainingCredits ?? selectedPlan?.totalSessions ?? 'Unlimited';
+          const contextExpiry = subscription?.currentTermEnd || subscription?.endDate || subscription?.expiresAt || null;
+
+          return (
+            <View style={styles.contextSummaryCard}>
+              <LinearGradient
+                colors={['#1F132E', '#10071C']}
+                style={styles.contextSummaryGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.contextHeaderRow}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.contextKicker}>BOOKING CONTEXT</Text>
+                    <Text style={styles.contextPlanName} numberOfLines={1}>{contextPlanName}</Text>
+                  </View>
+                  <View style={styles.contextBadge}>
+                    <Text style={styles.contextBadgeText}>
+                      Trainer Session
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.contextDivider} />
+
+                <View style={styles.contextStatsGrid}>
+                  <View style={styles.contextStatItem}>
+                    <Text style={styles.contextStatLabel}>Remaining Balance</Text>
+                    <Text style={styles.contextStatValue}>
+                      {contextBalance === Infinity ? 'Unlimited' : `${contextBalance} Sessions`}
+                    </Text>
+                  </View>
+                  <View style={styles.contextStatItem}>
+                    <Text style={styles.contextStatLabel}>Expiration / Status</Text>
+                    <Text style={styles.contextStatValue}>
+                      {contextExpiry ? new Date(contextExpiry).toLocaleDateString() : 'Active'}
+                    </Text>
+                  </View>
+                </View>
+
+                {bookingContext && (
+                  <>
+                    <View style={styles.contextDivider} />
+                    <View style={styles.contextStatsGrid}>
+                      <View style={styles.contextStatItem}>
+                        <Text style={styles.contextStatLabel}>Session Duration</Text>
+                        <Text style={styles.contextStatValue}>{bookingContext.sessionDuration} mins</Text>
+                      </View>
+                      <View style={styles.contextStatItem}>
+                        <Text style={styles.contextStatLabel}>Cancellation Window</Text>
+                        <Text style={styles.contextStatValue}>{bookingContext.cancellationWindow} hours</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </LinearGradient>
+            </View>
+          );
+        })()}
+
         {activeEntitlement && (
           <View style={styles.entitlementCard}>
             <View style={styles.entitlementHeader}>
@@ -541,31 +581,14 @@ const MembershipBookingScreen = ({ route, navigation }) => {
                 <Text style={styles.entitlementLabel}>Premium Slots</Text>
                 <Text style={styles.entitlementValue}>{activeEntitlement.premiumSlots ?? 0}</Text>
               </View>
-              <View style={styles.entitlementItem}>
-                <Text style={styles.entitlementLabel}>Surcharge %</Text>
-                <Text style={styles.entitlementValue}>
-                  {activeEntitlement.premiumSurchargePct ? `${parseFloat(activeEntitlement.premiumSurchargePct)}%` : '0%'}
-                </Text>
-              </View>
-              <View style={styles.entitlementItem}>
-                <Text style={styles.entitlementLabel}>Trainer Settlement %</Text>
-                <Text style={styles.entitlementValue}>
-                  {activeEntitlement.trainer_settlement_pct ? `${parseFloat(activeEntitlement.trainer_settlement_pct)}%` : '0%'}
-                </Text>
-              </View>
             </View>
-
-            <View style={styles.entitlementPreviewDivider} />
-            <Text style={styles.entitlementPreviewText}>
-              Preview: Standard: {activeEntitlement.softLimit ?? 'N/A'} sessions | Premium: {activeEntitlement.premiumSlots ?? 0} slots at +{activeEntitlement.premiumSurchargePct ? parseFloat(activeEntitlement.premiumSurchargePct) : 0}% surcharge
-            </Text>
           </View>
         )}
 
         <Text style={styles.sectionTitle}>
-          {isAppointmentOnly ? 'REQUEST WINDOWS' : 'AVAILABLE SLOTS'}
+          AVAILABLE SLOTS
         </Text>
-        {isGlobalBundlePackage && !activeCategoryId ? (
+        {isGlobalBundlePackage && categories.length > 1 && !activeCategoryId ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>Choose a category to see availability.</Text>
           </View>
@@ -614,11 +637,11 @@ const MembershipBookingScreen = ({ route, navigation }) => {
             >
               <Text style={styles.bookButtonText}>
                 {isBooking
-                  ? (isAppointmentOnly ? 'Requesting...' : 'Booking...')
+                  ? 'Booking...'
                   : isBooked
-                    ? (isAppointmentOnly ? 'Requested' : 'Booked')
+                    ? 'Booked'
                     : slot.isAvailable
-                      ? (isAppointmentOnly ? 'Request' : 'Book')
+                      ? 'Book'
                       : 'Closed'}
               </Text>
             </TouchableOpacity>
@@ -630,7 +653,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   );
 };
 
-const createStyles = ({ fs, sp, ms, isTablet, isLandscape, maxContentWidth }, insets) => StyleSheet.create({
+const createStyles = ({ fs, sp, ms, isLandscape, maxContentWidth }, insets) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#000',
@@ -775,18 +798,14 @@ const createStyles = ({ fs, sp, ms, isTablet, isLandscape, maxContentWidth }, in
     fontSize: fs(14),
     fontWeight: '600',
   },
-  categoryTextActive: {
-    color: '#FFF',
-  },
   slotScroll: {
     flex: 1,
   },
   slotContent: {
-    paddingHorizontal: sp(isTablet ? 28 : 20),
+    paddingHorizontal: sp(20),
     paddingBottom: Math.max(insets.bottom, sp(18)) + sp(12),
     alignSelf: 'center',
     width: '100%',
-    maxWidth: maxContentWidth,
   },
   sectionTitle: {
     color: '#727177',
@@ -922,17 +941,72 @@ const createStyles = ({ fs, sp, ms, isTablet, isLandscape, maxContentWidth }, in
     fontSize: 15,
     fontWeight: 'bold',
   },
-  entitlementPreviewDivider: {
+  contextSummaryCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  contextSummaryGradient: {
+    padding: 16,
+  },
+  contextHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  contextKicker: {
+    color: '#A2A1A6',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  contextPlanName: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  contextBadge: {
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+  },
+  contextBadgeText: {
+    color: '#A78BFA',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  contextDivider: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 12,
   },
-  entitlementPreviewText: {
-    color: '#A78BFA',
-    fontSize: 11,
+  contextStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  contextStatItem: {
+    width: '48%',
+  },
+  contextStatLabel: {
+    color: '#A2A1A6',
+    fontSize: 9,
     fontWeight: '600',
-    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  contextStatValue: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 
-export default MembershipBookingScreen;
+export default TrainerBookingScreen;

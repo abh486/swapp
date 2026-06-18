@@ -1,15 +1,13 @@
 // src/api/socketService.js
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getToken } from './apiClient';
+import { getToken, API_BASE_URL } from './apiClient';
 
 class SocketService {
   constructor() {
     this.socket = null;
     this.connected = false;
     this.connectionPromise = null;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 3;
   }
 
   async connect() {
@@ -35,20 +33,23 @@ class SocketService {
       
       // Create a new promise for the connection
       this.connectionPromise = new Promise((resolve, reject) => {
-        this.socket = io('https://bleachable-maricruz-neglectingly.ngrok-free.dev', {
+        // Derive socket URL from the API_BASE_URL
+        const socketUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+
+        this.socket = io(socketUrl, {
           auth: {
             token
           },
-          timeout: 10000,
+          timeout: 5000,
           forceNew: true,
-          transports: ['websocket']
+          reconnection: true, // Let socket.io handle reconnections natively
+          reconnectionAttempts: 3
         });
 
         // Set up event handlers
         this.socket.on('connect', () => {
           console.log('Connected to chat server');
           this.connected = true;
-          this.reconnectAttempts = 0;
           this.connectionPromise = null; // Clear the promise
           resolve(this.socket);
         });
@@ -56,21 +57,19 @@ class SocketService {
         this.socket.on('disconnect', () => {
           console.log('Disconnected from chat server');
           this.connected = false;
-          // Attempt to reconnect
-          this.attemptReconnect();
         });
 
         this.socket.on('connect_error', (error) => {
           console.error('Socket connection error:', error);
           this.connected = false;
-          this.connectionPromise = null; // Clear the promise
+          // Clear promise so future calls can retry
+          this.connectionPromise = null; 
           reject(error);
         });
 
         this.socket.on('error', (error) => {
           console.error('Socket error:', error);
           this.connected = false;
-          this.attemptReconnect();
         });
       });
 
@@ -79,20 +78,6 @@ class SocketService {
       console.error('Socket connection error:', error);
       this.connectionPromise = null; // Clear the promise
       throw error;
-    }
-  }
-
-  attemptReconnect = () => {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
-      setTimeout(() => {
-        this.socket.connect();
-      }, 2000);
-    } else {
-      console.error('Max reconnection attempts reached');
-      this.socket.disconnect();
     }
   }
 

@@ -52,7 +52,7 @@ const TAB_CONFIG = [
 // ─── Colors & Dimensions ─────────────────────────────────────────────────────
 
 const COLORS = {
-  active: '#442728',
+  active: '#E55B4F',
   inactive: '#57595B',
   background: '#000000',
   border: 'rgba(255,255,255,0.1)',

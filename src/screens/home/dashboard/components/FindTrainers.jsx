@@ -9,12 +9,49 @@ import { useDispatch } from 'react-redux';
 import { browseTrainers, getTrainerById } from '../../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { useAuth } from '../../../../context/AuthContext';
+import { useLocation } from '../../../../context/LocationContext';
 import { Strings } from '../../../../config/config'; // Import Config
+
+const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const getDistanceBadgeText = (trainer, userLocation, strings) => {
+  const mode = trainer.serviceMode || 'IN_PERSON';
+  const distVal = trainer.distance !== undefined && trainer.distance !== null
+    ? trainer.distance
+    : calculateHaversineDistance(
+        userLocation?.latitude,
+        userLocation?.longitude,
+        trainer.latitude,
+        trainer.longitude
+      );
+
+  const formattedDistance = distVal !== null ? `${distVal.toFixed(1)} km away` : null;
+
+  if (mode === 'ONLINE') {
+    return 'Online Coach';
+  } else if (mode === 'HYBRID') {
+    return formattedDistance ? `${formattedDistance} • Online Available` : 'Online Available';
+  } else {
+    return formattedDistance || 'In-Person';
+  }
+};
 
 const FindTrainers = () => {
   const dispatch = useDispatch();
   const strings = Strings.FindTrainers;
   const { user } = useAuth();
+  const { userLocation } = useLocation();
 
   const [trainers, setTrainers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +63,12 @@ const FindTrainers = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await dispatch(browseTrainers());
+      const params = {};
+      if (userLocation?.latitude && userLocation?.longitude) {
+        params.latitude = userLocation.latitude;
+        params.longitude = userLocation.longitude;
+      }
+      const result = await dispatch(browseTrainers(params));
       const trainersList = Array.isArray(result) ? result : (result?.trainers || result?.data || []);
       if (trainersList && Array.isArray(trainersList)) {
           setTrainers(trainersList);
@@ -39,7 +81,7 @@ const FindTrainers = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userLocation, dispatch]);
 
   useEffect(() => {
     fetchTrainers();
@@ -106,9 +148,9 @@ const FindTrainers = () => {
                 <View style={[styles.statusIndicator, styles.statusOnline]} />
               </View>
               <View style={styles.trainerInfo}>
-                <Text style={styles.trainerName}>{trainer.user?.email.split('@')[0] || 'Trainer'}</Text>
+                <Text style={styles.trainerName}>{trainer.name || trainer.user?.email.split('@')[0] || 'Trainer'}</Text>
                 <View style={styles.onlineStatus}>
-                  <Text style={styles.statusText}>{strings.card.online}</Text>
+                  <Text style={styles.statusText}>{getDistanceBadgeText(trainer, userLocation, strings)}</Text>
                 </View>
               </View>
               <View style={styles.ratingContainer}>

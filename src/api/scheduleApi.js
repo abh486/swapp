@@ -18,7 +18,7 @@ export const fetchMemberProviderAvailability = async ({ providerId, date, catego
     },
   });
   const data = unwrapApiData(response);
-  const slots = Array.isArray(data) ? data : data?.slots || [];
+  const slots = Array.isArray(data) ? data : data?.data?.slots || data?.slots || [];
 
   return {
     raw: response.data,

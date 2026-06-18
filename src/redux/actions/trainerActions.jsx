@@ -3,10 +3,10 @@ import socketService from '../../api/socketService';
 import { startConversation, getMessages, sendMessage } from './chatActions';
 import * as types from '../actionTypes/actionTypes';
 
-export const browseTrainers = () => async (dispatch) => {
+export const browseTrainers = (params = {}) => async (dispatch) => {
   dispatch({ type: types.TRAINER_BROWSE_REQUEST });
   try {
-    const response = await apiClient.get('/trainers/browse');
+    const response = await apiClient.get('/trainers/browse', { params });
     dispatch({
       type: types.TRAINER_BROWSE_SUCCESS,
       payload: response.data.data,
@@ -26,7 +26,7 @@ export const getTrainerById = (userId) => async (dispatch) => {
   dispatch({ type: types.TRAINER_GET_BY_ID_REQUEST });
   try {
     console.log(`[API] Fetching trainer profile for user ID: ${userId}`);
-    const response = await apiClient.get(`/trainers/profile/${userId}`);
+    const response = await apiClient.get(`/trainers/${userId}`);
     console.log(`[API] Successfully fetched trainer profile:`, response.data.data);
     dispatch({
       type: types.TRAINER_GET_BY_ID_SUCCESS,
@@ -47,7 +47,7 @@ export const getTrainerProfileByTrainerId = (trainerId) => async (dispatch) => {
   dispatch({ type: types.TRAINER_GET_BY_TRAINER_ID_REQUEST });
   try {
     console.log(`[API] Fetching trainer profile by trainer ID: ${trainerId}`);
-    const response = await apiClient.get(`/trainers/id/${trainerId}`);
+    const response = await apiClient.get(`/trainers/${trainerId}`);
     console.log(`[API] Successfully fetched trainer profile by trainer ID:`, response.data.data);
     dispatch({
       type: types.TRAINER_GET_BY_TRAINER_ID_SUCCESS,
