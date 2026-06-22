@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const DietMacros = ({ handleTrackWithCamera, dailySummary }) => {
+const DietMacros = ({ handleTrackWithCamera, handlePlusButtonPress, dailySummary }) => {
   const summary = dailySummary?.summary || {};
   const targets = dailySummary?.targets || {};
 
@@ -33,7 +33,7 @@ const DietMacros = ({ handleTrackWithCamera, dailySummary }) => {
           <TouchableOpacity style={styles.iconButton} onPress={handleTrackWithCamera}>
             <Icon name="camera" size={20} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButtonDark} onPress={handleTrackWithCamera}>
+          <TouchableOpacity style={styles.iconButtonDark} onPress={handlePlusButtonPress}>
             <Icon name="add" size={20} color="#000" />
           </TouchableOpacity>
         </View>

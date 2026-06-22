@@ -14,6 +14,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import apiClient from '../../../../api/apiClient';
+import { useAuth } from '../../../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,18 @@ const DietHeader = ({
   handleTrackFood,
   handleGoToPreferences,
 }) => {
+  const { user } = useAuth();
+  const profileData = user?.userProfile || user?.memberProfile || user || {};
+  const userName =
+    profileData.name ||
+    `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() ||
+    'Member';
+  const userAvatar =
+    profileData.profileImage ||
+    profileData.profilePicture ||
+    profileData.profilePhoto ||
+    profileData.avatar;
+
   const summary = dailySummary?.summary || {};
   const targets = dailySummary?.targets || {};
 
@@ -85,7 +98,7 @@ const DietHeader = ({
   // Outer circle (BURN): r=80, C ~ 502.65, 270 deg length = 377
   // Middle circle (SLEEP): r=60, C ~ 376.99, 270 deg length = 282.7
   // Inner circle (FOOD INTAKE): r=40, C ~ 251.33, 270 deg length = 188.5
-  
+
   const burnCirc = 2 * Math.PI * 80;
   const burnArcLen = burnCirc * 0.75;
 
@@ -107,17 +120,23 @@ const DietHeader = ({
       {/* Top Profile + Streak Row */}
       <View style={styles.topRow}>
         <View style={styles.profileContainer}>
-          <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80' }}
-            style={styles.avatar}
-          />
+          {userAvatar ? (
+            <Image
+              source={{ uri: userAvatar }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: '#1E1E1E', justifyContent: 'center', alignItems: 'center' }]}>
+              <Icon name="person" size={20} color="rgba(255, 255, 255, 0.7)" />
+            </View>
+          )}
           <LinearGradient
             colors={['rgba(124, 77, 255, 0.15)', 'rgba(255, 255, 255, 0.03)']}
             style={styles.profileBadge}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.profileName}>Brian</Text>
+            <Text style={styles.profileName}>{userName}</Text>
             <Text style={styles.profileStatus}>Premium User</Text>
           </LinearGradient>
         </View>

@@ -40,6 +40,7 @@ import AIDieticianSubscriptionScreen from '../screens/AIDieticianSubscriptionScr
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
+import AppsAndDevicesScreen from '../screens/profile/AppsAndDevicesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -173,6 +174,10 @@ const AppNavigator = () => {
                   component={ProfileSettingsScreen}
                 />
                 <Stack.Screen
+                  name="AppsAndDevices"
+                  component={AppsAndDevicesScreen}
+                />
+                <Stack.Screen
                   name="EditPersonalInfo"
                   component={EditPersonalInfoScreen}
                 />
@@ -192,7 +197,6 @@ const AppNavigator = () => {
                   name="ManageSubscriptions"
                   component={ManageSubscriptionsScreen}
                 />
-                <Stack.Screen name="Support" component={SupportScreen} />
                 <Stack.Screen name="FollowList" component={FollowListScreen} />
                 {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
               </>

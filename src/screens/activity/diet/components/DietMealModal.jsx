@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, SafeAreaView, TouchableOpacity, ScrollView, Image, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, SafeAreaView, TouchableOpacity, ScrollView, Image, TextInput, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { analyzeMealWithAI, saveDietEntry } from '../../../../redux/actions/dietActions';
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
 
 const DietMealModal = ({
   showMealModal,
@@ -74,195 +77,202 @@ const DietMealModal = ({
 
           <View style={styles.modalContentContainer}>
             <View style={[styles.modalBottomSheet, (mealStep === 2 || aiLoading) && styles.modalBottomSheetExpanded]}>
-              {/* Image Overlap */}
-              <View style={styles.modalImageWrapper}>
-                {selectedImage ? (
-                  <Image source={{ uri: selectedImage }} style={styles.modalImage} />
-                ) : (
-                  <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
-                    <Icon name="restaurant-outline" size={60} color="#888" />
-                  </View>
-                )}
-                {mealStep === 1 && !aiLoading && (
-                  <View style={styles.checkBadge}>
-                    <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
-                  </View>
-                )}
-              </View>
-
-              {aiLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
-                  <Text style={styles.loadingText}>AI is analyzing your food... 🤖</Text>
-                  <Text style={styles.loadingSubtext}>Connecting to local AI service on port 11434</Text>
-                </View>
-              ) : (
-                <>
-                  {/* Controls Row */}
-                  <View style={styles.modalControlsRow}>
-                    <TouchableOpacity 
-                      style={styles.lunchDropdown}
-                      onPress={() => {
-                        Alert.alert(
-                          "Select Meal Type",
-                          "Choose when you had this meal:",
-                          [
-                            { text: "Breakfast", onPress: () => setSelectedMealType("Breakfast") },
-                            { text: "Morning Snack", onPress: () => setSelectedMealType("Morning Snack") },
-                            { text: "Lunch", onPress: () => setSelectedMealType("Lunch") },
-                            { text: "Evening Snack", onPress: () => setSelectedMealType("Evening Snack") },
-                            { text: "Dinner", onPress: () => setSelectedMealType("Dinner") },
-                            { text: "Cancel", style: "cancel" }
-                          ]
-                        );
-                      }}
-                    >
-                      <Text style={styles.lunchDropdownText}>{selectedMealType}</Text>
-                      <Icon name="chevron-down" size={16} color="#FFF" />
-                    </TouchableOpacity>
-
-                    <View style={styles.quantitySelector}>
-                      <TouchableOpacity onPress={() => setMealQuantity(Math.max(1, mealQuantity - 1))}>
-                        <Text style={styles.quantityBtnText}>-</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.quantityValue}>{mealQuantity}</Text>
-                      <TouchableOpacity onPress={() => setMealQuantity(mealQuantity + 1)}>
-                        <Text style={styles.quantityBtnText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Meal Info */}
-                  <Text style={styles.mealName}>{nutritionData?.mealName || 'Unnamed Meal'}</Text>
-                  <View style={styles.caloriesRow}>
-                    <Text style={styles.caloriesText}>🔥 Calories  {Math.round((nutritionData?.calories || 0) * mealQuantity)}</Text>
-                  </View>
-
-                  {mealStep === 1 ? (
-                    <>
-                      {/* Text Description Input */}
-                      <View style={styles.textInputCard}>
-                        <Text style={styles.textInputLabel}>Describe your meal to scan with AI:</Text>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="e.g., 2 eggs, avocado toast and green tea"
-                          placeholderTextColor="#777"
-                          value={mealDescription}
-                          onChangeText={setMealDescription}
-                          multiline
-                        />
-                        <TouchableOpacity style={styles.analyzeBtn} onPress={handleTextAnalysis}>
-                          <Text style={styles.analyzeBtnText}>Analyze Description with AI 🤖</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Move Meal Options */}
-                      <View style={styles.moveMealCard}>
-                        <Text style={styles.moveMealTitle}>Where do you want to move this meal?</Text>
-                        
-                        {['Breakfast', 'Morning Snack', 'Lunch', 'Evening Snack', 'Dinner'].map((option, index) => (
-                          <TouchableOpacity 
-                            key={index} 
-                            style={styles.moveMealOption} 
-                            onPress={() => {
-                              setSelectedMealType(option);
-                              setMealStep(2);
-                            }}
-                          >
-                            <Text style={styles.moveMealOptionText}>{option}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-
-                      {/* Cancel Button */}
-                      <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowMealModal(false); setMealStep(1); setMealDescription(''); }}>
-                        <Text style={styles.modalCancelBtnText}>Cancel</Text>
-                      </TouchableOpacity>
-                    </>
+              <ScrollView
+                style={styles.sheetScrollView}
+                contentContainerStyle={styles.sheetScrollViewContent}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {/* Image Overlap */}
+                <View style={styles.modalImageWrapper}>
+                  {selectedImage ? (
+                    <Image source={{ uri: selectedImage }} style={styles.modalImage} />
                   ) : (
-                    <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                      {/* Step 2: Macros */}
-                      <View style={styles.macrosCardContainer}>
-                        <View style={[styles.macroDetailCard, { backgroundColor: '#D67C30' }]}>
-                          <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.carbs || 0) * mealQuantity)}g</Text>
-                          <Text style={styles.macroDetailLabel}>Carbs</Text>
-                          <View style={styles.macroRingContainer}>
-                             <View style={styles.macroRingOuter}>
-                               <View style={styles.macroRingInner} />
-                             </View>
-                          </View>
-                        </View>
-                        <View style={[styles.macroDetailCard, { backgroundColor: '#3E8EB1' }]}>
-                          <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.fats || 0) * mealQuantity)}g</Text>
-                          <Text style={styles.macroDetailLabel}>Fat</Text>
-                          <View style={styles.macroRingContainer}>
-                             <View style={styles.macroRingOuter}>
-                               <View style={styles.macroRingInner} />
-                             </View>
-                          </View>
-                        </View>
-                        <View style={[styles.macroDetailCard, { backgroundColor: '#4AA97D' }]}>
-                          <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.protein || 0) * mealQuantity)}g</Text>
-                          <Text style={styles.macroDetailLabel}>Protein</Text>
-                          <View style={styles.macroRingContainer}>
-                             <View style={styles.macroRingOuter}>
-                               <View style={styles.macroRingInner} />
-                             </View>
-                          </View>
-                        </View>
-                        <View style={[styles.macroDetailCard, { backgroundColor: '#826EEA' }]}>
-                          <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.calories || 0) * mealQuantity)}</Text>
-                          <Text style={styles.macroDetailLabel}>Kcal</Text>
-                          <View style={styles.macroRingContainer}>
-                             <View style={styles.macroRingOuter}>
-                               <View style={styles.macroRingInner} />
-                             </View>
-                          </View>
-                        </View>
-                      </View>
-
+                    <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
+                      <Icon name="restaurant-outline" size={60} color="#888" />
+                    </View>
+                  )}
+                  {mealStep === 1 && !aiLoading && (
+                    <View style={styles.checkBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
+                    </View>
+                  )}
+                </View>
+ 
+                {aiLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
+                    <Text style={styles.loadingText}>AI is analyzing your food... 🤖</Text>
+                    <Text style={styles.loadingSubtext}>Connecting to local AI service on port 11434</Text>
+                  </View>
+                ) : (
+                  <>
+                    {/* Controls Row */}
+                    <View style={styles.modalControlsRow}>
                       <TouchableOpacity 
-                        style={[styles.modalDoneBtn, { marginTop: 10, marginBottom: 20 }]} 
-                        onPress={async () => {
-                          setAiLoading(true);
-                          try {
-                            const payload = {
-                              mealName: nutritionData.mealName,
-                              mealType: selectedMealType.toLowerCase(),
-                              calories: Math.round((nutritionData.calories || 0) * mealQuantity),
-                              protein: Math.round((nutritionData.protein || 0) * mealQuantity),
-                              carbs: Math.round((nutritionData.carbs || 0) * mealQuantity),
-                              fats: Math.round((nutritionData.fats || 0) * mealQuantity),
-                              notes: mealDescription || '',
-                              photoUrl: uploadedImageUrl,
-                              photo: selectedImage ? { uri: selectedImage } : null,
-                            };
-                            
-                            console.log('[DietMealModal] Dispatching saveDietEntry:', payload);
-                            const saveResponse = await dispatch(saveDietEntry(payload));
-                            
-                            if (saveResponse.success) {
-                              setTrackedMealImage(selectedImage);
-                              setShowMealModal(false); 
-                              setMealStep(1);
-                              setMealDescription('');
-                            } else {
-                              Alert.alert("Save Error", saveResponse.message || "Failed to log diet entry.");
-                            }
-                          } catch (err) {
-                            console.error('[DietMealModal] Save log error:', err);
-                            Alert.alert("Error", "An unexpected error occurred while logging.");
-                          } finally {
-                            setAiLoading(false);
-                          }
+                        style={styles.lunchDropdown}
+                        onPress={() => {
+                          Alert.alert(
+                            "Select Meal Type",
+                            "Choose when you had this meal:",
+                            [
+                              { text: "Breakfast", onPress: () => setSelectedMealType("Breakfast") },
+                              { text: "Morning Snack", onPress: () => setSelectedMealType("Morning Snack") },
+                              { text: "Lunch", onPress: () => setSelectedMealType("Lunch") },
+                              { text: "Evening Snack", onPress: () => setSelectedMealType("Evening Snack") },
+                              { text: "Dinner", onPress: () => setSelectedMealType("Dinner") },
+                              { text: "Cancel", style: "cancel" }
+                            ]
+                          );
                         }}
                       >
-                        <Text style={styles.modalDoneBtnText}>Done</Text>
+                        <Text style={styles.lunchDropdownText}>{selectedMealType}</Text>
+                        <Icon name="chevron-down" size={16} color="#FFF" />
                       </TouchableOpacity>
-                    </ScrollView>
-                  )}
-                </>
-              )}
+ 
+                      <View style={styles.quantitySelector}>
+                        <TouchableOpacity onPress={() => setMealQuantity(Math.max(1, mealQuantity - 1))}>
+                          <Text style={styles.quantityBtnText}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.quantityValue}>{mealQuantity}</Text>
+                        <TouchableOpacity onPress={() => setMealQuantity(mealQuantity + 1)}>
+                          <Text style={styles.quantityBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+ 
+                    {/* Meal Info */}
+                    <Text style={styles.mealName}>{nutritionData?.mealName || 'Unnamed Meal'}</Text>
+                    <View style={styles.caloriesRow}>
+                      <Text style={styles.caloriesText}>🔥 Calories  {Math.round((nutritionData?.calories || 0) * mealQuantity)}</Text>
+                    </View>
+ 
+                    {mealStep === 1 ? (
+                      <>
+                        {/* Text Description Input */}
+                        <View style={styles.textInputCard}>
+                          <Text style={styles.textInputLabel}>Describe your meal to scan with AI:</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            placeholder="e.g., 2 eggs, avocado toast and green tea"
+                            placeholderTextColor="#777"
+                            value={mealDescription}
+                            onChangeText={setMealDescription}
+                            multiline
+                          />
+                          <TouchableOpacity style={styles.analyzeBtn} onPress={handleTextAnalysis}>
+                            <Text style={styles.analyzeBtnText}>Analyze Description with AI 🤖</Text>
+                          </TouchableOpacity>
+                        </View>
+ 
+                        {/* Move Meal Options */}
+                        <View style={styles.moveMealCard}>
+                          <Text style={styles.moveMealTitle}>Where do you want to move this meal?</Text>
+                          
+                          {['Breakfast', 'Morning Snack', 'Lunch', 'Evening Snack', 'Dinner'].map((option, index) => (
+                            <TouchableOpacity 
+                              key={index} 
+                              style={styles.moveMealOption} 
+                              onPress={() => {
+                                setSelectedMealType(option);
+                                setMealStep(2);
+                              }}
+                            >
+                              <Text style={styles.moveMealOptionText}>{option}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+ 
+                        {/* Cancel Button */}
+                        <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowMealModal(false); setMealStep(1); setMealDescription(''); }}>
+                          <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        {/* Step 2: Macros */}
+                        <View style={styles.macrosCardContainer}>
+                          <View style={[styles.macroDetailCard, { backgroundColor: '#D67C30' }]}>
+                            <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.carbs || 0) * mealQuantity)}g</Text>
+                            <Text style={styles.macroDetailLabel}>Carbs</Text>
+                            <View style={styles.macroRingContainer}>
+                               <View style={styles.macroRingOuter}>
+                                 <View style={styles.macroRingInner} />
+                               </View>
+                            </View>
+                          </View>
+                          <View style={[styles.macroDetailCard, { backgroundColor: '#3E8EB1' }]}>
+                            <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.fats || 0) * mealQuantity)}g</Text>
+                            <Text style={styles.macroDetailLabel}>Fat</Text>
+                            <View style={styles.macroRingContainer}>
+                               <View style={styles.macroRingOuter}>
+                                 <View style={styles.macroRingInner} />
+                               </View>
+                            </View>
+                          </View>
+                          <View style={[styles.macroDetailCard, { backgroundColor: '#4AA97D' }]}>
+                            <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.protein || 0) * mealQuantity)}g</Text>
+                            <Text style={styles.macroDetailLabel}>Protein</Text>
+                            <View style={styles.macroRingContainer}>
+                               <View style={styles.macroRingOuter}>
+                                 <View style={styles.macroRingInner} />
+                               </View>
+                            </View>
+                          </View>
+                          <View style={[styles.macroDetailCard, { backgroundColor: '#826EEA' }]}>
+                            <Text style={styles.macroDetailValue}>{Math.round((nutritionData?.calories || 0) * mealQuantity)}</Text>
+                            <Text style={styles.macroDetailLabel}>Kcal</Text>
+                            <View style={styles.macroRingContainer}>
+                               <View style={styles.macroRingOuter}>
+                                 <View style={styles.macroRingInner} />
+                               </View>
+                            </View>
+                          </View>
+                        </View>
+ 
+                        <TouchableOpacity 
+                          style={[styles.modalDoneBtn, { marginTop: 10, marginBottom: 20 }]} 
+                          onPress={async () => {
+                            setAiLoading(true);
+                            try {
+                              const payload = {
+                                mealName: nutritionData.mealName,
+                                mealType: selectedMealType.toLowerCase(),
+                                calories: Math.round((nutritionData.calories || 0) * mealQuantity),
+                                protein: Math.round((nutritionData.protein || 0) * mealQuantity),
+                                carbs: Math.round((nutritionData.carbs || 0) * mealQuantity),
+                                fats: Math.round((nutritionData.fats || 0) * mealQuantity),
+                                notes: mealDescription || '',
+                                photoUrl: uploadedImageUrl,
+                                photo: selectedImage ? { uri: selectedImage } : null,
+                              };
+                              
+                              console.log('[DietMealModal] Dispatching saveDietEntry:', payload);
+                              const saveResponse = await dispatch(saveDietEntry(payload));
+                              
+                              if (saveResponse.success) {
+                                setTrackedMealImage(selectedImage);
+                                setShowMealModal(false); 
+                                setMealStep(1);
+                                setMealDescription('');
+                              } else {
+                                Alert.alert("Save Error", saveResponse.message || "Failed to log diet entry.");
+                              }
+                            } catch (err) {
+                              console.error('[DietMealModal] Save log error:', err);
+                              Alert.alert("Error", "An unexpected error occurred while logging.");
+                            } finally {
+                              setAiLoading(false);
+                            }
+                          }}
+                        >
+                          <Text style={styles.modalDoneBtnText}>Done</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </>
+                )}
+              </ScrollView>
             </View>
           </View>
         </SafeAreaView>
@@ -318,16 +328,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     paddingHorizontal: 20,
-    paddingBottom: 40,
     paddingTop: 0,
-    marginTop: 150,
+    maxHeight: SCREEN_HEIGHT - 100,
   },
-  modalBottomSheetExpanded: {
-    marginTop: 80,
+  modalBottomSheetExpanded: {},
+  sheetScrollView: {
+    width: '100%',
+    overflow: 'visible',
+  },
+  sheetScrollViewContent: {
+    paddingBottom: 40,
   },
   modalImageWrapper: {
     alignSelf: 'center',
-    marginTop: -115,
+    marginTop: SCREEN_HEIGHT < 680 ? -90 : -115,
     marginBottom: 0,
     position: 'relative',
     zIndex: 2,
@@ -338,9 +352,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalImage: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
+    width: SCREEN_HEIGHT < 680 ? 180 : 230,
+    height: SCREEN_HEIGHT < 680 ? 180 : 230,
+    borderRadius: SCREEN_HEIGHT < 680 ? 90 : 115,
     borderWidth: 4,
     borderColor: '#555',
   },
@@ -363,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 10,
-    marginTop: -70,
+    marginTop: SCREEN_HEIGHT < 680 ? -50 : -70,
     zIndex: 1,
   },
   lunchDropdown: {
@@ -482,12 +496,12 @@ const styles = StyleSheet.create({
   },
   macroDetailValue: {
     color: '#000',
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH < 375 ? 12 : 15,
     fontWeight: 'bold',
   },
   macroDetailLabel: {
     color: '#000',
-    fontSize: 12,
+    fontSize: SCREEN_WIDTH < 375 ? 10 : 12,
     marginBottom: 8,
   },
   macroRingContainer: {
@@ -497,19 +511,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   macroRingOuter: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 3,
+    width: SCREEN_WIDTH < 375 ? 28 : 36,
+    height: SCREEN_WIDTH < 375 ? 28 : 36,
+    borderRadius: SCREEN_WIDTH < 375 ? 14 : 18,
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   macroRingInner: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 4,
+    width: SCREEN_WIDTH < 375 ? 18 : 24,
+    height: SCREEN_WIDTH < 375 ? 18 : 24,
+    borderRadius: SCREEN_WIDTH < 375 ? 9 : 12,
+    borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.8)',
   },
   ingredientsContainer: {

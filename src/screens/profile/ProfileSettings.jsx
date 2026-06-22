@@ -193,7 +193,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.rowNoBorder}>
+          <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('AppsAndDevices')}>
             <View style={[styles.rowLeft, { paddingLeft: 30 }]}>
               <Text style={styles.rowText}>Connect Apple Health</Text>
             </View>

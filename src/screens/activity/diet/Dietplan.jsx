@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,8 @@ import {
   Dimensions,
   ActivityIndicator,
   TouchableOpacity,
-  Text
-  Dimensions,
-  TextInput,
-  ActivityIndicator,
   Text,
-  TouchableOpacity
+  TextInput,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
@@ -24,6 +20,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useDispatch } from 'react-redux';
+import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
+import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -33,6 +32,7 @@ import DietWaterWidget from './components/DietWaterWidget';
 import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
+import DietMealSelectionModal from './components/DietMealSelectionModal';
 
 const { width } = Dimensions.get('window');
 
@@ -61,6 +61,7 @@ const buildCalendarDays = (selectedDate) => {
 };
 
 const Dietplan = ({ navigation }) => {
+  const dispatch = useDispatch();
   const cameraRef = useRef(null);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -70,6 +71,8 @@ const Dietplan = ({ navigation }) => {
 
   // --- MODAL & LOG STATE ---
   const [showMealModal, setShowMealModal] = useState(false);
+  const [showMealSelectionModal, setShowMealSelectionModal] = useState(false);
+  const [logs, setLogs] = useState([]);
 
   // --- NUTRITION ENGINE STATES ---
   const [dailySummary, setDailySummary] = useState(null);
@@ -122,10 +125,11 @@ const Dietplan = ({ navigation }) => {
         generate: 'false'
       };
 
-      const [summaryResponse, recsResponse, analyticsResponse] = await Promise.all([
+      const [summaryResponse, recsResponse, analyticsResponse, logsResponse] = await Promise.all([
         apiClient.get(`/summary/daily?date=${formattedDate}`),
         apiClient.get('/recommendations', { params: recommendationsParams }),
-        apiClient.get('/analytics')
+        apiClient.get('/analytics'),
+        apiClient.get('/diet/logs')
       ]);
 
       if (summaryResponse.data?.success) {
@@ -136,6 +140,15 @@ const Dietplan = ({ navigation }) => {
       }
       if (analyticsResponse.data?.success) {
         setAnalyticsData(analyticsResponse.data.data);
+      }
+      if (logsResponse.data) {
+        const payload = logsResponse.data?.data || logsResponse.data || [];
+        const normalized = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.logs)
+            ? payload.logs
+            : [];
+        setLogs(normalized);
       }
     } catch (error) {
       console.warn('[Dietplan] Failed to fetch nutrition/analytics data:', error.message);
@@ -228,7 +241,7 @@ const Dietplan = ({ navigation }) => {
   const [mealQuantity, setMealQuantity] = useState(1);
   const [mealStep, setMealStep] = useState(1);
   const [trackedMealImage, setTrackedMealImage] = useState(null);
-  
+
   // --- AI LOG STATE ---
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -262,6 +275,27 @@ const Dietplan = ({ navigation }) => {
     setShowCameraOverlay(true);
   }, []);
 
+  const dailyLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const logDate = log.createdAt ? new Date(log.createdAt) : new Date(log.date);
+      return logDate.toDateString() === selectedDate.toDateString();
+    });
+  }, [logs, selectedDate]);
+
+  const handlePlusButtonPress = useCallback(() => {
+    setShowMealSelectionModal(true);
+  }, []);
+
+  const handleSelectMeal = useCallback((mealType) => {
+    setShowMealSelectionModal(false);
+    setSelectedMealType(mealType);
+    setSelectedImage(null);
+    setMealQuantity(1);
+    setMealStep(1);
+    setMealDescription('');
+    setShowMealModal(true);
+  }, []);
+
   const handleUploadPhoto = useCallback(() => {
     launchImageLibrary(
       { mediaType: 'photo', quality: 0.8 },
@@ -279,7 +313,7 @@ const Dietplan = ({ navigation }) => {
             console.log('[Dietplan] Uploading picked photo to Cloudinary...');
             const uploadedUrl = await uploadToCloudinary(imageAsset);
             setUploadedImageUrl(uploadedUrl);
-            
+
             console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
             const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
             if (aiResponse.success && aiResponse.data) {
@@ -307,11 +341,11 @@ const Dietplan = ({ navigation }) => {
 
       // Directly attempt to take the photo using Vision Camera V5 API. 
       const photo = await photoOutput.capturePhotoToFile({ flashMode: 'off' }, {});
-      
+
       if (photo && photo.filePath) {
         // Android already prepends 'file://', iOS does not.
         const imagePath = photo.filePath.startsWith('file://') ? photo.filePath : 'file://' + photo.filePath;
-        
+
         setSelectedImage(imagePath);
         setMealStep(1);
         setMealQuantity(1);
@@ -328,7 +362,7 @@ const Dietplan = ({ navigation }) => {
           console.log('[Dietplan] Uploading captured photo to Cloudinary...');
           const uploadedUrl = await uploadToCloudinary(imageAsset);
           setUploadedImageUrl(uploadedUrl);
-          
+
           console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
           const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
           if (aiResponse.success && aiResponse.data) {
@@ -347,7 +381,7 @@ const Dietplan = ({ navigation }) => {
       }
     } catch (error) {
       Alert.alert(
-        "Camera Not Ready", 
+        "Camera Not Ready",
         "Please wait a moment for the camera to initialize before taking a photo."
       );
       console.error('Camera capture error:', error);
@@ -366,13 +400,13 @@ const Dietplan = ({ navigation }) => {
         return;
       }
     }
-    
+
     if (date) {
       setSelectedDate(date);
       if (Platform.OS !== 'ios') {
         setShowDatePicker(false);
       }
-      
+
       // Automatically switch the weekly diet plan tab to match the selected calendar day
       setSelectedPlanDay(PLAN_DAY_NAMES[date.getDay()]);
       setCalendarDays(buildCalendarDays(date));
@@ -386,10 +420,123 @@ const Dietplan = ({ navigation }) => {
     setShowDatePicker(false);
   };
 
+  const renderWeeklyDietPlan = () => {
+    if (!recommendation || !recommendation.weeklyPlan) return null;
+
+    const days = PLAN_DAY_NAMES;
+    const dayDataKey = Object.keys(recommendation.weeklyPlan).find(
+      key => key.toLowerCase() === selectedPlanDay.toLowerCase()
+    );
+    const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
+
+    return (
+      <View style={styles.weeklyPlanSection}>
+        <LinearGradient
+          colors={['#1a1c23', '#0f1013']}
+          style={[styles.weeklyPlanCard, { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.planHeaderRow}>
+            <View style={styles.titleRow}>
+              <Icon name="restaurant-outline" size={18} color="#e74c3c" />
+              <Text style={styles.planTitle}>AI WEEKLY DIET PLAN</Text>
+            </View>
+            <Text style={styles.planSubtitle}>Customized nutritional program for your goal</Text>
+          </View>
+
+          {/* Day Tabs Container View to wrap ScrollView on iOS */}
+          <View style={styles.dayTabsContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dayTabsWrapper}
+            >
+              {days.map((day) => {
+                const isActive = day.toLowerCase() === selectedPlanDay.toLowerCase();
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={[styles.dayTab, isActive && styles.activeDayTab]}
+                    onPress={() => setSelectedPlanDay(day)}
+                  >
+                    <Text style={[styles.dayTabText, isActive && styles.activeDayTabText]}>
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Meals for Selected Day */}
+          <View style={styles.mealsList}>
+            {meals && meals.length > 0 ? (
+              meals.map((meal, index) => {
+                let iconName = 'restaurant-outline';
+                let iconColor = '#FF7A00';
+                const typeLower = (meal.mealType || meal.type || '').toLowerCase();
+                if (typeLower.includes('breakfast')) {
+                  iconName = 'cafe-outline';
+                  iconColor = '#00E676';
+                } else if (typeLower.includes('snack')) {
+                  iconName = 'nutrition-outline';
+                  iconColor = '#7C4DFF';
+                } else if (typeLower.includes('lunch')) {
+                  iconName = 'restaurant-outline';
+                  iconColor = '#FF7A00';
+                } else if (typeLower.includes('dinner')) {
+                  iconName = 'sunny-outline';
+                  iconColor = '#FF5252';
+                }
+
+                return (
+                  <View key={index} style={styles.mealCard}>
+                    <View style={[styles.mealIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.03)' }]}>
+                      <Icon name={iconName} size={20} color={iconColor} />
+                    </View>
+                    <View style={styles.mealDetails}>
+                      <View style={styles.mealTypeRow}>
+                        <Text style={[styles.mealTypeText, { color: iconColor }]}>
+                          {(meal.mealType || meal.type || 'Meal').toUpperCase()}
+                        </Text>
+                        <Text style={styles.mealCaloriesText}>
+                          {meal.calories || 0} kcal
+                        </Text>
+                      </View>
+                      <Text style={styles.mealDescriptionText}>
+                        {meal.mealName || meal.name || meal.description || 'Nutritious meal'}
+                      </Text>
+                      <View style={styles.macroBadgesRow}>
+                        <View style={[styles.macroBadge, { marginRight: 6 }]}>
+                          <Text style={styles.macroBadgeText}>P: {meal.protein || 0}g</Text>
+                        </View>
+                        <View style={[styles.macroBadge, { marginRight: 6 }]}>
+                          <Text style={styles.macroBadgeText}>C: {meal.carbs || 0}g</Text>
+                        </View>
+                        <View style={styles.macroBadge}>
+                          <Text style={styles.macroBadgeText}>F: {meal.fats || 0}g</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={[styles.planSubtitle, { textAlign: 'center', marginVertical: 10 }]}>
+                No meals recommended for this day.
+              </Text>
+            )}
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
-      
+
       {isNutritionLoading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#e74c3c" />
@@ -398,92 +545,93 @@ const Dietplan = ({ navigation }) => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
-        
-        <DietHeader 
-          calendarDays={calendarDays} 
-          handleCalendarPress={handleCalendarPress} 
-          dailySummary={dailySummary}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          setCalendarDays={setCalendarDays}
-          PLAN_DAY_NAMES={PLAN_DAY_NAMES}
-          setSelectedPlanDay={setSelectedPlanDay}
-          fetchNutritionData={fetchNutritionData}
-          buildCalendarDays={buildCalendarDays}
-          handleTrackFood={handleTrackFood}
-          handleGoToPreferences={handleGoToPreferences}
-        />
-            <DietMacros 
-              handleTrackWithCamera={handleTrackWithCamera} 
-              dailySummary={dailySummary} 
-            />
 
-            <DietWaterWidget dailySummary={dailySummary} />
+          <DietHeader
+            calendarDays={calendarDays}
+            handleCalendarPress={handleCalendarPress}
+            dailySummary={dailySummary}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            setCalendarDays={setCalendarDays}
+            PLAN_DAY_NAMES={PLAN_DAY_NAMES}
+            setSelectedPlanDay={setSelectedPlanDay}
+            fetchNutritionData={fetchNutritionData}
+            buildCalendarDays={buildCalendarDays}
+            handleTrackFood={handleTrackFood}
+            handleGoToPreferences={handleGoToPreferences}
+          />
+          <DietMacros
+            handleTrackWithCamera={handleTrackWithCamera}
+            handlePlusButtonPress={handlePlusButtonPress}
+            dailySummary={dailySummary}
+          />
 
-            {!recommendation ? (
+          <DietWaterWidget dailySummary={dailySummary} selectedDate={selectedDate} />
+
+          {!recommendation ? (
+            <View style={styles.weeklyPlanSection}>
+              <LinearGradient
+                colors={['#1a1c23', '#0f1013']}
+                style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40 }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <ActivityIndicator size="small" color="#e74c3c" />
+                <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
+                <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
+              </LinearGradient>
+            </View>
+          ) : (
+            isGeneratingPlan ? (
               <View style={styles.weeklyPlanSection}>
                 <LinearGradient
                   colors={['#1a1c23', '#0f1013']}
-                  style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }]}
+                  style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40 }]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <ActivityIndicator size="small" color="#e74c3c" />
-                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
-                  <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
+                  <ActivityIndicator size="large" color="#e74c3c" />
+                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
+                  <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
                 </LinearGradient>
               </View>
             ) : (
-              isGeneratingPlan ? (
+              recommendation.weeklyPlan ? renderWeeklyDietPlan() : (
                 <View style={styles.weeklyPlanSection}>
                   <LinearGradient
                     colors={['#1a1c23', '#0f1013']}
-                    style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }]}
+                    style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30 }]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <ActivityIndicator size="large" color="#e74c3c" />
-                    <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
-                    <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
+                    <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
+                    <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 8 }]}>NO DIET PLAN GENERATED YET</Text>
+                    <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 20, lineHeight: 18 }]}>
+                      Customize your preferences and click below to generate your weekly diet plan using AI.
+                    </Text>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#e74c3c', width: '85%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginTop: 10 }}
+                      onPress={handleGenerateWeeklyPlan}
+                    >
+                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Generate Weekly Diet Plan</Text>
+                    </TouchableOpacity>
                   </LinearGradient>
                 </View>
-              ) : (
-                recommendation.weeklyPlan ? renderWeeklyDietPlan() : (
-                  <View style={styles.weeklyPlanSection}>
-                    <LinearGradient
-                      colors={['#1a1c23', '#0f1013']}
-                      style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingVertical: 30 }]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
-                      <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 6 }]}>NO DIET PLAN GENERATED YET</Text>
-                      <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 16 }]}>
-                        Customize your preferences and click below to generate your weekly diet plan using AI.
-                      </Text>
-                      <TouchableOpacity 
-                        style={[styles.submitButton, { backgroundColor: '#e74c3c', width: '80%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginLeft: 0 }]}
-                        onPress={handleGenerateWeeklyPlan}
-                      >
-                        <Text style={[styles.submitButtonText, { fontSize: 14, fontWeight: 'bold' }]}>Generate Weekly Diet Plan</Text>
-                      </TouchableOpacity>
-                    </LinearGradient>
-                  </View>
-                )
               )
-            )}
+            )
+          )}
 
-            <DietLogs 
-              trackedMealImage={trackedMealImage} 
-              handleTrackFood={handleTrackFood} 
-              navigation={navigation}
-            />
+          <DietLogs
+            trackedMealImage={trackedMealImage}
+            handleTrackFood={handleTrackFood}
+            navigation={navigation}
+          />
 
         </ScrollView>
       )}
 
       {/* The ref is passed down here */}
-      <DietCameraModal 
+      <DietCameraModal
         ref={cameraRef}
         showCameraOverlay={showCameraOverlay}
         setShowCameraOverlay={setShowCameraOverlay}
@@ -495,14 +643,14 @@ const Dietplan = ({ navigation }) => {
         photoOutput={photoOutput}
       />
 
-      <DietDatePickerModal 
+      <DietDatePickerModal
         showDatePicker={showDatePicker}
         selectedDate={selectedDate}
         handleDateChange={handleDateChange}
         handleIOSDonePress={handleIOSDonePress}
       />
 
-      <DietMealModal 
+      <DietMealModal
         showMealModal={showMealModal}
         setShowMealModal={setShowMealModal}
         mealStep={mealStep}
@@ -521,6 +669,14 @@ const Dietplan = ({ navigation }) => {
         mealDescription={mealDescription}
         setMealDescription={setMealDescription}
         setTrackedMealImage={setTrackedMealImage}
+      />
+
+      <DietMealSelectionModal
+        visible={showMealSelectionModal}
+        onClose={() => setShowMealSelectionModal(false)}
+        dailySummary={dailySummary}
+        logs={dailyLogs}
+        onSelectMeal={handleSelectMeal}
       />
 
     </View>
@@ -829,10 +985,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   weeklyPlanCard: {
+    flexDirection: 'column',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignSelf: 'stretch',
   },
   planHeaderRow: {
     marginBottom: 12,
@@ -854,12 +1011,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
+  dayTabsContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 12,
+  },
   dayTabsWrapper: {
     flexDirection: 'row',
     paddingVertical: 8,
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   dayTab: {
     paddingHorizontal: 12,

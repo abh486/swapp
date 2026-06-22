@@ -178,6 +178,7 @@ const OnboardingScreen = () => {
     }
   };
 
+
   const handleScroll = (event) => {
     scrollX.current = event.nativeEvent.contentOffset.x;
     const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);

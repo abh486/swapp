@@ -78,6 +78,7 @@ const LoginScreen = () => {
 
       GoogleSignin.configure({
         webClientId: AUTH_CONFIG.googleWebClientId,
+        iosClientId: AUTH_CONFIG.googleIosClientId,
         offlineAccess: true,
       });
     } catch (e) {

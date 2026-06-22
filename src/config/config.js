@@ -1,11 +1,12 @@
 export const AUTH_CONFIG = {
   enableLegacyWebviewLogin: false,
   googleWebClientId: '98784636409-tjgc2nab2tqpfrppuivhie79ulr0v8os.apps.googleusercontent.com', // Placeholder web client ID
+  googleIosClientId: '98784636409-placeholder-ios-client-id.apps.googleusercontent.com', // Placeholder iOS client ID
   databaseConnection: 'Username-Password-Authentication',
 };
 
 export const Strings = {
-    
+
   // Auth / Login Configuration
   Auth: {
     login: {
@@ -69,7 +70,7 @@ export const Strings = {
       genericError: 'An error occurred. Please try again.',
     },
   },
-    // activity Configuration
+  // activity Configuration
   Activity: {
     header: {
       title: 'Dashboard',
@@ -137,7 +138,7 @@ export const Strings = {
       streak: 'day streak',
     },
   },
-//   dietlog Configuration
+  //   dietlog Configuration
   DietLog: {
     header: {
       title: 'Diet Tracker',
@@ -260,8 +261,8 @@ export const Strings = {
     },
     // Added missing Actions to fix crashes
     actions: {
-        cancel: 'Cancel',
-        confirm: 'Delete', // Renamed from 'Confirm' to be clearer for deletion
+      cancel: 'Cancel',
+      confirm: 'Delete', // Renamed from 'Confirm' to be clearer for deletion
     },
     tags: {
       default: 'General',
@@ -283,51 +284,51 @@ export const Strings = {
     ],
     // Data updated to include image paths directly
     data: [
-      { 
-        name: 'Bench Press', 
-        type: 'chest', 
-        equipment: ['Barbell'], 
+      {
+        name: 'Bench Press',
+        type: 'chest',
+        equipment: ['Barbell'],
         difficulty: 'Intermediate',
-        image: require('../assets/image/chest.jpg') 
+        image: require('../assets/image/chest.jpg')
       },
-      { 
-        name: 'Backward Lunge', 
-        type: 'glutes', 
-        equipment: ['Bodyweight'], 
+      {
+        name: 'Backward Lunge',
+        type: 'glutes',
+        equipment: ['Bodyweight'],
         difficulty: 'Beginner',
-        image: require('../assets/image/gultes.jpg') 
+        image: require('../assets/image/gultes.jpg')
       },
-      { 
-        name: 'Arm Circles', 
-        type: 'shoulders', 
-        equipment: ['Bodyweight'], 
+      {
+        name: 'Arm Circles',
+        type: 'shoulders',
+        equipment: ['Bodyweight'],
         difficulty: 'Beginner',
-        image: require('../assets/image/arm.jpg') 
+        image: require('../assets/image/arm.jpg')
       },
-      { 
-        name: 'Pull Up', 
-        type: 'back', 
-        equipment: ['Bodyweight'], 
+      {
+        name: 'Pull Up',
+        type: 'back',
+        equipment: ['Bodyweight'],
         difficulty: 'Intermediate',
-        image: require('../assets/image/pullup.jpg') 
+        image: require('../assets/image/pullup.jpg')
       },
-      { 
-        name: 'Pike Push-Up', 
-        type: 'shoulders', 
-        equipment: ['Bodyweight'], 
+      {
+        name: 'Pike Push-Up',
+        type: 'shoulders',
+        equipment: ['Bodyweight'],
         difficulty: 'Intermediate',
-        image: require('../assets/image/pickpush.jpg') 
+        image: require('../assets/image/pickpush.jpg')
       },
-      { 
-        name: 'Front raise', 
-        type: 'shoulders', 
-        equipment: ['Dumbbell'], 
+      {
+        name: 'Front raise',
+        type: 'shoulders',
+        equipment: ['Dumbbell'],
         difficulty: 'Intermediate',
-        image: require('../assets/image/frontraise.jpg') 
+        image: require('../assets/image/frontraise.jpg')
       },
     ],
   },
-//   ollama Configuration
+  //   ollama Configuration
   Ollama: {
     header: {
       title: '🤖 llava:7b Chat',
@@ -370,7 +371,7 @@ export const Strings = {
       delete: 'Delete',
     },
   },
-//   DietStats Configuration
+  //   DietStats Configuration
   DietStats: {
     header: {
       title: 'Diet Stats',
@@ -395,7 +396,7 @@ export const Strings = {
     },
     fabIcon: '🤖',
   },
-//   WorkoutStats Configuration
+  //   WorkoutStats Configuration
   WorkoutStats: {
     header: {
       title: 'Dashboard',
@@ -851,7 +852,7 @@ export const Strings = {
     notifications: {
       overflowLabel: '99+',
     },
- },
+  },
   ProvidersTab: {
     sections: {
       myProviders: 'My Partners',

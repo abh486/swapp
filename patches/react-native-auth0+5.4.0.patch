@@ -1,9 +1,58 @@
+diff --git a/node_modules/react-native-auth0/android/.classpath b/node_modules/react-native-auth0/android/.classpath
+new file mode 100644
+index 0000000..bbe97e5
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/.classpath
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<classpath>
++	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17/"/>
++	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
++	<classpathentry kind="output" path="bin/default"/>
++</classpath>
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/checksums/checksums.lock b/node_modules/react-native-auth0/android/.gradle/8.9/checksums/checksums.lock
+new file mode 100644
+index 0000000..a90a73d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/.gradle/8.9/checksums/checksums.lock differ
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/react-native-auth0/android/.gradle/8.9/dependencies-accessors/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/executionHistory/executionHistory.lock b/node_modules/react-native-auth0/android/.gradle/8.9/executionHistory/executionHistory.lock
+new file mode 100644
+index 0000000..337fa9d
+Binary files /dev/null and b/node_modules/react-native-auth0/android/.gradle/8.9/executionHistory/executionHistory.lock differ
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/fileChanges/last-build.bin b/node_modules/react-native-auth0/android/.gradle/8.9/fileChanges/last-build.bin
+new file mode 100644
+index 0000000..f76dd23
+Binary files /dev/null and b/node_modules/react-native-auth0/android/.gradle/8.9/fileChanges/last-build.bin differ
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/react-native-auth0/android/.gradle/8.9/fileHashes/fileHashes.lock
+new file mode 100644
+index 0000000..9fb4183
+Binary files /dev/null and b/node_modules/react-native-auth0/android/.gradle/8.9/fileHashes/fileHashes.lock differ
+diff --git a/node_modules/react-native-auth0/android/.gradle/8.9/gc.properties b/node_modules/react-native-auth0/android/.gradle/8.9/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+new file mode 100644
+index 0000000..d9fd960
+Binary files /dev/null and b/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
+diff --git a/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/cache.properties
+new file mode 100644
+index 0000000..adc0fd3
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/.gradle/buildOutputCleanup/cache.properties
+@@ -0,0 +1,2 @@
++#Fri Jun 19 17:31:51 IST 2026
++gradle.version=8.9
+diff --git a/node_modules/react-native-auth0/android/.gradle/vcs-1/gc.properties b/node_modules/react-native-auth0/android/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
 diff --git a/node_modules/react-native-auth0/android/.project b/node_modules/react-native-auth0/android/.project
 new file mode 100644
-index 0000000..1f69f8d
+index 0000000..032823f
 --- /dev/null
 +++ b/node_modules/react-native-auth0/android/.project
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,34 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<projectDescription>
 +	<name>react-native-auth0</name>
@@ -12,12 +61,18 @@ index 0000000..1f69f8d
 +	</projects>
 +	<buildSpec>
 +		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
 +			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
 +			<arguments>
 +			</arguments>
 +		</buildCommand>
 +	</buildSpec>
 +	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
 +		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
 +	</natures>
 +	<filteredResources>
@@ -32,6 +87,25 @@ index 0000000..1f69f8d
 +		</filter>
 +	</filteredResources>
 +</projectDescription>
+diff --git a/node_modules/react-native-auth0/android/.settings/org.eclipse.buildship.core.prefs b/node_modules/react-native-auth0/android/.settings/org.eclipse.buildship.core.prefs
+new file mode 100644
+index 0000000..8c1fb48
+--- /dev/null
++++ b/node_modules/react-native-auth0/android/.settings/org.eclipse.buildship.core.prefs
+@@ -0,0 +1,13 @@
++arguments=--init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/db3b08fc4a9ef609cb16b96b200fa13e563f396e9bb1ed0905fdab7bc3bc513b.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/52cde0cfcf3e28b8b7510e992210d9614505e0911af0c190bd590d7158574963.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/861a75667e10803d304a058d833cb7404195ca44013d0d61d3b653eb084379b8.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/68eb1b6516fe21c6fbba58e63c99c3207ccfc918360613709367eecde56fa77f.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/da64152279c70a8b4f3de4ca9ea66fd3b3405b7aca4e1f20f2d08e5593aa1ce1.gradle
++auto.sync=true
++build.scans.enabled=false
++connection.gradle.distribution=GRADLE_DISTRIBUTION(VERSION(8.9))
++connection.project.dir=../../../android
++eclipse.preferences.version=1
++gradle.user.home=
++java.home=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home
++jvm.arguments=
++offline.mode=false
++override.workspace.settings=true
++show.console.view=true
++show.executions.view=true
 diff --git a/node_modules/react-native-auth0/ios/A0Auth0.h b/node_modules/react-native-auth0/ios/A0Auth0.h
 index e4bec85..70a5bfd 100644
 --- a/node_modules/react-native-auth0/ios/A0Auth0.h
@@ -42,3 +116,27 @@ index e4bec85..70a5bfd 100644
  #import "RNAuth0Spec.h"
  
  @interface A0Auth0 : NSObject <NativeA0Auth0Spec>
+diff --git a/node_modules/react-native-auth0/ios/NativeBridge.swift b/node_modules/react-native-auth0/ios/NativeBridge.swift
+index 0196806..ea30ce2 100644
+--- a/node_modules/react-native-auth0/ios/NativeBridge.swift
++++ b/node_modules/react-native-auth0/ios/NativeBridge.swift
+@@ -471,7 +471,7 @@ extension WebAuthError {
+             case .noAuthorizationCode: code = "NO_AUTHORIZATION_CODE"
+             case .pkceNotAllowed: code = "PKCE_NOT_ALLOWED"
+             case .idTokenValidationFailed: code = "ID_TOKEN_VALIDATION_FAILED"
+-            case .other: if let cause = self.cause as? AuthenticationError {
++            case WebAuthError.other: if let cause = self.cause as? AuthenticationError {
+                 code = cause.code
+             } else {
+                 code = "OTHER"
+@@ -490,8 +490,8 @@ extension DPoPError {
+             case .keychainOperationFailed: code = NativeBridge.dpopKeyStorageFailedCode
+             case .cryptoKitOperationFailed: code = NativeBridge.dpopProofFailedCode
+             case .secKeyOperationFailed: code = NativeBridge.dpopProofFailedCode
+-            case .other: code = NativeBridge.dpopErrorCode
+-            case .unknown: code = NativeBridge.dpopErrorCode
++            case DPoPError.other: code = NativeBridge.dpopErrorCode
++            case DPoPError.unknown: code = NativeBridge.dpopErrorCode
+         default:
+             code = NativeBridge.dpopErrorCode
+         }

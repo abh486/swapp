@@ -12,6 +12,7 @@ import { Platform, Modal, SafeAreaView, View, Text, TouchableOpacity, StyleSheet
 import Icon from 'react-native-vector-icons/Ionicons';
 import { GlobalLoader } from '../components/GlobalLoader';
 import { WebView } from 'react-native-webview';
+import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import Auth0 from 'react-native-auth0';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clarity from '@microsoft/react-native-clarity';
@@ -58,7 +59,7 @@ const AuthContext = createContext();
 
 const getRedirectUri = () => {
   if (Platform.OS === 'ios') {
-    return 'com.swapp.swappfit.auth0://login.swapp.fit/ios/com.swapp.swappfit/callback';
+    return 'https://login.swapp.fit/login/callback';
   } else {
     return 'https://swapp.fit/android/com.swappios/callback';
   }
@@ -431,8 +432,29 @@ export const AuthProvider = ({ children }) => {
         `code_challenge_method=plain&` +
         `prompt=login`;
 
-      setAuthUrl(url);
-      setShowWebViewModal(true);
+      if (await InAppBrowser.isAvailable()) {
+        console.log('[AuthContext] Opening InAppBrowser...');
+        const result = await InAppBrowser.openAuth(url, redirectUri, {
+          // iOS Properties
+          ephemeralWebSession: false,
+          // Android Properties
+          showTitle: false,
+          enableUrlBarHiding: true,
+          enableDefaultShare: false,
+        });
+
+        if (result.type === 'success' && result.url) {
+          console.log('[AuthContext] InAppBrowser callback received:', result.url);
+          handleRedirect(result.url);
+        } else {
+          console.log('[AuthContext] InAppBrowser flow cancelled or failed:', result.type);
+          setIsLoggingIn(false);
+        }
+      } else {
+        console.log('[AuthContext] InAppBrowser not available. Falling back to WebView Modal.');
+        setAuthUrl(url);
+        setShowWebViewModal(true);
+      }
     } catch (e) {
       console.error('🔴 [loginWithWebView] failed:', e.message);
       setIsLoggingIn(false);
