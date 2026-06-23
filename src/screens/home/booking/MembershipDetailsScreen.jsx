@@ -497,18 +497,22 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
 
   const upcomingBookings = useMemo(() => {
     const now = new Date();
+    const isTrainerSub = subscription.trainer || subscription.trainerId || subscription.trainerPlanId || subscription.package?.trainerId || packageType === 'TRAINER_PACKAGE' || providerDetails?.isTrainer || provider?.isTrainer || provider?.vertical === 'TRAINER' || providerDetails?.vertical === 'TRAINER';
     return bookings
       .filter(booking => {
         const status = booking.bookingStatus || booking.status;
+        const matchesEntity = isTrainerSub
+          ? (booking.trainerId === subscription.trainerId || booking.trainerId === subscription.trainer?.id || booking.trainerId === providerId)
+          : (!providerId || booking.providerId === providerId);
         return (
-          (!providerId || booking.providerId === providerId) &&
+          matchesEntity &&
           ['CONFIRMED', 'PENDING_CONFIRMATION', 'CHECKED_IN'].includes(status) &&
           new Date(booking.endTime || booking.startTime) >= now
         );
       })
       .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
       .slice(0, 3);
-  }, [bookings, providerId]);
+  }, [bookings, providerId, subscription, packageType, providerDetails, provider]);
 
   const latestCheckIn = checkInHistory[0];
   const visitsThisMonth = useMemo(() => {
@@ -587,10 +591,18 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
-    if (subscription.trainer || packageType === 'TRAINER_PACKAGE') {
+    const isTrainerSub = subscription.trainer || subscription.trainerId || subscription.trainerPlanId || subscription.package?.trainerId || packageType === 'TRAINER_PACKAGE' || providerDetails?.isTrainer || provider?.isTrainer || provider?.vertical === 'TRAINER' || providerDetails?.vertical === 'TRAINER';
+    if (isTrainerSub) {
       navigation.navigate('TrainerBooking', {
         gymName,
-        subscription,
+        subscription: {
+          ...subscription,
+          provider: {
+            ...provider,
+            isTrainer: true,
+            vertical: 'TRAINER',
+          }
+        },
         packageType,
         categoryId: selectedCategoryId || null,
         trainerId: subscription.trainer?.id || subscription.trainerId || providerId,
@@ -598,9 +610,16 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     } else {
       navigation.navigate('MembershipBooking', {
         gymName,
-        subscription,
+        subscription: {
+          ...subscription,
+          provider: {
+            ...provider,
+            isTrainer: false,
+          }
+        },
         packageType,
         categoryId: selectedCategoryId || null,
+        targetType: 'PROVIDER',
       });
     }
   };
@@ -1093,6 +1112,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             ) : upcomingBookings.map(booking => {
               const status = booking.bookingStatus || booking.status;
               const canGenerateQr = status === 'CONFIRMED';
+              const displayTitle = booking.trainer?.name ? `Trainer: ${booking.trainer.name}` : (booking.provider?.name || gymName);
+              const displayStatus = status === 'PENDING_CONFIRMATION' ? 'Awaiting Trainer' : status;
               return (
                 <View style={styles.sessionRow} key={booking.id}>
                   <View style={styles.sessionTime}>
@@ -1100,8 +1121,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
                     <Text style={styles.sessionDay}>{formatBookingDate(booking.startTime)}</Text>
                   </View>
                   <View style={styles.sessionCopy}>
-                    <Text style={styles.sessionTitle}>{booking.provider?.name || gymName}</Text>
-                    <Text style={styles.sessionSub}>{status}</Text>
+                    <Text style={styles.sessionTitle}>{displayTitle}</Text>
+                    <Text style={styles.sessionSub}>{displayStatus}</Text>
                   </View>
                   <View style={styles.sessionActions}>
                     <TouchableOpacity
@@ -1125,9 +1146,6 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             })}
           </>
         )}
-
-
-
 
         <View style={styles.infoPanel}>
           <InfoRow title="Opening Hours" value={openingHours} styles={styles} />

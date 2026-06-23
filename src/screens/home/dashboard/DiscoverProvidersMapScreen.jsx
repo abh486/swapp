@@ -69,7 +69,13 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
   const categories = [
     { id: 'all', label: 'All', icon: 'apps' },
-    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical }))
+    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical })),
+    {
+      id: 'trainer',
+      label: 'Trainers',
+      icon: 'barbell-outline',
+      vertical: 'TRAINER',
+    },
   ];
 
   const activeFilters = useMemo(() => ({
@@ -159,12 +165,20 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     );
   };
 
-  const renderProviderCard = ({ item }) => (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={() => navigation.navigate('ProviderDetails', { id: item.id })}
-      style={styles.providerCard}
-    >
+  const renderProviderCard = ({ item }) => {
+    const isTrainer = item.vertical === 'TRAINER' || (Array.isArray(item.vertical) && item.vertical.includes('TRAINER'));
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          if (isTrainer) {
+            navigation.navigate('TrainerDetailScreen', { id: item.ownerId || item.id });
+          } else {
+            navigation.navigate('ProviderDetails', { id: item.id });
+          }
+        }}
+        style={styles.providerCard}
+      >
       <Image source={{ uri: item.photos?.[0] || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} style={styles.providerImage} />
 
       <View style={styles.providerContent}>
@@ -208,6 +222,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
       </View>
     </TouchableOpacity>
   );
+};
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -226,16 +241,25 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         >
           {providers
             .filter(provider => provider.coordinates?.latitude && provider.coordinates?.longitude)
-            .map(provider => (
-              <Marker
-                key={provider.id}
-                coordinate={provider.coordinates}
-                title={provider.name}
-                description={`${provider.vertical?.[0] || 'Fitness'} • ${provider.address}`}
-                pinColor={provider.isPremium ? '#e74c3c' : '#00bcd4'}
-                onPress={() => navigation.navigate('ProviderDetails', { id: provider.id })}
-              />
-            ))}
+            .map(provider => {
+              const isTrainer = provider.vertical === 'TRAINER' || (Array.isArray(provider.vertical) && provider.vertical.includes('TRAINER'));
+              return (
+                <Marker
+                  key={provider.id}
+                  coordinate={provider.coordinates}
+                  title={provider.name}
+                  description={`${provider.vertical?.[0] || 'Fitness'} • ${provider.address}`}
+                  pinColor={provider.isPremium ? '#e74c3c' : '#00bcd4'}
+                  onPress={() => {
+                    if (isTrainer) {
+                      navigation.navigate('TrainerDetailScreen', { id: provider.ownerId || provider.id });
+                    } else {
+                      navigation.navigate('ProviderDetails', { id: provider.id });
+                    }
+                  }}
+                />
+              );
+            })}
           {userLocation?.latitude && userLocation?.longitude && (
             <Marker
               key="user-location"
