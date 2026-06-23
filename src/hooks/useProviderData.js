@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { discoverProviders } from '../redux/actions/providersActions';
+import { browseTrainers } from '../redux/actions/trainerActions';
 import parseApiError from '../utils/parseApiError';
 
 export const useProviderData = (location, permissionGranted, activeFilters = {}) => {
@@ -18,40 +19,77 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
     setError('');
 
     try {
-      const params = {
-        page,
-        limit: 20,
-        radius: newRadius,
-        ...activeFilters
-      };
-
-      if (location && location.latitude && location.longitude) {
-        params.lat = location.latitude;
-        params.lon = location.longitude;
-      }
-      const response = await dispatch(discoverProviders(params));
-
-      if (response.success) {
-        // Handle both array and object responses
-        const fetched = Array.isArray(response.data) 
-          ? response.data 
-          : (response.data?.providers || response.data?.data || []);
-          
-        const formatted = fetched.map(p => ({
-          ...p,
-          coordinates: { 
-            latitude: parseFloat(p.latitude) || parseFloat(p.lat) || 0, 
-            longitude: parseFloat(p.longitude) || parseFloat(p.lng) || 0 
-          }
+      const isTrainerFilter = activeFilters.vertical === 'TRAINER' || activeFilters.categoryId === 'trainer';
+      
+      if (isTrainerFilter) {
+        const params = {
+          page,
+          limit: 20,
+          maxDistance: newRadius,
+        };
+        if (location && location.latitude && location.longitude) {
+          params.latitude = location.latitude;
+          params.longitude = location.longitude;
+        }
+        const result = await dispatch(browseTrainers(params));
+        const fetched = Array.isArray(result) ? result : (result?.trainers || result?.data || []);
+        const formatted = fetched.map(t => ({
+          id: t.id,
+          name: t.name || t.user?.email?.split('@')[0] || 'Trainer',
+          photos: t.photos && t.photos.length > 0 ? t.photos : [t.profileImage || 'https://via.placeholder.com/150'],
+          vertical: 'TRAINER',
+          latitude: t.latitude,
+          longitude: t.longitude,
+          coordinates: {
+            latitude: parseFloat(t.latitude) || 0,
+            longitude: parseFloat(t.longitude) || 0
+          },
+          rating: t.rating || 4.8,
+          reviews: t.reviewCount || 0,
+          distance: t.distance,
+          ownerId: t.user?.id || t.userId || t.id,
+          amenities: t.specialties || []
         }));
-
         setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);
-        setHasMore(formatted.length === params.limit);
+        setHasMore(formatted.length === 20);
         if (page === 1 && formatted.length === 0) {
-            setError('No partners found in this radius.');
+            setError('No trainers found in this radius.');
         }
       } else {
-        setError('Failed to load partners.');
+        const params = {
+          page,
+          limit: 20,
+          radius: newRadius,
+          ...activeFilters
+        };
+
+        if (location && location.latitude && location.longitude) {
+          params.lat = location.latitude;
+          params.lon = location.longitude;
+        }
+        const response = await dispatch(discoverProviders(params));
+
+        if (response.success) {
+          const fetched = Array.isArray(response.data) 
+            ? response.data 
+            : (response.data?.providers || response.data?.data || []);
+            
+          const formatted = fetched.map(p => ({
+            ...p,
+            coordinates: { 
+              latitude: parseFloat(p.latitude) || parseFloat(p.lat) || 0, 
+              longitude: parseFloat(p.longitude) || parseFloat(p.lng) || 0 
+            }
+          }));
+
+          setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);
+          setHasMore(formatted.length === params.limit);
+          if (page === 1 && formatted.length === 0) {
+              setError('No partners found in this radius.');
+          }
+        } else {
+          setError('Failed to load partners.');
+        }
       }
     } catch (err) {
       setError(parseApiError(err) || 'An error occurred.');

@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { browseTrainers, getTrainerById } from '../../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { useAuth } from '../../../../context/AuthContext';
@@ -49,6 +50,7 @@ const getDistanceBadgeText = (trainer, userLocation, strings) => {
 
 const FindTrainers = () => {
   const dispatch = useDispatch();
+  const navigation = useNavigation();
   const strings = Strings.FindTrainers;
   const { user } = useAuth();
   const { userLocation } = useLocation();
@@ -87,18 +89,11 @@ const FindTrainers = () => {
     fetchTrainers();
   }, [fetchTrainers]);
 
-  const handleViewProfile = async (trainerFromList) => {
-    setIsModalLoading(true);
-    setSelectedTrainerDetails(trainerFromList);
-    try {
-      const fullProfile = await dispatch(getTrainerById(trainerFromList.user.id));
-      setSelectedTrainerDetails(fullProfile);
-    } catch (err) {
-      console.error("Failed to load full trainer profile:", err);
-      Alert.alert(Strings.FindTrainers.alerts.genericError || 'Error', Strings.FindTrainers.alerts.loadProfileError);
-      setSelectedTrainerDetails(null);
-    } finally {
-      setIsModalLoading(false);
+  const handleViewProfile = (trainerFromList) => {
+    if (!trainerFromList) return;
+    const userId = trainerFromList.user?.id || trainerFromList.id;
+    if (userId) {
+      navigation.navigate('TrainerDetailScreen', { id: userId });
     }
   };
 

@@ -80,13 +80,24 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
       const interval = setInterval(checkDietAccess, 2500);
       return () => clearInterval(interval);
     } else {
-      if (user?.hasActiveMembership) {
+      const pendingPkgId = pendingSubscription?.packageId || pendingSubscription?.package?.id;
+      const activeSubs = user?.subscriptions || [];
+      const activePkgs = user?.activePackages || [];
+      const activeEnts = user?.activeEntitlements || [];
+
+      const isPendingPlanActive = pendingPkgId ? (
+        activeSubs.some(s => (s.packageId === pendingPkgId || s.planId === pendingPkgId) && !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(String(s.status).toUpperCase())) ||
+        activePkgs.some(p => p.packageId === pendingPkgId && p.status === 'ACTIVE') ||
+        activeEnts.some(e => e.packageId === pendingPkgId && e.status === 'ACTIVE' && (e.totalSessions - e.usedSessions > 0))
+      ) : false;
+
+      if (user?.hasActiveMembership || isPendingPlanActive) {
         clearInterval(pollIntervalRef.current);
         clearTimeout(timeoutRef.current);
         setActivationStatus('active');
       }
     }
-  }, [user?.hasActiveMembership, pendingSubscription]);
+  }, [user, pendingSubscription]);
 
   useEffect(() => {
     console.log('[Clarity] User subscribed. Plan:', planName, 'Price:', price, 'Reservation:', reservationId);

@@ -716,6 +716,8 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                     isActive: true,
                   };
 
+                  const isTrainerProv = provider.isTrainer || primaryVertical === 'TRAINER';
+
                   if (isPlanActive(selectedPlan.id)) {
                     navigation.navigate('MembershipBooking', {
                       gymName: provider.name,
@@ -724,11 +726,14 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                           id: provider.id,
                           name: provider.name,
                           photos: provider.photos,
+                          isTrainer: isTrainerProv,
+                          vertical: provider.vertical || primaryVertical,
                         },
                         package: selectedPlan,
                       },
                       isReservationCheckout: false,
                       selectedPlan,
+                      targetType: isTrainerProv ? 'TRAINER' : 'PROVIDER',
                     });
                     return;
                   }
@@ -750,11 +755,14 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                           id: provider.id,
                           name: provider.name,
                           photos: provider.photos,
+                          isTrainer: isTrainerProv,
+                          vertical: provider.vertical || primaryVertical,
                         },
                         package: selectedPlan,
                       },
                       isReservationCheckout: true,
                       selectedPlan,
+                      targetType: isTrainerProv ? 'TRAINER' : 'PROVIDER',
                     });
                     return;
                   }

@@ -84,6 +84,25 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       ),
     [routePackageType, subscription],
   );
+  const isTrainer = useMemo(() => {
+    const prov = subscription.provider || subscription.gym || subscription.partner || subscription.package?.provider || {};
+    return (
+      packageType === 'TRAINER_PACKAGE' ||
+      subscription.trainer ||
+      subscription.trainerId ||
+      subscription.trainerPlanId ||
+      subscription.package?.trainerId ||
+      prov.isTrainer ||
+      prov.vertical === 'TRAINER' ||
+      route?.params?.targetType === 'TRAINER' ||
+      route?.params?.subscription?.trainer ||
+      route?.params?.subscription?.trainerId ||
+      route?.params?.subscription?.trainerPlanId ||
+      route?.params?.subscription?.package?.trainerId ||
+      route?.params?.subscription?.provider?.isTrainer ||
+      route?.params?.subscription?.provider?.vertical === 'TRAINER'
+    );
+  }, [packageType, subscription, route?.params]);
   const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
   const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
   const entitlements = useMemo(() => {
@@ -213,12 +232,12 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         return;
       }
 
+      console.log('[MembershipBookingScreen] Loading slots for providerId:', providerId, 'isTrainer:', isTrainer);
+
       setIsLoadingSlots(true);
       setSlotError('');
 
       try {
-        const isTrainer = packageType === 'TRAINER_PACKAGE' || subscription.trainer || route.params?.targetType === 'TRAINER';
-        
         let mappedSlots = [];
         if (isTrainer) {
           const res = await apiClient.get(`/trainers/${providerId}/available-slots`, {
@@ -332,7 +351,6 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     setBookingSlotKey(slotKey);
 
     try {
-      const isTrainer = packageType === 'TRAINER_PACKAGE' || subscription.trainer || route.params?.targetType === 'TRAINER';
       const { startTime, endTime } = buildSlotTimes(slot);
 
       if (isReservationCheckout) {

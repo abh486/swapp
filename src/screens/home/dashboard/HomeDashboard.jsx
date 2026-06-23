@@ -309,17 +309,11 @@ export const HomeDashboard = ({ navigation }) => {
     }
   }, [activeCategory, fetchTrainersData]);
 
-  const handleViewTrainerProfile = async (trainerFromList) => {
-    setIsModalLoading(true);
-    setSelectedTrainerDetails(trainerFromList);
-    try {
-      const fullProfile = await dispatch(getTrainerById(trainerFromList.user.id));
-      setSelectedTrainerDetails(fullProfile);
-    } catch (err) {
-      console.error("Failed to load full trainer profile:", err);
-      setSelectedTrainerDetails(null);
-    } finally {
-      setIsModalLoading(false);
+  const handleViewTrainerProfile = (trainerFromList) => {
+    if (!trainerFromList) return;
+    const userId = trainerFromList.user?.id || trainerFromList.id;
+    if (userId) {
+      navigation.navigate('TrainerDetailScreen', { id: userId });
     }
   };
 
@@ -575,7 +569,7 @@ export const HomeDashboard = ({ navigation }) => {
     })),
     {
       id: 'trainer',
-      label: 'Train',
+      label: 'Trainers',
       icon: 'barbell-outline',
       vertical: 'TRAINER',
     },
