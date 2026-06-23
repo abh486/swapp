@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTrainerById, startConversationWithTrainer } from '../../../redux/actions/trainerActions';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { useAuth } from '../../../context/AuthContext';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../utils/clarity';
 import { getToken } from '../../../api/apiClient';
 import { ChatScreen } from '../dashboard/components/ChatScreen';
 
@@ -832,6 +832,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
                   ) {
                     navigation.navigate('CheckoutWebView', {
                       url: response.data.checkoutUrl,
+                      planId: selectedPlan.id,
                       planName: selectedPlan.name,
                       price: selectedPlan.basePrice,
                       pendingSubscription,

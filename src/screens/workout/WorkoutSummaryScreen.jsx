@@ -1,11 +1,12 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   logWorkoutSession,
   updateCustomWorkoutTemplate,
@@ -21,12 +22,80 @@ const WorkoutSummaryScreen = () => {
 
   const { sessionData, progressPhoto } = route.params || {};
   // Use a fallback image if no progress photo is provided to match the mockup aesthetic
-  const [selectedImage] = useState(
+  const [selectedImage, setSelectedImage] = useState(
     progressPhoto ||
       'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',
   );
 
   const [isSaving, setIsSaving] = useState(false);
+
+  const handlePickImage = () => {
+    console.log('[WorkoutSummaryScreen] handlePickImage triggered');
+    if (typeof launchCamera !== 'function' || typeof launchImageLibrary !== 'function') {
+      Alert.alert('Module Error', 'Native image picker functions are not loaded. Please ensure npm install and pod install were run, and the app was completely rebuilt.');
+      return;
+    }
+    Alert.alert('Add Photo', 'Choose a photo for your workout summary', [
+      {
+        text: 'Take Photo',
+        onPress: () => {
+          setTimeout(() => {
+            try {
+              launchCamera(
+                {
+                  mediaType: 'photo',
+                  quality: 0.8,
+                  saveToPhotos: true,
+                },
+                response => {
+                  if (response.didCancel) {
+                    console.log('[handlePickImage] User cancelled camera');
+                  } else if (response.errorCode) {
+                    Alert.alert('Camera Error', response.errorMessage || `Error code: ${response.errorCode}`);
+                  } else if (response.assets && response.assets.length > 0) {
+                    setSelectedImage(response.assets[0].uri);
+                  }
+                }
+              );
+            } catch (err) {
+              Alert.alert('Camera Launch Failed', err.message || String(err));
+            }
+          }, 300);
+        },
+      },
+      {
+        text: 'Choose from Gallery',
+        onPress: () => {
+          setTimeout(() => {
+            try {
+              launchImageLibrary(
+                {
+                  mediaType: 'photo',
+                  quality: 0.8,
+                  selectionLimit: 1,
+                },
+                response => {
+                  if (response.didCancel) {
+                    console.log('[handlePickImage] User cancelled gallery');
+                  } else if (response.errorCode) {
+                    Alert.alert('Gallery Error', response.errorMessage || `Error code: ${response.errorCode}`);
+                  } else if (response.assets && response.assets.length > 0) {
+                    setSelectedImage(response.assets[0].uri);
+                  }
+                }
+              );
+            } catch (err) {
+              Alert.alert('Gallery Launch Failed', err.message || String(err));
+            }
+          }, 300);
+        },
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
+  };
 
   const formatTime = totalSeconds => {
     const mins = Math.floor(totalSeconds / 60);
@@ -129,7 +198,7 @@ const WorkoutSummaryScreen = () => {
         </View>
 
         {/* Polaroid/Card */}
-        <View style={styles.cardContainer}>
+        <TouchableOpacity style={styles.cardContainer} onPress={handlePickImage} activeOpacity={0.9}>
           <Image
             source={{
               uri:
@@ -192,7 +261,12 @@ const WorkoutSummaryScreen = () => {
 
             <Text style={styles.usernameText}>@username</Text>
           </View>
-        </View>
+
+          {/* Edit Badge */}
+          <View style={styles.cardEditBadge}>
+            <Icon name="camera" size={18} color="#FFF" />
+          </View>
+        </TouchableOpacity>
 
         {/* Share To */}
         <Text style={styles.shareToTitle}>Share to</Text>
@@ -454,6 +528,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 2,
+  },
+  cardEditBadge: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
 });
 

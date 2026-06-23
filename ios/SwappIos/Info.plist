@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
 	<key>Auth0ClientId</key>
 	<string>rwah022fY6bSPr5gstiKqPAErQjgynT2</string>
 	<key>Auth0Domain</key>
@@ -14,6 +12,8 @@
 	<string>Swapp</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -44,6 +44,14 @@
 				<string>com.googleusercontent.apps.98784636409-oqfm45lm232cj4e5k8f8751i1lhg8ljt</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>swapp</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -64,16 +72,14 @@
 	<string>SwappFit needs access to read your health data (like steps and active energy) to sync your workouts and track your daily activity levels.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>SwappFit needs permission to write health data to record your Swapp workouts in Apple Health.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SwappFit needs access to save photos to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SwappFit needs access to your photo library to upload profile pictures and gym content.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>SwappFit uses your device data to track app performance, measure diagnostic analytics, and provide a personalized experience.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>

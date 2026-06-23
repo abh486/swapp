@@ -7,7 +7,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../utils/clarity';
 
 const OPTION_FIELDS = {
   gender: ['Male', 'Female', 'Other'],

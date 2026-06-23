@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../redux/actions/subscriptionActions';
 import { Strings } from '../../../config/config'; // Import Config
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../../utils/clarity';
 
 export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscribed, userSubscriptions }) => {
   const dispatch = useDispatch();
@@ -46,6 +46,7 @@ export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscri
       if (response.success && response.data.checkoutUrl) {
         navigation.navigate('CheckoutWebView', {
           url: response.data.checkoutUrl,
+          planId: plan.id,
           planName: plan.name,
           price: plan.price,
         });

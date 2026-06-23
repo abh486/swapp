@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../../context/AuthContext';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../utils/clarity';
 import apiClient from '../../../api/apiClient';
 import { getAccessStatus } from '../../../services/aiDieticianService';
 

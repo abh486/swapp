@@ -298,6 +298,10 @@ const Dietplan = ({ navigation }) => {
     navigation.navigate('DietPreferences');
   }, [navigation]);
 
+  const handleGoToReminders = useCallback(() => {
+    navigation.navigate('Reminders');
+  }, [navigation]);
+
   const handleTrackWithCamera = useCallback(() => {
     setShowCameraOverlay(true);
   }, []);
@@ -594,6 +598,7 @@ const Dietplan = ({ navigation }) => {
             buildCalendarDays={buildCalendarDays}
             handleTrackFood={handleTrackFood}
             handleGoToPreferences={handleGoToPreferences}
+            handleGoToReminders={handleGoToReminders}
           />
           <DietMacros
             handleTrackWithCamera={handleTrackWithCamera}

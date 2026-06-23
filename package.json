@@ -43,6 +43,7 @@
     "react-native-screens": "^4.25.1",
     "react-native-size-matters": "^0.4.2",
     "react-native-svg": "^15.15.4",
+    "react-native-tracking-transparency": "^0.1.2",
     "react-native-vector-icons": "10.3.0",
     "react-native-video": "6.19.0",
     "react-native-vision-camera": "5.0.9",

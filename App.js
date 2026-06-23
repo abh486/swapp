@@ -11,11 +11,14 @@ import { LocationProvider } from './src/context/LocationContext';
 import store from './src/redux/store/store';
 import GlobalAlert from './src/components/GlobalAlert';
 import { useEffect } from 'react';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from './src/utils/clarity';
+import { requestTracking } from './src/utils/tracking';
 import {
   AUTH0_API_AUDIENCE,
   AUTH0_LOGIN_SCOPE,
 } from './src/api/apiClient';
+import Chargebee from '@chargebee/react-native-chargebee';
+import { CHARGEBEE_CONFIG } from './src/config/chargebeeConfig';
 
 // Ignore specific warnings that might be related to Auth0
 LogBox.ignoreLogs([
@@ -27,6 +30,14 @@ const App = () => {
   console.log('App: Initializing with Auth0 configuration');
 
   useEffect(() => {
+    // Initialize Chargebee SDK
+    try {
+      console.log('[Chargebee] Initializing SDK with site:', CHARGEBEE_CONFIG.site);
+      Chargebee.configure(CHARGEBEE_CONFIG);
+    } catch (e) {
+      console.error('[Chargebee] SDK configuration failed:', e);
+    }
+
     // App Initialization logic can go here
     const projectId = Platform.OS === 'ios' ? 'wyktx0ad6h' : 'wylf1d5gx2';
     console.log(`[Clarity] Initializing with project ID ${projectId} for ${Platform.OS}`);
@@ -34,6 +45,15 @@ const App = () => {
       Clarity.initialize(projectId);
     } catch (e) {
       console.error('[Clarity] Initialization failed:', e);
+    }
+
+    if (Platform.OS === 'ios') {
+      const timer = setTimeout(() => {
+        requestTracking().catch(err => {
+          console.error('[Tracking] Error requesting tracking permission on app startup:', err);
+        });
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, []);
 

@@ -23,15 +23,20 @@ const DietPreferences = ({ navigation }) => {
   const [selectedMeals, setSelectedMeals] = useState(['Lunch', 'Dinner']);
   const [selectedAllergies, setSelectedAllergies] = useState(['No Known Allergies']);
   const [selectedCuisines, setSelectedCuisines] = useState(['USA Food']);
+  const [avoidedFoods, setAvoidedFoods] = useState([]);
+  const [cuisineFrequency, setCuisineFrequency] = useState({});
   const [otherInfo, setOtherInfo] = useState('Love extra protein, low calorie');
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Sub-screen toggles
   const [showPreferenceSelect, setShowPreferenceSelect] = useState(false);
   const [showSkipDaysSelect, setShowSkipDaysSelect] = useState(false);
-  const [showMealsSelect, setShowMealsSelect] = useState(false);
   const [showAllergiesSelect, setShowAllergiesSelect] = useState(false);
   const [showCuisinesSelect, setShowCuisinesSelect] = useState(false);
+  const [showAvoidSelect, setShowAvoidSelect] = useState(false);
+  const [showCuisineFrequencySelect, setShowCuisineFrequencySelect] = useState(false);
+  const [showFinalCheck, setShowFinalCheck] = useState(false);
+  const [isFlowMode, setIsFlowMode] = useState(false);
 
   // Load preferences from AsyncStorage on mount
   useEffect(() => {
@@ -42,7 +47,10 @@ const DietPreferences = ({ navigation }) => {
         const savedMeals = await AsyncStorage.getItem('diet_meals');
         const savedAllergies = await AsyncStorage.getItem('diet_allergies');
         const savedCuisines = await AsyncStorage.getItem('diet_cuisines');
+        const savedAvoided = await AsyncStorage.getItem('diet_avoided_foods');
+        const savedCuisineFreq = await AsyncStorage.getItem('diet_cuisine_frequency');
         const savedOtherInfo = await AsyncStorage.getItem('diet_other_info');
+        const savedFlowCompleted = await AsyncStorage.getItem('diet_flow_completed');
 
         if (savedPreference) setPreference(savedPreference);
         if (savedSkipDays) setSkipDays(JSON.parse(savedSkipDays));
@@ -67,7 +75,26 @@ const DietPreferences = ({ navigation }) => {
             setSelectedCuisines(savedCuisines.split(', ').filter(Boolean));
           }
         }
+        if (savedAvoided) {
+          try {
+            setAvoidedFoods(JSON.parse(savedAvoided));
+          } catch (e) {
+            setAvoidedFoods(savedAvoided.split(', ').filter(Boolean));
+          }
+        }
+        if (savedCuisineFreq) {
+          try {
+            setCuisineFrequency(JSON.parse(savedCuisineFreq));
+          } catch (e) {
+            setCuisineFrequency({});
+          }
+        }
         if (savedOtherInfo) setOtherInfo(savedOtherInfo);
+
+        if (savedFlowCompleted !== 'true') {
+          setIsFlowMode(true);
+          setShowPreferenceSelect(true);
+        }
       } catch (err) {
         console.error('Error loading diet preferences:', err);
       } finally {
@@ -89,6 +116,8 @@ const DietPreferences = ({ navigation }) => {
           meals: selectedMeals,
           allergies: selectedAllergies,
           cuisines: selectedCuisines,
+          avoidedFoods,
+          cuisineFrequency,
           otherInfo,
         };
 
@@ -120,38 +149,44 @@ const DietPreferences = ({ navigation }) => {
     {
       title: 'No Restriction',
       desc: 'Eats all foods and meats',
+      image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=300&q=80',
     },
     {
       title: 'Vegetarian',
       desc: 'No meat, fish or eggs',
+      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=300&q=80',
     },
     {
       title: 'Eggetarian',
       desc: 'vegetarian with eggs',
+      image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=300&q=80',
     },
     {
       title: 'Vegan',
       desc: 'No animal products',
+      image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=300&q=80',
     },
     {
       title: 'Selective Non-Veg',
       desc: 'Eats some meats only',
+      image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=300&q=80',
     },
     {
       title: 'Jain Vegetarian',
       desc: 'No meat, eggs, roots',
+      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80',
     },
   ];
 
   const daysOptions = [
-    { title: 'No Fixed Days', desc: '' },
-    { title: 'Monday', desc: 'Kickstart your week' },
-    { title: 'Tuesday', desc: 'Stay focused' },
-    { title: 'Wednesday', desc: 'Mid-week push' },
-    { title: 'Thursday', desc: 'Keep growing' },
-    { title: 'Friday', desc: 'Finish strong' },
-    { title: 'Saturday', desc: 'Rest and recharge' },
-    { title: 'Sunday', desc: 'Prepare for the week' },
+    { title: 'No Fixed Days', desc: '', image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Monday', desc: 'Kickstart your week', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Tuesday', desc: 'Stay focused', image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Wednesday', desc: 'Mid-week push', image: 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Thursday', desc: 'Keep growing', image: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Friday', desc: 'Finish strong', image: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Saturday', desc: 'Rest and recharge', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Sunday', desc: 'Prepare for the week', image: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=150&q=80' },
   ];
 
   const mealsOptions = [
@@ -163,27 +198,55 @@ const DietPreferences = ({ navigation }) => {
   ];
 
   const allergiesOptions = [
-    { title: 'No Known Allergies', desc: '', hasPlaceholder: false },
-    { title: 'Dairy', desc: 'Milk, cheese, butter', hasPlaceholder: true },
-    { title: 'Eggs', desc: 'All egg products', hasPlaceholder: true },
-    { title: 'Peanuts', desc: 'Groundnuts, peanut butter', hasPlaceholder: true },
-    { title: 'Tree Nuts', desc: 'Almonds, cashews, walnuts', hasPlaceholder: true },
-    { title: 'Gluten / Wheat', desc: 'Gluten containing foods', hasPlaceholder: true },
+    { title: 'No Known Allergies', desc: '', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Dairy', desc: 'Milk, cheese, butter', image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Eggs', desc: 'All egg products', image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Peanuts', desc: 'Groundnuts, peanut butter', image: 'https://images.unsplash.com/photo-1505576399279-565b52d4ac71?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Tree Nuts', desc: 'Almonds, cashews, walnuts', image: 'https://images.unsplash.com/photo-1508061253366-f7da158b6d46?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Gluten / Wheat', desc: 'Wheat, barley, rye', image: 'https://images.unsplash.com/photo-1574085733277-851d9d856a3a?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Soy', desc: 'Soybeans, tofu, soy sauce', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Sesame', desc: 'Seeds, oil, tahini', image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Fish', desc: 'Rohu, tuna, salmon', image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Shellfish', desc: 'Prawns, crab, lobster', image: 'https://images.unsplash.com/photo-1553618551-fba689030290?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Mustard', desc: 'Seeds, oil, leaves', image: 'https://images.unsplash.com/photo-1471193945509-9ad0617afabf?auto=format&fit=crop&w=150&q=80' },
+  ];
+
+  const avoidedFoodsOptions = [
+    { title: 'Beef', desc: 'Cow, buffalo meat', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Pork', desc: 'Bacon, ham, sausages', image: 'https://images.unsplash.com/photo-1532408840957-031d8034aeef?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Fish', desc: 'Rohu, tuna, salmon', image: 'https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Shellfish', desc: 'Prawns, crab, lobster', image: 'https://images.unsplash.com/photo-1553618551-fba689030290?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Lamb / Mutton', desc: 'Goat or lamb meat', image: 'https://images.unsplash.com/photo-1484557985045-edf25e08da73?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Chicken', desc: 'All chicken dishes', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Other Poultry', desc: 'Turkey, duck, quail', image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
+    { title: 'Organ Meats', desc: 'Liver, kidney, heart', image: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
+    { title: 'Processed Meats', desc: 'Salami, cold cuts', image: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
   ];
 
   const popularCuisines = [
-    { title: 'North Indian', desc: 'Punjabi, Awadhi, Rajasthani etc.', image: 'https://images.unsplash.com/photo-1585938338392-50a59970d2ee?auto=format&fit=crop&w=150&q=80' },
+    { title: 'North Indian', desc: 'Punjabi, Awadhi, Rajasthani etc.', image: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=150&q=80' },
     { title: 'South Indian', desc: 'Tamil, Andhra, Kerala, Karnataka foods', image: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=150&q=80' },
-    { title: 'Kerala', desc: 'Sadhya, Appam, Malabar Parotta', image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Gujarati', desc: 'Dhokla, veg shaak, dal', image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Bengali', desc: 'Steamed fish, leafy greens', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Maharashtrian', desc: 'Poha, usal, thalipeeth', image: 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=150&q=80' },
   ];
 
   const otherCuisines = [
-    { title: 'USA Food', desc: 'Burgers, fries, hot dogs, steaks', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Street Food', desc: 'Bhel, steamed momos', image: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Chinese (Indian-Chinese)', desc: 'Stir-fried veg, steamed rice', image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Italian', desc: 'Whole wheat pasta, salads', image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Japanese', desc: 'Sushi, miso soup, edamame', image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Thai', desc: 'Raw papaya salad, curries', image: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Vietnamese', desc: 'Pho, rice paper rolls', image: 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Kashmiri', desc: 'Light yakhni, steamed rice', image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=150&q=80' },
   ];
 
   const handleSelectPreference = async (title) => {
     setPreference(title);
     setShowPreferenceSelect(false);
+    if (isFlowMode) {
+      setShowSkipDaysSelect(true);
+    }
     try {
       await AsyncStorage.setItem('diet_preference', title);
     } catch (err) {
@@ -254,6 +317,44 @@ const DietPreferences = ({ navigation }) => {
     }
   };
 
+  const handleToggleAvoidedFood = async (title) => {
+    let updatedAvoided = [...avoidedFoods];
+    if (updatedAvoided.includes(title)) {
+      updatedAvoided = updatedAvoided.filter(x => x !== title);
+    } else {
+      updatedAvoided.push(title);
+    }
+    setAvoidedFoods(updatedAvoided);
+    try {
+      await AsyncStorage.setItem('diet_avoided_foods', JSON.stringify(updatedAvoided));
+    } catch (err) {
+      console.error('Failed to save avoided foods:', err);
+    }
+  };
+
+  const cuisineFrequencyOptions = [
+    { title: 'North Indian', image: 'https://images.unsplash.com/photo-1585938338392-50a59970d2ee?auto=format&fit=crop&w=150&q=80' },
+    { title: 'South Indian', image: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Street Food', image: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Tandoor & Grills', image: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=150&q=80' },
+    { title: 'Coastal India', image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=150&q=80' },
+  ];
+
+  const handleSelectCuisineFrequency = async (cuisineTitle, frequency) => {
+    const updatedFreq = { ...cuisineFrequency };
+    if (updatedFreq[cuisineTitle] === frequency) {
+      delete updatedFreq[cuisineTitle];
+    } else {
+      updatedFreq[cuisineTitle] = frequency;
+    }
+    setCuisineFrequency(updatedFreq);
+    try {
+      await AsyncStorage.setItem('diet_cuisine_frequency', JSON.stringify(updatedFreq));
+    } catch (err) {
+      console.error('Failed to save cuisine frequency:', err);
+    }
+  };
+
   const handleToggleCuisine = async (cuisineTitle) => {
     let updatedCuisines = [...selectedCuisines];
     if (updatedCuisines.includes(cuisineTitle)) {
@@ -275,11 +376,34 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowPreferenceSelect(false)} style={styles.backBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowPreferenceSelect(false);
+              setIsFlowMode(false);
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
             <Icon name="chevron-back" size={20} color="#FFF" />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {isFlowMode ? (
+            <TouchableOpacity onPress={() => { setShowPreferenceSelect(false); setShowSkipDaysSelect(true); }}>
+              <Text style={styles.skipBtnText}>Skip</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <View style={styles.selectorWrapper}>
@@ -298,11 +422,13 @@ const DietPreferences = ({ navigation }) => {
                 >
                   {/* Upper section with checkered background */}
                   <View style={styles.gridCardUpper}>
-                    <Image
-                      source={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAIklEQVQ4y2P8z4AdMDKgDnBqamqippGURlIaSWkkpRFGDwUAHz4EAep4X4gAAAAASUVORK5CYII=' }}
-                      style={styles.checkerboard}
-                      resizeMode="repeat"
-                    />
+                    {opt.image ? (
+                      <Image
+                        source={{ uri: opt.image }}
+                        style={styles.checkerboard}
+                        resizeMode="cover"
+                      />
+                    ) : null}
                     
                     {/* Radio circle in top right */}
                     <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
@@ -332,11 +458,38 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowSkipDaysSelect(false)} style={styles.backBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowSkipDaysSelect(false);
+              if (isFlowMode) {
+                setShowPreferenceSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
             <Icon name="chevron-back" size={20} color="#FFF" />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {isFlowMode ? (
+            <TouchableOpacity onPress={() => { setShowSkipDaysSelect(false); setShowAllergiesSelect(true); }}>
+              <Text style={styles.skipBtnText}>Next</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
@@ -351,8 +504,12 @@ const DietPreferences = ({ navigation }) => {
                 onPress={() => handleToggleSkipDay(opt.title)}
                 activeOpacity={0.8}
               >
-                {/* Left side: solid white rounded square */}
-                <View style={styles.dayCardLeft} />
+                {/* Left side: image */}
+                {opt.image ? (
+                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
+                ) : (
+                  <View style={styles.dayCardLeft} />
+                )}
 
                 {/* Middle: Title & Subtext */}
                 <View style={styles.dayCardMiddle}>
@@ -373,57 +530,7 @@ const DietPreferences = ({ navigation }) => {
   }
 
   // RENDER MEALS SELECT VIEW (Vegetarian Meals Selection)
-  if (showMealsSelect) {
-    return (
-      <SafeAreaView style={styles.container}>
-        {/* Transparent header with back button */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowMealsSelect(false)} style={styles.backBtn}>
-            <Icon name="chevron-back" size={20} color="#FFF" />
-          </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
-        </View>
 
-        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
-          {/* Note: matching the exact mockup text spelling */}
-          <Text style={styles.listTitle}>
-            Which days do you{"\n"}prefervegetarian meals only
-          </Text>
-
-          {mealsOptions.map((opt) => {
-            const isSelected = selectedMeals.includes(opt.title);
-            return (
-              <TouchableOpacity
-                key={opt.title}
-                style={[styles.mealCard, isSelected && styles.mealCardSelected]}
-                onPress={() => handleToggleMeal(opt.title)}
-                activeOpacity={0.8}
-              >
-                {/* Left side: Food thumbnail image or dark placeholder */}
-                {opt.image ? (
-                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
-                ) : (
-                  <View style={styles.mealCardPlaceholder} />
-                )}
-
-                {/* Middle: Title & Subtext */}
-                <View style={styles.dayCardMiddle}>
-                  <Text style={styles.dayCardTitle}>{opt.title}</Text>
-                  {opt.desc ? <Text style={styles.dayCardDesc}>{opt.desc}</Text> : null}
-                </View>
-
-                {/* Right side: Checkbox */}
-                <View style={[styles.mealCheckbox, isSelected && styles.mealCheckboxSelected]}>
-                  {isSelected && <Icon name="checkmark" size={14} color="#FFF" />}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
   // RENDER ALLERGIES SELECT VIEW
   if (showAllergiesSelect) {
@@ -431,11 +538,38 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowAllergiesSelect(false)} style={styles.backBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowAllergiesSelect(false);
+              if (isFlowMode) {
+                setShowSkipDaysSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
             <Icon name="chevron-back" size={20} color="#FFF" />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {isFlowMode ? (
+            <TouchableOpacity onPress={() => { setShowAllergiesSelect(false); setShowCuisinesSelect(true); }}>
+              <Text style={styles.skipBtnText}>Next</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
@@ -450,15 +584,17 @@ const DietPreferences = ({ navigation }) => {
                 onPress={() => handleToggleAllergy(opt.title)}
                 activeOpacity={0.8}
               >
-                {/* Left side: dark placeholder if hasPlaceholder is true */}
-                {opt.hasPlaceholder ? (
+                {/* Left side: image */}
+                {opt.image ? (
+                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
+                ) : (
                   <View style={styles.mealCardPlaceholder} />
-                ) : null}
+                )}
 
                 {/* Middle: Title & Subtext */}
                 <View style={styles.dayCardMiddle}>
-                  <Text style={styles.dayCardTitle}>{opt.title}</Text>
-                  {opt.desc ? <Text style={styles.dayCardDesc}>{opt.desc}</Text> : null}
+                  <Text style={[styles.dayCardTitle, isSelected && styles.mealCardTitleSelected]}>{opt.title}</Text>
+                  {opt.desc ? <Text style={[styles.dayCardDesc, isSelected && styles.mealCardDescSelected]}>{opt.desc}</Text> : null}
                 </View>
 
                 {/* Right side: Checkbox */}
@@ -473,17 +609,202 @@ const DietPreferences = ({ navigation }) => {
     );
   }
 
+  // RENDER AVOIDED FOODS SELECT VIEW
+  if (showAvoidSelect) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {/* Transparent header with back button and Skip */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowAvoidSelect(false);
+              if (isFlowMode) {
+                setShowCuisinesSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={styles.backBtnRound}
+          >
+            <Icon name="chevron-back" size={20} color="#FFF" />
+          </TouchableOpacity>
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          )}
+          <TouchableOpacity onPress={() => { setShowAvoidSelect(false); setShowFinalCheck(true); }}>
+            <Text style={styles.skipBtnText}>{isFlowMode ? 'Next' : 'Skip'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitleCenter}>Which of these would you{"\n"}like to avoid?</Text>
+
+          {avoidedFoodsOptions.map((opt) => {
+            const isSelected = avoidedFoods.includes(opt.title);
+            return (
+              <TouchableOpacity
+                key={opt.title}
+                style={[styles.avoidCard, isSelected && styles.avoidCardSelected]}
+                onPress={() => handleToggleAvoidedFood(opt.title)}
+                activeOpacity={0.8}
+              >
+                {/* Left side: thumbnail container */}
+                <View style={styles.avoidCardLeft}>
+                  {opt.image ? (
+                    <Image source={{ uri: opt.image }} style={styles.avoidCardImage} />
+                  ) : (
+                    <View style={styles.avoidCardPlaceholder} />
+                  )}
+                </View>
+
+                {/* Middle: Title & Subtext */}
+                <View style={styles.avoidCardMiddle}>
+                  <Text style={[styles.avoidCardTitle, isSelected && styles.avoidCardTitleSelected]}>{opt.title}</Text>
+                  {opt.desc ? <Text style={[styles.avoidCardDesc, isSelected && styles.avoidCardDescSelected]}>{opt.desc}</Text> : null}
+                </View>
+
+                {/* Right side: Checkbox or circular minus */}
+                {opt.isMinusOption && !isSelected ? (
+                  <View style={styles.minusCircle}>
+                    <View style={styles.minusLine} />
+                  </View>
+                ) : (
+                  <View style={[styles.avoidCheckbox, isSelected && styles.avoidCheckboxSelected]}>
+                    {isSelected && <Icon name="checkmark" size={14} color="#FFF" />}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // RENDER FINAL CHECK VIEW (Step 7)
+  if (showFinalCheck) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {/* Transparent header with back button and Done */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => { setShowFinalCheck(false); setShowAvoidSelect(true); }} style={styles.backBtnRound}>
+            <Icon name="chevron-back" size={20} color="#FFF" />
+          </TouchableOpacity>
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+            </View>
+          ) : (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          )}
+          <TouchableOpacity 
+            onPress={async () => {
+              setShowFinalCheck(false);
+              setIsFlowMode(false);
+              try {
+                await AsyncStorage.setItem('diet_flow_completed', 'true');
+              } catch (err) {
+                console.error('Failed to save flow completion flag:', err);
+              }
+            }}
+          >
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.finalCheckScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitleCenter}>Final Check — Almost{"\n"}Done!</Text>
+
+          {/* Gourmet Cloche Dome Image */}
+          <View style={styles.finalImageContainer}>
+            <Image 
+              source={require("../../../assets/image/Gordon Ramsay's Hell's Kitchen Needs Gordon___ 1.png")} 
+              style={styles.finalImage}
+              resizeMode="cover"
+            />
+          </View>
+
+          {/* Bottom text description block matching the mockup exactly */}
+          <View style={styles.finalTextContainer}>
+            <Text style={styles.finalDescText}>
+              Lose 5 kg in 4 weeks with steady, sustainable progress. Every step forward matters.
+            </Text>
+            <Text style={styles.finalCalorieText}>
+              Daily calorie range: 3698–3798 Cal.
+            </Text>
+            <Text style={styles.finalSubText}>
+              Based on your unique goals and activity level.
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   // RENDER CUISINES SELECT VIEW
   if (showCuisinesSelect) {
     return (
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setShowCuisinesSelect(false)} style={styles.backBtn}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowCuisinesSelect(false);
+              if (isFlowMode) {
+                setShowAllergiesSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
             <Icon name="chevron-back" size={20} color="#FFF" />
           </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerSpacer} />
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {isFlowMode ? (
+            <TouchableOpacity onPress={() => { setShowCuisinesSelect(false); setShowAvoidSelect(true); }}>
+              <Text style={styles.skipBtnText}>Next</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
@@ -587,10 +908,10 @@ const DietPreferences = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Preference Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => setShowPreferenceSelect(true)} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(true); setShowPreferenceSelect(true); }} activeOpacity={0.9}>
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
-              <MaterialCommunityIcons name="food-apple" size={20} color="#666" />
+              <MaterialCommunityIcons name="food-apple" size={20} color="#FFF" />
             </View>
           </View>
           <View style={styles.cardContent}>
@@ -598,15 +919,15 @@ const DietPreferences = ({ navigation }) => {
               <Text style={styles.cardLabel}>Preference</Text>
               <Text style={styles.cardValue}>{preference}</Text>
             </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
           </View>
         </TouchableOpacity>
 
         {/* Skip Non-veg Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => setShowSkipDaysSelect(true)} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowSkipDaysSelect(true); }} activeOpacity={0.9}>
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
-              <MaterialCommunityIcons name="calendar-blank" size={20} color="#666" />
+              <MaterialCommunityIcons name="calendar-blank" size={20} color="#FFF" />
             </View>
           </View>
           <View style={styles.cardContent}>
@@ -616,33 +937,16 @@ const DietPreferences = ({ navigation }) => {
                 {skipDays.length > 0 ? skipDays.join(', ') : 'No Fixed Days'}
               </Text>
             </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
           </View>
         </TouchableOpacity>
 
-        {/* Meals Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => setShowMealsSelect(true)} activeOpacity={0.9}>
-          <View style={styles.avatarOverlap}>
-            <View style={styles.avatarInner}>
-              <MaterialCommunityIcons name="silverware-fork-knife" size={18} color="#666" />
-            </View>
-          </View>
-          <View style={styles.cardContent}>
-            <View style={styles.textWrapper}>
-              <Text style={styles.cardLabel}>Meals</Text>
-              <Text style={styles.cardValue}>
-                {selectedMeals.length > 0 ? selectedMeals.join(', ') : 'None'}
-              </Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
-          </View>
-        </TouchableOpacity>
 
         {/* Allergies Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => setShowAllergiesSelect(true)} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowAllergiesSelect(true); }} activeOpacity={0.9}>
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
-              <Icon name="warning-outline" size={18} color="#666" />
+              <Icon name="warning-outline" size={18} color="#FFF" />
             </View>
           </View>
           <View style={styles.cardContent}>
@@ -652,15 +956,34 @@ const DietPreferences = ({ navigation }) => {
                 {selectedAllergies.length > 0 ? selectedAllergies.join(', ') : 'No Known Allergies'}
               </Text>
             </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
           </View>
         </TouchableOpacity>
 
-        {/* Cuisines Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => setShowCuisinesSelect(true)} activeOpacity={0.9}>
+        {/* Foods to Avoid Card */}
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowAvoidSelect(true); }} activeOpacity={0.9}>
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
-              <Icon name="earth-outline" size={18} color="#666" />
+              <Icon name="close-circle-outline" size={18} color="#FFF" />
+            </View>
+          </View>
+          <View style={styles.cardContent}>
+            <View style={styles.textWrapper}>
+              <Text style={styles.cardLabel}>Foods to Avoid</Text>
+              <Text style={styles.cardValue}>
+                {avoidedFoods.length > 0 ? avoidedFoods.join(', ') : 'None'}
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+          </View>
+        </TouchableOpacity>
+
+
+        {/* Cuisines Card */}
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowCuisinesSelect(true); }} activeOpacity={0.9}>
+          <View style={styles.avatarOverlap}>
+            <View style={styles.avatarInner}>
+              <Icon name="earth-outline" size={18} color="#FFF" />
             </View>
           </View>
           <View style={styles.cardContent}>
@@ -670,7 +993,7 @@ const DietPreferences = ({ navigation }) => {
                 {selectedCuisines.length > 0 ? selectedCuisines.join(', ') : 'None'}
               </Text>
             </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
           </View>
         </TouchableOpacity>
 
@@ -682,7 +1005,7 @@ const DietPreferences = ({ navigation }) => {
         >
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
-              <Icon name="information-circle-outline" size={20} color="#666" />
+              <Icon name="information-circle-outline" size={20} color="#FFF" />
             </View>
           </View>
           <View style={styles.cardContent}>
@@ -690,7 +1013,7 @@ const DietPreferences = ({ navigation }) => {
               <Text style={styles.cardLabel}>Other info</Text>
               <Text style={styles.cardValue}>{otherInfo}</Text>
             </View>
-            <Icon name="chevron-forward" size={16} color="#BBB" />
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -734,7 +1057,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   cardContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#050505',
     borderRadius: 20,
     marginBottom: 25,
     height: 90,
@@ -743,11 +1066,8 @@ const styles = StyleSheet.create({
     paddingLeft: 60,
     paddingRight: 20,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   avatarOverlap: {
     position: 'absolute',
@@ -764,9 +1084,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#DDD',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.0,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -780,12 +1100,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardLabel: {
-    color: '#000',
+    color: '#FFF',
     fontSize: 15,
     fontWeight: 'bold',
   },
   cardValue: {
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
     marginTop: 4,
     fontWeight: '500',
@@ -963,8 +1283,14 @@ const styles = StyleSheet.create({
     height: 72,
   },
   mealCardSelected: {
-    borderColor: '#00E676',
-    backgroundColor: '#0c1a11',
+    backgroundColor: '#FFF',
+    borderColor: '#005D54',
+  },
+  mealCardTitleSelected: {
+    color: '#000',
+  },
+  mealCardDescSelected: {
+    color: 'rgba(0, 0, 0, 0.6)',
   },
   mealCardImage: {
     width: 44,
@@ -980,15 +1306,15 @@ const styles = StyleSheet.create({
   mealCheckbox: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: 11,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   mealCheckboxSelected: {
-    backgroundColor: '#00E676',
-    borderColor: '#00E676',
+    backgroundColor: '#005D54',
+    borderColor: '#005D54',
   },
   cuisineCard: {
     flexDirection: 'row',
@@ -1004,7 +1330,7 @@ const styles = StyleSheet.create({
   },
   cuisineCardSelected: {
     backgroundColor: '#FFF',
-    borderColor: '#00E676',
+    borderColor: '#005D54',
   },
   cuisineCardImage: {
     width: 44,
@@ -1027,8 +1353,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cuisineCheckboxSelected: {
-    backgroundColor: '#00E676',
-    borderColor: '#00E676',
+    backgroundColor: '#005D54',
+    borderColor: '#005D54',
     borderRadius: 11,
   },
   sectionHeader: {
@@ -1039,6 +1365,284 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 15,
     opacity: 0.6,
+  },
+  backBtnRound: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  progressContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 2,
+    borderRadius: 1,
+  },
+  progressSegmentActive: {
+    flex: 1,
+    height: 2.5,
+    backgroundColor: '#FFF',
+    marginHorizontal: 2,
+    borderRadius: 1,
+  },
+  skipBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  listTitleCenter: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 34,
+    marginTop: 20,
+    marginBottom: 40,
+    paddingHorizontal: 20,
+    fontFamily: 'BRLNSR',
+  },
+  avoidCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#050505',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 15,
+    height: 80,
+  },
+  avoidCardSelected: {
+    backgroundColor: '#FFF',
+    borderColor: '#005D54',
+  },
+  avoidCardTitleSelected: {
+    color: '#000',
+  },
+  avoidCardDescSelected: {
+    color: 'rgba(0, 0, 0, 0.6)',
+  },
+  avoidCardLeft: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  avoidCardImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+  },
+  avoidCardPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#DDD',
+  },
+  avoidCardMiddle: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  avoidCardTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  avoidCardDesc: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  avoidCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avoidCheckboxSelected: {
+    backgroundColor: '#005D54',
+    borderColor: '#005D54',
+  },
+  minusCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  minusLine: {
+    width: 10,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  freqCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#050505',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 15,
+    height: 85,
+  },
+  freqCardLeft: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  freqCardImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+  },
+  freqCardPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#DDD',
+  },
+  freqCardMiddle: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  freqCardTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  freqButtonsContainer: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    height: 54,
+    width: 90,
+  },
+  freqButtonSometimes: {
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  freqButtonSometimesSelected: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+  },
+  freqButtonTextSometimes: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  freqButtonTextSometimesSelected: {
+    color: '#000',
+  },
+  freqButtonOften: {
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  freqButtonOftenSelected: {
+    backgroundColor: '#005D54',
+    borderColor: '#005D54',
+  },
+  freqButtonTextOften: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  freqButtonTextOftenSelected: {
+    color: '#FFF',
+  },
+  doneBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  finalCheckScrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  finalImageContainer: {
+    width: width - 48,
+    height: 300,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 30,
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  finalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  finalTextContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  finalDescText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  finalCalorieText: {
+    color: '#00E676',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  finalSubText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
 

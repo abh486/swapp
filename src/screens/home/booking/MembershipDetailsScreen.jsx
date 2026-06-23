@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
-import * as Clarity from '@microsoft/react-native-clarity';
+
 import {
   Camera,
   useCameraDevice,

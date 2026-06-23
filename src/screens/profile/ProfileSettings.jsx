@@ -9,6 +9,7 @@ import {
   Switch,
   Alert,
   StatusBar,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../context/AuthContext';
@@ -149,7 +150,10 @@ const ProfileSettingsScreen = ({ navigation }) => {
             />
           </View>
 
-          <TouchableOpacity style={styles.rowNoBorder}>
+          <TouchableOpacity
+            style={styles.rowNoBorder}
+            onPress={() => Linking.openURL('https://swapp.fit/privacy').catch(err => console.error('Failed to open Privacy Policy URL:', err))}
+          >
             <View style={styles.rowLeft}>
               <Icon name="lock-closed-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Privacy</Text>

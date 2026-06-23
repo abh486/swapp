@@ -140,6 +140,7 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
 
         navigation.navigate('CheckoutWebView', {
           url: res.checkoutUrl,
+          planId: selectedPlan.id,
           planName: selectedPlan.name,
           price: selectedPlan.price || '999',
           pendingSubscription,
@@ -166,7 +167,7 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         {!onUnlock ? (

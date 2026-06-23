@@ -15,7 +15,7 @@ import { WebView } from 'react-native-webview';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import Auth0 from 'react-native-auth0';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../utils/clarity';
 import apiClient, {
   AUTH0_API_AUDIENCE,
   AUTH0_LOGIN_SCOPE,

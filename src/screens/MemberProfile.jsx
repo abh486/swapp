@@ -8,7 +8,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../utils/clarity';
 import { useResponsiveMetrics } from '../utils/responsive';
 
 if (I18nManager.isRTL) {

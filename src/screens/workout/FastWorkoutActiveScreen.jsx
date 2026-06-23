@@ -18,7 +18,7 @@ import Svg, { Path, Circle, Rect, Polyline } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../utils/clarity';
 import {
   useCameraDevice,
   useCameraPermission,
@@ -72,47 +72,6 @@ const FastWorkoutActiveScreen = () => {
   const photoOutput = usePhotoOutput({ quality: 0.8 });
   const [showCameraOverlay, setShowCameraOverlay] = useState(false);
 
-  const handleCameraShot = useCallback(async () => {
-    try {
-      if (!photoOutput) {
-        Alert.alert('Camera Error', 'Camera output is not initialized.');
-        return;
-      }
-      const photo = await photoOutput.capturePhotoToFile(
-        { flashMode: 'off' },
-        {},
-      );
-      if (photo && photo.filePath) {
-        const imagePath = photo.filePath.startsWith('file://')
-          ? photo.filePath
-          : 'file://' + photo.filePath;
-        setProgressPhoto(imagePath);
-        setShowCameraOverlay(false);
-      } else {
-        throw new Error('Captured photo had no file path.');
-      }
-    } catch (error) {
-      Alert.alert(
-        'Camera Not Ready',
-        'Please wait a moment for the camera to initialize before taking a photo.',
-      );
-      console.error('Camera capture error:', error);
-    }
-  }, [photoOutput]);
-
-  const handleUploadPhoto = useCallback(() => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
-      if (
-        !response.didCancel &&
-        !response.errorCode &&
-        response.assets?.[0]?.uri
-      ) {
-        setProgressPhoto(response.assets[0].uri);
-        setShowCameraOverlay(false);
-      }
-    });
-  }, []);
-
   // Modal States
   const [isSetModalVisible, setSetModalVisible] = useState(false);
   const [isSaveWorkoutModalVisible, setSaveWorkoutModalVisible] =
@@ -131,6 +90,69 @@ const FastWorkoutActiveScreen = () => {
   useEffect(() => {
     stateRef.current = { activeExerciseId, tempReps, tempWeight };
   }, [activeExerciseId, tempReps, tempWeight]);
+
+  const closeCameraAndRestoreSaveModal = useCallback(() => {
+    setShowCameraOverlay(false);
+    setTimeout(() => {
+      setSaveWorkoutModalVisible(true);
+    }, 400);
+  }, []);
+
+  const handleCameraShot = useCallback(async () => {
+    try {
+      if (!photoOutput) {
+        Alert.alert('Camera Error', 'Camera output is not initialized.');
+        return;
+      }
+      const photo = await photoOutput.capturePhotoToFile(
+        { flashMode: 'off' },
+        {},
+      );
+      if (photo && photo.filePath) {
+        const imagePath = photo.filePath.startsWith('file://')
+          ? photo.filePath
+          : 'file://' + photo.filePath;
+        setProgressPhoto(imagePath);
+        setShowCameraOverlay(false);
+        // Restore Save Workout modal after camera closes
+        setTimeout(() => {
+          setSaveWorkoutModalVisible(true);
+        }, 400);
+      } else {
+        throw new Error('Captured photo had no file path.');
+      }
+    } catch (error) {
+      Alert.alert(
+        'Camera Not Ready',
+        'Please wait a moment for the camera to initialize before taking a photo.',
+      );
+      console.error('Camera capture error:', error);
+    }
+  }, [photoOutput]);
+
+  const handleUploadPhoto = useCallback(() => {
+    // Hide camera overlay first
+    setShowCameraOverlay(false);
+    // Wait for camera modal dismiss transition before showing image picker
+    setTimeout(() => {
+      try {
+        launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
+          if (
+            !response.didCancel &&
+            !response.errorCode &&
+            response.assets?.[0]?.uri
+          ) {
+            setProgressPhoto(response.assets[0].uri);
+          }
+          // Restore Save Workout modal
+          setSaveWorkoutModalVisible(true);
+        });
+      } catch (err) {
+        Alert.alert('Gallery Launch Failed', err.message || String(err));
+        setSaveWorkoutModalVisible(true);
+      }
+    }, 450);
+  }, []);
   // Swipe to finish logic
   const pan = useRef(new Animated.ValueXY()).current;
   const swipeWidth = 250;
@@ -304,31 +326,69 @@ const FastWorkoutActiveScreen = () => {
   };
 
   const handlePickImage = () => {
-    Alert.alert('Add Photo', 'Choose a photo for your workout summary', [
-      {
-        text: 'Take Photo',
-        onPress: () => {
-          if (!hasPermission) {
-            requestPermission();
-          }
-          setShowCameraOverlay(true);
-        },
-      },
-      {
-        text: 'Choose from Gallery',
-        onPress: () => {
-          launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
-            if (response.assets && response.assets.length > 0) {
-              setProgressPhoto(response.assets[0].uri);
+    console.log('[FastWorkoutActiveScreen] handlePickImage triggered');
+    if (typeof launchImageLibrary !== 'function') {
+      Alert.alert('Module Error', 'Native image picker functions are not loaded. Please ensure npm install and pod install were run, and the app was completely rebuilt.');
+      return;
+    }
+    
+    // Hide the Save Workout Modal first to avoid UIKit view controller presentation conflicts on iOS
+    setSaveWorkoutModalVisible(false);
+    
+    // Wait for the modal dismissal transition to complete before presenting the alert sheet
+    setTimeout(() => {
+      Alert.alert('Add Photo', 'Choose a photo for your workout summary', [
+        {
+          text: 'Take Photo',
+          onPress: () => {
+            if (!hasPermission) {
+              requestPermission();
             }
-          });
+            setShowCameraOverlay(true);
+          },
         },
-      },
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-    ]);
+        {
+          text: 'Choose from Gallery',
+          onPress: () => {
+            setTimeout(() => {
+              try {
+                launchImageLibrary(
+                  {
+                    mediaType: 'photo',
+                    quality: 0.8,
+                    selectionLimit: 1,
+                  },
+                  response => {
+                    if (response.didCancel) {
+                      console.log('[handlePickImage] User cancelled gallery');
+                      setSaveWorkoutModalVisible(true);
+                    } else if (response.errorCode) {
+                      Alert.alert('Gallery Error', response.errorMessage || `Error code: ${response.errorCode}`);
+                      setSaveWorkoutModalVisible(true);
+                    } else if (response.assets && response.assets.length > 0) {
+                      setProgressPhoto(response.assets[0].uri);
+                      setSaveWorkoutModalVisible(true);
+                    } else {
+                      setSaveWorkoutModalVisible(true);
+                    }
+                  }
+                );
+              } catch (err) {
+                Alert.alert('Gallery Launch Failed', err.message || String(err));
+                setSaveWorkoutModalVisible(true);
+              }
+            }, 300);
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            setSaveWorkoutModalVisible(true);
+          },
+        },
+      ]);
+    }, 450);
   };
 
   const openAddSetModal = exerciseId => {
@@ -1304,7 +1364,7 @@ const FastWorkoutActiveScreen = () => {
 
         <WorkoutCameraModal
           showCameraOverlay={showCameraOverlay}
-          setShowCameraOverlay={setShowCameraOverlay}
+          setShowCameraOverlay={closeCameraAndRestoreSaveModal}
           cameraDevice={cameraDevice}
           handleCameraShot={handleCameraShot}
           handleUploadPhoto={handleUploadPhoto}

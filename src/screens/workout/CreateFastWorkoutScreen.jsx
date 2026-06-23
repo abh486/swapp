@@ -30,7 +30,7 @@ const CreateFastWorkoutScreen = () => {
   const { equipments, muscles } = useSelector(state => state.workout);
   const { wp, hp, ms, sp, fs, isLandscape } = useResponsiveMetrics();
   const styles = createFastWorkoutStyles({ wp, hp, ms, sp, fs, isLandscape });
-  const swipeWidth = wp(90);
+  const swipeWidth = wp(65);
   const sliderWidth = ms(46);
 
   useEffect(() => {
@@ -120,17 +120,39 @@ const CreateFastWorkoutScreen = () => {
       });
 
       const eqKey = selectedEquipment.toLowerCase();
-      const apiEquipment =
+      let apiEquipment =
         UI_TO_API_EQUIPMENT_MAP[eqKey] ||
         (selectedEquipment && selectedEquipment !== 'All Equipement'
           ? eqKey
           : undefined);
+
+      // If no specific equipment filter is selected in the modal, map selected Env to equipment parameters
+      if (!apiEquipment) {
+        if (selectedEnv === 'ZERO EQUIPMENT') {
+          apiEquipment = 'body weight';
+        } else if (selectedEnv === 'AT-HOME GYM') {
+          apiEquipment = 'dumbbell,resistance band,body weight,kettlebell';
+        } else if (selectedEnv === 'BASIC GYM') {
+          apiEquipment = 'barbell,dumbbell,cable,body weight,kettlebell,plate,bench';
+        }
+      }
+
+      // Map duration to target exercise count (4 for 30min, 5 for 45min, 6 for 50min)
+      let exerciseLimit = 6;
+      if (selectedDuration === '30min') {
+        exerciseLimit = 4;
+      } else if (selectedDuration === '45min') {
+        exerciseLimit = 5;
+      } else if (selectedDuration === '50min') {
+        exerciseLimit = 6;
+      }
+
       const levelBodyParts = LEVEL_BODY_PARTS_MAP[selectedLevel] || [];
       const hasSelectedMuscleFilter =
         selectedBodyParts.length > 0 || selectedTargetMuscles.length > 0;
 
       const fetchedExercises = await dispatch(fetchExercises({
-        limit: 30,
+        limit: 40, // Fetch a larger pool to allow random shuffling
         equipments: apiEquipment,
         bodyParts: selectedBodyParts.length > 0
           ? selectedBodyParts
@@ -140,7 +162,10 @@ const CreateFastWorkoutScreen = () => {
         targetMuscles: selectedTargetMuscles.length > 0 ? selectedTargetMuscles : undefined,
       }));
 
-      const formattedExercises = (fetchedExercises || []).slice(0, 30).map(ex => ({
+      // Shuffle fetched exercises to make workout creation fresh and dynamic
+      const shuffledExercises = (fetchedExercises || []).sort(() => 0.5 - Math.random());
+
+      const formattedExercises = shuffledExercises.slice(0, exerciseLimit).map(ex => ({
         ...ex,
         id: ex.id || ex._id,
         gifUrl: ex.gifUrl,
@@ -251,7 +276,7 @@ const CreateFastWorkoutScreen = () => {
             onPress={() => setModalVisible(false)}
             activeOpacity={0.8}
           >
-            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
                 stroke="#FFFFFF"
@@ -263,7 +288,7 @@ const CreateFastWorkoutScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.searchBar}>
-            <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <Svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <Path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
             <TextInput
@@ -307,14 +332,14 @@ const CreateFastWorkoutScreen = () => {
                       onPress={() => activeTab === 'Equipment' ? setSelectedEquipment(item) : toggleMuscle(item)}>
                       <View style={styles.iconCircle}>
                         {index === 0 && (
-                          <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                             <Path d="M4 4H10V10H4V4ZM14 4H20V10H14V4ZM4 14H10V20H4V14ZM14 14H20V20H14V14Z" stroke="#FFFFFF" strokeWidth="2" strokeLinejoin="round" />
                           </Svg>
                         )}
                       </View>
                       <Text style={styles.listItemText}>{item}</Text>
                       {isChecked && (
-                        <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                           <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
                         </Svg>
                       )}
@@ -454,14 +479,14 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs, isLandscape }) =>
   addButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 1.1 },
 
   // Modal
-  modalContainer: { flex: 1, backgroundColor: '#000', paddingTop: 128 },
+  modalContainer: { flex: 1, backgroundColor: '#000', paddingTop: 90 },
   selectorBackButton: {
     position: 'absolute',
-    top: 42,
-    left: 26,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    top: 32,
+    left: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.45)',
     backgroundColor: 'rgba(255,255,255,0.14)',
@@ -474,56 +499,56 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs, isLandscape }) =>
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    marginHorizontal: 26,
-    height: 48,
-    marginBottom: 24,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    height: 38,
+    marginBottom: 16,
     backgroundColor: '#000000',
   },
-  searchInput: { color: '#fff', marginLeft: 12, flex: 1, fontSize: 15, fontWeight: '500' },
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 26, marginBottom: 50, gap: 8 },
+  searchInput: { color: '#fff', marginLeft: 8, flex: 1, fontSize: 13, fontWeight: '500' },
+  tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 24, gap: 6 },
   tabButton: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 14,
+    borderRadius: 18,
+    paddingVertical: 10,
     alignItems: 'center',
     backgroundColor: '#000000',
   },
   tabButtonActive: { borderColor: '#FFFFFF', backgroundColor: '#3A0751' },
-  tabText: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
+  tabText: { color: '#FFFFFF', fontSize: 13, fontWeight: '500' },
   tabTextActive: { color: '#FFFFFF' },
   modalContentContainer: {
     flex: 1,
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    borderTopLeftRadius: 54,
-    borderTopRightRadius: 54,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     borderBottomWidth: 0,
-    marginHorizontal: 24,
-    paddingTop: 24,
+    marginHorizontal: 16,
+    paddingTop: 16,
     backgroundColor: '#000000',
     overflow: 'hidden',
   },
-  modalHandle: { width: 54, height: 6, backgroundColor: '#D9DDE2', borderRadius: 3, alignSelf: 'center', marginBottom: 20 },
-  modalTitle: { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 20 },
+  modalHandle: { width: 36, height: 4, backgroundColor: '#D9DDE2', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 12 },
   modalDivider: { height: 1, backgroundColor: '#B8B8B8' },
-  listContainer: { paddingHorizontal: 36, paddingTop: 22 },
-  listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, minHeight: 72 },
+  listContainer: { paddingHorizontal: 20, paddingTop: 12 },
+  listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, minHeight: 52 },
   iconCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    marginRight: 18,
+    marginRight: 12,
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listItemText: { color: '#fff', fontSize: 17, flex: 1, fontWeight: '700' },
+  listItemText: { color: '#fff', fontSize: 14, flex: 1, fontWeight: '700' },
   itemDivider: { height: 1, backgroundColor: '#A8A8A8' },
 
   // Swipe button

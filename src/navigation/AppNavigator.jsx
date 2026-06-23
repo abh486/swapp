@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../utils/clarity';
 import { useAuth } from '../context/AuthContext';
 import { View, Text, Linking } from 'react-native';
 

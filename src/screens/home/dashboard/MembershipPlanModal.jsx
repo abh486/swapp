@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../utils/clarity';
 
 const { width } = Dimensions.get('window');
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
@@ -148,13 +148,13 @@ const MembershipPlanModal = ({ visible, onClose }) => {
                         tier.name.toUpperCase() === 'GOLD'
                           ? ['#2a1e05', '#0a0700']
                           : tier.name.toUpperCase() === 'ELITE'
-                          ? ['#18052a', '#05000a']
-                          : ['#1a1a1a', '#050505']
+                            ? ['#18052a', '#05000a']
+                            : ['#1a1a1a', '#050505']
                       }
                       style={[
                         styles.planCard,
                         tier.name.toUpperCase() === 'GOLD' &&
-                          styles.goldCardBorder,
+                        styles.goldCardBorder,
                         isSelected && {
                           borderColor: getTierColor(tier.name),
                           borderWidth: 2,
@@ -252,6 +252,7 @@ const MembershipPlanModal = ({ visible, onClose }) => {
                       onClose();
                       navigation.navigate('CheckoutWebView', {
                         url: response.data.checkoutUrl,
+                        planId: selectedTier.id,
                         planName: selectedTier.name,
                         price: selectedTier.price,
                         pendingSubscription,

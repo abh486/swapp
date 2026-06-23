@@ -76,11 +76,11 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     () =>
       normalizePackageType(
         routePackageType ||
-          subscription?.packageType ||
-          subscription?.package?.package_type ||
-          subscription?.package?.packageType ||
-          subscription?.userPlan?.packageSubscription?.package?.package_type ||
-          ''
+        subscription?.packageType ||
+        subscription?.package?.package_type ||
+        subscription?.package?.packageType ||
+        subscription?.userPlan?.packageSubscription?.package?.package_type ||
+        ''
       ),
     [routePackageType, subscription],
   );
@@ -218,7 +218,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
 
       try {
         const isTrainer = packageType === 'TRAINER_PACKAGE' || subscription.trainer || route.params?.targetType === 'TRAINER';
-        
+
         let mappedSlots = [];
         if (isTrainer) {
           const res = await apiClient.get(`/trainers/${providerId}/available-slots`, {
@@ -249,7 +249,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
                 const endDt = new Date(`${activeDateKey}T${s.endTime}:00`);
                 endTime = endDt.toISOString();
               }
-              
+
               const slotStart = new Date(startTime);
               const now = new Date();
               const isPast = slotStart <= now;
@@ -378,6 +378,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         ) {
           navigation.navigate('CheckoutWebView', {
             url: checkoutResponse.data.checkoutUrl,
+            planId: selectedPlan?.id || subscription.package?.id,
             planName: selectedPlan?.name,
             price: selectedPlan?.basePrice,
             pendingSubscription,
@@ -489,34 +490,34 @@ const MembershipBookingScreen = ({ route, navigation }) => {
 
       {/* Category Pills */}
       {isGlobalBundlePackage && (
-      <View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryStrip}
-        >
-          {categories.map(category => {
-            const isActive = activeCategoryId === category.id;
-            return (
-              <TouchableOpacity
-                key={category.id}
-                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-                onPress={() => setActiveCategoryId(category.id)}
-                activeOpacity={0.85}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    isActive && styles.categoryTextActive,
-                  ]}
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryStrip}
+          >
+            {categories.map(category => {
+              const isActive = activeCategoryId === category.id;
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryPill, isActive && styles.categoryPillActive]}
+                  onPress={() => setActiveCategoryId(category.id)}
+                  activeOpacity={0.85}
                 >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      isActive && styles.categoryTextActive,
+                    ]}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Slot List */}
@@ -531,7 +532,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
               <Icon name="shield-checkmark" size={18} color="#A78BFA" />
               <Text style={styles.entitlementTitle}>{activeCategory?.name || 'Category'} Entitlements</Text>
             </View>
-            
+
             <View style={styles.entitlementGrid}>
               <View style={styles.entitlementItem}>
                 <Text style={styles.entitlementLabel}>Soft Limit</Text>
@@ -588,41 +589,41 @@ const MembershipBookingScreen = ({ route, navigation }) => {
           const isBooked = bookedSlotKeys.has(slotKey) || slot.availabilityState === 'BOOKED';
           const isDisabled = Boolean(bookingSlotKey) || !slot.isAvailable || isBooked;
           return (
-          <View key={slotKey} style={[styles.slotCard, isBooked && styles.slotCardBooked]}>
-            <View style={styles.slotInfo}>
-              <Text style={styles.slotTime}>{formatSlotTime(slot)}</Text>
-              <Text
-                style={[
-                  styles.slotStatus,
-                  isBooked
-                    ? styles.slotStatusBooked
-                    : slot.availabilityState === 'FILLING_FAST' || slot.isPeak
-                      ? styles.slotStatusWarning
-                      : slot.isAvailable
-                        ? styles.slotStatusAvailable
-                        : styles.slotStatusUnavailable,
-                ]}
+            <View key={slotKey} style={[styles.slotCard, isBooked && styles.slotCardBooked]}>
+              <View style={styles.slotInfo}>
+                <Text style={styles.slotTime}>{formatSlotTime(slot)}</Text>
+                <Text
+                  style={[
+                    styles.slotStatus,
+                    isBooked
+                      ? styles.slotStatusBooked
+                      : slot.availabilityState === 'FILLING_FAST' || slot.isPeak
+                        ? styles.slotStatusWarning
+                        : slot.isAvailable
+                          ? styles.slotStatusAvailable
+                          : styles.slotStatusUnavailable,
+                  ]}
+                >
+                  {isBooked ? 'Booked ✓' : getSlotStatusText(slot)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.bookButton, isDisabled && styles.bookButtonDisabled, isBooked && styles.bookButtonBooked]}
+                onPress={() => bookSlot(slot)}
+                disabled={isDisabled}
+                activeOpacity={0.85}
               >
-                {isBooked ? 'Booked ✓' : getSlotStatusText(slot)}
-              </Text>
+                <Text style={styles.bookButtonText}>
+                  {isBooking
+                    ? (isAppointmentOnly ? 'Requesting...' : 'Booking...')
+                    : isBooked
+                      ? (isAppointmentOnly ? 'Requested' : 'Booked')
+                      : slot.isAvailable
+                        ? (isAppointmentOnly ? 'Request' : 'Book')
+                        : 'Closed'}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.bookButton, isDisabled && styles.bookButtonDisabled, isBooked && styles.bookButtonBooked]}
-              onPress={() => bookSlot(slot)}
-              disabled={isDisabled}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.bookButtonText}>
-                {isBooking
-                  ? (isAppointmentOnly ? 'Requesting...' : 'Booking...')
-                  : isBooked
-                    ? (isAppointmentOnly ? 'Requested' : 'Booked')
-                    : slot.isAvailable
-                      ? (isAppointmentOnly ? 'Request' : 'Book')
-                      : 'Closed'}
-              </Text>
-            </TouchableOpacity>
-          </View>
           );
         })}
       </ScrollView>

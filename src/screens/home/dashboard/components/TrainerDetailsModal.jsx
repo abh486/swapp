@@ -13,7 +13,7 @@ import { getToken } from '../../../../api/apiClient';
 import { useAuth } from '../../../../context/AuthContext';
 import { useLocation } from '../../../../context/LocationContext';
 import { Strings } from '../../../../config/config'; // Import Config
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../../utils/clarity';
 
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -36,7 +36,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
   const { userLocation } = useLocation();
   const strings = Strings.TrainerDetailsModal;
   const alerts = Strings.TrainerDetailsModal.alerts;
-  
+
   if (!trainer) {
     return null;
   }
@@ -58,7 +58,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
     }
     return Array.isArray(trainer.plans) ? trainer.plans : [];
   }, [trainerDetails, trainer.plans]);
-  
+
   const gallery = useMemo(() => Array.isArray(trainer.gallery) ? trainer.gallery : [], [trainer.gallery]);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
 
   const fetchTrainerDetails = async () => {
     if (!trainer || !trainer.user || !trainer.user.id) return;
-    
+
     setLoadingDetails(true);
     try {
       console.log('TrainerDetailsModal - Fetching full trainer details for user ID:', trainer.user.id);
@@ -105,16 +105,16 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
       console.log('TrainerDetailsModal - No subscriptions or plans available');
       return false;
     }
-    
+
     const trainerPlanIds = new Set(plans.map(p => p.id));
     console.log('TrainerDetailsModal - Available plan IDs:', Array.from(trainerPlanIds));
     console.log('TrainerDetailsModal - User subscriptions:', userProfile.subscriptions);
-    
+
     const hasActiveSubscription = userProfile.subscriptions.some(sub => {
       console.log('TrainerDetailsModal - Checking subscription:', sub);
       return sub.trainerPlanId && trainerPlanIds.has(sub.trainerPlanId);
     });
-    
+
     console.log('TrainerDetailsModal - Is subscribed to this trainer:', hasActiveSubscription);
     return hasActiveSubscription;
   }, [userProfile?.subscriptions, plans]);
@@ -129,7 +129,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
         console.error('TrainerDetailsModal - Error getting token:', error);
       }
     };
-    
+
     getTokenFromStorage();
   }, []);
 
@@ -149,6 +149,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
       if (response.success && response.data.checkoutUrl) {
         navigation.navigate('CheckoutWebView', {
           url: response.data.checkoutUrl,
+          planId: plan.id,
           planName: plan.name,
           price: plan.price,
         });
@@ -173,7 +174,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
     if (!isAuthenticated || !userProfile || !userProfile.id) {
       console.error('TrainerDetailsModal - User not authenticated');
       Alert.alert(
-        alerts.authRequired, 
+        alerts.authRequired,
         alerts.authMsg,
         [
           { text: alerts.logoutBtn, style: "cancel" },
@@ -184,10 +185,10 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
     }
 
     setIsCheckingAuth(true);
-    
+
     try {
       let userToken = token;
-      
+
       if (!userToken) {
         userToken = await getToken();
         console.log('TrainerDetailsModal - Retrieved token from storage:', userToken ? 'Token found' : 'Token NOT found');
@@ -197,7 +198,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
       if (!userToken) {
         console.error('TrainerDetailsModal - Authentication token not found');
         Alert.alert(
-          alerts.sessionExpired, 
+          alerts.sessionExpired,
           alerts.tokenNotFound,
           [
             { text: alerts.logoutBtn, style: "cancel" },
@@ -207,9 +208,9 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
         setIsCheckingAuth(false);
         return;
       }
-      
+
       console.log('TrainerDetailsModal - Starting conversation with trainer:', trainer.user.id);
-      
+
       try {
         const response = await dispatch(startConversationWithTrainer(trainer.user.id));
         console.log('TrainerDetailsModal - Conversation started:', response);
@@ -220,9 +221,9 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
         if (err.response?.status === 401) {
           await AsyncStorage.removeItem('accessToken');
           setToken(null);
-          
+
           Alert.alert(
-            alerts.sessionExpired, 
+            alerts.sessionExpired,
             alerts.tokenExpired,
             [
               { text: alerts.logoutBtn, style: "cancel" },
@@ -261,7 +262,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
       <Modal visible={isVisible} transparent animationType="slide" onRequestClose={onClose}>
         <View style={styles.modalOverlay}>
           <View style={styles.chatModalContainer}>
-            <ChatScreen 
+            <ChatScreen
               trainer={trainer}
               user={userProfile}
               onBack={handleBackToDetails}
@@ -281,23 +282,23 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
         <View style={styles.bottomSheetContainer}>
           <View style={styles.heroImageSection}>
             <TouchableOpacity onPress={() => handleImagePress(0)}>
-              <Image 
-                source={{ 
-                  uri: gallery.length > 0 
-                    ? gallery[0] 
-                    : 'https://via.placeholder.com/150' 
-                }} 
-                style={styles.heroImage} 
+              <Image
+                source={{
+                  uri: gallery.length > 0
+                    ? gallery[0]
+                    : 'https://via.placeholder.com/150'
+                }}
+                style={styles.heroImage}
               />
             </TouchableOpacity>
             <View style={styles.heroImageGradient} />
           </View>
-          
+
           <View style={styles.bottomSheetContent}>
             <TouchableOpacity style={styles.bottomSheetHandle} onPress={onClose}>
               <View style={styles.bottomSheetHandleBar} />
             </TouchableOpacity>
-            
+
             <ScrollView showsVerticalScrollIndicator={false}>
               {isLoading || loadingDetails ? (
                 <GlobalLoader size={60} style={{ marginVertical: 60, alignSelf: 'center' }} />
@@ -306,7 +307,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                   <Text style={styles.trainerName}>
                     {trainerDetails?.name || trainer.name || trainer.user?.name || trainer.user?.email?.split('@')[0] || 'Trainer'}
                   </Text>
-                  
+
                   <View style={styles.tagsContainer}>
                     {strings.defaultTags.map((tag, index) => (
                       <View key={index} style={styles.tag}>
@@ -314,12 +315,12 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                       </View>
                     ))}
                   </View>
-                  
+
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>{strings.about}</Text>
                     <Text style={styles.bio}>{trainer.bio}</Text>
                     <Text style={styles.experience}>{trainer.experience || 0} {strings.yearsExp}</Text>
-                    
+
                     {/* Location & Service Mode Details */}
                     <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -330,7 +331,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                           </Text>
                         </Text>
                       </View>
-                      
+
                       {(trainerDetails?.serviceMode || trainer.serviceMode) !== 'ONLINE' && (trainerDetails?.address || trainer.address) ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                           <Icon name="location-outline" size={16} color="#452829" style={{ marginRight: 8 }} />
@@ -348,7 +349,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                           : (trainer.distance !== undefined && trainer.distance !== null)
                             ? trainer.distance
                             : calculateHaversineDistance(userLocation?.latitude, userLocation?.longitude, rawLat, rawLng);
-                        
+
                         if (dist !== null && dist !== undefined) {
                           return (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -363,18 +364,18 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                       })()}
                     </View>
                   </View>
-                  
-                  {gallery.length >1 && (
+
+                  {gallery.length > 1 && (
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>{strings.gallery}</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {gallery.map((image, index) => (
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             key={index}
                             onPress={() => handleImagePress(index)}
                           >
-                            <Image 
-                              source={{ uri: image }} 
+                            <Image
+                              source={{ uri: image }}
                               style={styles.galleryImage}
                             />
                           </TouchableOpacity>
@@ -398,7 +399,7 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
 
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>{strings.trainingPlans}</Text>
-                    
+
                     {plans.length === 0 ? (
                       <View style={styles.noPlansContainer}>
                         <Text style={styles.noPlansText}>{strings.noPlans}</Text>
@@ -415,14 +416,14 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                             <Text style={styles.planName}>{plan.name}</Text>
                             <Text style={styles.planDescription}>{plan.description || 'Full body transformation'}</Text>
                             <Text style={styles.planPrice}>${plan.price}</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                               style={styles.subscribeButton}
                               onPress={() => handleSubscribePress(plan)}
                               disabled={subscribingPlanId === plan.id}
                             >
-                              {subscribingPlanId === plan.id ? 
-                                  <GlobalLoader size={30} /> : 
-                                  <Text style={styles.subscribeButtonText}>{strings.subscribeBtn}</Text>
+                              {subscribingPlanId === plan.id ?
+                                <GlobalLoader size={30} /> :
+                                <Text style={styles.subscribeButtonText}>{strings.subscribeBtn}</Text>
                               }
                             </TouchableOpacity>
                           </View>
@@ -430,8 +431,8 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
                       </ScrollView>
                     )}
                   </View>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     style={styles.chatButton}
                     onPress={handleChatPress}
                     disabled={isCheckingAuth}
@@ -455,8 +456,8 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
             <Icon name="close" size={30} color="#ffffff" />
           </TouchableOpacity>
           {selectedImageIndex !== null && (
-            <Image 
-              source={{ uri: gallery[selectedImageIndex] }} 
+            <Image
+              source={{ uri: gallery[selectedImageIndex] }}
               style={styles.fullScreenImage}
               resizeMode="contain"
             />
@@ -475,9 +476,9 @@ export const TrainerDetailsModal = ({ trainer, isVisible, isLoading, onClose, na
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: { 
-    flex:1, 
-    backgroundColor: 'rgba(0,0,0,0.5)', 
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
     alignItems: 'center'
   },
@@ -529,13 +530,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2dfdf',
     borderRadius: 2
   },
-  content: { 
+  content: {
     paddingHorizontal: 16
   },
-  trainerName: { 
-    fontSize: 32, 
-    fontWeight: 'bold', 
-    color: '#000000', 
+  trainerName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000000',
     marginTop: 16,
     marginBottom: 8
   },
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500'
   },
-  section: { 
+  section: {
     marginTop: 24,
     marginBottom: 16
   },
@@ -566,24 +567,24 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginBottom: 8
   },
-  bio: { 
-    fontSize: 16, 
-    color: '#57595B', 
+  bio: {
+    fontSize: 16,
+    color: '#57595B',
     lineHeight: 24,
     marginBottom: 8
   },
-  experience: { 
-    fontSize: 14, 
+  experience: {
+    fontSize: 14,
     color: '#57595B',
     fontStyle: 'italic'
   },
   gallerySection: {
     marginBottom: 16
   },
-  galleryImage: { 
-    width: 128, 
-    height: 128, 
-    borderRadius: 8, 
+  galleryImage: {
+    width: 128,
+    height: 128,
+    borderRadius: 8,
     marginRight: 12
   },
   reviewsSection: {
@@ -655,23 +656,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600'
   },
-  subscribedMessageContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(39, 174, 96, 0.1)', 
-    padding: 16, 
-    borderRadius: 8 
+  subscribedMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(39, 174, 96, 0.1)',
+    padding: 16,
+    borderRadius: 8
   },
-  subscribedMessageText: { 
-    color: '#27ae60', 
-    fontSize: 16, 
-    fontWeight: '600', 
-    marginLeft: 10 
+  subscribedMessageText: {
+    color: '#27ae60',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10
   },
-  errorText: { 
-    color: '#ff4d4d', 
-    textAlign: 'center', 
-    marginVertical: 10 
+  errorText: {
+    color: '#ff4d4d',
+    textAlign: 'center',
+    marginVertical: 10
   },
   noPlansContainer: {
     padding: 20,
@@ -681,30 +682,30 @@ const styles = StyleSheet.create({
     color: '#57595B',
     fontSize: 16,
   },
-  chatButton: { 
-    backgroundColor: '#452829', 
-    paddingVertical: 12, 
-    paddingHorizontal: 16, 
-    borderRadius: 12, 
+  chatButton: {
+    backgroundColor: '#452829',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     marginTop: 16,
     marginBottom: 24,
     alignItems: 'center',
     justifyContent: 'center'
   },
-  chatButtonText: { 
-    color: '#ffffff', 
-    fontWeight: '600', 
-    fontSize: 16 
+  chatButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16
   },
-  chatModalContainer: { 
-    width: '100%', 
-    height: '100%', 
-    backgroundColor: '#ffffff', 
-    borderRadius: 0, 
-    overflow: 'hidden' 
+  chatModalContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 0,
+    overflow: 'hidden'
   },
   imageViewerOverlay: {
-    flex:1,
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
     justifyContent: 'center',
     alignItems: 'center',

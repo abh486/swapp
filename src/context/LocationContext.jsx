@@ -79,6 +79,9 @@ export const LocationProvider = ({ children }) => {
           setUserLocation(null);
           setPermissionGranted(false);
           setIsLoading(false);
+          if (Platform.OS === 'ios' && e.code === 1) {
+            setShowPermissionModal(true);
+          }
           reject(e);
         },
         { enableHighAccuracy: false, timeout: 20000, maximumAge: 1000 * 60 * 5 }
@@ -110,7 +113,13 @@ export const LocationProvider = ({ children }) => {
         setError('Permission request failed.');
       }
     } else {
-      await getCurrentLocation();
+      try {
+        Geolocation.requestAuthorization();
+        await getCurrentLocation();
+      } catch (err) {
+        console.warn('[LocationContext] iOS requestAuthorization failed:', err);
+        await getCurrentLocation();
+      }
     }
   }, [getCurrentLocation]);
 
@@ -125,7 +134,11 @@ export const LocationProvider = ({ children }) => {
         setIsLoading(false);
       }
     } else {
-      await getCurrentLocation();
+      try {
+        await getCurrentLocation();
+      } catch (err) {
+        console.warn('[LocationContext] iOS checkPermission getCurrentLocation failed:', err);
+      }
     }
   }, [getCurrentLocation]);
 

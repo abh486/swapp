@@ -36,6 +36,7 @@ const DietHeader = ({
   buildCalendarDays,
   handleTrackFood,
   handleGoToPreferences,
+  handleGoToReminders,
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -143,14 +144,9 @@ const DietHeader = ({
         </View>
 
         <View style={styles.headerActions}>
-          <LinearGradient
-            colors={['rgba(255, 122, 0, 0.2)', 'rgba(255, 82, 82, 0.2)']}
-            style={styles.streakBadge}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.streakText}>🔥 1</Text>
-          </LinearGradient>
+          <TouchableOpacity style={[styles.settingsBtn, { marginRight: 10 }]} onPress={handleGoToReminders}>
+            <Icon name="notifications-outline" size={20} color="#FFF" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingsBtn} onPress={handleGoToPreferences}>
             <Icon name="options-outline" size={20} color="#FFF" />
           </TouchableOpacity>

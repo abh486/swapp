@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProviderDetails } from '../../../redux/actions/providersActions';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { useAuth } from '../../../context/AuthContext';
-import * as Clarity from '@microsoft/react-native-clarity';
+import * as Clarity from '../../../utils/clarity';
 
 import { FullScreenLoader } from '../../../components/GlobalLoader';
 
@@ -770,6 +770,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
                         ) {
                           navigation.navigate('CheckoutWebView', {
                             url: response.data.checkoutUrl,
+                            planId: selectedPlan.id,
                             planName: selectedPlan.name,
                             price: selectedPlan.basePrice,
                             pendingSubscription,

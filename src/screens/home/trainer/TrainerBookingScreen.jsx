@@ -357,6 +357,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
         ) {
           navigation.navigate('CheckoutWebView', {
             url: checkoutResponse.data.checkoutUrl,
+            planId: selectedPlan.id,
             planName: selectedPlan.name,
             price: selectedPlan.basePrice,
             pendingSubscription,
