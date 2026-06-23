@@ -25,6 +25,7 @@ import { useLocation } from '../../../context/LocationContext';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
 import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
+import { getAccessStatus } from '../../../services/aiDieticianService';
 import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
 import FindTrainers from './components/FindTrainers';
 import { useResponsiveMetrics } from '../../../utils/responsive';
@@ -40,7 +41,7 @@ const PROMOS = [
     image:
       'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=600&auto=format&fit=crop',
     ctaText: 'ACTIVATE NOW',
-    navigateTo: 'AIDieticianSubscription',
+    navigateTo: 'AIDieticianPaywall',
   },
   {
     id: '2',
@@ -70,6 +71,7 @@ export const HomeDashboard = ({ navigation }) => {
   const [isTrainersLoading, setIsTrainersLoading] = useState(false);
   const [selectedTrainerDetails, setSelectedTrainerDetails] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [hasDietAccess, setHasDietAccess] = useState(false);
   const subscriptionCarouselRef = useRef(null);
 
   const {
@@ -239,6 +241,30 @@ export const HomeDashboard = ({ navigation }) => {
     return uniqueList;
   }, [subscriptions, pendingSubscription, user]);
 
+  const dynamicPromos = useMemo(() => {
+    return [
+      {
+        id: '1',
+        title: 'PERSONAL\nAI DIETICIAN',
+        subtitle: hasDietAccess 
+          ? 'Track customized meal plans & scan insights'
+          : 'Unlock customized meal plans & scan insights',
+        image:
+          'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=600&auto=format&fit=crop',
+        ctaText: hasDietAccess ? 'OPEN DIET' : 'ACTIVATE NOW',
+        navigateTo: hasDietAccess ? 'DietTab' : 'AIDieticianPaywall',
+      },
+      {
+        id: '2',
+        title: 'BUILD YOUR\nCORE STRENGTH',
+        subtitle: 'Join our new intensive program',
+        image:
+          'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1470&auto=format&fit=crop',
+        ctaText: 'BOOK NOW',
+      },
+    ];
+  }, [hasDietAccess]);
+
   const hasActiveSubscription = activeAccessItems.length > 0;
 
   useEffect(() => {
@@ -273,6 +299,23 @@ export const HomeDashboard = ({ navigation }) => {
     useCallback(() => {
       refreshAuthStatus?.();
       loadPendingSubscription();
+
+      let isMounted = true;
+      const checkDietAccess = async () => {
+        try {
+          const access = await getAccessStatus();
+          if (isMounted) {
+            setHasDietAccess(!!(access && access.hasAccess));
+          }
+        } catch (err) {
+          console.warn('[HomeDashboard] Failed to check diet access status:', err);
+        }
+      };
+      checkDietAccess();
+
+      return () => {
+        isMounted = false;
+      };
     }, [refreshAuthStatus, loadPendingSubscription]),
   );
 
@@ -319,6 +362,12 @@ export const HomeDashboard = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    try {
+      const access = await getAccessStatus();
+      setHasDietAccess(!!(access && access.hasAccess));
+    } catch (err) {
+      console.warn('[HomeDashboard] Failed to check diet access on refresh:', err);
+    }
     if (activeCategory === 'trainer') {
       await Promise.all([fetchFeed(), fetchTrainersData()]);
     } else {
@@ -868,7 +917,7 @@ export const HomeDashboard = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           style={styles.promoCarousel}
         >
-          {PROMOS.map((promo, index) => (
+          {dynamicPromos.map((promo, index) => (
             <ImageBackground
               key={promo.id}
               source={{ uri: promo.image }}
@@ -882,7 +931,11 @@ export const HomeDashboard = ({ navigation }) => {
                   style={styles.promoButton}
                   onPress={() => {
                     if (promo.navigateTo) {
-                      navigation.navigate(promo.navigateTo);
+                      if (promo.navigateTo === 'DietTab') {
+                        navigation.navigate('MainTabs', { screen: 'Diet' });
+                      } else {
+                        navigation.navigate(promo.navigateTo);
+                      }
                     } else {
                       setMembershipModalVisible(true);
                     }
@@ -891,7 +944,7 @@ export const HomeDashboard = ({ navigation }) => {
                   <Text style={styles.promoButtonText}>{promo.ctaText || 'BOOK NOW'}</Text>
                 </TouchableOpacity>
                 <View style={styles.pagination}>
-                  {PROMOS.map((_, i) => (
+                  {dynamicPromos.map((_, i) => (
                     <View
                       key={i}
                       style={[styles.dot, i === index && styles.dotActive]}

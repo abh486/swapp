@@ -23,6 +23,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
+import { getAccessStatus } from '../../../services/aiDieticianService';
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -73,6 +74,7 @@ const Dietplan = ({ navigation }) => {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showMealSelectionModal, setShowMealSelectionModal] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   // --- NUTRITION ENGINE STATES ---
   const [dailySummary, setDailySummary] = useState(null);
@@ -161,8 +163,33 @@ const Dietplan = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchNutritionData(selectedDate, false);
-    }, [fetchNutritionData, selectedDate])
+      let isMounted = true;
+      setCheckingAccess(true);
+      const checkSubscriptionAccess = async () => {
+        try {
+          const access = await getAccessStatus();
+          if (isMounted) {
+            if (!access || !access.hasAccess) {
+              navigation.navigate('AIDieticianPaywall', { fromDietTab: true });
+            } else {
+              setCheckingAccess(false);
+              fetchNutritionData(selectedDate, false);
+            }
+          }
+        } catch (err) {
+          console.warn('[Dietplan] Failed to check subscription status:', err);
+          if (isMounted) {
+            navigation.navigate('AIDieticianPaywall', { fromDietTab: true });
+          }
+        }
+      };
+
+      checkSubscriptionAccess();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [navigation, selectedDate, fetchNutritionData])
   );
 
   useEffect(() => {
@@ -433,10 +460,11 @@ const Dietplan = ({ navigation }) => {
       <View style={styles.weeklyPlanSection}>
         <LinearGradient
           colors={['#1a1c23', '#0f1013']}
-          style={[styles.weeklyPlanCard, { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }]}
+          style={styles.weeklyPlanCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
+          <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, width: '100%' }}>
           <View style={styles.planHeaderRow}>
             <View style={styles.titleRow}>
               <Icon name="restaurant-outline" size={18} color="#e74c3c" />
@@ -528,6 +556,7 @@ const Dietplan = ({ navigation }) => {
               </Text>
             )}
           </View>
+          </View>
         </LinearGradient>
       </View>
     );
@@ -537,7 +566,13 @@ const Dietplan = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
 
-      {isNutritionLoading ? (
+      {checkingAccess ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#e74c3c" />
+          <Text style={styles.loadingText}>Verifying subscription...</Text>
+          <Text style={styles.loadingSubtext}>Please wait a moment...</Text>
+        </View>
+      ) : isNutritionLoading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#e74c3c" />
           <Text style={styles.loadingText}>Loading nutrition details...</Text>
@@ -572,13 +607,15 @@ const Dietplan = ({ navigation }) => {
             <View style={styles.weeklyPlanSection}>
               <LinearGradient
                 colors={['#1a1c23', '#0f1013']}
-                style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40 }]}
+                style={styles.weeklyPlanCard}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <ActivityIndicator size="small" color="#e74c3c" />
-                <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
-                <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40, width: '100%' }}>
+                  <ActivityIndicator size="small" color="#e74c3c" />
+                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
+                  <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
+                </View>
               </LinearGradient>
             </View>
           ) : (
@@ -586,13 +623,15 @@ const Dietplan = ({ navigation }) => {
               <View style={styles.weeklyPlanSection}>
                 <LinearGradient
                   colors={['#1a1c23', '#0f1013']}
-                  style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40 }]}
+                  style={styles.weeklyPlanCard}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <ActivityIndicator size="large" color="#e74c3c" />
-                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
-                  <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
+                  <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40, width: '100%' }}>
+                    <ActivityIndicator size="large" color="#e74c3c" />
+                    <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
+                    <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
+                  </View>
                 </LinearGradient>
               </View>
             ) : (
@@ -600,21 +639,23 @@ const Dietplan = ({ navigation }) => {
                 <View style={styles.weeklyPlanSection}>
                   <LinearGradient
                     colors={['#1a1c23', '#0f1013']}
-                    style={[styles.weeklyPlanCard, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30 }]}
+                    style={styles.weeklyPlanCard}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
-                    <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 8 }]}>NO DIET PLAN GENERATED YET</Text>
-                    <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 20, lineHeight: 18 }]}>
-                      Customize your preferences and click below to generate your weekly diet plan using AI.
-                    </Text>
-                    <TouchableOpacity
-                      style={{ backgroundColor: '#e74c3c', width: '85%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginTop: 10 }}
-                      onPress={handleGenerateWeeklyPlan}
-                    >
-                      <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Generate Weekly Diet Plan</Text>
-                    </TouchableOpacity>
+                    <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30, width: '100%' }}>
+                      <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
+                      <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 8 }]}>NO DIET PLAN GENERATED YET</Text>
+                      <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 20, lineHeight: 18 }]}>
+                        Customize your preferences and click below to generate your weekly diet plan using AI.
+                      </Text>
+                      <TouchableOpacity
+                        style={{ backgroundColor: '#e74c3c', width: '85%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginTop: 10 }}
+                        onPress={handleGenerateWeeklyPlan}
+                      >
+                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Generate Weekly Diet Plan</Text>
+                      </TouchableOpacity>
+                    </View>
                   </LinearGradient>
                 </View>
               )
@@ -808,11 +849,12 @@ const styles = StyleSheet.create({
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: 12,
+    marginHorizontal: -6,
     marginBottom: 16,
   },
   kpiCard: {
     flex: 1,
+    marginHorizontal: 6,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -990,6 +1032,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     alignSelf: 'stretch',
+    overflow: 'hidden',
   },
   planHeaderRow: {
     marginBottom: 12,

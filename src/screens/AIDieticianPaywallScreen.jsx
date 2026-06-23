@@ -9,11 +9,13 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
-  StatusBar
+  StatusBar,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { getPlans, createCheckout, activateTrial, getSubscriptionDetails } from '../services/aiDieticianService';
+import { getPlans, createCheckout, activateTrial, getSubscriptionDetails, getAccessStatus } from '../services/aiDieticianService';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -28,25 +30,29 @@ const formatDate = (dateVal) => {
   });
 };
 
-const AIDieticianPaywallScreen = ({ navigation, onUnlock }) => {
+const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
+  const { refreshAuthStatus } = useAuth();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subscriptionDetails, setSubscriptionDetails] = useState(null);
+  const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
     const initScreen = async () => {
       try {
-        const [plansData, subData] = await Promise.all([
+        const [plansData, subData, accessData] = await Promise.all([
           getPlans(),
-          getSubscriptionDetails()
+          getSubscriptionDetails(),
+          getAccessStatus()
         ]);
         setPlans(plansData || []);
         if (plansData && plansData.length > 0) {
           setSelectedPlan(plansData[0]);
         }
         setSubscriptionDetails(subData && subData.accessSource ? subData : null);
+        setHasAccess(!!(accessData && accessData.hasAccess));
       } catch (err) {
         console.error('[AIDieticianPaywall] Failed to initialize paywall:', err);
         Alert.alert('Error', 'Failed to load subscription details.');
@@ -57,15 +63,56 @@ const AIDieticianPaywallScreen = ({ navigation, onUnlock }) => {
     initScreen();
   }, []);
 
+  useEffect(() => {
+    const fromDietTab = route.params?.fromDietTab;
+    if (fromDietTab) {
+      const backAction = () => {
+        navigation.navigate('MainTabs', { screen: 'Home' });
+        return true;
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        backAction
+      );
+
+      return () => backHandler.remove();
+    }
+  }, [route.params, navigation]);
+
+  const handleClose = () => {
+    if (route.params?.fromDietTab) {
+      navigation.navigate('MainTabs', { screen: 'Home' });
+    } else {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('MainTabs', { screen: 'Home' });
+      }
+    }
+  };
+
   const handleStartTrial = async () => {
     setIsSubmitting(true);
     try {
       await activateTrial();
+      try {
+        await refreshAuthStatus?.();
+      } catch (refreshErr) {
+        console.warn('Failed to refresh auth status after trial activation:', refreshErr);
+      }
       Alert.alert('Success', 'Your 7-day free trial has been activated!');
       if (onUnlock) {
         onUnlock();
       } else {
-        navigation.navigate('MainTabs', { screen: 'Diet' });
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
+          });
+        }
       }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Could not activate trial.';
@@ -123,7 +170,7 @@ const AIDieticianPaywallScreen = ({ navigation, onUnlock }) => {
       {/* Header */}
       <View style={styles.header}>
         {!onUnlock ? (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Icon name="close" size={24} color="#FFF" />
           </TouchableOpacity>
         ) : (
@@ -185,17 +232,19 @@ const AIDieticianPaywallScreen = ({ navigation, onUnlock }) => {
         </View>
 
         {/* Trial Card */}
-        {!subscriptionDetails && (
+        {!hasAccess && !subscriptionDetails && (
           <LinearGradient colors={['#1a1a1a', '#0a0a0a']} style={styles.trialCard}>
-            <Text style={styles.trialTitle}>🎁 Free Trial Available</Text>
-            <Text style={styles.trialSubtitle}>Try AI Dietician features free for 7 days.</Text>
-            <TouchableOpacity
-              style={styles.trialButton}
-              onPress={handleStartTrial}
-              disabled={isSubmitting}
-            >
-              <Text style={styles.trialButtonText}>Start Free 7-Day Trial</Text>
-            </TouchableOpacity>
+            <View style={styles.trialCardInner}>
+              <Text style={styles.trialTitle}>🎁 Free Trial Available</Text>
+              <Text style={styles.trialSubtitle}>Try AI Dietician features free for 7 days.</Text>
+              <TouchableOpacity
+                style={styles.trialButton}
+                onPress={handleStartTrial}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.trialButtonText}>Start Free 7-Day Trial</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         )}
 
@@ -324,11 +373,15 @@ const styles = StyleSheet.create({
   },
   trialCard: {
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     marginBottom: 24,
+    overflow: 'hidden',
+  },
+  trialCardInner: {
+    padding: 16,
     alignItems: 'center',
+    width: '100%',
   },
   trialTitle: {
     color: '#FFF',

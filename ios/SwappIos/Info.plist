@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>Auth0ClientId</key>
 	<string>rwah022fY6bSPr5gstiKqPAErQjgynT2</string>
 	<key>Auth0Domain</key>
@@ -9,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>SwappIos</string>
+	<string>Swapp</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -34,9 +36,17 @@
 				<string>com.swapp.swappfit.auth0</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.98784636409-oqfm45lm232cj4e5k8f8751i1lhg8ljt</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>MinimumOSVersion</key>
@@ -54,8 +64,12 @@
 	<string>SwappFit needs access to read your health data (like steps and active energy) to sync your workouts and track your daily activity levels.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>SwappFit needs permission to write health data to record your Swapp workouts in Apple Health.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs location access to show your position on the map.</string>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SwappFit needs access to save photos to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

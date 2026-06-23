@@ -74,7 +74,7 @@ const AppNavigator = () => {
   }, [refreshAuthStatus]);
 
   if (loading) {
-    return <FullScreenLoader />;
+    return <View style={{ flex: 1, backgroundColor: '#050505' }} />;
   }
 
   return (

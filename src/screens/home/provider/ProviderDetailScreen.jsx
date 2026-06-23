@@ -665,142 +665,136 @@ const ProviderDetailScreen = ({ route, navigation }) => {
           end={{ x: 1, y: 0 }}
           style={styles.footerGradient}
         >
-          {selectedPlan && isPlanActive(selectedPlan.id) ? (
-            <View style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Active Plan ✓</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4 }}>Manage bookings from your Home Screen</Text>
-            </View>
-          ) : (
-            <>
-              {/* Left: price block */}
-              <View style={styles.footerLeft}>
-                {price ? (
-                  <>
-                    <Text style={styles.footerPrice}>
-                      ₹{price} <Text style={styles.footerPriceUnit}>{priceUnit}</Text>
-                    </Text>
-                    <Text style={styles.footerGst}>+ GST extra</Text>
-                  </>
-                ) : (
-                  <Text style={styles.footerPrice}>Select a plan</Text>
-                )}
+          <View style={styles.footerGradientInner}>
+            {selectedPlan && isPlanActive(selectedPlan.id) ? (
+              <View style={{ flex: 1, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Active Plan ✓</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4 }}>Manage bookings from your Home Screen</Text>
               </View>
-
-          {/* Right: action button — translucent lighter rectangle */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.footerBtn}
-            onPress={async () => {
-              if (isSubscribe) {
-                console.log('[Clarity] Subscription clicked');
-                try {
-                  Clarity.sendCustomEvent('subscription_clicked');
-                  Clarity.setCustomTag('clicked_plan', selectedPlan ? selectedPlan.name : 'Unknown');
-                } catch (e) {
-                  console.error('[Clarity] Failed to send subscription_clicked:', e);
-                }
-                try {
-                  const pendingSubscription = {
-                    status: 'ACTIVE',
-                    provider: {
-                      id: provider.id,
-                      name: provider.name,
-                      photos: provider.photos,
-                    },
-                    package: selectedPlan,
-                    planName: selectedPlan.name,
-                    providerName: provider.name,
-                    gymName: provider.name,
-                    tier: selectedPlan.tier || selectedPlan.name,
-                    image: provider.photos?.[0] || selectedPlan.imageUrl,
-                    isActive: true,
-                  };
-
-                  const isTrainerProv = provider.isTrainer || primaryVertical === 'TRAINER';
-
-                  if (isPlanActive(selectedPlan.id)) {
-                    navigation.navigate('MembershipBooking', {
-                      gymName: provider.name,
-                      subscription: {
-                        provider: {
-                          id: provider.id,
-                          name: provider.name,
-                          photos: provider.photos,
-                          isTrainer: isTrainerProv,
-                          vertical: provider.vertical || primaryVertical,
-                        },
-                        package: selectedPlan,
-                      },
-                      isReservationCheckout: false,
-                      selectedPlan,
-                      targetType: isTrainerProv ? 'TRAINER' : 'PROVIDER',
-                    });
-                    return;
-                  }
-
-                  const flow = selectedPlan.consumptionFlow || (() => {
-                    const accessMode = provider.accessConfig?.accessMode || 'SLOT_BASED';
-                    const totalSessions = (selectedPlan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
-                    if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
-                      return 'RESERVATION_CHECKOUT';
+            ) : (
+              <>
+                {/* Left: price block */}
+                <View style={styles.footerLeft}>
+                  {price ? (
+                    <>
+                      <Text style={styles.footerPrice}>
+                        ₹{price} <Text style={styles.footerPriceUnit}>{priceUnit}</Text>
+                      </Text>
+                      <Text style={styles.footerGst}>+ GST extra</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.footerPrice}>Select a plan</Text>
+                  )}
+                </View>
+    
+                {/* Right: action button — translucent lighter rectangle */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.footerBtn}
+                  onPress={async () => {
+                    if (isSubscribe) {
+                      console.log('[Clarity] Subscription clicked');
+                      try {
+                        Clarity.sendCustomEvent('subscription_clicked');
+                        Clarity.setCustomTag('clicked_plan', selectedPlan ? selectedPlan.name : 'Unknown');
+                      } catch (e) {
+                        console.error('[Clarity] Failed to send subscription_clicked:', e);
+                      }
+                      try {
+                        const pendingSubscription = {
+                          status: 'ACTIVE',
+                          provider: {
+                            id: provider.id,
+                            name: provider.name,
+                            photos: provider.photos,
+                          },
+                          package: selectedPlan,
+                          planName: selectedPlan.name,
+                          providerName: provider.name,
+                          gymName: provider.name,
+                          tier: selectedPlan.tier || selectedPlan.name,
+                          image: provider.photos?.[0] || selectedPlan.imageUrl,
+                          isActive: true,
+                        };
+    
+                        if (isPlanActive(selectedPlan.id)) {
+                          navigation.navigate('MembershipBooking', {
+                            gymName: provider.name,
+                            subscription: {
+                              provider: {
+                                id: provider.id,
+                                name: provider.name,
+                                photos: provider.photos,
+                              },
+                              package: selectedPlan,
+                            },
+                            isReservationCheckout: false,
+                            selectedPlan,
+                          });
+                          return;
+                        }
+    
+                        const flow = selectedPlan.consumptionFlow || (() => {
+                          const accessMode = provider.accessConfig?.accessMode || 'SLOT_BASED';
+                          const totalSessions = (selectedPlan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
+                          if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
+                            return 'RESERVATION_CHECKOUT';
+                          }
+                          return 'PURCHASE_FIRST';
+                        })();
+    
+                        if (flow === 'RESERVATION_CHECKOUT') {
+                          navigation.navigate('MembershipBooking', {
+                            gymName: provider.name,
+                            subscription: {
+                              provider: {
+                                id: provider.id,
+                                name: provider.name,
+                                photos: provider.photos,
+                              },
+                              package: selectedPlan,
+                            },
+                            isReservationCheckout: true,
+                            selectedPlan,
+                          });
+                          return;
+                        }
+    
+                        const response = await dispatch(
+                          createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE'),
+                        );
+                        if (
+                          response &&
+                          response.success &&
+                          response.data?.checkoutUrl
+                        ) {
+                          navigation.navigate('CheckoutWebView', {
+                            url: response.data.checkoutUrl,
+                            planName: selectedPlan.name,
+                            price: selectedPlan.basePrice,
+                            pendingSubscription,
+                          });
+                        } else {
+                          Alert.alert(
+                            'Error',
+                            response?.message || 'Failed to initiate subscription.',
+                          );
+                        }
+                      } catch (err) {
+                        console.error('Subscription error:', err);
+                      }
+                    } else {
+                      setActiveTab('Plans');
                     }
-                    return 'PURCHASE_FIRST';
-                  })();
-
-                  if (flow === 'RESERVATION_CHECKOUT') {
-                    navigation.navigate('MembershipBooking', {
-                      gymName: provider.name,
-                      subscription: {
-                        provider: {
-                          id: provider.id,
-                          name: provider.name,
-                          photos: provider.photos,
-                          isTrainer: isTrainerProv,
-                          vertical: provider.vertical || primaryVertical,
-                        },
-                        package: selectedPlan,
-                      },
-                      isReservationCheckout: true,
-                      selectedPlan,
-                      targetType: isTrainerProv ? 'TRAINER' : 'PROVIDER',
-                    });
-                    return;
-                  }
-
-                  const response = await dispatch(
-                    createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE'),
-                  );
-                  if (
-                    response &&
-                    response.success &&
-                    response.data?.checkoutUrl
-                  ) {
-                    navigation.navigate('CheckoutWebView', {
-                      url: response.data.checkoutUrl,
-                      planName: selectedPlan.name,
-                      price: selectedPlan.basePrice,
-                      pendingSubscription,
-                    });
-                  } else {
-                    Alert.alert(
-                      'Error',
-                      response?.message || 'Failed to initiate subscription.',
-                    );
-                  }
-                } catch (err) {
-                  console.error('Subscription error:', err);
-                }
-              } else {
-                setActiveTab('Plans');
-              }
-            }}
-          >
-            <Text style={styles.footerBtnText} numberOfLines={1} adjustsFontSizeToFit={true}>
-              {selectedPlan ? getPackageCTA(selectedPlan, provider) : 'Choose Plan'}
-            </Text>
-          </TouchableOpacity>
-            </>
-          )}
+                  }}
+                >
+                  <Text style={styles.footerBtnText} numberOfLines={1}>
+                    {selectedPlan ? getPackageCTA(selectedPlan, provider) : 'Choose Plan'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </LinearGradient>
       </View>
     );
@@ -1158,13 +1152,16 @@ const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
     paddingTop: 8,
   },
   footerGradient: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  footerGradientInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16,
     paddingLeft: 20,
     paddingRight: 0, // button handles its own right edge flush
-    overflow: 'hidden',
+    width: '100%',
   },
   footerLeft: {
     flex: 1,

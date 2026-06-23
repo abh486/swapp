@@ -322,25 +322,18 @@ const LoginScreen = () => {
     try {
       console.log('Initiating native Apple login...');
       const appleAuthRequestResponse = await appleAuth.performRequest({
+        nonceEnabled: false,
         requestedOperation: appleAuth.Operation.LOGIN,
         requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
       });
 
-      const credentialState = await appleAuth.getCredentialStateForUser(
-        appleAuthRequestResponse.user
-      );
-
-      if (credentialState === appleAuth.State.AUTHORIZED) {
-        const authCode = appleAuthRequestResponse.authorizationCode;
-        if (!authCode) {
-          throw new Error('Apple authorization code could not be retrieved.');
-        }
-
-        console.log('Apple code received, exchanging with Auth0...');
-        await loginWithApple(authCode);
-      } else {
-        throw new Error('Apple authentication was not authorized.');
+      const authCode = appleAuthRequestResponse.authorizationCode;
+      if (!authCode) {
+        throw new Error('Apple authorization code could not be retrieved.');
       }
+
+      console.log('Apple code received, exchanging with Auth0...');
+      await loginWithApple(authCode);
     } catch (err) {
       console.error('Apple Native Login failed:', err);
       if (err.code !== 'ERR_CANCELED') {
