@@ -1,7 +1,7 @@
 export const AUTH_CONFIG = {
   enableLegacyWebviewLogin: false,
   googleWebClientId: '98784636409-tjgc2nab2tqpfrppuivhie79ulr0v8os.apps.googleusercontent.com', // Placeholder web client ID
-  googleIosClientId: '98784636409-placeholder-ios-client-id.apps.googleusercontent.com', // Placeholder iOS client ID
+  googleIosClientId: '98784636409-oqfm45lm232cj4e5k8f8751i1lhg8ljt.apps.googleusercontent.com', // Placeholder iOS client ID
   databaseConnection: 'Username-Password-Authentication',
 };
 

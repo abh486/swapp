@@ -97,10 +97,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fullScreen: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#050505',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999,
   },
 });
 

@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Dimensions,
   Image,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -37,6 +37,7 @@ const DietHeader = ({
   handleTrackFood,
   handleGoToPreferences,
 }) => {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const userName =
@@ -116,7 +117,7 @@ const DietHeader = ({
   };
 
   return (
-    <SafeAreaView style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Top Profile + Streak Row */}
       <View style={styles.topRow}>
         <View style={styles.profileContainer}>
@@ -180,13 +181,13 @@ const DietHeader = ({
             >
               {isActive ? (
                 <>
-                  <Text style={styles.activeDateText}>{day.date}</Text>
-                  <Text style={styles.activeMonthText}>{day.month}</Text>
+                  <Text style={styles.activeDateText} numberOfLines={1}>{day.date}</Text>
+                  <Text style={styles.activeMonthText} numberOfLines={1}>{day.month}</Text>
                 </>
               ) : (
                 <>
-                  <Text style={styles.inactiveMonthText}>{day.month}</Text>
-                  <Text style={styles.inactiveDateText}>{day.date}</Text>
+                  <Text style={styles.inactiveMonthText} numberOfLines={1}>{day.month}</Text>
+                  <Text style={styles.inactiveDateText} numberOfLines={1}>{day.date}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -349,7 +350,7 @@ const DietHeader = ({
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -442,13 +443,13 @@ const styles = StyleSheet.create({
   },
   calendarRow: {
     flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 20,
+    paddingHorizontal: 17,
     marginTop: 20,
     marginBottom: 20,
   },
   calendarCapsule: {
     flex: 1,
+    marginHorizontal: 3,
     height: 70,
     borderRadius: 21,
     backgroundColor: '#111115',
@@ -495,21 +496,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 15,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12.5,
     marginTop: 10,
     marginBottom: 15,
   },
   svgWrapper: {
     width: 170,
     height: 170,
+    marginHorizontal: 7.5,
+    marginVertical: 7.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   legendContainer: {
     flex: 1,
     minWidth: 140,
-    marginLeft: 10,
+    marginHorizontal: 7.5,
+    marginVertical: 7.5,
     justifyContent: 'center',
   },
   legendItem: {
@@ -537,13 +540,13 @@ const styles = StyleSheet.create({
   },
   metricCardsRow: {
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     marginTop: 15,
     marginBottom: 10,
   },
   cardTouch: {
     flex: 1,
+    marginHorizontal: 5,
   },
   metricCard: {
     borderRadius: 18,

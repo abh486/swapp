@@ -103,7 +103,7 @@ const DietMealModal = ({
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
                     <Text style={styles.loadingText}>AI is analyzing your food... 🤖</Text>
-                    <Text style={styles.loadingSubtext}>Connecting to local AI service on port 11434</Text>
+                    <Text style={styles.loadingSubtext}>Connecting to AI service at ollama.swapp.fit</Text>
                   </View>
                 ) : (
                   <>
@@ -478,12 +478,13 @@ const styles = StyleSheet.create({
   },
   macrosCardContainer: {
     flexDirection: 'row',
-    gap: 8,
+    marginHorizontal: -4,
     marginBottom: 30,
     paddingHorizontal: 5,
   },
   macroDetailCard: {
     flex: 1,
+    marginHorizontal: 4,
     minHeight: 100,
     borderRadius: 15,
     paddingVertical: 12,

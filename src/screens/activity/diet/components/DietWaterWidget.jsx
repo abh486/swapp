@@ -73,6 +73,7 @@ const DietWaterWidget = ({ selectedDate }) => {
                 name="water" 
                 size={16} 
                 color={idx < activeDropsCount ? '#4C84FF' : 'rgba(255, 255, 255, 0.15)'} 
+                style={{ marginHorizontal: 2, marginVertical: 2 }}
               />
             ))}
           </View>
@@ -154,7 +155,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    marginHorizontal: -2,
+    marginVertical: -2,
   },
   waterControls: {
     flexDirection: 'row',
