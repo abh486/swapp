@@ -1,6 +1,6 @@
 // src/hooks/useLocationManager.js
 import { useState, useEffect, useCallback } from 'react';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -107,7 +107,20 @@ export const useLocationManager = () => {
         setError('Permission request failed.');
       }
     } else {
-      await getCurrentLocation(); // iOS handles this in the getCurrentPosition call
+      try {
+        await getCurrentLocation();
+      } catch (err) {
+        if (err.code === 1) {
+          Alert.alert(
+            'Location Permission Required',
+            'Location access is disabled. Please enable location permissions in your iOS Settings to find nearby gyms.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ]
+          );
+        }
+      }
     }
   }, [getCurrentLocation]);
   

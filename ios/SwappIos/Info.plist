@@ -74,6 +74,10 @@
 	<string>SwappFit needs permission to write health data to record your Swapp workouts in Apple Health.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SwappFit needs access to save photos to your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

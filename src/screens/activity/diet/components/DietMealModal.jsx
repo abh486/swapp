@@ -131,12 +131,18 @@ const DietMealModal = ({
                       </TouchableOpacity>
  
                       <View style={styles.quantitySelector}>
-                        <TouchableOpacity onPress={() => setMealQuantity(Math.max(1, mealQuantity - 1))}>
-                          <Text style={styles.quantityBtnText}>-</Text>
+                        <TouchableOpacity 
+                          onPress={() => setMealQuantity(Math.max(1, mealQuantity - 1))}
+                          style={styles.quantityBtn}
+                        >
+                          <Icon name="remove" size={20} color="#FFF" />
                         </TouchableOpacity>
                         <Text style={styles.quantityValue}>{mealQuantity}</Text>
-                        <TouchableOpacity onPress={() => setMealQuantity(mealQuantity + 1)}>
-                          <Text style={styles.quantityBtnText}>+</Text>
+                        <TouchableOpacity 
+                          onPress={() => setMealQuantity(mealQuantity + 1)}
+                          style={styles.quantityBtn}
+                        >
+                          <Icon name="add" size={20} color="#FFF" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -377,7 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 10,
-    marginTop: SCREEN_HEIGHT < 680 ? -50 : -70,
+    marginTop: SCREEN_HEIGHT < 680 ? 15 : 20,
     zIndex: 1,
   },
   lunchDropdown: {
@@ -402,11 +408,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  quantityBtnText: {
-    color: '#888',
-    fontSize: 18,
-    fontWeight: '500',
-    paddingHorizontal: 6,
+  quantityBtn: {
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quantityValue: {
     color: '#FFF',

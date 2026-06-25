@@ -132,15 +132,6 @@ const DietHeader = ({
               <Icon name="person" size={20} color="rgba(255, 255, 255, 0.7)" />
             </View>
           )}
-          <LinearGradient
-            colors={['rgba(124, 77, 255, 0.15)', 'rgba(255, 255, 255, 0.03)']}
-            style={styles.profileBadge}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.profileName}>{userName}</Text>
-            <Text style={styles.profileStatus}>Premium User</Text>
-          </LinearGradient>
         </View>
 
         <View style={styles.headerActions}>

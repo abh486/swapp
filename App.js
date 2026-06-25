@@ -19,6 +19,7 @@ import {
 } from './src/api/apiClient';
 import Chargebee from '@chargebee/react-native-chargebee';
 import { CHARGEBEE_CONFIG } from './src/config/chargebeeConfig';
+import Geolocation from '@react-native-community/geolocation';
 
 // Ignore specific warnings that might be related to Auth0
 LogBox.ignoreLogs([
@@ -30,13 +31,28 @@ const App = () => {
   console.log('App: Initializing with Auth0 configuration');
 
   useEffect(() => {
-    // Initialize Chargebee SDK
-    try {
-      console.log('[Chargebee] Initializing SDK with site:', CHARGEBEE_CONFIG.site);
-      Chargebee.configure(CHARGEBEE_CONFIG);
-    } catch (e) {
-      console.error('[Chargebee] SDK configuration failed:', e);
+    // Configure Geolocation for iOS to use whenInUse permission level
+    if (Platform.OS === 'ios') {
+      try {
+        Geolocation.setRNConfiguration({
+          skipPermissionRequests: false,
+          authorizationLevel: 'whenInUse',
+        });
+        console.log('[Geolocation] Configured successfully for iOS (whenInUse)');
+      } catch (err) {
+        console.error('[Geolocation] Failed to set configuration:', err);
+      }
     }
+
+    // Initialize Chargebee SDK
+    console.log('[Chargebee] Initializing SDK with site:', CHARGEBEE_CONFIG.site);
+    Chargebee.configure(CHARGEBEE_CONFIG)
+      .then(() => {
+        console.log('[Chargebee] SDK initialized successfully');
+      })
+      .catch((e) => {
+        console.error('[Chargebee] SDK configuration failed:', e);
+      });
 
     // App Initialization logic can go here
     const projectId = Platform.OS === 'ios' ? 'wyktx0ad6h' : 'wylf1d5gx2';

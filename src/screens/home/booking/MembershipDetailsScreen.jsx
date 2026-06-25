@@ -257,10 +257,10 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   const endDate =
     getDateText(
       subscription.currentTermEnd ||
-        subscription.endDate ||
-        subscription.expiresAt ||
-        subscription.expiryDate ||
-        subscription.currentPeriodEnd,
+      subscription.endDate ||
+      subscription.expiresAt ||
+      subscription.expiryDate ||
+      subscription.currentPeriodEnd,
     ) || 'N/A';
   const locationUrl = provider.locationLink || provider.mapUrl;
   const providerId =
@@ -282,29 +282,29 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     () =>
       normalizePackageType(
         subscription?.packageType ||
-          subscription?.package?.package_type ||
-          subscription?.package?.packageType ||
-          subscription?.userPlan?.packageSubscription?.package?.package_type ||
-          subscription?.userPlan?.packageSubscription?.package?.packageType ||
-          ''
+        subscription?.package?.package_type ||
+        subscription?.package?.packageType ||
+        subscription?.userPlan?.packageSubscription?.package?.package_type ||
+        subscription?.userPlan?.packageSubscription?.package?.packageType ||
+        ''
       ),
     [subscription]
   );
   const isUpgradeOnlyPackage = packageType === 'UPGRADE_ONLY';
   const isGlobalBundlePackage = packageType === 'GLOBAL_BUNDLE';
-  
+
   const isOneTime = useMemo(() => {
-    const model = subscription?.package?.commerce_model || 
-                  subscription?.package?.commerceModel || 
-                  subscription?.packageSubscription?.package?.commerce_model ||
-                  subscription?.packageSubscription?.package?.commerceModel ||
-                  subscription?.userPlan?.packageSubscription?.package?.commerce_model ||
-                  subscription?.userPlan?.packageSubscription?.package?.commerceModel ||
-                  subscription?.commerce_model ||
-                  subscription?.commerceModel ||
-                  plan?.commerce_model ||
-                  plan?.commerceModel ||
-                  '';
+    const model = subscription?.package?.commerce_model ||
+      subscription?.package?.commerceModel ||
+      subscription?.packageSubscription?.package?.commerce_model ||
+      subscription?.packageSubscription?.package?.commerceModel ||
+      subscription?.userPlan?.packageSubscription?.package?.commerce_model ||
+      subscription?.userPlan?.packageSubscription?.package?.commerceModel ||
+      subscription?.commerce_model ||
+      subscription?.commerceModel ||
+      plan?.commerce_model ||
+      plan?.commerceModel ||
+      '';
     return String(model).toUpperCase() === 'ONE_TIME';
   }, [subscription, plan]);
 
@@ -312,9 +312,9 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   const isAppointmentOnly = accessMode === 'APPOINTMENT_ONLY';
   const userPlanStatus = String(
     subscription?.userPlan?.status ||
-      subscription?.userPlanStatus ||
-      subscription?.status ||
-      'UNKNOWN'
+    subscription?.userPlanStatus ||
+    subscription?.status ||
+    'UNKNOWN'
   ).toUpperCase();
   const matchedUserPlan = user?.userPlans?.find(
     up => up.packageSubscriptionId === subscription?.id || up.id === subscription?.userPlanId
@@ -350,10 +350,10 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     }
     return Number(
       subscription?.creditLedger?.remainingCredits ??
-        subscription?.creditLedger?.availableCredits ??
-        subscription?.remainingCredits ??
-        subscription?.remainingSessions ??
-        0
+      subscription?.creditLedger?.availableCredits ??
+      subscription?.remainingCredits ??
+      subscription?.remainingSessions ??
+      0
     );
   }, [matchedUserPlan, matchedEntitlement, subscription, activeEscrowed]);
   const membershipChoices = useMemo(
@@ -361,10 +361,10 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       subscriptions
         .filter(sub => isActiveSubscription(sub) && normalizePackageType(
           sub?.packageType ||
-            sub?.package?.package_type ||
-            sub?.package?.packageType ||
-            sub?.userPlan?.packageSubscription?.package?.package_type ||
-            ''
+          sub?.package?.package_type ||
+          sub?.package?.packageType ||
+          sub?.userPlan?.packageSubscription?.package?.package_type ||
+          ''
         ) !== 'UPGRADE_ONLY')
         .map(sub => {
           const subProvider = sub.provider || sub.gym || sub.partner || sub.package?.provider || {};
@@ -667,8 +667,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             }
           }
         }
-    ]
-  );
+      ]
+    );
   };
 
   const openScanner = useCallback(async () => {
@@ -710,11 +710,13 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         'Unsupported QR Code',
         'Please scan the venue QR poster displayed at the facility.',
         [
-          { text: 'Scan Again', onPress: () => {
-            isScanLockedRef.current = false;
-            setIsScanLocked(false);
-            setScannerVisible(true);
-          } },
+          {
+            text: 'Scan Again', onPress: () => {
+              isScanLockedRef.current = false;
+              setIsScanLocked(false);
+              setScannerVisible(true);
+            }
+          },
           { text: 'Done', style: 'cancel' },
         ],
       );
@@ -742,11 +744,13 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         'Check-in Failed',
         parseApiFailure(error, 'Unable to complete check-in. Please try again.'),
         [
-          { text: 'Scan Again', onPress: () => {
-            isScanLockedRef.current = false;
-            setIsScanLocked(false);
-            setScannerVisible(true);
-          } },
+          {
+            text: 'Scan Again', onPress: () => {
+              isScanLockedRef.current = false;
+              setIsScanLocked(false);
+              setScannerVisible(true);
+            }
+          },
           { text: 'Done', style: 'cancel' },
         ],
       );
@@ -798,8 +802,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
     const start = new Date(booking.startTime);
     const diffHrs = (start - now) / (1000 * 60 * 60);
     const isLateCancel = diffHrs < noticeHrs;
-    
-    const warningText = isLateCancel 
+
+    const warningText = isLateCancel
       ? `\n\n⚠️ WARNING: This is a late cancellation (less than ${noticeHrs} hours notice). You will not be refunded your session/credit and it cannot be rescheduled.`
       : `\n\nYou will be fully refunded and can reschedule another time.`;
 
@@ -808,8 +812,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       `Are you sure you want to cancel your booking at ${booking.provider?.name || gymName}?${warningText}`,
       [
         { text: 'No, Keep it', style: 'cancel' },
-        { 
-          text: 'Yes, Cancel', 
+        {
+          text: 'Yes, Cancel',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -1053,49 +1057,49 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           subscriptionId: subscription?.id,
           userPlanCount: user?.userPlans?.length
         })}
-        {!isOneTime && false} 
-          <TouchableOpacity
-            style={[
-              styles.bookNowButton,
-              (isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)) && { opacity: 0.5 }
-            ]}
-            onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
-            activeOpacity={0.88}
-            disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)}
-          >
-            {isCheckingOut ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <Icon
-                name={
-                  isUpgradeOnlyPackage
-                    ? 'lock-closed-outline'
-                    : isOpenAccess
+        {!isOneTime && false}
+        <TouchableOpacity
+          style={[
+            styles.bookNowButton,
+            (isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)) && { opacity: 0.5 }
+          ]}
+          onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
+          activeOpacity={0.88}
+          disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)}
+        >
+          {isCheckingOut ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <Icon
+              name={
+                isUpgradeOnlyPackage
+                  ? 'lock-closed-outline'
+                  : isOpenAccess
                     ? currentCheckedInBooking
                       ? 'log-out-outline'
                       : 'qr-code-outline'
                     : 'calendar-outline'
-                }
-                size={22}
-                color="#FFF"
-              />
-            )}
-            <Text style={styles.bookNowText}>
-              {isAccessModeLoading
-                ? 'Loading...'
-                : isCheckingOut
+              }
+              size={22}
+              color="#FFF"
+            />
+          )}
+          <Text style={styles.bookNowText}>
+            {isAccessModeLoading
+              ? 'Loading...'
+              : isCheckingOut
                 ? 'Checking out...'
                 : isUpgradeOnlyPackage
-                ? 'Upgrade Only'
-                : isOpenAccess
-                ? currentCheckedInBooking
-                  ? 'Checkout'
-                  : 'Scan Venue QR'
-                : isAppointmentOnly
-                ? 'Request Appointment'
-                : 'Book Session'}
-            </Text>
-          </TouchableOpacity>
+                  ? 'Upgrade Only'
+                  : isOpenAccess
+                    ? currentCheckedInBooking
+                      ? 'Checkout'
+                      : 'Scan Venue QR'
+                    : isAppointmentOnly
+                      ? 'Request Appointment'
+                      : 'Book Session'}
+          </Text>
+        </TouchableOpacity>
 
         {!isOpenAccess && (
           <>
@@ -1186,7 +1190,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
               <Icon name="close" size={26} color="#FFF" />
             </TouchableOpacity>
             <Text style={styles.scannerTitle}>Scan Venue QR</Text>
-        <View style={styles.scannerCloseButton} />
+            <View style={styles.scannerCloseButton} />
           </View>
 
           <View style={styles.cameraWrap}>

@@ -1,6 +1,6 @@
 // src/context/LocationContext.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -118,7 +118,16 @@ export const LocationProvider = ({ children }) => {
         await getCurrentLocation();
       } catch (err) {
         console.warn('[LocationContext] iOS requestAuthorization failed:', err);
-        await getCurrentLocation();
+        if (err.code === 1) {
+          Alert.alert(
+            'Location Permission Required',
+            'Location access is disabled. Please enable location permissions in your iOS Settings to find nearby gyms.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ]
+          );
+        }
       }
     }
   }, [getCurrentLocation]);

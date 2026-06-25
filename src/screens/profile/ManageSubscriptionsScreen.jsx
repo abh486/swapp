@@ -11,7 +11,9 @@ import {
   StatusBar,
   RefreshControl,
   Dimensions,
+  Platform,
 } from 'react-native';
+import Chargebee from '@chargebee/react-native-chargebee';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -50,12 +52,12 @@ const getProgressPct = (startVal, endVal) => {
 };
 
 const STATUS_CONFIG = {
-  active:       { label: 'ACTIVE',              color: '#2ecc71', dot: '#2ecc71' },
-  in_trial:     { label: 'FREE TRIAL',          color: '#f39c12', dot: '#f39c12' },
-  non_renewing: { label: 'ENDS SOON',           color: '#e67e22', dot: '#e67e22' },
-  cancelled:    { label: 'CANCELLED',           color: '#e74c3c', dot: '#e74c3c' },
-  canceled:     { label: 'CANCELLED',           color: '#e74c3c', dot: '#e74c3c' },
-  expired:      { label: 'EXPIRED',             color: '#888',    dot: '#888'    },
+  active: { label: 'ACTIVE', color: '#2ecc71', dot: '#2ecc71' },
+  in_trial: { label: 'FREE TRIAL', color: '#f39c12', dot: '#f39c12' },
+  non_renewing: { label: 'ENDS SOON', color: '#e67e22', dot: '#e67e22' },
+  cancelled: { label: 'CANCELLED', color: '#e74c3c', dot: '#e74c3c' },
+  canceled: { label: 'CANCELLED', color: '#e74c3c', dot: '#e74c3c' },
+  expired: { label: 'EXPIRED', color: '#888', dot: '#888' },
 };
 const getStatus = (s) => STATUS_CONFIG[String(s || '').toLowerCase()] || { label: String(s || 'UNKNOWN').toUpperCase(), color: '#888', dot: '#888' };
 
@@ -72,10 +74,10 @@ const Divider = () => <View style={styles.divider} />;
 
 const SmallActionBtn = ({ label, icon, onPress, variant = 'ghost', loading = false, disabled = false }) => {
   const colors = {
-    ghost:       { border: 'rgba(255,255,255,0.12)', text: '#ccc',    bg: 'rgba(255,255,255,0.05)' },
-    destructive: { border: 'rgba(231,76,60,0.3)',    text: '#e74c3c', bg: 'rgba(231,76,60,0.08)'  },
-    positive:    { border: 'rgba(46,204,113,0.3)',   text: '#2ecc71', bg: 'rgba(46,204,113,0.08)' },
-    primary:     { border: 'rgba(184,115,240,0.3)',  text: '#b873f0', bg: 'rgba(184,115,240,0.08)'},
+    ghost: { border: 'rgba(255,255,255,0.12)', text: '#ccc', bg: 'rgba(255,255,255,0.05)' },
+    destructive: { border: 'rgba(231,76,60,0.3)', text: '#e74c3c', bg: 'rgba(231,76,60,0.08)' },
+    positive: { border: 'rgba(46,204,113,0.3)', text: '#2ecc71', bg: 'rgba(46,204,113,0.08)' },
+    primary: { border: 'rgba(184,115,240,0.3)', text: '#b873f0', bg: 'rgba(184,115,240,0.08)' },
   };
   const c = colors[variant] || colors.ghost;
   return (
@@ -88,9 +90,9 @@ const SmallActionBtn = ({ label, icon, onPress, variant = 'ghost', loading = fal
       {loading
         ? <ActivityIndicator size="small" color={c.text} />
         : <>
-            {icon ? <Icon name={icon} size={13} color={c.text} style={{ marginRight: 5 }} /> : null}
-            <Text style={[styles.smallBtnText, { color: c.text }]}>{label}</Text>
-          </>
+          {icon ? <Icon name={icon} size={13} color={c.text} style={{ marginRight: 5 }} /> : null}
+          <Text style={[styles.smallBtnText, { color: c.text }]}>{label}</Text>
+        </>
       }
     </TouchableOpacity>
   );
@@ -99,19 +101,19 @@ const SmallActionBtn = ({ label, icon, onPress, variant = 'ghost', loading = fal
 // ─── Gym Subscription Card ────────────────────────────────────────────────────
 
 const GymSubCard = ({ sub, navigation, onRefresh }) => {
-  const [toggling, setToggling]   = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [autoRenew, setAutoRenew]  = useState(sub?.cancelAtPeriodEnd !== true);
+  const [autoRenew, setAutoRenew] = useState(sub?.cancelAtPeriodEnd !== true);
 
-  const status    = String(sub?.status || '').toLowerCase();
-  const isActive  = status === 'active' || status === 'in_trial';
-  const isEnding  = status === 'non_renewing';
-  const sc        = getStatus(status);
+  const status = String(sub?.status || '').toLowerCase();
+  const isActive = status === 'active' || status === 'in_trial';
+  const isEnding = status === 'non_renewing';
+  const sc = getStatus(status);
 
-  const endDate   = sub?.currentTermEnd || sub?.endDate || sub?.expiresAt;
+  const endDate = sub?.currentTermEnd || sub?.endDate || sub?.expiresAt;
   const startDate = sub?.currentTermStart || sub?.startDate || sub?.createdAt;
-  const days      = getDaysLeft(endDate);
-  const pct       = getProgressPct(startDate, endDate);
+  const days = getDaysLeft(endDate);
+  const pct = getProgressPct(startDate, endDate);
 
   const providerName =
     sub?.provider?.name || sub?.gym?.name || sub?.package?.provider?.name ||
@@ -128,16 +130,18 @@ const GymSubCard = ({ sub, navigation, onRefresh }) => {
         : 'Your membership will NOT auto-renew. You keep access until the end of the current term.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: async () => {
-          setToggling(true);
-          try {
-            const r = await apiClient.post(`/subscriptions/${sub.id}/toggle-auto-renew`, { autoRenew: next });
-            if (r.data?.success) { setAutoRenew(next); onRefresh(); }
-            else throw new Error(r.data?.message);
-          } catch (e) {
-            Alert.alert('Error', e.response?.data?.message || e.message || 'Could not update.');
-          } finally { setToggling(false); }
-        }},
+        {
+          text: 'Confirm', onPress: async () => {
+            setToggling(true);
+            try {
+              const r = await apiClient.post(`/subscriptions/${sub.id}/toggle-auto-renew`, { autoRenew: next });
+              if (r.data?.success) { setAutoRenew(next); onRefresh(); }
+              else throw new Error(r.data?.message);
+            } catch (e) {
+              Alert.alert('Error', e.response?.data?.message || e.message || 'Could not update.');
+            } finally { setToggling(false); }
+          }
+        },
       ],
     );
   };
@@ -148,16 +152,18 @@ const GymSubCard = ({ sub, navigation, onRefresh }) => {
       `You'll keep access to ${providerName} until ${formatDate(endDate)}, then it won't renew.`,
       [
         { text: 'Keep It', style: 'cancel' },
-        { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-          setCancelling(true);
-          try {
-            const r = await apiClient.patch(`/subscriptions/${sub.id}/cancel`);
-            if (r.data?.success) { Alert.alert('Done', 'Membership cancelled at period end.'); onRefresh(); }
-            else throw new Error(r.data?.message);
-          } catch (e) {
-            Alert.alert('Error', e.response?.data?.message || e.message || 'Could not cancel.');
-          } finally { setCancelling(false); }
-        }},
+        {
+          text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+            setCancelling(true);
+            try {
+              const r = await apiClient.patch(`/subscriptions/${sub.id}/cancel`);
+              if (r.data?.success) { Alert.alert('Done', 'Membership cancelled at period end.'); onRefresh(); }
+              else throw new Error(r.data?.message);
+            } catch (e) {
+              Alert.alert('Error', e.response?.data?.message || e.message || 'Could not cancel.');
+            } finally { setCancelling(false); }
+          }
+        },
       ],
     );
   };
@@ -244,12 +250,12 @@ const AIDietCard = ({ subDetails, navigation, onRefresh }) => {
   const [cancelling, setCancelling] = useState(false);
 
   const noSub = !subDetails;
-  const isTrial      = subDetails?.accessSource === 'TRIAL';
-  const isPaid       = subDetails?.accessSource === 'SUBSCRIPTION';
-  const isNonRenew   = String(subDetails?.status || '').toLowerCase() === 'non_renewing';
-  const sc           = getStatus(subDetails?.status);
-  const endDate      = subDetails?.currentTermEnd;
-  const days         = getDaysLeft(endDate);
+  const isTrial = subDetails?.accessSource === 'TRIAL';
+  const isPaid = subDetails?.accessSource === 'SUBSCRIPTION';
+  const isNonRenew = String(subDetails?.status || '').toLowerCase() === 'non_renewing';
+  const sc = getStatus(subDetails?.status);
+  const endDate = subDetails?.currentTermEnd;
+  const days = getDaysLeft(endDate);
 
   const handleCancel = () => {
     if (!subDetails?.subscriptionId) {
@@ -261,16 +267,18 @@ const AIDietCard = ({ subDetails, navigation, onRefresh }) => {
       `You'll keep access until ${formatDate(endDate)}, then the plan ends.`,
       [
         { text: 'Keep Plan', style: 'cancel' },
-        { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-          setCancelling(true);
-          try {
-            await cancelAIDietSubscription(subDetails.subscriptionId);
-            Alert.alert('Done', 'AI Dietician plan cancelled at period end.');
-            onRefresh();
-          } catch (e) {
-            Alert.alert('Error', e.response?.data?.message || e.message || 'Could not cancel.');
-          } finally { setCancelling(false); }
-        }},
+        {
+          text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+            setCancelling(true);
+            try {
+              await cancelAIDietSubscription(subDetails.subscriptionId);
+              Alert.alert('Done', 'AI Dietician plan cancelled at period end.');
+              onRefresh();
+            } catch (e) {
+              Alert.alert('Error', e.response?.data?.message || e.message || 'Could not cancel.');
+            } finally { setCancelling(false); }
+          }
+        },
       ],
     );
   };
@@ -307,9 +315,16 @@ const AIDietCard = ({ subDetails, navigation, onRefresh }) => {
             ))}
           </View>
           <TouchableOpacity style={styles.unlockBtn} onPress={() => navigation.navigate('AIDieticianPaywall')} activeOpacity={0.85}>
-            <LinearGradient colors={['#e74c3c', '#c0392b']} style={styles.unlockBtnInner}>
-              <Icon name="sparkles-outline" size={15} color="#FFF" style={{ marginRight: 7 }} />
-              <Text style={styles.unlockBtnText}>Unlock AI Dietician</Text>
+            <LinearGradient
+              colors={['#e74c3c', '#c0392b']}
+              style={styles.unlockBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.unlockBtnInner}>
+                <Icon name="sparkles-outline" size={15} color="#FFF" style={{ marginRight: 7 }} />
+                <Text style={styles.unlockBtnText}>Unlock AI Dietician</Text>
+              </View>
             </LinearGradient>
           </TouchableOpacity>
         </>
@@ -385,9 +400,16 @@ const EmptyState = ({ navigation }) => (
     <Text style={styles.emptyTitle}>No Active Subscriptions</Text>
     <Text style={styles.emptyBody}>Start with a free AI Dietician trial or browse gym partners to get going.</Text>
     <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('AIDieticianPaywall')} activeOpacity={0.85}>
-      <LinearGradient colors={['#e74c3c', '#c0392b']} style={styles.emptyBtnInner}>
-        <Icon name="nutrition-outline" size={15} color="#FFF" style={{ marginRight: 7 }} />
-        <Text style={styles.emptyBtnText}>Try AI Dietician Free</Text>
+      <LinearGradient
+        colors={['#e74c3c', '#c0392b']}
+        style={styles.emptyBtnGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <View style={styles.emptyBtnInner}>
+          <Icon name="nutrition-outline" size={15} color="#FFF" style={{ marginRight: 7 }} />
+          <Text style={styles.emptyBtnText}>Try AI Dietician Free</Text>
+        </View>
       </LinearGradient>
     </TouchableOpacity>
   </View>
@@ -397,9 +419,36 @@ const EmptyState = ({ navigation }) => (
 
 const ManageSubscriptionsScreen = ({ navigation }) => {
   const { user, refreshAuthStatus } = useAuth();
-  const [aiSub,     setAiSub]     = useState(undefined);
-  const [loading,   setLoading]   = useState(true);
-  const [refreshing,setRefreshing]= useState(false);
+  const [aiSub, setAiSub] = useState(undefined);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRestorePurchases = async () => {
+    setLoading(true);
+    try {
+      console.log('[ManageSubscriptions] Restoring purchases...');
+      const customer = {
+        id: user?.id || user?.userProfile?.id || '',
+        email: user?.email || user?.userProfile?.email || '',
+        firstName: user?.firstName || user?.userProfile?.name?.split(' ')[0] || user?.name?.split(' ')[0] || '',
+        lastName: user?.lastName || user?.userProfile?.name?.split(' ').slice(1).join(' ') || user?.name?.split(' ').slice(1).join(' ') || '',
+      };
+
+      const restored = await Chargebee.restorePurchases(true, customer);
+      console.log('[ManageSubscriptions] Restored purchases list:', restored);
+
+      await loadData(true);
+      Alert.alert(
+        'Restore Completed',
+        'Your App Store purchases have been checked and restored successfully.'
+      );
+    } catch (e) {
+      console.error('[ManageSubscriptions] Restore error:', e);
+      Alert.alert('Restore Failed', e.message || 'Could not contact App Store to restore purchases.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -418,7 +467,7 @@ const ManageSubscriptionsScreen = ({ navigation }) => {
   const rawSubs = user?.subscriptions || user?.userProfile?.subscriptions || [];
   const gymSubs = rawSubs.filter(s => {
     const st = String(s?.status || s?.subscriptionStatus || '').toUpperCase();
-    return !['CANCELED','CANCELLED','EXPIRED','INACTIVE'].includes(st) || s?.isActive || s?.active;
+    return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(st) || s?.isActive || s?.active;
   });
 
   const totalActive = gymSubs.length + (aiSub ? 1 : 0);
@@ -429,14 +478,14 @@ const ManageSubscriptionsScreen = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Subscriptions</Text>
           {!loading && <Text style={styles.headerCount}>{totalActive} active plan{totalActive !== 1 ? 's' : ''}</Text>}
         </View>
-        <TouchableOpacity onPress={() => loadData(true)} style={styles.headerBtn} hitSlop={{ top:8, bottom:8, left:8, right:8 }}>
+        <TouchableOpacity onPress={() => loadData(true)} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="refresh-outline" size={20} color="#888" />
         </TouchableOpacity>
       </View>
@@ -469,6 +518,17 @@ const ManageSubscriptionsScreen = ({ navigation }) => {
               Cancellations apply at the end of the current billing period. Contact support for billing disputes.
             </Text>
           </View>
+
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.restoreBtn}
+              onPress={handleRestorePurchases}
+              activeOpacity={0.7}
+            >
+              <Icon name="sync-outline" size={14} color="rgba(255,255,255,0.4)" style={{ marginRight: 6 }} />
+              <Text style={styles.restoreBtnText}>Restore App Store Purchases</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -601,13 +661,19 @@ const styles = StyleSheet.create({
   },
 
   // ── Unlock button
-  unlockBtn: { borderRadius: 12, overflow: 'hidden' },
+  unlockBtn: { width: '100%' },
+  unlockBtnGradient: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: '100%',
+  },
   unlockBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 13,
     paddingHorizontal: 20,
+    width: '100%',
   },
   unlockBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
@@ -626,12 +692,18 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 8 },
   emptyBody: { color: '#555', fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
-  emptyBtn: { borderRadius: 14, overflow: 'hidden', width: '100%' },
+  emptyBtn: { width: '100%' },
+  emptyBtnGradient: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    width: '100%',
+  },
   emptyBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
+    width: '100%',
   },
   emptyBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
@@ -643,6 +715,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   footerText: { color: '#2e2e2e', fontSize: 11, flex: 1, lineHeight: 16 },
+  restoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  restoreBtnText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
 
 export default ManageSubscriptionsScreen;

@@ -2,7 +2,7 @@
 
 
 import { GlobalLoader } from '../../components/GlobalLoader';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,17 @@ import {
   SafeAreaView,
   useWindowDimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { fetchWorkoutHistory } from '../../redux/actions/workoutActions';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/apiClient';
+import LinearGradient from 'react-native-linear-gradient';
 
 const THEME = {
   colors: {
@@ -35,6 +37,66 @@ const THEME = {
   },
 };
 
+const getChartTimeframeData = (timeframe, numPoints = 6) => {
+  const points = [];
+  const now = new Date();
+  const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const daysShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  for (let i = numPoints - 1; i >= 0; i--) {
+    const d = new Date(now);
+    let label = '';
+    
+    if (timeframe === 'day') {
+      d.setDate(now.getDate() - i);
+      label = daysShort[d.getDay()];
+    } else if (timeframe === 'week') {
+      d.setDate(now.getDate() - i * 7);
+      label = `${monthsShort[d.getMonth()]} ${d.getDate()}`;
+    } else if (timeframe === 'month') {
+      d.setMonth(now.getMonth() - i);
+      label = monthsShort[d.getMonth()];
+    } else { // '3months' (12 weeks total, so 14-day intervals)
+      d.setDate(now.getDate() - i * 14);
+      label = `${monthsShort[d.getMonth()]} ${d.getDate()}`;
+    }
+    
+    points.push({ date: d, label });
+  }
+  return points;
+};
+
+const getPointIndex = (wDate, timeframePoints, timeframe) => {
+  const dateMs = new Date(wDate).getTime();
+  let intervalMs;
+  
+  if (timeframe === 'day') {
+    intervalMs = 24 * 60 * 60 * 1000;
+  } else if (timeframe === 'week') {
+    intervalMs = 7 * 24 * 60 * 60 * 1000;
+  } else if (timeframe === 'month') {
+    intervalMs = 30 * 24 * 60 * 60 * 1000;
+  } else { // '3months'
+    intervalMs = 14 * 24 * 60 * 60 * 1000;
+  }
+
+  let closestIdx = 0;
+  let minDiff = Infinity;
+  for (let i = 0; i < timeframePoints.length; i++) {
+    const diff = Math.abs(dateMs - timeframePoints[i].date.getTime());
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIdx = i;
+    }
+  }
+
+  const diff = Math.abs(dateMs - timeframePoints[closestIdx].date.getTime());
+  if (diff <= intervalMs * 0.75) {
+    return closestIdx;
+  }
+  return -1;
+};
+
 const ProfileDashboard = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -42,6 +104,9 @@ const ProfileDashboard = () => {
   const { user } = useAuth();
 
   const [workouts, setWorkouts] = useState([]);
+  const [allUserWorkouts, setAllUserWorkouts] = useState([]);
+  const [activeMetric, setActiveMetric] = useState('duration'); // 'duration' | 'volume' | 'reps'
+  const [timeframe, setTimeframe] = useState('3months'); // 'day' | 'week' | 'month' | '3months'
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalWorkouts: 0,
@@ -67,6 +132,7 @@ const ProfileDashboard = () => {
       try {
         const response = await dispatch(fetchWorkoutHistory());
         if (response && response.data && response.data.length > 0) {
+          setAllUserWorkouts(response.data);
           // Filter to only show PRIVATE workouts in profile (everyone goes only to community)
           const privateWorkouts = response.data.filter(
             w => w.visibility === 'PRIVATE',
@@ -77,17 +143,19 @@ const ProfileDashboard = () => {
           const storedDataStr = await AsyncStorage.getItem('latestWorkoutData');
           if (storedDataStr) {
             const storedData = JSON.parse(storedDataStr);
+            const fallbackWorkouts = [
+              {
+                id: 'dummy-local-profile',
+                date: new Date().toISOString(),
+                duration: storedData.duration || 60,
+                volume: storedData.volume || 0,
+                visibility: storedData.visibility || 'PRIVATE',
+                imageUrl: storedData.imageUrl,
+              },
+            ];
+            setAllUserWorkouts(fallbackWorkouts);
             if (storedData.visibility === 'PRIVATE') {
-              setWorkouts([
-                {
-                  id: 'dummy-local-profile',
-                  date: new Date().toISOString(),
-                  duration: storedData.duration || 60,
-                  volume: storedData.volume || 0,
-                  visibility: 'PRIVATE',
-                  imageUrl: storedData.imageUrl,
-                },
-              ]);
+              setWorkouts(fallbackWorkouts);
             } else {
               setWorkouts([]);
             }
@@ -100,17 +168,19 @@ const ProfileDashboard = () => {
           const storedDataStr = await AsyncStorage.getItem('latestWorkoutData');
           if (storedDataStr) {
             const storedData = JSON.parse(storedDataStr);
+            const fallbackWorkouts = [
+              {
+                id: 'dummy-local-profile',
+                date: new Date().toISOString(),
+                duration: storedData.duration || 60,
+                volume: storedData.volume || 0,
+                visibility: storedData.visibility || 'PRIVATE',
+                imageUrl: storedData.imageUrl,
+              },
+            ];
+            setAllUserWorkouts(fallbackWorkouts);
             if (storedData.visibility === 'PRIVATE') {
-              setWorkouts([
-                {
-                  id: 'dummy-local-profile',
-                  date: new Date().toISOString(),
-                  duration: storedData.duration || 60,
-                  volume: storedData.volume || 0,
-                  visibility: 'PRIVATE',
-                  imageUrl: storedData.imageUrl,
-                },
-              ]);
+              setWorkouts(fallbackWorkouts);
             } else {
               setWorkouts([]);
             }
@@ -124,6 +194,104 @@ const ProfileDashboard = () => {
     };
     loadWorkouts();
   }, [dispatch]);
+
+  const timeframePoints = useMemo(() => getChartTimeframeData(timeframe, 6), [timeframe]);
+
+  const chartData = useMemo(() => {
+    const data = timeframePoints.map(p => ({
+      date: p.date,
+      label: p.label,
+      duration: 0,
+      volume: 0,
+      reps: 0,
+    }));
+
+    allUserWorkouts.forEach(workout => {
+      if (!workout.date) return;
+      const pointIdx = getPointIndex(workout.date, timeframePoints, timeframe);
+      if (pointIdx === -1) return;
+      
+      const durationMins = (workout.duration || 0) / 60;
+      data[pointIdx].duration += durationMins;
+
+      if (workout.logs && Array.isArray(workout.logs)) {
+        workout.logs.forEach(log => {
+          if (log.sets && Array.isArray(log.sets)) {
+            log.sets.forEach(set => {
+              const reps = Number(set.reps) || 0;
+              const weight = Number(set.weight) || 0;
+              data[pointIdx].reps += reps;
+              data[pointIdx].volume += (reps * weight);
+            });
+          }
+        });
+      }
+    });
+
+    return data;
+  }, [allUserWorkouts, timeframePoints, timeframe]);
+
+  const metricValues = useMemo(() => {
+    return chartData.map(d => Math.round(d[activeMetric]));
+  }, [chartData, activeMetric]);
+
+  const maxVal = useMemo(() => {
+    return Math.max(...metricValues, 1);
+  }, [metricValues]);
+
+  const chartWidth = width - 80;
+  const chartHeight = 120;
+
+  const points = useMemo(() => {
+    const xStep = chartWidth / 5;
+    return metricValues.map((val, idx) => {
+      const x = idx * xStep;
+      const y = 120 - (val / maxVal) * 110;
+      return { x, y, val };
+    });
+  }, [metricValues, chartWidth, maxVal]);
+
+  const pathD = useMemo(() => {
+    if (points.length === 0) return '';
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const cp1x = p1.x + (p2.x - p1.x) / 3;
+      const cp1y = p1.y;
+      const cp2x = p1.x + 2 * (p2.x - p1.x) / 3;
+      const cp2y = p2.y;
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  }, [points]);
+
+  const gradientPathD = useMemo(() => {
+    if (!pathD || points.length === 0) return '';
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+    return `${pathD} L ${lastPoint.x} 130 L ${firstPoint.x} 130 Z`;
+  }, [pathD, points]);
+
+  const currentWeekValue = metricValues[metricValues.length - 1] || 0;
+
+  const chartTitleText = useMemo(() => {
+    let timeframeLabel = 'this week';
+    if (timeframe === 'day') timeframeLabel = 'today';
+    else if (timeframe === 'week') timeframeLabel = 'this week';
+    else if (timeframe === 'month') timeframeLabel = 'this month';
+    else timeframeLabel = 'last 3 months';
+
+    if (activeMetric === 'duration') {
+      return `${currentWeekValue} mins ${timeframeLabel}`;
+    } else if (activeMetric === 'volume') {
+      return `${currentWeekValue} kg volume ${timeframeLabel}`;
+    } else {
+      return `${currentWeekValue} reps ${timeframeLabel}`;
+    }
+  }, [currentWeekValue, activeMetric, timeframe]);
+
+
 
   useEffect(() => {
     const loadStats = async () => {
@@ -285,71 +453,137 @@ const ProfileDashboard = () => {
         {/* CHART SECTION */}
         <View style={styles.chartSection}>
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>4 mins this week</Text>
-            <TouchableOpacity style={styles.dropdownButton}>
-              <Text style={styles.dropdownText}>last 3months</Text>
-              <Icon name="chevron-down" size={14} color="#FFF" />
-            </TouchableOpacity>
+            <Text style={styles.chartTitle}>{chartTitleText}</Text>
+          </View>
+
+          {/* Timeframe Selector Segmented Control */}
+          <View style={styles.timeframeTabsContainer}>
+            {[
+              { key: 'day', label: 'Day' },
+              { key: 'week', label: 'Week' },
+              { key: 'month', label: 'Month' },
+              { key: '3months', label: '3 Months' }
+            ].map((tab) => {
+              const isActive = timeframe === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={styles.timeframeTabTouch}
+                  onPress={() => setTimeframe(tab.key)}
+                  activeOpacity={0.8}
+                >
+                  {isActive ? (
+                    <LinearGradient
+                      colors={['rgba(124, 77, 255, 0.95)', 'rgba(236, 72, 153, 0.95)']}
+                      style={styles.timeframeActiveTabGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.timeframeActiveTabLabel}>{tab.label}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.timeframeInactiveTabLabel}>{tab.label}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <View style={styles.chartContainer}>
             <View style={styles.yAxis}>
-              <Text style={styles.axisText}>1 hrs</Text>
-              <Text style={styles.axisText}>0 hrs</Text>
+              <Text style={styles.axisText}>{maxVal} {activeMetric === 'volume' ? 'kg' : activeMetric === 'duration' ? 'm' : 'reps'}</Text>
+              <Text style={styles.axisText}>0 {activeMetric === 'volume' ? 'kg' : activeMetric === 'duration' ? 'm' : 'reps'}</Text>
             </View>
 
             <View style={styles.chartArea}>
               <Svg
                 width="100%"
                 height="100%"
-                viewBox={`0 0 ${width - 80} 150`}
+                viewBox={`0 0 ${chartWidth} 150`}
                 preserveAspectRatio="none"
               >
+                <Defs>
+                  <SvgLinearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor={THEME.colors.accent} stopOpacity={0.35} />
+                    <Stop offset="100%" stopColor={THEME.colors.accent} stopOpacity={0.0} />
+                  </SvgLinearGradient>
+                </Defs>
+
+                {/* Grid Lines */}
+                <Path d={`M 0 35 L ${chartWidth} 35`} stroke="rgba(255, 255, 255, 0.04)" strokeWidth={1} />
+                <Path d={`M 0 70 L ${chartWidth} 70`} stroke="rgba(255, 255, 255, 0.04)" strokeWidth={1} />
+                <Path d={`M 0 105 L ${chartWidth} 105`} stroke="rgba(255, 255, 255, 0.04)" strokeWidth={1} />
+
+                {/* Bottom Border Line */}
                 <Path
-                  d={`M 0 0 L 0 150 L ${width - 80} 150`}
-                  stroke="rgba(255,255,255,0.3)"
+                  d={`M 0 0 L 0 130 L ${chartWidth} 130`}
+                  stroke="rgba(255,255,255,0.15)"
                   strokeWidth="1"
                   fill="none"
                 />
-                <Path
-                  d={`M 0 150 Q ${width * 0.2} 20, ${width * 0.4} 80 T ${
-                    width * 0.7
-                  } 40 T ${width - 80} 20`}
-                  stroke={THEME.colors.accent}
-                  strokeWidth="3"
-                  fill="none"
-                />
-                <Circle
-                  cx={width * 0.7}
-                  cy={40}
-                  r="5"
-                  fill="#FFF"
-                  stroke={THEME.colors.accent}
-                  strokeWidth="2"
-                />
+
+                {/* Gradient Area under Curve */}
+                {gradientPathD ? (
+                  <Path
+                    d={gradientPathD}
+                    fill="url(#chartGrad)"
+                  />
+                ) : null}
+
+                {/* Smooth Curve Line */}
+                {pathD ? (
+                  <Path
+                    d={pathD}
+                    stroke={THEME.colors.accent}
+                    strokeWidth={3.5}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                ) : null}
+
+                {/* Circles for each week point */}
+                {points.map((p, idx) => (
+                  <Circle
+                    key={idx}
+                    cx={p.x}
+                    cy={p.y}
+                    r="4"
+                    fill="#FFF"
+                    stroke={THEME.colors.accent}
+                    strokeWidth="2"
+                  />
+                ))}
               </Svg>
 
               <View style={styles.xAxis}>
-                <Text style={styles.axisText}>Jan 25</Text>
-                <Text style={styles.axisText}>Feb 8</Text>
-                <Text style={styles.axisText}>Feb 22</Text>
-                <Text style={styles.axisText}>Mar 8</Text>
-                <Text style={styles.axisText}>Mar 22</Text>
-                <Text style={styles.axisText}>Apr 5</Text>
+                {chartData.map((d, idx) => (
+                  <Text key={idx} style={styles.axisText}>
+                    {d.label}
+                  </Text>
+                ))}
               </View>
             </View>
           </View>
 
-          {/* Filter Pills */}
+          {/* Metric Pills */}
           <View style={styles.filtersRow}>
-            <TouchableOpacity style={styles.filterPillActive}>
-              <Text style={styles.filterPillTextActive}>Duration</Text>
+            <TouchableOpacity 
+              style={activeMetric === 'duration' ? styles.filterPillActive : styles.filterPill}
+              onPress={() => setActiveMetric('duration')}
+            >
+              <Text style={activeMetric === 'duration' ? styles.filterPillTextActive : styles.filterPillText}>Duration</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.filterPill}>
-              <Text style={styles.filterPillText}>Volume</Text>
+            <TouchableOpacity 
+              style={activeMetric === 'volume' ? styles.filterPillActive : styles.filterPill}
+              onPress={() => setActiveMetric('volume')}
+            >
+              <Text style={activeMetric === 'volume' ? styles.filterPillTextActive : styles.filterPillText}>Volume</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.filterPill}>
-              <Text style={styles.filterPillText}>Reps</Text>
+            <TouchableOpacity 
+              style={activeMetric === 'reps' ? styles.filterPillActive : styles.filterPill}
+              onPress={() => setActiveMetric('reps')}
+            >
+              <Text style={activeMetric === 'reps' ? styles.filterPillTextActive : styles.filterPillText}>Reps</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -566,18 +800,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  dropdownButton: {
+  timeframeTabsContainer: {
     flexDirection: 'row',
+    backgroundColor: '#111115',
+    height: 40,
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  dropdownText: {
-    color: THEME.colors.text,
-    fontSize: 13,
-    marginRight: 6,
+  timeframeTabTouch: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeframeActiveTabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeframeActiveTabLabel: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  timeframeInactiveTabLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
+    fontWeight: '600',
   },
   chartContainer: {
     flexDirection: 'row',

@@ -21,6 +21,1189 @@ index 437c8d5..2d7f5c7 100644
 +    s.dependency "React-NativeModulesApple"
    end
  end
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.classpath b/node_modules/@chargebee/react-native-chargebee/android/.classpath
+new file mode 100644
+index 0000000..bbe97e5
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/.classpath
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<classpath>
++	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17/"/>
++	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
++	<classpathentry kind="output" path="bin/default"/>
++</classpath>
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/checksums/checksums.lock b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/checksums/checksums.lock
+new file mode 100644
+index 0000000..fc2d799
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/checksums/checksums.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/dependencies-accessors/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileChanges/last-build.bin b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileChanges/last-build.bin
+new file mode 100644
+index 0000000..f76dd23
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileChanges/last-build.bin differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileHashes/fileHashes.lock
+new file mode 100644
+index 0000000..d9bd3c5
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/fileHashes/fileHashes.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/.gradle/8.9/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+new file mode 100644
+index 0000000..19dcb49
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/cache.properties
+new file mode 100644
+index 0000000..f3242f6
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/.gradle/buildOutputCleanup/cache.properties
+@@ -0,0 +1,2 @@
++#Fri Jun 19 17:28:25 IST 2026
++gradle.version=8.9
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.gradle/vcs-1/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.project b/node_modules/@chargebee/react-native-chargebee/android/.project
+new file mode 100644
+index 0000000..926c954
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/.project
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>chargebee_react-native-chargebee</name>
++	<comment>Project chargebee_react-native-chargebee created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1781505464060</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/.settings/org.eclipse.buildship.core.prefs b/node_modules/@chargebee/react-native-chargebee/android/.settings/org.eclipse.buildship.core.prefs
+new file mode 100644
+index 0000000..c8e5d51
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/.settings/org.eclipse.buildship.core.prefs
+@@ -0,0 +1,13 @@
++arguments=--init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/db3b08fc4a9ef609cb16b96b200fa13e563f396e9bb1ed0905fdab7bc3bc513b.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/52cde0cfcf3e28b8b7510e992210d9614505e0911af0c190bd590d7158574963.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/861a75667e10803d304a058d833cb7404195ca44013d0d61d3b653eb084379b8.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/68eb1b6516fe21c6fbba58e63c99c3207ccfc918360613709367eecde56fa77f.gradle --init-script /var/folders/fx/c_h3xmwd7tnbj3cfz26nsb8h0000gn/T/da64152279c70a8b4f3de4ca9ea66fd3b3405b7aca4e1f20f2d08e5593aa1ce1.gradle
++auto.sync=true
++build.scans.enabled=false
++connection.gradle.distribution=GRADLE_DISTRIBUTION(VERSION(8.9))
++connection.project.dir=../../../../android
++eclipse.preferences.version=1
++gradle.user.home=
++java.home=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home
++jvm.arguments=
++offline.mode=false
++override.workspace.settings=true
++show.console.view=true
++show.executions.view=true
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/checksums/checksums.lock b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/checksums/checksums.lock
+new file mode 100644
+index 0000000..fc2d799
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/checksums/checksums.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/dependencies-accessors/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileChanges/last-build.bin b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileChanges/last-build.bin
+new file mode 100644
+index 0000000..f76dd23
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileChanges/last-build.bin differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileHashes/fileHashes.lock
+new file mode 100644
+index 0000000..d9bd3c5
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/fileHashes/fileHashes.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/8.9/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+new file mode 100644
+index 0000000..19dcb49
+Binary files /dev/null and b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/cache.properties b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/cache.properties
+new file mode 100644
+index 0000000..f3242f6
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/buildOutputCleanup/cache.properties
+@@ -0,0 +1,2 @@
++#Fri Jun 19 17:28:25 IST 2026
++gradle.version=8.9
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/vcs-1/gc.properties b/node_modules/@chargebee/react-native-chargebee/android/bin/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/.project b/node_modules/@chargebee/react-native-chargebee/android/bin/.project
+new file mode 100644
+index 0000000..926c954
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/.project
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>chargebee_react-native-chargebee</name>
++	<comment>Project chargebee_react-native-chargebee created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1781505464060</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/build.gradle b/node_modules/@chargebee/react-native-chargebee/android/bin/build.gradle
+new file mode 100644
+index 0000000..bbd28d5
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/build.gradle
+@@ -0,0 +1,98 @@
++buildscript {
++  // Buildscript is evaluated before everything else so we can't use getExtOrDefault
++  def kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : project.properties["ChargebeeReactNative_kotlinVersion"]
++
++  repositories {
++    google()
++    mavenCentral()
++  }
++
++  dependencies {
++    classpath "com.android.tools.build:gradle:7.4.0"
++    // noinspection DifferentKotlinGradleVersion
++    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
++  }
++}
++
++def isNewArchitectureEnabled() {
++  return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
++}
++
++apply plugin: "com.android.library"
++apply plugin: "kotlin-android"
++
++if (isNewArchitectureEnabled()) {
++  apply plugin: "com.facebook.react"
++}
++
++def getExtOrDefault(name) {
++  return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties["ChargebeeReactNative_" + name]
++}
++
++def getExtOrIntegerDefault(name) {
++  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["ChargebeeReactNative_" + name]).toInteger()
++}
++
++android {
++  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
++
++  defaultConfig {
++    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
++    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
++    buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
++  }
++  buildTypes {
++    release {
++      minifyEnabled false
++    }
++  }
++
++  lintOptions {
++    disable "GradleCompatible"
++  }
++
++  compileOptions {
++    sourceCompatibility JavaVersion.VERSION_1_8
++    targetCompatibility JavaVersion.VERSION_1_8
++  }
++
++  sourceSets {
++    main {
++      if (isNewArchitectureEnabled()) {
++        java.srcDirs += [
++          "src/newarch",
++          // This is needed to build Kotlin project with NewArch enabled
++          "${project.buildDir}/generated/source/codegen/java"
++        ]
++      } else {
++        java.srcDirs += ["src/oldarch"]
++      }
++    }
++  }
++}
++
++repositories {
++  mavenCentral()
++  google()
++}
++
++def kotlin_version = getExtOrDefault("kotlinVersion")
++
++dependencies {
++  // For < 0.71, this will be from the local maven repo
++  // For > 0.71, this will be replaced by `com.facebook.react:react-android:$version` by react gradle plugin
++  //noinspection GradleDynamicVersion
++  implementation "com.facebook.react:react-native"
++  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
++  implementation 'com.chargebee:chargebee-android:1.2.4'
++  implementation 'com.android.billingclient:billing-ktx:7.1.1'
++  implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
++}
++
++if (isNewArchitectureEnabled()) {
++  react {
++    jsRootDir = file("../src/")
++    libraryName = "ChargebeeReactNative"
++    codegenJavaPackageName = "com.chargebee.android"
++  }
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/gradle.properties b/node_modules/@chargebee/react-native-chargebee/android/bin/gradle.properties
+new file mode 100644
+index 0000000..a362338
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/gradle.properties
+@@ -0,0 +1,7 @@
++ChargebeeReactNative_kotlinVersion=1.9.23
++ChargebeeReactNative_minSdkVersion=21
++ChargebeeReactNative_targetSdkVersion=31
++ChargebeeReactNative_compileSdkVersion=31
++ChargebeeReactNative_ndkversion=21.4.7075529
++
++newArchEnabled=true
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/AndroidManifest.xml b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..2729325
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/AndroidManifest.xml
+@@ -0,0 +1,4 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++          package="com.chargebee.android.reactnative">
++
++</manifest>
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt
+new file mode 100644
+index 0000000..466c565
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt
+@@ -0,0 +1,465 @@
++package com.chargebee.android.reactnative
++
++import com.chargebee.android.Chargebee
++import com.chargebee.android.ErrorDetail
++import com.chargebee.android.billingservice.CBCallback
++import com.chargebee.android.billingservice.CBPurchase
++import com.chargebee.android.billingservice.GPErrorCode
++import com.chargebee.android.exceptions.CBException
++import com.chargebee.android.exceptions.CBProductIDResult
++import com.chargebee.android.exceptions.ChargebeeResult
++import com.chargebee.android.models.*
++import com.chargebee.android.network.ReceiptDetail
++import com.chargebee.android.reactnative.models.*
++import com.chargebee.android.reactnative.models.toMap
++import com.chargebee.android.reactnative.utils.*
++import com.chargebee.android.reactnative.utils.convertArrayToWritableArray
++import com.chargebee.android.reactnative.utils.convertAuthenticationDetailToDictionary
++import com.chargebee.android.reactnative.utils.convertEntitlementsToDictionary
++import com.chargebee.android.reactnative.utils.convertListToWritableArray
++import com.chargebee.android.reactnative.utils.convertPurchaseResultToDictionary
++import com.chargebee.android.reactnative.utils.convertQueryParamsToArray
++import com.chargebee.android.reactnative.utils.convertReadableArray
++import com.chargebee.android.reactnative.utils.convertReadableMapToCustomer
++import com.chargebee.android.reactnative.utils.convertRestoredSubscriptionsToDictionary
++import com.chargebee.android.reactnative.utils.convertSubscriptionsToDictionary
++import com.facebook.react.bridge.Promise
++import com.facebook.react.bridge.ReactApplicationContext
++import com.facebook.react.bridge.ReactMethod
++import com.facebook.react.bridge.ReadableArray
++import com.facebook.react.bridge.ReadableMap
++import java.lang.RuntimeException
++
++class ChargebeeReactNativeModule internal constructor(context: ReactApplicationContext) :
++  ChargebeeReactNativeSpec(context) {
++
++  override fun getName(): String {
++    return NAME
++  }
++
++  @ReactMethod
++  override fun configure(
++    site: String,
++    publishableApiKey: String,
++    sdkKey: String,
++    promise: Promise
++  ) {
++    val packageName = reactApplicationContext.currentActivity?.packageName ?: ""
++    Chargebee.environment = "cb_rn_android_sdk"
++    Chargebee.configure(site, publishableApiKey, true, sdkKey, packageName) {
++      when (it) {
++        is ChargebeeResult.Success -> {
++          promise.resolve(convertAuthenticationDetailToDictionary(it.data))
++        }
++
++        is ChargebeeResult.Error -> {
++          val messageUserInfo = it.exp.messageUserInfo()
++          promise.reject(
++            "${CBReactNativeError.INVALID_SDK_CONFIGURATION.code}",
++            messageUserInfo.getString("message"),
++            it.exp,
++            messageUserInfo
++          )
++        }
++      }
++    }
++  }
++
++  @ReactMethod
++  override fun retrieveProductIdentifiers(queryParams: ReadableMap, promise: Promise) {
++    val formattedQueryParams = convertQueryParamsToArray(queryParams)
++    CBPurchase.retrieveProductIdentifers(formattedQueryParams) {
++      when (it) {
++        is CBProductIDResult.ProductIds -> {
++          val identifiers = it.IDs.toArray(arrayOf<String>())
++          promise.resolve(convertArrayToWritableArray(identifiers))
++        }
++
++        is CBProductIDResult.Error -> {
++          val messageUserInfo = it.exp.messageUserInfo()
++          promise.reject(
++            "${it.exp.errorCode().code}",
++            messageUserInfo.getString("message"),
++            it.exp,
++            messageUserInfo
++          )
++        }
++      }
++    }
++  }
++
++  @ReactMethod
++  override fun retrieveProducts(productIds: ReadableArray, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      CBPurchase.retrieveProducts(it, convertReadableArray(productIds),
++        object : CBCallback.ListProductsCallback<ArrayList<CBProduct>> {
++          override fun onSuccess(productDetails: ArrayList<CBProduct>) {
++            if (productDetails.isEmpty()) {
++              val productNotAvailableError = CBException(
++                ErrorDetail(
++                  message = GPErrorCode.ProductUnavailable.errorMsg,
++                  httpStatusCode = CBReactNativeError.PRODUCT_NOT_AVAILABLE.code
++                )
++              )
++              val messageUserInfo = productNotAvailableError.messageUserInfo()
++              promise.reject(
++                "${productNotAvailableError.httpStatusCode}",
++                messageUserInfo.getString("message"),
++                productNotAvailableError,
++                productNotAvailableError.messageUserInfo()
++              )
++            } else {
++              promise.resolve(convertListToWritableArray(productDetails))
++            }
++          }
++
++          override fun onError(error: CBException) {
++            val cbReactNativeError =
++              error.httpStatusCode?.let { it -> CBReactNativeError.fromBillingCode(it) }
++                ?: CBReactNativeError.UNKNOWN
++            val messageUserInfo = error.messageUserInfo()
++            promise.reject(
++              "${cbReactNativeError.code}",
++              messageUserInfo.getString("message"),
++              error,
++              messageUserInfo
++            )
++          }
++        })
++    }
++  }
++
++  @ReactMethod
++  override fun purchaseProduct(productId: String, customer: ReadableMap, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      val productIds = arrayListOf(productId)
++      CBPurchase.retrieveProducts(it, productIds,
++        object : CBCallback.ListProductsCallback<ArrayList<CBProduct>> {
++          override fun onSuccess(productDetails: ArrayList<CBProduct>) {
++            if (productDetails.size > 0) {
++              CBPurchase.purchaseProduct(
++                productDetails.first(),
++                convertReadableMapToCustomer(customer),
++                object : CBCallback.PurchaseCallback<String> {
++
++                  override fun onSuccess(receiptDetail: ReceiptDetail, status: Boolean) {
++                    val purchaseResult = PurchaseResult(receiptDetail, status)
++                    promise.resolve(convertPurchaseResultToDictionary(purchaseResult, status))
++                  }
++
++                  override fun onError(error: CBException) {
++                    val cbReactNativeError =
++                      error.httpStatusCode?.let { it -> CBReactNativeError.fromBillingCode(it) }
++                        ?: CBReactNativeError.UNKNOWN
++                    val messageUserInfo = error.messageUserInfo()
++                    promise.reject(
++                      "${cbReactNativeError.code}",
++                      messageUserInfo.getString("message"),
++                      error,
++                      messageUserInfo
++                    )
++                  }
++                })
++            } else {
++              val productNotAvailableError = CBException(
++                ErrorDetail(
++                  message = GPErrorCode.ProductUnavailable.errorMsg,
++                  httpStatusCode = CBReactNativeError.PRODUCT_NOT_AVAILABLE.code
++                )
++              )
++              val messageUserInfo = productNotAvailableError.messageUserInfo()
++              promise.reject(
++                "${productNotAvailableError.httpStatusCode}",
++                messageUserInfo.getString("message"),
++                productNotAvailableError,
++                productNotAvailableError.messageUserInfo()
++              )
++            }
++
++          }
++
++          override fun onError(error: CBException) {
++            val messageUserInfo = error.messageUserInfo()
++            promise.reject(
++              "${CBReactNativeError.SYSTEM_ERROR.code}",
++              messageUserInfo.getString("message"),
++              error,
++              messageUserInfo
++            )
++          }
++        })
++    }
++  }
++
++  @ReactMethod
++  override fun purchaseNonSubscriptionProduct(productId: String, productType: String, customer: ReadableMap, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      val productIds = arrayListOf(productId)
++      CBPurchase.retrieveProducts(it, productIds,
++        object : CBCallback.ListProductsCallback<ArrayList<CBProduct>> {
++          override fun onSuccess(productIDs: ArrayList<CBProduct>) {
++            if (productIDs.size > 0) {
++              CBPurchase.purchaseNonSubscriptionProduct(
++                productIDs.first(),
++                convertReadableMapToCustomer(customer),
++                convertProductTypeStringToEnum(productType),
++                object : CBCallback.OneTimePurchaseCallback {
++                  override fun onSuccess(result: NonSubscription, status: Boolean) {
++                    val purchaseResult = OneTimePurchaseResult(result, status)
++                    promise.resolve(convertOneTimePurchaseResultToDictionary(purchaseResult, status))
++                  }
++
++                  override fun onError(error: CBException) {
++                    val cbReactNativeError =
++                      error.httpStatusCode?.let { it -> CBReactNativeError.fromBillingCode(it) }
++                        ?: CBReactNativeError.UNKNOWN
++                    val messageUserInfo = error.messageUserInfo()
++                    promise.reject(
++                      "${cbReactNativeError.code}",
++                      messageUserInfo.getString("message"),
++                      error,
++                      messageUserInfo
++                    )
++                  }
++                })
++            } else {
++              val productNotAvailableError = CBException(
++                ErrorDetail(
++                  message = GPErrorCode.ProductUnavailable.errorMsg,
++                  httpStatusCode = CBReactNativeError.PRODUCT_NOT_AVAILABLE.code
++                )
++              )
++              val messageUserInfo = productNotAvailableError.messageUserInfo()
++              promise.reject(
++                "${productNotAvailableError.httpStatusCode}",
++                messageUserInfo.getString("message"),
++                productNotAvailableError,
++                productNotAvailableError.messageUserInfo()
++              )
++            }
++          }
++
++          override fun onError(error: CBException) {
++            val messageUserInfo = error.messageUserInfo()
++            promise.reject(
++              "${CBReactNativeError.SYSTEM_ERROR.code}",
++              messageUserInfo.getString("message"),
++              error,
++              messageUserInfo
++            )
++          }
++        })
++    }
++  }
++
++  @ReactMethod
++  override fun retrieveSubscriptions(queryParams: ReadableMap, promise: Promise) {
++    Chargebee.retrieveSubscriptions(queryParams.toMap()) {
++      when (it) {
++        is ChargebeeResult.Success -> {
++          val subscriptions = (it.data as CBSubscription).list
++          promise.resolve(convertSubscriptionsToDictionary(subscriptions))
++        }
++
++        is ChargebeeResult.Error -> {
++          val messageUserInfo = it.exp.messageUserInfo()
++          promise.reject(
++            "${CBReactNativeError.INVALID_SDK_CONFIGURATION.code}",
++            messageUserInfo.getString("message"),
++            it.exp,
++            messageUserInfo
++          )
++        }
++      }
++    }
++  }
++
++  @ReactMethod
++  override fun restorePurchases(includeInactivePurchases: Boolean, customer: ReadableMap, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      val customer = convertReadableMapToCustomer(customer)
++      CBPurchase.restorePurchases(it, customer, includeInactivePurchases, object :
++        CBCallback.RestorePurchaseCallback {
++        override fun onSuccess(result: List<CBRestoreSubscription>) {
++          promise.resolve(convertRestoredSubscriptionsToDictionary(result))
++        }
++
++        override fun onError(error: CBException) {
++          val messageUserInfo = error.messageUserInfo()
++          promise.reject(
++            "${CBReactNativeError.RESTORE_FAILED.code}",
++            messageUserInfo.getString("message"),
++            error,
++            messageUserInfo
++          )
++        }
++      })
++    }
++  }
++
++  @ReactMethod
++  override fun validateReceipt(productId: String, customer: ReadableMap, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      val productIds = arrayListOf(productId)
++      CBPurchase.retrieveProducts(it, productIds,
++        object : CBCallback.ListProductsCallback<ArrayList<CBProduct>> {
++          override fun onSuccess(productDetails: ArrayList<CBProduct>) {
++            if (productDetails.size > 0) {
++              CBPurchase.validateReceipt(context = activity,
++                product = productDetails.first(),
++                customer = convertReadableMapToCustomer(customer),
++                completionCallback = object : CBCallback.PurchaseCallback<String> {
++
++                  override fun onSuccess(receiptDetail: ReceiptDetail, status: Boolean) {
++                    val purchaseResult = PurchaseResult(receiptDetail, status)
++                    promise.resolve(convertPurchaseResultToDictionary(purchaseResult, status))
++                  }
++
++                  override fun onError(error: CBException) {
++                    val cbReactNativeError =
++                      error.httpStatusCode?.let { it -> CBReactNativeError.fromBillingCode(it) }
++                        ?: CBReactNativeError.UNKNOWN
++                    val messageUserInfo = error.messageUserInfo()
++                    promise.reject(
++                      "${cbReactNativeError.code}",
++                      messageUserInfo.getString("message"),
++                      error,
++                      messageUserInfo
++                    )
++                  }
++                })
++            } else {
++              val productNotAvailableError = CBException(
++                ErrorDetail(
++                  message = GPErrorCode.ProductUnavailable.errorMsg,
++                  httpStatusCode = CBReactNativeError.PRODUCT_NOT_AVAILABLE.code
++                )
++              )
++              val messageUserInfo = productNotAvailableError.messageUserInfo()
++              promise.reject(
++                "${productNotAvailableError.httpStatusCode}",
++                messageUserInfo.getString("message"),
++                productNotAvailableError,
++                productNotAvailableError.messageUserInfo()
++              )
++            }
++
++          }
++
++          override fun onError(error: CBException) {
++            val messageUserInfo = error.messageUserInfo()
++            promise.reject(
++              "${CBReactNativeError.SYSTEM_ERROR.code}",
++              messageUserInfo.getString("message"),
++              error,
++              messageUserInfo
++            )
++          }
++        })
++    }
++  }
++
++  @ReactMethod
++  override fun validateReceiptForNonSubscriptions(productId: String, productType: String, customer: ReadableMap, promise: Promise) {
++    val activity = reactApplicationContext.currentActivity
++    activity?.let {
++      val productIds = arrayListOf(productId)
++      CBPurchase.retrieveProducts(it, productIds,
++        object : CBCallback.ListProductsCallback<ArrayList<CBProduct>> {
++          override fun onSuccess(productDetails: ArrayList<CBProduct>) {
++            if (productDetails.size > 0) {
++              CBPurchase.validateReceiptForNonSubscriptions(context = activity,
++                product = productDetails.first(),
++                productType = convertProductTypeStringToEnum(productType),
++                customer = convertReadableMapToCustomer(customer),
++                completionCallback = object : CBCallback.OneTimePurchaseCallback {
++                  override fun onSuccess(result: NonSubscription, status: Boolean) {
++                    val purchaseResult = OneTimePurchaseResult(result, status)
++                    promise.resolve(convertOneTimePurchaseResultToDictionary(purchaseResult, status))
++                  }
++
++                  override fun onError(error: CBException) {
++                    val cbReactNativeError =
++                      error.httpStatusCode?.let { it -> CBReactNativeError.fromBillingCode(it) }
++                        ?: CBReactNativeError.UNKNOWN
++                    val messageUserInfo = error.messageUserInfo()
++                    promise.reject(
++                      "${cbReactNativeError.code}",
++                      messageUserInfo.getString("message"),
++                      error,
++                      messageUserInfo
++                    )
++                  }
++                })
++            } else {
++              val productNotAvailableError = CBException(
++                ErrorDetail(
++                  message = GPErrorCode.ProductUnavailable.errorMsg,
++                  httpStatusCode = CBReactNativeError.PRODUCT_NOT_AVAILABLE.code
++                )
++              )
++              val messageUserInfo = productNotAvailableError.messageUserInfo()
++              promise.reject(
++                "${productNotAvailableError.httpStatusCode}",
++                messageUserInfo.getString("message"),
++                productNotAvailableError,
++                productNotAvailableError.messageUserInfo()
++              )
++            }
++
++          }
++
++          override fun onError(error: CBException) {
++            val messageUserInfo = error.messageUserInfo()
++            promise.reject(
++              "${CBReactNativeError.SYSTEM_ERROR.code}",
++              messageUserInfo.getString("message"),
++              error,
++              messageUserInfo
++            )
++          }
++        })
++    }
++  }
++
++  @ReactMethod
++  override fun retrieveEntitlements(entitlementsRequest: ReadableMap, promise: Promise) {
++    val subscriptionId = entitlementsRequest.getString("subscriptionId") ?: run {
++      val runtimeException = RuntimeException("Subscription ID is invalid")
++      promise.reject(
++        "${CBReactNativeError.INVALID_RESOURCE.code}",
++        runtimeException.message,
++        runtimeException,
++        null
++      )
++      return
++    }
++    Chargebee.retrieveEntitlements(subscriptionId) {
++      when (it) {
++        is ChargebeeResult.Success -> {
++          val entitlements = (it.data as CBEntitlements).list
++          promise.resolve(convertEntitlementsToDictionary(entitlements))
++        }
++
++        is ChargebeeResult.Error -> {
++          val messageUserInfo = it.exp.messageUserInfo()
++          promise.reject(
++            "${CBReactNativeError.INVALID_SDK_CONFIGURATION.code}",
++            messageUserInfo.getString("message"),
++            it.exp,
++            messageUserInfo
++          )
++        }
++      }
++    }
++  }
++
++  companion object {
++    const val NAME = "ChargebeeReactNative"
++  }
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativePackage.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativePackage.kt
+new file mode 100644
+index 0000000..6d1961a
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativePackage.kt
+@@ -0,0 +1,36 @@
++package com.chargebee.android.reactnative
++
++import com.chargebee.android.reactnative.BuildConfig
++import com.facebook.react.TurboReactPackage
++import com.facebook.react.bridge.ReactApplicationContext
++import com.facebook.react.bridge.NativeModule
++import com.facebook.react.module.model.ReactModuleInfoProvider
++import com.facebook.react.module.model.ReactModuleInfo
++import java.util.HashMap
++
++class ChargebeeReactNativePackage : TurboReactPackage() {
++  override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
++    return if (name == ChargebeeReactNativeModule.NAME) {
++      ChargebeeReactNativeModule(reactContext)
++    } else {
++      null
++    }
++  }
++
++  override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
++    return ReactModuleInfoProvider {
++      val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
++      val isTurboModule: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
++      moduleInfos[ChargebeeReactNativeModule.NAME] = ReactModuleInfo(
++        ChargebeeReactNativeModule.NAME,
++        ChargebeeReactNativeModule.NAME,
++        false,  // canOverrideExistingModule
++        false,  // needsEagerInit
++        true,  // hasConstants
++        false,  // isCxxModule
++        isTurboModule // isTurboModule
++      )
++      moduleInfos
++    }
++  }
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBExceptionExtensions.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBExceptionExtensions.kt
+new file mode 100644
+index 0000000..121d9e5
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBExceptionExtensions.kt
+@@ -0,0 +1,31 @@
++package com.chargebee.android.reactnative.models
++
++import com.chargebee.android.exceptions.CBException
++import com.facebook.react.bridge.WritableMap
++import com.facebook.react.bridge.WritableNativeMap
++import org.json.JSONException
++import org.json.JSONObject
++
++fun CBException.messageUserInfo(): WritableMap {
++  try {
++    val jsonObject = JSONObject(this.message)
++    val messageUserInfo = WritableNativeMap()
++    messageUserInfo.putString("message", jsonObject.optString("message"))
++    messageUserInfo.putString("apiErrorCode", jsonObject.optString("api_error_code"))
++    messageUserInfo.putInt("httpStatusCode", jsonObject.optInt("http_status_code"))
++    return messageUserInfo
++  } catch (e: JSONException) {
++    val messageUserInfo = WritableNativeMap()
++    messageUserInfo.putString("message", this.message)
++    return messageUserInfo
++  }
++
++}
++
++fun CBException.errorCode(): CBReactNativeError {
++  val contains = this.message?.contains("Invalid catalog version", true)
++  if(contains != null && contains) {
++    return CBReactNativeError.INVALID_CATALOG_VERSION
++  }
++  return CBReactNativeError.UNKNOWN
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBReactNativeError.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBReactNativeError.kt
+new file mode 100644
+index 0000000..d3e853a
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/CBReactNativeError.kt
+@@ -0,0 +1,53 @@
++package com.chargebee.android.reactnative.models
++
++import com.android.billingclient.api.BillingClient
++import com.android.billingclient.api.BillingClient.BillingResponseCode.*
++
++enum class CBReactNativeError(val code: Int) {
++
++  UNKNOWN(0),
++
++  // Chargebee Errors
++  INVALID_SDK_CONFIGURATION(1000),
++  INVALID_CATALOG_VERSION(1001),
++  CANNOT_MAKE_PAYMENTS(1002),
++  NO_PRODUCT_TO_RESTORE(1003),
++  INVALID_RESOURCE(1004),
++
++  // Store Errors
++  INVALID_OFFER(2001),
++  INVALID_PURCHASE(2002),
++  INVALID_SANDBOX(2003),
++  NETWORK_ERROR(2004),
++  PAYMENT_FAILED(2005),
++  PAYMENT_NOT_ALLOWED(2006),
++  PRODUCT_NOT_AVAILABLE(2007),
++  PURCHASE_NOT_ALLOWED(2008),
++  PURCHASE_CANCELLED(2009),
++  STORE_PROBLEM(2010),
++  INVALID_RECEIPT(2011),
++  REQUEST_FAILED(2012),
++  PRODUCT_PURCHASED_ALREADY(2013),
++
++  // Restore Error
++  NO_RECEIPT(2014),
++  REFRESH_RECEIPT_FAILED(2015),
++  RESTORE_FAILED(2016),
++
++  // General Errors
++  SYSTEM_ERROR(3000);
++
++  companion object {
++    fun fromBillingCode(code: Int) : CBReactNativeError {
++      return when (code) {
++        FEATURE_NOT_SUPPORTED, BILLING_UNAVAILABLE -> PURCHASE_NOT_ALLOWED
++        ERROR, SERVICE_UNAVAILABLE, SERVICE_DISCONNECTED, SERVICE_TIMEOUT -> STORE_PROBLEM
++        USER_CANCELED -> PURCHASE_CANCELLED
++        ITEM_UNAVAILABLE -> PRODUCT_NOT_AVAILABLE
++        DEVELOPER_ERROR, ITEM_NOT_OWNED-> INVALID_PURCHASE
++        ITEM_ALREADY_OWNED -> PRODUCT_PURCHASED_ALREADY
++        else -> UNKNOWN
++      }
++    }
++  }
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/OneTimePurchaseResult.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/OneTimePurchaseResult.kt
+new file mode 100644
+index 0000000..9c6f05e
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/OneTimePurchaseResult.kt
+@@ -0,0 +1,16 @@
++package com.chargebee.android.reactnative.models
++
++import com.chargebee.android.models.NonSubscription
++import java.io.Serializable
++
++data class OneTimePurchaseResult(
++  val invoiceId: String,
++  val chargeId: String,
++  val customerId: String
++) : Serializable {
++  constructor(nonSubscription: NonSubscription, status: Boolean) : this(
++    nonSubscription.invoiceId,
++    nonSubscription.chargeId,
++    nonSubscription.customerId
++  )
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/PurchaseResult.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/PurchaseResult.kt
+new file mode 100644
+index 0000000..d21c471
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/PurchaseResult.kt
+@@ -0,0 +1,12 @@
++package com.chargebee.android.reactnative.models
++
++import com.chargebee.android.network.ReceiptDetail
++import java.io.Serializable
++
++data class PurchaseResult (
++  val subscriptionId: String,
++  val planId: String,
++  val status: Boolean
++) : Serializable {
++  constructor(receiptDetail: ReceiptDetail, status: Boolean) : this(receiptDetail.subscription_id, receiptDetail.plan_id, status)
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/ReadableMapExtension.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/ReadableMapExtension.kt
+new file mode 100644
+index 0000000..bc55e06
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/models/ReadableMapExtension.kt
+@@ -0,0 +1,11 @@
++package com.chargebee.android.reactnative.models
++
++import com.facebook.react.bridge.ReadableMap
++
++internal fun ReadableMap.toMap(): Map<String, String> {
++  val map = HashMap<String, String>()
++  this.entryIterator.forEach {
++    map[it.key] = it.value.toString()
++  }
++  return map
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/utils/Converter.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/utils/Converter.kt
+new file mode 100644
+index 0000000..8916df7
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/main/java/com/chargebee/android/reactnative/utils/Converter.kt
+@@ -0,0 +1,161 @@
++package com.chargebee.android.reactnative.utils
++
++import com.android.billingclient.api.SkuDetails
++import com.chargebee.android.billingservice.OneTimeProductType
++import com.chargebee.android.models.CBEntitlementsWrapper
++import com.chargebee.android.models.CBProduct
++import com.chargebee.android.models.CBRestoreSubscription
++import com.chargebee.android.reactnative.models.PurchaseResult
++import com.chargebee.android.models.SubscriptionDetailsWrapper
++import com.chargebee.android.network.CBAuthResponse
++import com.chargebee.android.network.CBCustomer
++import com.chargebee.android.reactnative.models.OneTimePurchaseResult
++import com.facebook.react.bridge.*
++
++
++internal fun convertArrayToWritableArray(array: Array<String>): WritableArray {
++  val writableArray: WritableArray = WritableNativeArray()
++  for (item in array) {
++    when (item) {
++      is String -> writableArray.pushString(item)
++    }
++  }
++  return writableArray
++}
++
++internal fun convertReadableArray(readableArray: ReadableArray): ArrayList<String> {
++  val items: ArrayList<String> = ArrayList()
++  for (i in 0 until readableArray.size()) {
++    items.add(readableArray.getString(i) ?: "")
++  }
++  return items
++}
++
++internal fun convertListToWritableArray(array: List<CBProduct>): WritableArray {
++  val writableArray: WritableArray = WritableNativeArray()
++  for (item in array) {
++    writableArray.pushMap(convertProductToDictionary(item))
++  }
++  return writableArray
++}
++
++internal fun convertProductToDictionary(product: CBProduct): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  writableMap.putString("id", product.productId)
++  writableMap.putString("title", product.productTitle)
++  writableMap.putDouble("price", convertPriceAmountInMicros(product.skuDetails))
++  writableMap.putString("currencyCode", product.skuDetails.priceCurrencyCode)
++  return writableMap
++}
++
++fun convertPriceAmountInMicros(skuDetails: SkuDetails): Double {
++  return skuDetails.priceAmountMicros / 1_000_000.0
++}
++
++internal fun convertPurchaseResultToDictionary(product: PurchaseResult, status: Boolean): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  writableMap.putString("subscription_id", product.subscriptionId)
++  writableMap.putString("plan_id", product.planId)
++  writableMap.putBoolean("status", status)
++  return writableMap
++}
++
++internal fun convertOneTimePurchaseResultToDictionary(product: OneTimePurchaseResult, status: Boolean): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  writableMap.putString("invoice_id", product.invoiceId)
++  writableMap.putString("charge_id", product.chargeId)
++  writableMap.putString("customer_id", product.customerId)
++  return writableMap
++}
++
++internal fun convertSubscriptionsToDictionary(subscriptions: List<SubscriptionDetailsWrapper>): WritableArray {
++  val writableArray: WritableArray = WritableNativeArray()
++  for (item in subscriptions) {
++    writableArray.pushMap(convertSubscriptionToDictionary(item))
++  }
++  return writableArray
++}
++
++internal fun convertSubscriptionToDictionary(subscriptionDetailsWrapper: SubscriptionDetailsWrapper): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  val subscriptionDetail = subscriptionDetailsWrapper.cb_subscription
++  subscriptionDetail.activated_at?.toDouble()?.let { writableMap.putDouble("activatedAt", it) }
++  subscriptionDetail.status?.let { writableMap.putString("status", it) }
++  subscriptionDetail.plan_amount?.toDouble()?.let { writableMap.putDouble("planAmount", it) }
++  subscriptionDetail.subscription_id?.let { writableMap.putString("id", it) }
++  subscriptionDetail.customer_id?.let { writableMap.putString("customerId", it) }
++  subscriptionDetail.current_term_end?.toDouble()?.let { writableMap.putDouble("currentTermEnd", it) }
++  subscriptionDetail.current_term_start?.toDouble()?.let { writableMap.putDouble("currentTermStart", it) }
++  subscriptionDetail.plan_id?.let { writableMap.putString("planId", it) }
++  return writableMap
++}
++
++internal fun convertQueryParamsToArray(queryParams: ReadableMap): Array<String> {
++  if (queryParams != null)
++    return arrayOf(queryParams.getString("limit") ?: "")
++  return arrayOf("")
++}
++
++internal fun convertReadableMapToCustomer(customerMap: ReadableMap): CBCustomer {
++  val id = customerMap.getString("id")
++  val firstName = customerMap.getString("firstName") ?: ""
++  val lastName = customerMap.getString("lastName") ?: ""
++  val email = customerMap.getString("email") ?: ""
++  return CBCustomer(id, firstName, lastName, email)
++}
++
++internal fun convertAuthenticationDetailToDictionary(authResponseData: Any): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  if(authResponseData is CBAuthResponse) {
++    writableMap.putString("appId", authResponseData?.in_app_detail?.app_id)
++    writableMap.putString("version", authResponseData?.in_app_detail?.product_catalog_version)
++    writableMap.putString("status", authResponseData?.in_app_detail?.status)
++  }
++  return writableMap
++}
++
++internal fun convertRestoredSubscriptionsToDictionary(restoredSubscriptions: List<CBRestoreSubscription>): WritableArray {
++  val writableArray: WritableArray = WritableNativeArray()
++  for (item in restoredSubscriptions) {
++    writableArray.pushMap(convertRestoredSubscriptionToDictionary(item))
++  }
++  return writableArray
++}
++
++internal fun convertRestoredSubscriptionToDictionary(restoredSubscription: CBRestoreSubscription): WritableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  writableMap.putString("subscriptionId", restoredSubscription.subscriptionId)
++  writableMap.putString("planId", restoredSubscription.planId)
++  writableMap.putString("storeStatus", restoredSubscription.storeStatus)
++  return writableMap
++}
++
++internal fun convertEntitlementsToDictionary(entitlements: List<CBEntitlementsWrapper>): WritableArray {
++  val writableArray: WritableArray = WritableNativeArray()
++  for (item in entitlements) {
++    writableArray.pushMap(convertEntitlementToDictionary(item))
++  }
++  return writableArray
++}
++
++fun convertEntitlementToDictionary(entitlementWrapper: CBEntitlementsWrapper): ReadableMap {
++  val writableMap: WritableMap = WritableNativeMap()
++  val entitlement = entitlementWrapper.subscription_entitlement
++  writableMap.putString("subscriptionId", entitlement.subscription_id)
++  writableMap.putString("featureId", entitlement.feature_id)
++  writableMap.putString("featureName", entitlement.feature_name)
++  writableMap.putString("featureDescription", entitlement.feature_description)
++  writableMap.putString("featureType", entitlement.feature_type)
++  writableMap.putString("value", entitlement.value)
++  writableMap.putString("name", entitlement.name)
++  writableMap.putBoolean("isOverridden", entitlement.is_overridden)
++  writableMap.putBoolean("isEnabled", entitlement.is_enabled)
++  return writableMap
++}
++
++internal fun convertProductTypeStringToEnum(productType: String): OneTimeProductType {
++  return if (productType == OneTimeProductType.CONSUMABLE.value)
++    OneTimeProductType.CONSUMABLE
++  else
++    OneTimeProductType.NON_CONSUMABLE
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/newarch/ChargebeeReactNativeSpec.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/newarch/ChargebeeReactNativeSpec.kt
+new file mode 100644
+index 0000000..5b06c74
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/newarch/ChargebeeReactNativeSpec.kt
+@@ -0,0 +1,17 @@
++package com.chargebee.android.reactnative
++
++import com.facebook.react.bridge.*
++
++abstract class ChargebeeReactNativeSpec internal constructor(context: ReactApplicationContext) :
++  ReactContextBaseJavaModule(context) {
++  abstract fun configure(site: String, publishableApiKey: String, sdkKey: String = "", promise: Promise)
++  abstract fun retrieveProductIdentifiers(queryParams: ReadableMap, promise: Promise)
++  abstract fun retrieveProducts(productIds: ReadableArray, promise: Promise)
++  abstract fun purchaseProduct(productId: String, customer: ReadableMap, promise: Promise)
++  abstract fun purchaseNonSubscriptionProduct(productId: String, productType: String, customer: ReadableMap, promise: Promise)
++  abstract fun retrieveSubscriptions(queryParams: ReadableMap, promise: Promise)
++  abstract fun restorePurchases(includeInactivePurchases: Boolean, customer: ReadableMap, promise: Promise)
++  abstract fun validateReceipt(productId: String, customer: ReadableMap, promise: Promise)
++  abstract fun validateReceiptForNonSubscriptions(productId: String, productType: String, customer: ReadableMap, promise: Promise)
++  abstract fun retrieveEntitlements(entitlementsRequest: ReadableMap, promise: Promise)
++}
+diff --git a/node_modules/@chargebee/react-native-chargebee/android/bin/src/oldarch/ChargebeeReactNativeSpec.kt b/node_modules/@chargebee/react-native-chargebee/android/bin/src/oldarch/ChargebeeReactNativeSpec.kt
+new file mode 100644
+index 0000000..5b06c74
+--- /dev/null
++++ b/node_modules/@chargebee/react-native-chargebee/android/bin/src/oldarch/ChargebeeReactNativeSpec.kt
+@@ -0,0 +1,17 @@
++package com.chargebee.android.reactnative
++
++import com.facebook.react.bridge.*
++
++abstract class ChargebeeReactNativeSpec internal constructor(context: ReactApplicationContext) :
++  ReactContextBaseJavaModule(context) {
++  abstract fun configure(site: String, publishableApiKey: String, sdkKey: String = "", promise: Promise)
++  abstract fun retrieveProductIdentifiers(queryParams: ReadableMap, promise: Promise)
++  abstract fun retrieveProducts(productIds: ReadableArray, promise: Promise)
++  abstract fun purchaseProduct(productId: String, customer: ReadableMap, promise: Promise)
++  abstract fun purchaseNonSubscriptionProduct(productId: String, productType: String, customer: ReadableMap, promise: Promise)
++  abstract fun retrieveSubscriptions(queryParams: ReadableMap, promise: Promise)
++  abstract fun restorePurchases(includeInactivePurchases: Boolean, customer: ReadableMap, promise: Promise)
++  abstract fun validateReceipt(productId: String, customer: ReadableMap, promise: Promise)
++  abstract fun validateReceiptForNonSubscriptions(productId: String, productType: String, customer: ReadableMap, promise: Promise)
++  abstract fun retrieveEntitlements(entitlementsRequest: ReadableMap, promise: Promise)
++}
 diff --git a/node_modules/@chargebee/react-native-chargebee/android/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt b/node_modules/@chargebee/react-native-chargebee/android/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt
 index 0751f33..466c565 100644
 --- a/node_modules/@chargebee/react-native-chargebee/android/src/main/java/com/chargebee/android/reactnative/ChargebeeReactNativeModule.kt
@@ -126,7 +1309,7 @@ index 3ffc01c..5b06c74 100644
 +  abstract fun retrieveEntitlements(entitlementsRequest: ReadableMap, promise: Promise)
  }
 diff --git a/node_modules/@chargebee/react-native-chargebee/ios/ChargebeeReactNative.mm b/node_modules/@chargebee/react-native-chargebee/ios/ChargebeeReactNative.mm
-index 6b5be3b..9d3ac65 100644
+index 6b5be3b..3d9a8b7 100644
 --- a/node_modules/@chargebee/react-native-chargebee/ios/ChargebeeReactNative.mm
 +++ b/node_modules/@chargebee/react-native-chargebee/ios/ChargebeeReactNative.mm
 @@ -1,5 +1,60 @@
@@ -201,3 +1384,111 @@ index 6b5be3b..9d3ac65 100644
  }
  
  RCT_REMAP_METHOD(validateReceipt,
+@@ -104,6 +160,107 @@ @implementation ChargebeeReactNative
+ 
+ // Don't compile this code when we build for the old architecture.
+ #ifdef RCT_NEW_ARCH_ENABLED
++- (void)configure:(NSString *)site
++publishableApiKey:(NSString *)publishableApiKey
++           sdkKey:(NSString *)sdkKey
++          resolve:(RCTPromiseResolveBlock)resolve
++           reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper configureWithSite:site apiKey:publishableApiKey sdkKey:sdkKey resolver:resolve rejecter:reject];
++}
++
++- (void)retrieveProductIdentifiers:(NSDictionary *)queryParams
++                            resolve:(RCTPromiseResolveBlock)resolve
++                             reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper retrieveProductIdentifiersWithQueryParams:queryParams resolver:resolve rejecter:reject];
++}
++
++- (void)retrieveProducts:(NSArray *)productIds
++                  resolve:(RCTPromiseResolveBlock)resolve
++                   reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper retrieveProductsWithProductIds:productIds resolver:resolve rejecter:reject];
++}
++
++- (void)purchaseProduct:(NSString *)productId
++               customer:(NSDictionary *)customer
++                resolve:(RCTPromiseResolveBlock)resolve
++                 reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper purchaseProductWithProductId:productId customer:customer resolver:resolve rejecter:reject];
++}
++
++- (void)purchaseNonSubscriptionProduct:(NSString *)productId
++                            productType:(NSDictionary *)productType
++                               customer:(NSDictionary *)customer
++                                resolve:(RCTPromiseResolveBlock)resolve
++                                 reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    NSString *typeStr = @"";
++    if ([productType isKindOfClass:[NSString class]]) {
++        typeStr = (NSString *)productType;
++    } else if ([productType isKindOfClass:[NSDictionary class]]) {
++        typeStr = [NSString stringWithFormat:@"%@", productType];
++    }
++    [helper purchaseNonSubscriptionProductWithProductId:productId productType:typeStr customer:customer resolver:resolve rejecter:reject];
++}
++
++- (void)retrieveSubscriptions:(NSDictionary *)queryParams
++                       resolve:(RCTPromiseResolveBlock)resolve
++                        reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper retrieveSubscriptionsWithQueryParams:queryParams resolver:resolve rejecter:reject];
++}
++
++- (void)restorePurchases:(BOOL)includeInactivePurchases
++                 customer:(NSDictionary *)customer
++                  resolve:(RCTPromiseResolveBlock)resolve
++                   reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper restorePurchasesWithIncludeInactivePurchases:includeInactivePurchases customer:customer resolver:resolve rejecter:reject];
++}
++
++- (void)validateReceipt:(NSString *)productId
++               customer:(NSDictionary *)customer
++                resolve:(RCTPromiseResolveBlock)resolve
++                 reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper validateReceiptWithProductId:productId customer:customer resolver:resolve rejecter:reject];
++}
++
++- (void)validateReceiptForNonSubscriptions:(NSString *)productId
++                               productType:(NSDictionary *)productType
++                                  customer:(NSDictionary *)customer
++                                   resolve:(RCTPromiseResolveBlock)resolve
++                                    reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    NSString *typeStr = @"";
++    if ([productType isKindOfClass:[NSString class]]) {
++        typeStr = (NSString *)productType;
++    } else if ([productType isKindOfClass:[NSDictionary class]]) {
++        typeStr = [NSString stringWithFormat:@"%@", productType];
++    }
++    [helper validateReceiptForNonSubscriptionsWithProductId:productId productType:typeStr customer:customer resolver:resolve rejecter:reject];
++}
++
++- (void)retrieveEntitlements:(NSDictionary *)entitlementsRequest
++                      resolve:(RCTPromiseResolveBlock)resolve
++                       reject:(RCTPromiseRejectBlock)reject
++{
++    ChargebeeHelper* helper = [ChargebeeHelper shared];
++    [helper retrieveEntitlementsWithEntitlementsRequest:entitlementsRequest resolver:resolve rejecter:reject];
++}
++
+ - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
+     (const facebook::react::ObjCTurboModule::InitParams &)params
+ {

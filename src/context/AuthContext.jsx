@@ -200,11 +200,46 @@ export const AuthProvider = ({ children }) => {
           throw new Error('No token found in storage.');
         }
 
+        let emailFromToken = null;
+        try {
+          const creds = await auth0.credentialsManager.getApiCredentials(
+            AUTH0_API_AUDIENCE,
+            undefined,
+            60,
+          );
+          if (creds?.idToken) {
+            const part = creds.idToken.split('.')[1];
+            if (part) {
+              const decoded = decodeBase64Url(part);
+              if (decoded) {
+                const payload = JSON.parse(decoded);
+                emailFromToken = payload?.email || null;
+                console.log('[AuthContext] Decoded email from ID Token:', emailFromToken);
+              }
+            }
+          }
+        } catch (credsErr) {
+          console.log('[AuthContext] Could not extract email from ID Token:', credsErr.message);
+        }
+
         // 🚨 Ensure apiClient uses HTTPS. Cleartext HTTP is disabled.
         const resp = await apiClient.post('/v1/auth/verify-member');
 
         if (resp.data?.success && resp.data.data) {
           const userObject = resp.data.data.user;
+
+          if (emailFromToken) {
+            if (!userObject.email || userObject.email === '') {
+              userObject.email = emailFromToken;
+            }
+            if (userObject.userProfile && (!userObject.userProfile.email || userObject.userProfile.email === '')) {
+              userObject.userProfile.email = emailFromToken;
+            }
+            if (userObject.memberProfile && (!userObject.memberProfile.email || userObject.memberProfile.email === '')) {
+              userObject.memberProfile.email = emailFromToken;
+            }
+          }
+
           setUserProfile(userObject);
           setIsAuthenticated(true);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
@@ -256,7 +291,31 @@ export const AuthProvider = ({ children }) => {
   }, [checkAuthStatus, isImageSelectionInProgress]);
 
   useEffect(() => {
-    checkAuthStatus();
+    const initializeAuth = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('userProfile');
+        if (cached) {
+          const userObject = JSON.parse(cached);
+          setUserProfile(userObject);
+          setIsAuthenticated(true);
+          setHasProfile(
+            (userObject.userProfile && userObject.userProfile.name) ||
+            (userObject.memberProfile && userObject.memberProfile.name)
+              ? true
+              : false
+          );
+        }
+      } catch (e) {
+        console.log('[AuthContext] Failed to load cached user profile:', e.message);
+      } finally {
+        setLoading(false);
+      }
+      
+      // Perform background verify check silently without blocking the UI
+      await checkAuthStatus({ silent: true });
+    };
+
+    initializeAuth();
   }, [checkAuthStatus]);
 
   useEffect(() => {
@@ -278,22 +337,40 @@ export const AuthProvider = ({ children }) => {
             const response = await apiClient.get('/users/reminders');
             if (response.data?.success && response.data.data) {
               loadedData = response.data.data;
-              await AsyncStorage.setItem('user_reminders', JSON.stringify(loadedData));
             }
           } catch (apiErr) {
             console.log('[AuthContext] Offline or backend reminder fetch failed, using local/default:', apiErr.message);
           }
 
-          // Default fallback
-          if (!loadedData) {
-            loadedData = {
-              Breakfast: { enabled: true, hour: 8, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-              Lunch: { enabled: true, hour: 1, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-              Snacks: { enabled: true, hour: 4, minute: 30, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-              Dinner: { enabled: true, hour: 8, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-              Water: { enabled: true, hour: 9, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-            };
+          const defaultReminders = {
+            Breakfast: { enabled: true, hour: 8, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+            Lunch: { enabled: true, hour: 1, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+            Snacks: { enabled: true, hour: 4, minute: 30, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+            Dinner: { enabled: true, hour: 8, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+            Water: { enabled: true, hour: 9, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+          };
+
+          if (loadedData) {
+            const isDataChanged = Object.keys(defaultReminders).some(key => !loadedData.hasOwnProperty(key));
+            const mergedReminders = { ...defaultReminders, ...loadedData };
+            loadedData = mergedReminders;
             await AsyncStorage.setItem('user_reminders', JSON.stringify(loadedData));
+
+            if (isDataChanged) {
+              try {
+                await apiClient.put('/users/reminders', loadedData);
+              } catch (apiErr) {
+                console.log('[AuthContext] Failed to sync merged reminders to backend:', apiErr.message);
+              }
+            }
+          } else {
+            loadedData = defaultReminders;
+            await AsyncStorage.setItem('user_reminders', JSON.stringify(loadedData));
+            try {
+              await apiClient.put('/users/reminders', loadedData);
+            } catch (apiErr) {
+              console.log('[AuthContext] Failed to sync default reminders to backend:', apiErr.message);
+            }
           }
 
           await syncLocalNotifications(loadedData);
@@ -484,6 +561,17 @@ export const AuthProvider = ({ children }) => {
         const response = await apiClient.post('/auth/login', { email, password });
         if (response.data?.success && response.data.data?.token) {
           const { token, user: userObj } = response.data.data;
+          
+          if (!userObj.email || userObj.email === '') {
+            userObj.email = email;
+          }
+          if (userObj.userProfile && (!userObj.userProfile.email || userObj.userProfile.email === '')) {
+            userObj.userProfile.email = email;
+          }
+          if (userObj.memberProfile && (!userObj.memberProfile.email || userObj.memberProfile.email === '')) {
+            userObj.memberProfile.email = email;
+          }
+
           await AsyncStorage.setItem('accessToken', token);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
           setUserProfile(userObj);

@@ -830,7 +830,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
                     response.success &&
                     response.data?.checkoutUrl
                   ) {
-                    navigation.navigate('CheckoutWebView', {
+                    navigation.navigate('CheckoutBrowser', {
                       url: response.data.checkoutUrl,
                       planId: selectedPlan.id,
                       planName: selectedPlan.name,

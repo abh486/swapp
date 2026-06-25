@@ -10,12 +10,14 @@ import {
   Alert,
   ActivityIndicator,
   StatusBar,
-  BackHandler
+  BackHandler,
+  Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { getPlans, createCheckout, activateTrial, getSubscriptionDetails, getAccessStatus } from '../services/aiDieticianService';
 import { useAuth } from '../context/AuthContext';
+import Chargebee from '@chargebee/react-native-chargebee';
 
 const { width } = Dimensions.get('window');
 
@@ -31,7 +33,7 @@ const formatDate = (dateVal) => {
 };
 
 const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
-  const { refreshAuthStatus } = useAuth();
+  const { user, refreshAuthStatus } = useAuth();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -138,9 +140,10 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
           productCode: 'AI_DIETICIAN',
         };
 
-        navigation.navigate('CheckoutWebView', {
+        navigation.navigate('CheckoutBrowser', {
           url: res.checkoutUrl,
           planId: selectedPlan.id,
+          isNativeIAP: true,
           planName: selectedPlan.name,
           price: selectedPlan.price || '999',
           pendingSubscription,
@@ -151,6 +154,35 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
     } catch (err) {
       console.error('[AIDieticianPaywall] Checkout failed:', err);
       Alert.alert('Checkout Failed', err.response?.data?.message || err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    setIsSubmitting(true);
+    try {
+      console.log('[AIDieticianPaywall] Restoring purchases...');
+      const customer = {
+        id: user?.id || user?.userProfile?.id || '',
+        email: user?.email || user?.userProfile?.email || '',
+        firstName: user?.firstName || user?.userProfile?.name?.split(' ')[0] || user?.name?.split(' ')[0] || '',
+        lastName: user?.lastName || user?.userProfile?.name?.split(' ').slice(1).join(' ') || user?.name?.split(' ').slice(1).join(' ') || '',
+      };
+
+      const restoredSubscriptions = await Chargebee.restorePurchases(true, customer);
+      console.log('[AIDieticianPaywall] Restored subscriptions:', restoredSubscriptions);
+
+      await refreshAuthStatus?.();
+
+      Alert.alert(
+        'Restore Completed',
+        'Your purchases have been successfully restored. If you have an active subscription, your access is now unlocked.',
+        [{ text: 'OK', onPress: handleClose }]
+      );
+    } catch (err) {
+      console.error('[AIDieticianPaywall] Restore failed:', err);
+      Alert.alert('Restore Failed', err.message || 'Could not restore purchases from the App Store.');
     } finally {
       setIsSubmitting(false);
     }
@@ -302,15 +334,27 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
             </Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.subscribeButton, !selectedPlan && { opacity: 0.5 }]}
-            onPress={handleSubscribe}
-            disabled={!selectedPlan || isSubmitting}
-          >
-            <Text style={styles.subscribeButtonText}>
-              {isSubmitting ? 'Processing...' : 'Subscribe Now'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.subscribeButton, !selectedPlan && { opacity: 0.5 }]}
+              onPress={handleSubscribe}
+              disabled={!selectedPlan || isSubmitting}
+            >
+              <Text style={styles.subscribeButtonText}>
+                {isSubmitting ? 'Processing...' : 'Subscribe Now'}
+              </Text>
+            </TouchableOpacity>
+
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.restoreLink}
+                onPress={handleRestorePurchases}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.restoreLinkText}>Restore Purchases</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -535,6 +579,16 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  restoreLink: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  restoreLinkText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });
 

@@ -402,7 +402,7 @@ export const HomeDashboard = ({ navigation }) => {
           <View style={styles.activeCircleIcon}>
             <Icon
               name={item.icon || 'apps'}
-              size={14}
+              size={24}
               color="#e74c3c"
             />
           </View>
@@ -423,7 +423,7 @@ export const HomeDashboard = ({ navigation }) => {
         <View style={styles.inactiveCircleIcon}>
           <Icon
             name={item.icon || 'apps'}
-            size={14}
+            size={24}
             color="#A5A5A5"
           />
         </View>
@@ -485,12 +485,40 @@ export const HomeDashboard = ({ navigation }) => {
         : null;
     const distanceText = distanceValue ? `${distanceValue} miles` : null;
 
-    const verticalLabel = Array.isArray(provider.vertical)
+    let verticalLabel = Array.isArray(provider.vertical)
       ? provider.vertical[0].charAt(0) +
       provider.vertical[0].slice(1).toLowerCase()
       : provider.vertical
         ? provider.vertical.charAt(0) + provider.vertical.slice(1).toLowerCase()
         : 'Fitness';
+
+    const verticalLower = verticalLabel.toLowerCase();
+    if (
+      verticalLower === 'wellness' ||
+      verticalLower === 'wellness and spa' ||
+      verticalLower === 'wellness & spa' ||
+      verticalLower === 'spa & wellness' ||
+      verticalLower === 'spa and wellness'
+    ) {
+      verticalLabel = 'Wellnest';
+    } else if (
+      verticalLower === 'yoya' ||
+      verticalLower === 'plaints' ||
+      verticalLower === 'yoga' ||
+      verticalLower === 'yoga and plaints' ||
+      verticalLower === 'yoga & plaints' ||
+      verticalLower === 'yoga and pilates' ||
+      verticalLower === 'yoga & pilates'
+    ) {
+      verticalLabel = 'Yoga';
+    } else if (
+      verticalLower === 'genaral gym' ||
+      verticalLower === 'general gym' ||
+      verticalLower === 'genaral' ||
+      verticalLower === 'general'
+    ) {
+      verticalLabel = 'Gym';
+    }
 
     return (
       <TouchableOpacity
@@ -610,12 +638,45 @@ export const HomeDashboard = ({ navigation }) => {
 
   const dashboardCategories = [
     { id: 'all', label: 'All', icon: 'apps', vertical: null },
-    ...(feed?.categories || []).map(c => ({
-      id: c.id,
-      label: c.label,
-      icon: c.icon,
-      vertical: c.vertical,
-    })),
+    ...(feed?.categories || []).map(c => {
+      const isCompatSport = c.label && (
+        c.label.toLowerCase() === 'combat sports' ||
+        c.label.toLowerCase() === 'combat sport' ||
+        c.label.toLowerCase() === 'combat' ||
+        c.label.toLowerCase() === 'compat sports' ||
+        c.label.toLowerCase() === 'compat sport' ||
+        c.label.toLowerCase() === 'compat'
+      );
+      const isWellnessSpa = c.label && (
+        c.label.toLowerCase() === 'wellness & spa' ||
+        c.label.toLowerCase() === 'wellness and spa' ||
+        c.label.toLowerCase() === 'wellness' ||
+        c.label.toLowerCase() === 'spa & wellness' ||
+        c.label.toLowerCase() === 'spa and wellness'
+      );
+      const isYoga = c.label && (
+        c.label.toLowerCase() === 'yoga' ||
+        c.label.toLowerCase() === 'yoya' ||
+        c.label.toLowerCase() === 'plaints' ||
+        c.label.toLowerCase() === 'yoga and plaints' ||
+        c.label.toLowerCase() === 'yoga & plaints' ||
+        c.label.toLowerCase() === 'yoga and pilates' ||
+        c.label.toLowerCase() === 'yoga & pilates'
+      );
+      const isGym = c.label && (
+        c.label.toLowerCase() === 'gym' ||
+        c.label.toLowerCase() === 'genaral gym' ||
+        c.label.toLowerCase() === 'general gym' ||
+        c.label.toLowerCase() === 'genaral' ||
+        c.label.toLowerCase() === 'general'
+      );
+      return {
+        id: c.id,
+        label: isWellnessSpa ? 'Wellnest' : (isYoga ? 'Yoga' : (isGym ? 'Gym' : (isCompatSport ? 'Arena' : c.label))),
+        icon: c.icon,
+        vertical: c.vertical,
+      };
+    }),
     {
       id: 'trainer',
       label: 'Trainers',
@@ -877,13 +938,18 @@ export const HomeDashboard = ({ navigation }) => {
         {/* Unified Header */}
         <View style={styles.header}>
           <Text style={styles.greeting}>Welcome {userName} !</Text>
-          {userAvatar ? (
-            <Image source={{ uri: userAvatar }} style={styles.profilePic} />
-          ) : (
-            <View style={styles.profilePicPlaceholder}>
-              <Icon name="person-circle" size={44} color="#888" />
-            </View>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('EditPersonalInfo')}
+          >
+            {userAvatar ? (
+              <Image source={{ uri: userAvatar }} style={styles.profilePic} />
+            ) : (
+              <View style={styles.profilePicPlaceholder}>
+                <Icon name="person-circle" size={44} color="#888" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Unified Search */}

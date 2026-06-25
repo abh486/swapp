@@ -59,22 +59,35 @@ const RemindersScreen = ({ navigation }) => {
         }
       }
 
+      const defaultReminders = {
+        Breakfast: { enabled: true, hour: 8, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+        Lunch: { enabled: true, hour: 1, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+        Snacks: { enabled: true, hour: 4, minute: 30, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+        Dinner: { enabled: true, hour: 8, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+        Water: { enabled: true, hour: 9, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
+      };
+
       if (loadedData) {
-        setReminders(loadedData);
-        await syncLocalNotifications(loadedData);
+        const isDataChanged = Object.keys(defaultReminders).some(key => !loadedData.hasOwnProperty(key));
+        const mergedReminders = { ...defaultReminders, ...loadedData };
+        setReminders(mergedReminders);
+        await syncLocalNotifications(mergedReminders);
+
+        if (isDataChanged) {
+          try {
+            await AsyncStorage.setItem('user_reminders', JSON.stringify(mergedReminders));
+            await apiClient.put('/users/reminders', mergedReminders);
+          } catch (err) {
+            console.error('Failed to update merged reminders in storage/backend:', err);
+          }
+        }
       } else {
         // First run: sync and save defaults to AsyncStorage, local notifications, and backend
         try {
-          const defaultReminders = {
-            Breakfast: { enabled: true, hour: 8, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-            Lunch: { enabled: true, hour: 1, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-            Snacks: { enabled: true, hour: 4, minute: 30, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-            Dinner: { enabled: true, hour: 8, minute: 0, ampm: 'PM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-            Water: { enabled: true, hour: 9, minute: 0, ampm: 'AM', repeat: true, days: [0, 1, 2, 3, 4, 5, 6] },
-          };
           await AsyncStorage.setItem('user_reminders', JSON.stringify(defaultReminders));
           await syncLocalNotifications(defaultReminders);
           await apiClient.put('/users/reminders', defaultReminders);
+          setReminders(defaultReminders);
         } catch (err) {
           console.error('Failed to sync and save default reminders:', err);
         }

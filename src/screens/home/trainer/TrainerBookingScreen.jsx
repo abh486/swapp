@@ -81,11 +81,11 @@ const TrainerBookingScreen = ({ route, navigation }) => {
     () =>
       normalizePackageType(
         routePackageType ||
-          subscription?.packageType ||
-          subscription?.package?.package_type ||
-          subscription?.package?.packageType ||
-          subscription?.userPlan?.packageSubscription?.package?.package_type ||
-          ''
+        subscription?.packageType ||
+        subscription?.package?.package_type ||
+        subscription?.package?.packageType ||
+        subscription?.userPlan?.packageSubscription?.package?.package_type ||
+        ''
       ),
     [routePackageType, subscription],
   );
@@ -252,7 +252,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
               const endDt = new Date(`${activeDateKey}T${s.endTime}:00`);
               endTime = endDt.toISOString();
             }
-            
+
             const slotStart = new Date(startTime);
             const now = new Date();
             const isPast = slotStart <= now;
@@ -267,7 +267,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
               availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
             };
           });
-        
+
         if (isActive) setSlots(filteredSlots);
       } catch (error) {
         if (isActive) {
@@ -355,7 +355,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
           checkoutResponse.success &&
           checkoutResponse.data?.checkoutUrl
         ) {
-          navigation.navigate('CheckoutWebView', {
+          navigation.navigate('CheckoutBrowser', {
             url: checkoutResponse.data.checkoutUrl,
             planId: selectedPlan.id,
             planName: selectedPlan.name,
@@ -466,34 +466,34 @@ const TrainerBookingScreen = ({ route, navigation }) => {
 
       {/* Category Pills */}
       {isGlobalBundlePackage && categories.length > 1 && (
-      <View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryStrip}
-        >
-          {categories.map(category => {
-            const isActive = activeCategoryId === category.id;
-            return (
-              <TouchableOpacity
-                key={category.id}
-                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-                onPress={() => setActiveCategoryId(category.id)}
-                activeOpacity={0.85}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    isActive && styles.categoryTextActive,
-                  ]}
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryStrip}
+          >
+            {categories.map(category => {
+              const isActive = activeCategoryId === category.id;
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryPill, isActive && styles.categoryPillActive]}
+                  onPress={() => setActiveCategoryId(category.id)}
+                  activeOpacity={0.85}
                 >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      isActive && styles.categoryTextActive,
+                    ]}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Slot List */}
@@ -572,7 +572,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
               <Icon name="shield-checkmark" size={18} color="#A78BFA" />
               <Text style={styles.entitlementTitle}>{activeCategory?.name || 'Category'} Entitlements</Text>
             </View>
-            
+
             <View style={styles.entitlementGrid}>
               <View style={styles.entitlementItem}>
                 <Text style={styles.entitlementLabel}>Soft Limit</Text>
@@ -612,41 +612,41 @@ const TrainerBookingScreen = ({ route, navigation }) => {
           const isBooked = bookedSlotKeys.has(slotKey) || slot.availabilityState === 'BOOKED';
           const isDisabled = Boolean(bookingSlotKey) || !slot.isAvailable || isBooked;
           return (
-          <View key={slotKey} style={[styles.slotCard, isBooked && styles.slotCardBooked]}>
-            <View style={styles.slotInfo}>
-              <Text style={styles.slotTime}>{formatSlotTime(slot)}</Text>
-              <Text
-                style={[
-                  styles.slotStatus,
-                  isBooked
-                    ? styles.slotStatusBooked
-                    : slot.availabilityState === 'FILLING_FAST' || slot.isPeak
-                      ? styles.slotStatusWarning
-                      : slot.isAvailable
-                        ? styles.slotStatusAvailable
-                        : styles.slotStatusUnavailable,
-                ]}
+            <View key={slotKey} style={[styles.slotCard, isBooked && styles.slotCardBooked]}>
+              <View style={styles.slotInfo}>
+                <Text style={styles.slotTime}>{formatSlotTime(slot)}</Text>
+                <Text
+                  style={[
+                    styles.slotStatus,
+                    isBooked
+                      ? styles.slotStatusBooked
+                      : slot.availabilityState === 'FILLING_FAST' || slot.isPeak
+                        ? styles.slotStatusWarning
+                        : slot.isAvailable
+                          ? styles.slotStatusAvailable
+                          : styles.slotStatusUnavailable,
+                  ]}
+                >
+                  {isBooked ? 'Booked ✓' : getSlotStatusText(slot)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.bookButton, isDisabled && styles.bookButtonDisabled, isBooked && styles.bookButtonBooked]}
+                onPress={() => bookSlot(slot)}
+                disabled={isDisabled}
+                activeOpacity={0.85}
               >
-                {isBooked ? 'Booked ✓' : getSlotStatusText(slot)}
-              </Text>
+                <Text style={styles.bookButtonText}>
+                  {isBooking
+                    ? 'Booking...'
+                    : isBooked
+                      ? 'Booked'
+                      : slot.isAvailable
+                        ? 'Book'
+                        : 'Closed'}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.bookButton, isDisabled && styles.bookButtonDisabled, isBooked && styles.bookButtonBooked]}
-              onPress={() => bookSlot(slot)}
-              disabled={isDisabled}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.bookButtonText}>
-                {isBooking
-                  ? 'Booking...'
-                  : isBooked
-                    ? 'Booked'
-                    : slot.isAvailable
-                      ? 'Book'
-                      : 'Closed'}
-              </Text>
-            </TouchableOpacity>
-          </View>
           );
         })}
       </ScrollView>

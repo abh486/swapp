@@ -24,7 +24,7 @@ import CreateCustomWorkoutScreen, {
 import FastWorkoutActiveScreen from '../screens/workout/FastWorkoutActiveScreen';
 import WorkoutSummaryScreen from '../screens/workout/WorkoutSummaryScreen';
 import CurrentWorkoutPlanScreen from '../screens/workout/CurrentWorkoutPlanScreen';
-import CheckoutWebViewScreen from '../screens/home/booking/CheckoutWebViewScreen';
+import CheckoutBrowserScreen from '../screens/home/booking/CheckoutBrowserScreen';
 import SubscriptionSuccessScreen from '../screens/home/booking/SubscriptionSuccessScreen';
 import PaymentProcessingScreen from '../screens/home/booking/PaymentProcessingScreen';
 import MembershipDetailsScreen from '../screens/home/booking/MembershipDetailsScreen';
@@ -74,7 +74,7 @@ const AppNavigator = () => {
   }, [refreshAuthStatus]);
 
   if (loading) {
-    return <View style={{ flex: 1, backgroundColor: '#050505' }} />;
+    return null;
   }
 
   return (
@@ -146,8 +146,8 @@ const AppNavigator = () => {
                   component={CurrentWorkoutPlanScreen}
                 />
                 <Stack.Screen
-                  name="CheckoutWebView"
-                  component={CheckoutWebViewScreen}
+                  name="CheckoutBrowser"
+                  component={CheckoutBrowserScreen}
                 />
                 <Stack.Screen
                   name="PaymentProcessing"

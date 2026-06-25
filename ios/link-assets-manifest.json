@@ -84,6 +84,10 @@
     {
       "path": "src/assets/fonts/BRLNSR.TTF",
       "sha1": "6e361031397047f6ab260247309a05e4f02abdd5"
+    },
+    {
+      "path": "src/assets/sounds/mixkit_sci_fi_reject_notification_896.wav",
+      "sha1": "fd7ea4947e42b08c44d8b218cde0cd16b354c879"
     }
   ]
 }

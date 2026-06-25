@@ -38,9 +38,10 @@ const scheduleLocalNotification = async (mealType, item) => {
     date.setMilliseconds(0);
 
     // If scheduled time has already passed today, set for tomorrow (or next hour for Water reminder)
-    if (date.getTime() < Date.now()) {
+    // We add a 10-second safety buffer to avoid target times falling in the past during async execution
+    if (date.getTime() <= Date.now() + 10000) {
       if (mealType === 'Water') {
-        while (date.getTime() < Date.now()) {
+        while (date.getTime() <= Date.now() + 10000) {
           date.setHours(date.getHours() + 1);
         }
       } else {
@@ -56,10 +57,10 @@ const scheduleLocalNotification = async (mealType, item) => {
 
     // Create high importance channel for Android
     const channelId = await notifee.createChannel({
-      id: 'reminders',
-      name: 'Meal Reminders',
+      id: mealType === 'Water' ? 'water_reminder' : 'reminders',
+      name: mealType === 'Water' ? 'Water Reminder' : 'Meal Reminders',
       importance: 4, // HIGH
-      sound: 'default',
+      sound: mealType === 'Water' ? 'mixkit_sci_fi_reject_notification_896' : 'default',
     });
 
     await notifee.createTriggerNotification(
@@ -73,6 +74,16 @@ const scheduleLocalNotification = async (mealType, item) => {
           channelId,
           pressAction: {
             id: 'default',
+          },
+        },
+        ios: {
+          sound: mealType === 'Water' ? 'mixkit_sci_fi_reject_notification_896.wav' : 'default',
+          foregroundPresentationOptions: {
+            alert: true,
+            badge: true,
+            sound: true,
+            banner: true,
+            list: true,
           },
         },
       },

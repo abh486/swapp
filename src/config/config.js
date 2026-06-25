@@ -941,7 +941,7 @@ export const Strings = {
           'VIP amenities access',
           'Unlimited group classes',
           '2 personal training sessions/month',
-          'Spa & wellness access',
+          'Wellnest',
         ],
         popular: false,
       },

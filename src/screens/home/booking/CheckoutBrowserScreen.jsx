@@ -7,7 +7,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '../../../utils/clarity';
 
-const CheckoutWebViewScreen = ({ route, navigation }) => {
+const CheckoutBrowserScreen = ({ route, navigation }) => {
   const {
     url,
     planId,
@@ -15,6 +15,7 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
     price = '2499',
     pendingSubscription,
     reservationId = null,
+    isNativeIAP = false,
   } = route.params || {};
 
   const { user } = useAuth();
@@ -23,7 +24,7 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
   const [statusText, setStatusText] = useState('Initiating secure purchase...');
 
   useEffect(() => {
-    console.log('[Clarity] Checkout started. Plan ID:', planId);
+    console.log('[Clarity] Checkout started. Plan ID:', planId, 'isNativeIAP:', isNativeIAP);
     try {
       Clarity.sendCustomEvent('checkout_started');
       if (planId) {
@@ -32,7 +33,7 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
     } catch (e) {
       console.error('[Clarity] Failed to send checkout_started:', e);
     }
-  }, [planId]);
+  }, [planId, isNativeIAP]);
 
   const handleCallbackUrl = (currentUrl) => {
     console.log('[Checkout] Processing web callback URL:', currentUrl);
@@ -77,11 +78,11 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
     }
   };
 
-  const startInAppBrowserFallback = async (reason) => {
+  const startInAppBrowserCheckout = async (reason) => {
     if (browserOpened) return;
     setBrowserOpened(true);
     setStatusText('Opening secure browser...');
-    console.warn(`[Checkout] Falling back to InAppBrowser checkout. Reason: ${reason}`);
+    console.log(`[Checkout] Launching InAppBrowser checkout. Reason: ${reason}`);
 
     try {
       if (await InAppBrowser.isAvailable()) {
@@ -115,8 +116,13 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
   };
 
   const startCheckout = async () => {
+    if (!isNativeIAP) {
+      await startInAppBrowserCheckout('Standard partner/gym package checkout (web)');
+      return;
+    }
+
     if (!planId) {
-      await startInAppBrowserFallback('No planId provided in route parameters');
+      await startInAppBrowserCheckout('Native IAP requested but planId was missing');
       return;
     }
 
@@ -167,14 +173,14 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
         navigation.goBack();
       } else {
         // Otherwise, fallback gracefully to the web checkout URL
-        await startInAppBrowserFallback(`Native purchase error: ${error.message || error}`);
+        await startInAppBrowserCheckout(`Native purchase error: ${error.message || error}`);
       }
     }
   };
 
   useEffect(() => {
     startCheckout();
-  }, [url, planId]);
+  }, [url, planId, isNativeIAP]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -192,11 +198,9 @@ const CheckoutWebViewScreen = ({ route, navigation }) => {
       <View style={styles.loaderContainer}>
         <GlobalLoader size={60} />
         <Text style={styles.loadingText}>{statusText}</Text>
-        {planId && (
-          <TouchableOpacity style={styles.retryButton} onPress={startCheckout}>
-            <Text style={styles.retryButtonText}>Retry Purchase</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.retryButton} onPress={startCheckout}>
+          <Text style={styles.retryButtonText}>Retry Purchase</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -255,4 +259,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CheckoutWebViewScreen;
+export default CheckoutBrowserScreen;

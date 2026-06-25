@@ -394,7 +394,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
           checkoutResponse.success &&
           checkoutResponse.data?.checkoutUrl
         ) {
-          navigation.navigate('CheckoutWebView', {
+          navigation.navigate('CheckoutBrowser', {
             url: checkoutResponse.data.checkoutUrl,
             planId: selectedPlan?.id || subscription.package?.id,
             planName: selectedPlan?.name,

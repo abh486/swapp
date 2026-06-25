@@ -33,25 +33,166 @@ const getMetricValue = (profile, key, fallback = '') => {
   return getValue(profile, [key], fallback);
 };
 
+const calculateAge = (dobString) => {
+  if (!dobString) return undefined;
+  try {
+    const parts = dobString.split(/[-/]/);
+    if (parts.length === 3) {
+      let day, monthStr, year;
+      if (parts[0].length === 4) {
+        year = parseInt(parts[0], 10);
+        monthStr = parts[1];
+        day = parseInt(parts[2], 10);
+      } else {
+        day = parseInt(parts[0], 10);
+        monthStr = parts[1];
+        year = parseInt(parts[2], 10);
+        if (year < 100) {
+          year += (year <= 30 ? 2000 : 1900);
+        }
+      }
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+      };
+      let month = parseInt(monthStr, 10) - 1;
+      if (isNaN(month)) {
+        month = months[monthStr.toLowerCase().substring(0, 3)] || 0;
+      }
+      const birthDate = new Date(year, month, day);
+      if (!isNaN(birthDate.getTime())) {
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        return age;
+      }
+    }
+  } catch (e) {
+    console.log('Error calculating age:', e);
+  }
+  return undefined;
+};
+
+const formatDateToISO = (dateStr) => {
+  if (!dateStr) return undefined;
+  try {
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length === 3) {
+      let day, monthStr, year;
+      if (parts[0].length === 4) {
+        year = parseInt(parts[0], 10);
+        monthStr = parts[1];
+        day = parseInt(parts[2], 10);
+      } else {
+        day = parseInt(parts[0], 10);
+        monthStr = parts[1];
+        year = parseInt(parts[2], 10);
+        if (year < 100) {
+          year += (year <= 30 ? 2000 : 1900);
+        }
+      }
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+      };
+      let month = parseInt(monthStr, 10) - 1;
+      if (isNaN(month)) {
+        month = months[monthStr.toLowerCase().substring(0, 3)] || 0;
+      }
+      const dateObj = new Date(year, month, day);
+      if (!isNaN(dateObj.getTime())) {
+        const yyyy = dateObj.getFullYear();
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+  } catch (e) {
+    console.log('Error converting to ISO:', e);
+  }
+  return dateStr;
+};
+
+const formatDateForDisplay = (dateStr) => {
+  if (!dateStr) return '';
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    return dateStr;
+  }
+  try {
+    const dateObj = new Date(dateStr);
+    if (!isNaN(dateObj.getTime())) {
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+  } catch (e) {
+    console.log('Error formatting date for display:', e);
+  }
+  return dateStr;
+};
+
+const parsePhoneAndCountryCode = (profile) => {
+  const rawPhone = getValue(profile, ['phone', 'phoneNumber', 'mobile'], '');
+  const countryCode = getValue(profile, ['countryCode'], '+91');
+  if (rawPhone.startsWith('+')) {
+    if (rawPhone.startsWith(countryCode)) {
+      return {
+        countryCode,
+        phone: rawPhone.substring(countryCode.length),
+      };
+    }
+    if (rawPhone.length > 3) {
+      return {
+        countryCode: rawPhone.substring(0, 3),
+        phone: rawPhone.substring(3),
+      };
+    }
+  }
+  return {
+    countryCode,
+    phone: rawPhone,
+  };
+};
+
 const EditPersonalInfoScreen = ({ navigation }) => {
   const { user, refreshAuthStatus } = useAuth();
   const profile = useMemo(() => user?.userProfile || user?.memberProfile || user || {}, [user]);
+  
+  console.log('[DEBUG] EditPersonalInfoScreen - user:', JSON.stringify(user));
+  console.log('[DEBUG] EditPersonalInfoScreen - profile:', JSON.stringify(profile));
+
   const [saving, setSaving] = useState(false);
   const [pickerField, setPickerField] = useState(null);
+
+  const parsedPhone = useMemo(() => {
+    const phoneVal = getValue(profile, ['phone', 'phoneNumber', 'mobile', 'mobileNumber'], '') || 
+                     getValue(user, ['phone', 'phoneNumber', 'mobile', 'mobileNumber'], '');
+    const countryCodeVal = getValue(profile, ['countryCode'], '') || 
+                           getValue(user, ['countryCode'], '+91');
+    return parsePhoneAndCountryCode({ phone: phoneVal, countryCode: countryCodeVal });
+  }, [profile, user]);
+
   const [form, setForm] = useState({
     name: getValue(profile, ['name', 'firstName'], ''),
     bio: getValue(profile, ['bio', 'about'], ''),
     gender: getValue(profile, ['gender'], 'Male'),
-    dateOfBirth: getValue(profile, ['dateOfBirth', 'dob', 'birthDate'], ''),
+    dateOfBirth: formatDateForDisplay(
+      getValue(profile, ['dateOfBirth', 'dob', 'birthDate'], '') || 
+      getValue(user, ['dateOfBirth', 'dob', 'birthDate'], '')
+    ),
     height: getMetricValue(profile, 'height', ''),
     weight: getMetricValue(profile, 'weight', ''),
     targetWeight: getMetricValue(profile, 'targetWeight', ''),
     fatPercentage: getValue(profile, ['fatPercentage', 'bodyFatPercentage'], ''),
     foodPreference: getValue(profile, ['foodPreference', 'dietPreference'], 'non-veg'),
     fitnessLevel: getValue(profile, ['fitnessLevel', 'level'], 'Professional'),
-    countryCode: getValue(profile, ['countryCode'], '+91'),
-    phone: getValue(profile, ['phone', 'phoneNumber', 'mobile'], ''),
-    email: getValue(profile, ['email'], user?.email || ''),
+    countryCode: parsedPhone.countryCode,
+    phone: parsedPhone.phone,
+    email: getValue(profile, ['email', 'emailAddress', 'username'], user?.email || user?.userProfile?.email || user?.memberProfile?.email || user?.username || ''),
     country: getValue(profile, ['country'], 'India'),
   });
 
@@ -96,30 +237,88 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const buildPayload = () => ({
-    name: form.name.trim(),
-    bio: form.bio.trim(),
-    gender: form.gender,
-    dateOfBirth: form.dateOfBirth.trim(),
-    height: form.height ? { value: Number(form.height), unit: 'CM' } : undefined,
-    weight: form.weight ? { value: Number(form.weight), unit: 'KG' } : undefined,
-    targetWeight: form.targetWeight ? { value: Number(form.targetWeight), unit: 'KG' } : undefined,
-    fatPercentage: form.fatPercentage ? Number(form.fatPercentage) : 0,
-    foodPreference: form.foodPreference,
-    fitnessLevel: form.fitnessLevel,
-    countryCode: form.countryCode.trim(),
-    phone: form.phone.trim(),
-    phoneNumber: form.phone.trim(),
-    email: form.email.trim(),
-    country: form.country.trim(),
-    profileImage: profileImage || undefined,
-    profilePicture: profileImage || undefined,
-  });
+  const handleDateChange = (text) => {
+    const isDeleting = text.length < form.dateOfBirth.length;
+    if (isDeleting) {
+      updateField('dateOfBirth', text);
+      return;
+    }
+
+    const cleaned = text.replace(/[^0-9]/g, '');
+    let formatted = '';
+    
+    if (cleaned.length <= 2) {
+      formatted = cleaned;
+    } else if (cleaned.length <= 4) {
+      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+    } else {
+      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+    }
+    
+    updateField('dateOfBirth', formatted);
+  };
+
+  const buildPayload = () => {
+    const combinedPhone = `${form.countryCode.trim()}${form.phone.trim()}`;
+    const isoDate = formatDateToISO(form.dateOfBirth.trim());
+    const calculatedAge = calculateAge(form.dateOfBirth.trim());
+
+    const data = {
+      name: form.name.trim(),
+      bio: form.bio.trim(),
+      gender: form.gender,
+      dateOfBirth: isoDate || form.dateOfBirth.trim(),
+      dob: isoDate || form.dateOfBirth.trim(),
+      birthDate: isoDate || form.dateOfBirth.trim(),
+      age: calculatedAge,
+      height: form.height ? { value: Number(form.height), unit: 'CM' } : undefined,
+      weight: form.weight ? { value: Number(form.weight), unit: 'KG' } : undefined,
+      targetWeight: form.targetWeight ? { value: Number(form.targetWeight), unit: 'KG' } : undefined,
+      fatPercentage: form.fatPercentage ? Number(form.fatPercentage) : 0,
+      foodPreference: form.foodPreference,
+      fitnessLevel: form.fitnessLevel,
+      countryCode: form.countryCode.trim(),
+      phone: form.phone.trim(),
+      phoneNumber: form.phone.trim(),
+      mobile: form.phone.trim(),
+      fullPhone: combinedPhone,
+      fullPhoneNumber: combinedPhone,
+      formattedPhoneNumber: combinedPhone,
+      email: form.email.trim(),
+      country: form.country.trim(),
+      profileImage: profileImage || undefined,
+      profilePicture: profileImage || undefined,
+    };
+
+    return {
+      ...data,
+      userProfile: data,
+      memberProfile: data,
+      user: data,
+    };
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()) {
       Alert.alert('Name required', 'Please enter your name.');
       return;
+    }
+
+    if (form.dateOfBirth.trim()) {
+      const parts = form.dateOfBirth.trim().split(/[-/]/);
+      if (parts.length !== 3 || parts[2].length !== 4) {
+        Alert.alert('Invalid Date of Birth', 'Please enter your date of birth in DD-MM-YYYY format (e.g., 24-05-1995).');
+        return;
+      }
+
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+
+      if (isNaN(day) || isNaN(month) || isNaN(year) || month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > new Date().getFullYear()) {
+        Alert.alert('Invalid Date of Birth', 'Please enter a valid date of birth.');
+        return;
+      }
     }
 
     setSaving(true);
@@ -139,7 +338,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
         try {
           await apiClient[endpoint.method](endpoint.url, payload);
           saved = true;
-          break;
+          break; // Exit loop as soon as saving succeeds
         } catch (error) {
           lastError = error;
           const status = error.response?.status;
@@ -238,7 +437,14 @@ const EditPersonalInfoScreen = ({ navigation }) => {
 
           <View style={styles.twoColumnRow}>
             <SelectField label="Gender" value={form.gender} onPress={() => setPickerField('gender')} />
-            <Field label="Date of Birth" value={form.dateOfBirth} placeholder="01-Jan-1995" onChangeText={value => updateField('dateOfBirth', value)} />
+            <Field
+              label="Date of Birth"
+              value={form.dateOfBirth}
+              placeholder="DD-MM-YYYY"
+              keyboardType="numeric"
+              maxLength={10}
+              onChangeText={handleDateChange}
+            />
           </View>
 
           <View style={styles.twoColumnRow}>
@@ -327,10 +533,10 @@ const SelectField = ({ label, value, onPress }) => (
   </View>
 );
 
-const UnderlineField = ({ label, ...props }) => (
+const UnderlineField = ({ label, style, ...props }) => (
   <View style={styles.underlineWrap}>
     <Text style={styles.sectionLabel}>{label}</Text>
-    <TextInput {...props} style={styles.underlineInput} placeholderTextColor="#8A8496" />
+    <TextInput {...props} style={[styles.underlineInput, style]} placeholderTextColor="#8A8496" />
   </View>
 );
 
@@ -416,6 +622,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   underlineWrap: {
+    marginBottom: 24,
+  },
+  fieldNote: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11,
+    marginTop: -16,
     marginBottom: 24,
   },
   underlineInput: {

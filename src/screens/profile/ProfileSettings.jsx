@@ -123,7 +123,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('EditPersonalInfo')}>
             <View style={styles.rowLeft}>
               <Icon name="person-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Account</Text>
+              <Text style={styles.rowText}>Personal Information</Text>
             </View>
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
@@ -152,7 +152,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.rowNoBorder}
-            onPress={() => Linking.openURL('https://swapp.fit/privacy').catch(err => console.error('Failed to open Privacy Policy URL:', err))}
+            onPress={() => Linking.openURL('https://swapp.fit/privacy-policy.html').catch(err => console.error('Failed to open Privacy Policy URL:', err))}
           >
             <View style={styles.rowLeft}>
               <Icon name="lock-closed-outline" size={22} color="#FFF" style={styles.rowIcon} />
@@ -166,39 +166,17 @@ const ProfileSettingsScreen = ({ navigation }) => {
         <Text style={styles.sectionHeader}>Preferences</Text>
 
         <View style={styles.card}>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Icon name="barbell-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Workouts</Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Icon name="help-circle-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Privacy & Social</Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Icon name="trending-up-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Progress Report</Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Reminders')}>
-            <View style={[styles.rowLeft, { paddingLeft: 30 }]}>
+            <View style={styles.rowLeft}>
+              <Icon name="alarm-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Reminders</Text>
             </View>
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('AppsAndDevices')}>
-            <View style={[styles.rowLeft, { paddingLeft: 30 }]}>
+            <View style={styles.rowLeft}>
+              <Icon name="heart-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Connect Apple Health</Text>
             </View>
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
@@ -209,7 +187,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
         <Text style={styles.sectionHeader}>Help</Text>
 
         <View style={styles.card}>
-          <TouchableOpacity style={styles.row}>
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Support', { initialTab: 'faq' })}>
             <View style={styles.rowLeft}>
               <Icon name="help-buoy-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Frequently Asked Questions</Text>
@@ -217,18 +195,10 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('Support')}>
+          <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('Support')}>
             <View style={styles.rowLeft}>
               <Icon name="chatbubble-ellipses-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Contact Us</Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.rowNoBorder}>
-            <View style={styles.rowLeft}>
-              <Icon name="information-circle-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>About</Text>
             </View>
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>

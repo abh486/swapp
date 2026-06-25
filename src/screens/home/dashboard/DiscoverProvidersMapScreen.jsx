@@ -69,7 +69,45 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
   const categories = [
     { id: 'all', label: 'All', icon: 'apps' },
-    ...(feed?.categories || []).map(c => ({ id: c.id, label: c.label, icon: c.icon, vertical: c.vertical })),
+    ...(feed?.categories || []).map(c => {
+      const isCompatSport = c.label && (
+        c.label.toLowerCase() === 'combat sports' ||
+        c.label.toLowerCase() === 'combat sport' ||
+        c.label.toLowerCase() === 'combat' ||
+        c.label.toLowerCase() === 'compat sports' ||
+        c.label.toLowerCase() === 'compat sport' ||
+        c.label.toLowerCase() === 'compat'
+      );
+      const isWellnessSpa = c.label && (
+        c.label.toLowerCase() === 'wellness & spa' ||
+        c.label.toLowerCase() === 'wellness and spa' ||
+        c.label.toLowerCase() === 'wellness' ||
+        c.label.toLowerCase() === 'spa & wellness' ||
+        c.label.toLowerCase() === 'spa and wellness'
+      );
+      const isYoga = c.label && (
+        c.label.toLowerCase() === 'yoga' ||
+        c.label.toLowerCase() === 'yoya' ||
+        c.label.toLowerCase() === 'plaints' ||
+        c.label.toLowerCase() === 'yoga and plaints' ||
+        c.label.toLowerCase() === 'yoga & plaints' ||
+        c.label.toLowerCase() === 'yoga and pilates' ||
+        c.label.toLowerCase() === 'yoga & pilates'
+      );
+      const isGym = c.label && (
+        c.label.toLowerCase() === 'gym' ||
+        c.label.toLowerCase() === 'genaral gym' ||
+        c.label.toLowerCase() === 'general gym' ||
+        c.label.toLowerCase() === 'genaral' ||
+        c.label.toLowerCase() === 'general'
+      );
+      return {
+        id: c.id,
+        label: isWellnessSpa ? 'Wellnest' : (isYoga ? 'Yoga' : (isGym ? 'Gym' : (isCompatSport ? 'Arena' : c.label))),
+        icon: c.icon,
+        vertical: c.vertical,
+      };
+    }),
     {
       id: 'trainer',
       label: 'Trainers',
@@ -194,7 +232,37 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         </View>
 
         <Text style={styles.providerMeta}>
-          {item.vertical?.[0] || 'Fitness'}{'   '}•{'   '}{item.distance ? `${item.distance.toFixed(1)} miles` : '0.5 miles'}
+          {(() => {
+            const v = item.vertical?.[0] || 'Fitness';
+            const vLower = v.toLowerCase();
+            if (
+              vLower === 'wellness' ||
+              vLower === 'wellness and spa' ||
+              vLower === 'wellness & spa' ||
+              vLower === 'spa & wellness' ||
+              vLower === 'spa and wellness'
+            ) {
+              return 'Wellnest';
+            } else if (
+              vLower === 'yoya' ||
+              vLower === 'plaints' ||
+              vLower === 'yoga' ||
+              vLower === 'yoga and plaints' ||
+              vLower === 'yoga & plaints' ||
+              vLower === 'yoga and pilates' ||
+              vLower === 'yoga & pilates'
+            ) {
+              return 'Yoga';
+            } else if (
+              vLower === 'genaral gym' ||
+              vLower === 'general gym' ||
+              vLower === 'genaral' ||
+              vLower === 'general'
+            ) {
+              return 'Gym';
+            }
+            return v.charAt(0) + v.slice(1).toLowerCase();
+          })()}{'   '}•{'   '}{item.distance ? `${item.distance.toFixed(1)} miles` : '0.5 miles'}
         </Text>
 
         <View style={styles.providerRatingRow}>
@@ -248,7 +316,37 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
                   key={provider.id}
                   coordinate={provider.coordinates}
                   title={provider.name}
-                  description={`${provider.vertical?.[0] || 'Fitness'} • ${provider.address}`}
+                  description={`${(() => {
+                    const v = provider.vertical?.[0] || 'Fitness';
+                    const vLower = v.toLowerCase();
+                    if (
+                      vLower === 'wellness' ||
+                      vLower === 'wellness and spa' ||
+                      vLower === 'wellness & spa' ||
+                      vLower === 'spa & wellness' ||
+                      vLower === 'spa and wellness'
+                    ) {
+                      return 'Wellnest';
+                    } else if (
+                      vLower === 'yoya' ||
+                      vLower === 'plaints' ||
+                      vLower === 'yoga' ||
+                      vLower === 'yoga and plaints' ||
+                      vLower === 'yoga & plaints' ||
+                      vLower === 'yoga and pilates' ||
+                      vLower === 'yoga & pilates'
+                    ) {
+                      return 'Yoga';
+                    } else if (
+                      vLower === 'genaral gym' ||
+                      vLower === 'general gym' ||
+                      vLower === 'genaral' ||
+                      vLower === 'general'
+                    ) {
+                      return 'Gym';
+                    }
+                    return v;
+                  })()} • ${provider.address}`}
                   pinColor={provider.isPremium ? '#e74c3c' : '#00bcd4'}
                   onPress={() => {
                     if (isTrainer) {

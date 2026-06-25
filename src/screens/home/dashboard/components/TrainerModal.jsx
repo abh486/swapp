@@ -44,7 +44,7 @@ export const TrainerModal = ({ trainer, isVisible, isLoading, onClose, isSubscri
     try {
       const response = await dispatch(createCheckoutSession(plan.id, 'TRAINER'));
       if (response.success && response.data.checkoutUrl) {
-        navigation.navigate('CheckoutWebView', {
+        navigation.navigate('CheckoutBrowser', {
           url: response.data.checkoutUrl,
           planId: plan.id,
           planName: plan.name,

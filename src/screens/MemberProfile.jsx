@@ -477,7 +477,7 @@ const MemberProfile = () => {
             ],
           },
           {
-            title: 'COMBAT SPORTS',
+            title: 'ARENA',
             items: [
               { label: 'Boxing', icon: 'boxing-glove' },
               { label: 'MMA', icon: 'karate' },

@@ -47,10 +47,14 @@ const AppsAndDevicesScreen = ({ navigation }) => {
       }
     } catch (err) {
       console.error(err);
-      Alert.alert(
-        'Permission Required',
-        'Please enable Apple Health permissions for Swapp in your iPhone Settings > Health > Data Access & Devices.'
-      );
+      if (err && err.message && err.message.includes('native module')) {
+        Alert.alert('Connection Error', err.message);
+      } else {
+        Alert.alert(
+          'Permission Required',
+          'Please enable Apple Health permissions for Swapp in your iPhone Settings > Health > Data Access & Devices.'
+        );
+      }
     }
   };
 

@@ -54,12 +54,12 @@ const FAQS = [
 const BLANK_FORM = { subject: '', priority: 'medium', description: '' };
 const { width: screenWidth } = Dimensions.get('window');
 
-export const SupportScreen = ({ navigation }) => {
+export const SupportScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { tickets, loading, submitting } = useSelector(state => state.support);
   const ticketList = Array.isArray(tickets) ? tickets : [];
   
-  const [activeTab, setActiveTab] = useState('tickets');
+  const [activeTab, setActiveTab] = useState(route.params?.initialTab || 'tickets');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [form, setForm] = useState(BLANK_FORM);
   const [detailTicket, setDetailTicket] = useState(null);
@@ -67,6 +67,12 @@ export const SupportScreen = ({ navigation }) => {
   const [replyBody, setReplyBody] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   useEffect(() => {
     dispatch(fetchSupportTickets());
@@ -197,25 +203,27 @@ export const SupportScreen = ({ navigation }) => {
       </View>
 
       {/* Contact Cards Row */}
-      <View style={styles.contactRow}>
-        <TouchableOpacity
-          style={styles.contactCard}
-          onPress={() => Linking.openURL('mailto:support@swappfit.com')}
-        >
-          <Icon name="mail-outline" size={24} color="#FFF" />
-          <Text style={styles.contactLabel}>Email Support</Text>
-          <Text style={styles.contactValue}>support@swappfit.com</Text>
-        </TouchableOpacity>
+      {activeTab === 'tickets' && (
+        <View style={styles.contactRow}>
+          <TouchableOpacity
+            style={styles.contactCard}
+            onPress={() => Linking.openURL('mailto:support@swappfit.com')}
+          >
+            <Icon name="mail-outline" size={24} color="#FFF" />
+            <Text style={styles.contactLabel}>Email Support</Text>
+            <Text style={styles.contactValue}>support@swappfit.com</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.contactCard}
-          onPress={() => Linking.openURL('https://wa.me/919000000000')}
-        >
-          <Icon name="logo-whatsapp" size={24} color="#2ecc71" />
-          <Text style={styles.contactLabel}>WhatsApp Support</Text>
-          <Text style={styles.contactValue}>+91 9000000000</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.contactCard}
+            onPress={() => Linking.openURL('https://wa.me/919000000000')}
+          >
+            <Icon name="logo-whatsapp" size={24} color="#2ecc71" />
+            <Text style={styles.contactLabel}>WhatsApp Support</Text>
+            <Text style={styles.contactValue}>+91 9000000000</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Tab Selector */}
       <View style={styles.tabContainer}>

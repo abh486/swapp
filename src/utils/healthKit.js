@@ -2,7 +2,8 @@ import { Platform } from 'react-native';
 
 let AppleHealthKit = null;
 if (Platform.OS === 'ios') {
-  AppleHealthKit = require('react-native-health');
+  const HealthKitModule = require('react-native-health');
+  AppleHealthKit = HealthKitModule.default || HealthKitModule;
 }
 
 const permissions = Platform.OS === 'ios' ? {
@@ -22,8 +23,17 @@ const permissions = Platform.OS === 'ios' ? {
  */
 export const requestHealthKitPermission = () => {
   return new Promise((resolve, reject) => {
-    if (Platform.OS !== 'ios' || !AppleHealthKit) {
+    if (Platform.OS !== 'ios') {
       resolve(false);
+      return;
+    }
+
+    if (!AppleHealthKit || typeof AppleHealthKit.initHealthKit !== 'function') {
+      reject(
+        new Error(
+          'HealthKit native module is not available. Please run pod install in the ios directory and rebuild the app.'
+        )
+      );
       return;
     }
 
@@ -45,7 +55,12 @@ export const requestHealthKitPermission = () => {
  */
 export const getStepCountToday = () => {
   return new Promise((resolve, reject) => {
-    if (Platform.OS !== 'ios' || !AppleHealthKit) {
+    if (Platform.OS !== 'ios') {
+      resolve(0);
+      return;
+    }
+
+    if (!AppleHealthKit || typeof AppleHealthKit.getStepCount !== 'function') {
       resolve(0);
       return;
     }

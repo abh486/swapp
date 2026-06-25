@@ -250,7 +250,7 @@ const MembershipPlanModal = ({ visible, onClose }) => {
                       response.data?.checkoutUrl
                     ) {
                       onClose();
-                      navigation.navigate('CheckoutWebView', {
+                      navigation.navigate('CheckoutBrowser', {
                         url: response.data.checkoutUrl,
                         planId: selectedTier.id,
                         planName: selectedTier.name,
