@@ -8,6 +8,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -75,7 +76,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
           console.log('Error checking dietician access:', e);
         }
       };
-      
+
       checkDietAccess();
       const interval = setInterval(checkDietAccess, 2500);
       return () => clearInterval(interval);
@@ -221,210 +222,218 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        style={{ width: '100%' }}
+      >
+        {/* Top Graphic party popper */}
+        <View style={styles.confettiContainer}>
+          <Svg width={120} height={120} viewBox="0 0 100 100" fill="none">
+            {/* Party Popper Cone */}
+            <Path d="M25 75 L45 80 L35 90 Z" fill="#e74c3c" />
+            <Path d="M30 65 L60 85 L20 80 Z" fill="#f1c40f" />
+            {/* Streamers & Gold Confetti */}
+            <Circle cx={55} cy={40} r={4} fill="#b873f0" />
+            <Circle cx={65} cy={55} r={3} fill="#2ecc71" />
+            <Circle cx={40} cy={30} r={5} fill="#3498db" />
+            <Circle cx={75} cy={30} r={4} fill="#e74c3c" />
+            <Circle cx={85} cy={45} r={3} fill="#f1c40f" />
 
-      {/* Top Graphic party popper */}
-      <View style={styles.confettiContainer}>
-        <Svg width={120} height={120} viewBox="0 0 100 100" fill="none">
-          {/* Party Popper Cone */}
-          <Path d="M25 75 L45 80 L35 90 Z" fill="#e74c3c" />
-          <Path d="M30 65 L60 85 L20 80 Z" fill="#f1c40f" />
-          {/* Streamers & Gold Confetti */}
-          <Circle cx={55} cy={40} r={4} fill="#b873f0" />
-          <Circle cx={65} cy={55} r={3} fill="#2ecc71" />
-          <Circle cx={40} cy={30} r={5} fill="#3498db" />
-          <Circle cx={75} cy={30} r={4} fill="#e74c3c" />
-          <Circle cx={85} cy={45} r={3} fill="#f1c40f" />
+            <Path
+              d="M50 30 Q55 20 60 25"
+              stroke="#f1c40f"
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+            />
+            <Path
+              d="M70 45 Q75 35 80 40"
+              stroke="#e74c3c"
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+            />
+            <Path
+              d="M35 45 Q40 38 45 42"
+              stroke="#3498db"
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+            />
+          </Svg>
+        </View>
 
-          <Path
-            d="M50 30 Q55 20 60 25"
-            stroke="#f1c40f"
-            strokeWidth={3}
-            strokeLinecap="round"
-            fill="none"
-          />
-          <Path
-            d="M70 45 Q75 35 80 40"
-            stroke="#e74c3c"
-            strokeWidth={3}
-            strokeLinecap="round"
-            fill="none"
-          />
-          <Path
-            d="M35 45 Q40 38 45 42"
-            stroke="#3498db"
-            strokeWidth={3}
-            strokeLinecap="round"
-            fill="none"
-          />
-        </Svg>
-      </View>
+        {/* Heading Text */}
+        <View style={styles.headingContainer}>
+          <Text style={styles.congratsText}>
+            {reservationId ? 'BOOKING CONFIRMED' : 'CONGRATULATIONS'}
+          </Text>
+          <Text style={styles.planActiveText}>
+            {reservationId
+              ? 'Your Session Booking is Confirmed !!'
+              : `Your ${displayPlanName.charAt(0) + displayPlanName.slice(1).toLowerCase()} Plan is Active !!`}
+          </Text>
+        </View>
 
-      {/* Heading Text */}
-      <View style={styles.headingContainer}>
-        <Text style={styles.congratsText}>
-          {reservationId ? 'BOOKING CONFIRMED' : 'CONGRATULATIONS'}
-        </Text>
-        <Text style={styles.planActiveText}>
-          {reservationId
-            ? 'Your Session Booking is Confirmed !!'
-            : `Your ${displayPlanName.charAt(0) + displayPlanName.slice(1).toLowerCase()} Plan is Active !!`}
-        </Text>
-      </View>
-
-      {/* Elite Plan Premium Card */}
-      <View style={styles.cardWrapper}>
-        <LinearGradient
-          colors={getCardGradients()}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.planCard}
-        >
-          {/* Card Top Row */}
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleContainer}>
-              {/* Crown Icon Shield using SVG */}
-              <View style={styles.shieldIconContainer}>
-                <Svg width={40} height={44} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z"
-                    fill="rgba(184, 115, 240, 0.2)"
-                    stroke={getTierColor()}
-                    strokeWidth={2}
-                  />
-                  <Path
-                    d="M12 6l2 3h3l-2 2 1 3-4-2-4 2 1-3-2-2h3l2-3z"
-                    fill={getTierColor()}
-                  />
-                </Svg>
+        {/* Elite Plan Premium Card */}
+        <View style={styles.cardWrapper}>
+          <LinearGradient
+            colors={getCardGradients()}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.planCard}
+          >
+            <View style={{ padding: sp(20), width: '100%' }}>
+              {/* Card Top Row */}
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleContainer}>
+                  {/* Crown Icon Shield using SVG */}
+                  <View style={styles.shieldIconContainer}>
+                    <Svg width={40} height={44} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z"
+                        fill="rgba(184, 115, 240, 0.2)"
+                        stroke={getTierColor()}
+                        strokeWidth={2}
+                      />
+                      <Path
+                        d="M12 6l2 3h3l-2 2 1 3-4-2-4 2 1-3-2-2h3l2-3z"
+                        fill={getTierColor()}
+                      />
+                    </Svg>
+                  </View>
+                  <View style={styles.textColumn}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.cardPlanTitle} numberOfLines={1}>
+                        {reservationId ? displayPlanName : `${displayPlanName} PLAN`}
+                      </Text>
+                      {/* Active Capsule Badge */}
+                      <View style={styles.activeBadge}>
+                        <Text style={styles.activeBadgeText}>
+                          {reservationId ? 'Confirmed' : 'Active'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cardPlanSubtitle} numberOfLines={1}>
+                      {reservationId ? 'Session Booking · 1 Slot' : 'All Access · Unlimited'}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.textColumn}>
-                <Text style={styles.cardPlanTitle}>
-                  {reservationId ? displayPlanName : `${displayPlanName} PLAN`}
-                </Text>
-                <Text style={styles.cardPlanSubtitle}>
-                  {reservationId ? 'Session Booking · 1 Slot' : 'All Access · Unlimited'}
-                </Text>
+
+              {/* Card Bottom Row Grid */}
+              <View style={styles.featureGrid}>
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIconBox}>
+                    <Icon name={reservationId ? 'calendar-outline' : 'infinite-outline'} size={20} color="#FFF" />
+                  </View>
+                  <Text style={styles.featureLabel}>
+                    {reservationId ? 'Reserved Slot' : 'Unlimited Visits'}
+                  </Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIconBox}>
+                    <Icon name="people-outline" size={20} color="#FFF" />
+                  </View>
+                  <Text style={styles.featureLabel}>
+                    {reservationId ? 'Venue Access' : 'All Group Classes'}
+                  </Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIconBox}>
+                    <Icon name="barbell-outline" size={20} color="#FFF" />
+                  </View>
+                  <Text style={styles.featureLabel}>Personal Training</Text>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIconBox}>
+                    <Icon name="snow-outline" size={20} color="#FFF" />
+                  </View>
+                  <Text style={styles.featureLabel}>Freeze Anytime</Text>
+                </View>
               </View>
             </View>
+          </LinearGradient>
+        </View>
 
-            {/* Active Capsule Badge */}
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>
-                {reservationId ? 'Confirmed' : 'Active'}
+        {/* Payment Success Details Receipt Card */}
+        <View style={styles.receiptContainer}>
+          <View style={styles.receiptHeader}>
+            <Icon
+              name="checkmark-circle"
+              size={40}
+              color="#2ecc71"
+              style={styles.receiptCheckIcon}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.receiptTitle}>
+                {reservationId ? 'Booking Successful' : 'Payment Successfull'}
+              </Text>
+              <Text style={styles.receiptSubtitle}>
+                {reservationId
+                  ? 'Your reservation has been confirmed and booking created!'
+                  : `Payment of ₹${price} has been processed successfully`}
               </Text>
             </View>
           </View>
 
-          {/* Card Bottom Row Grid */}
-          <View style={styles.featureGrid}>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Icon name={reservationId ? 'calendar-outline' : 'infinite-outline'} size={20} color="#FFF" />
-              </View>
-              <Text style={styles.featureLabel}>
-                {reservationId ? 'Reserved Slot' : 'Unlimited Visits'}
-              </Text>
-            </View>
+          <View style={styles.divider} />
 
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Icon name="people-outline" size={20} color="#FFF" />
-              </View>
-              <Text style={styles.featureLabel}>
-                {reservationId ? 'Venue Access' : 'All Group Classes'}
-              </Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Icon name="barbell-outline" size={20} color="#FFF" />
-              </View>
-              <Text style={styles.featureLabel}>Personal Training</Text>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Icon name="snow-outline" size={20} color="#FFF" />
-              </View>
-              <Text style={styles.featureLabel}>Freeze Anytime</Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Payment Success Details Receipt Card */}
-      <View style={styles.receiptContainer}>
-        <View style={styles.receiptHeader}>
-          <Icon
-            name="checkmark-circle"
-            size={40}
-            color="#2ecc71"
-            style={styles.receiptCheckIcon}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.receiptTitle}>
-              {reservationId ? 'Booking Successful' : 'Payment Successfull'}
+          {/* Details Fields */}
+          <View style={styles.receiptRow}>
+            <Text style={styles.rowLabel}>
+              {reservationId ? 'Booking ID' : 'Transaction ID'}
             </Text>
-            <Text style={styles.receiptSubtitle}>
-              {reservationId
-                ? 'Your reservation has been confirmed and booking created!'
-                : `Payment of ₹${price} has been processed successfully`}
+            <Text style={styles.rowValue}>
+              {reservationId ? reservationId : transactionId}
             </Text>
+          </View>
+
+          <View style={styles.receiptRow}>
+            <Text style={styles.rowLabel}>Date & Time</Text>
+            <Text style={styles.rowValue}>{currentDateTimeStr}</Text>
           </View>
         </View>
 
-        <View style={styles.divider} />
-
-        {/* Details Fields */}
-        <View style={styles.receiptRow}>
-          <Text style={styles.rowLabel}>
-            {reservationId ? 'Booking ID' : 'Transaction ID'}
-          </Text>
-          <Text style={styles.rowValue}>
-            {reservationId ? reservationId : transactionId}
-          </Text>
-        </View>
-
-        <View style={styles.receiptRow}>
-          <Text style={styles.rowLabel}>Date & Time</Text>
-          <Text style={styles.rowValue}>{currentDateTimeStr}</Text>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        {activationStatus === 'activating' && (
-           <Text style={{ color: '#aaa', textAlign: 'center', marginBottom: 10, fontSize: 13 }}>
-             Activating your membership...
-           </Text>
-        )}
-        <TouchableOpacity style={styles.letsStartBtn} onPress={handleStart} disabled={activationStatus === 'activating'}>
-          {activationStatus === 'activating' ? (
-             <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-             <Text style={styles.letsStartBtnText}>Let's Start</Text>
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          {activationStatus === 'activating' && (
+            <Text style={{ color: '#aaa', textAlign: 'center', marginBottom: 10, fontSize: 13 }}>
+              Activating your membership...
+            </Text>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.letsStartBtn} onPress={handleStart} disabled={activationStatus === 'activating'}>
+            {activationStatus === 'activating' ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.letsStartBtnText}>Let's Start</Text>
+            )}
+          </TouchableOpacity>
 
-        {activationStatus === 'timeout' && (
-          <Text style={{ color: 'orange', textAlign: 'center', marginBottom: 10, paddingHorizontal: 20, fontSize: 12 }}>
-            Your payment was successful. Activation is taking longer than expected. Please wait a few minutes and refresh.
-          </Text>
-        )}
-
-        <TouchableOpacity
-          style={styles.downloadBtn}
-          activeOpacity={0.8}
-          onPress={handleDownloadReceipt}
-          disabled={downloading}
-        >
-          {downloading ? (
-            <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
-          ) : (
-            <Text style={styles.downloadBtnText}>Download Receipt</Text>
+          {activationStatus === 'timeout' && (
+            <Text style={{ color: 'orange', textAlign: 'center', marginBottom: 10, paddingHorizontal: 20, fontSize: 12 }}>
+              Your payment was successful. Activation is taking longer than expected. Please wait a few minutes and refresh.
+            </Text>
           )}
-        </TouchableOpacity>
-      </View>
+
+          <TouchableOpacity
+            style={styles.downloadBtn}
+            activeOpacity={0.8}
+            onPress={handleDownloadReceipt}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+            ) : (
+              <Text style={styles.downloadBtnText}>Download Receipt</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -434,11 +443,13 @@ const createStyles = ({ sp, ms, fs, wp }) =>
     container: {
       flex: 1,
       backgroundColor: '#000',
+    },
+    scrollContent: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'space-around',
       paddingHorizontal: wp(4),
-      paddingTop: sp(16),
-      paddingBottom: sp(16),
+      paddingVertical: sp(16),
     },
     confettiContainer: {
       marginTop: sp(16),
@@ -472,7 +483,6 @@ const createStyles = ({ sp, ms, fs, wp }) =>
     },
     planCard: {
       width: '100%',
-      padding: sp(20),
     },
     cardHeader: {
       flexDirection: 'row',
@@ -490,7 +500,13 @@ const createStyles = ({ sp, ms, fs, wp }) =>
     },
     textColumn: {
       justifyContent: 'center',
-      flexShrink: 1,
+      flex: 1,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      width: '100%',
     },
     cardPlanTitle: {
       color: '#FFF',
@@ -511,11 +527,15 @@ const createStyles = ({ sp, ms, fs, wp }) =>
       paddingHorizontal: sp(12),
       paddingVertical: sp(4),
       borderRadius: ms(12),
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     activeBadgeText: {
       color: '#2ecc71',
       fontSize: fs(10),
       fontWeight: 'bold',
+      textAlign: 'center',
     },
     featureGrid: {
       flexDirection: 'row',

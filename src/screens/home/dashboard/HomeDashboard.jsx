@@ -774,76 +774,78 @@ export const HomeDashboard = ({ navigation }) => {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View
-            style={[
-              styles.membershipArcOne,
-              {
-                width: arcOneWidth,
-                height: arcOneWidth * 0.48,
-                borderRadius: arcOneWidth / 2,
-                left: -subscriptionCardWidth * 0.24,
-                bottom: -subscriptionCardHeight * 0.85,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.membershipArcTwo,
-              {
-                width: arcTwoWidth,
-                height: arcTwoWidth * 0.47,
-                borderRadius: arcTwoWidth / 2,
-                left: -subscriptionCardWidth * 0.28,
-                bottom: -subscriptionCardHeight * 0.95,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.membershipArcThree,
-              {
-                width: arcThreeWidth,
-                height: arcThreeWidth * 0.46,
-                borderRadius: arcThreeWidth / 2,
-                left: -subscriptionCardWidth * 0.3,
-                bottom: -subscriptionCardHeight * 1.05,
-              },
-            ]}
-          />
-          <View style={styles.activeBadge}>
-            <View style={styles.activeDot} />
-            <Text style={styles.activeText}>{statusText}</Text>
-          </View>
-
-          <View style={styles.membershipImageWrap}>
-            <Image
-              source={{ uri: subscribedImage }}
-              style={styles.membershipImage}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, width: '100%', height: '100%', position: 'relative' }}>
+            <View
+              style={[
+                styles.membershipArcOne,
+                {
+                  width: arcOneWidth,
+                  height: arcOneWidth * 0.48,
+                  borderRadius: arcOneWidth / 2,
+                  left: -subscriptionCardWidth * 0.24,
+                  bottom: -subscriptionCardHeight * 0.85,
+                },
+              ]}
             />
-            <View style={styles.qrBadge}>
-              <Icon name="qr-code-outline" size={20} color="#FFF" />
+            <View
+              style={[
+                styles.membershipArcTwo,
+                {
+                  width: arcTwoWidth,
+                  height: arcTwoWidth * 0.47,
+                  borderRadius: arcTwoWidth / 2,
+                  left: -subscriptionCardWidth * 0.28,
+                  bottom: -subscriptionCardHeight * 0.95,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.membershipArcThree,
+                {
+                  width: arcThreeWidth,
+                  height: arcThreeWidth * 0.46,
+                  borderRadius: arcThreeWidth / 2,
+                  left: -subscriptionCardWidth * 0.3,
+                  bottom: -subscriptionCardHeight * 1.05,
+                },
+              ]}
+            />
+            <View style={styles.activeBadge}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeText}>{statusText}</Text>
             </View>
-          </View>
 
-          <View style={styles.membershipCopy}>
-            <Text style={styles.membershipTitle} numberOfLines={1}>
-              {subscribedGymName}
-            </Text>
-            <Text style={styles.membershipSubtitle} numberOfLines={1}>
-              {subscribedPlanName}
-            </Text>
-            <Text style={styles.membershipTier} numberOfLines={1}>
-              {subscribedTierName}
-            </Text>
-          </View>
+            <View style={styles.membershipImageWrap}>
+              <Image
+                source={{ uri: subscribedImage }}
+                style={styles.membershipImage}
+              />
+              <View style={styles.qrBadge}>
+                <Icon name="qr-code-outline" size={20} color="#FFF" />
+              </View>
+            </View>
 
-          <View style={styles.membershipArrow}>
-            <Icon
-              name="arrow-up-outline"
-              size={20}
-              color="#FFF"
-              style={{ transform: [{ rotate: '45deg' }] }}
-            />
+            <View style={styles.membershipCopy}>
+              <Text style={styles.membershipTitle} numberOfLines={1}>
+                {subscribedGymName}
+              </Text>
+              <Text style={styles.membershipSubtitle} numberOfLines={1}>
+                {subscribedPlanName}
+              </Text>
+              <Text style={styles.membershipTier} numberOfLines={1}>
+                {subscribedTierName}
+              </Text>
+            </View>
+
+            <View style={styles.membershipArrow}>
+              <Icon
+                name="arrow-up-outline"
+                size={20}
+                color="#FFF"
+                style={{ transform: [{ rotate: '45deg' }] }}
+              />
+            </View>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -1313,10 +1315,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(128,66,168,0.5)',
     overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    position: 'relative',
   },
   membershipArcOne: {
     position: 'absolute',

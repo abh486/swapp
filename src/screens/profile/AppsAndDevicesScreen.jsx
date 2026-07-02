@@ -8,6 +8,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,7 +77,7 @@ const AppsAndDevicesScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Apple Health Card */}
         <View style={styles.healthCard}>
           <View style={styles.healthHeader}>
@@ -106,6 +107,16 @@ const AppsAndDevicesScreen = ({ navigation }) => {
               <Icon name="checkmark" size={16} color="#FFF" style={{ marginLeft: 8 }} />
             )}
           </TouchableOpacity>
+
+          {healthKitConnected && (
+            <TouchableOpacity
+              style={[styles.connectBtn, { backgroundColor: '#3498db', marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+              onPress={() => navigation.navigate('HealthKitData')}
+            >
+              <Text style={styles.connectBtnText}>View Health Stats</Text>
+              <Icon name="stats-chart" size={16} color="#FFF" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Other Apps Section */}
@@ -126,7 +137,7 @@ const AppsAndDevicesScreen = ({ navigation }) => {
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

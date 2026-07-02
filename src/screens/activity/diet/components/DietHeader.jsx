@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,11 @@ import {
   Dimensions,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
-import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
-import apiClient from '../../../../api/apiClient';
+import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Text as TextSvg } from 'react-native-svg';
 import { useAuth } from '../../../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -25,7 +23,6 @@ const getMondayBasedIndex = (date) => {
 
 const DietHeader = ({
   calendarDays,
-  handleCalendarPress,
   dailySummary,
   selectedDate,
   setSelectedDate,
@@ -34,17 +31,19 @@ const DietHeader = ({
   setSelectedPlanDay,
   fetchNutritionData,
   buildCalendarDays,
-  handleTrackFood,
   handleGoToPreferences,
   handleGoToReminders,
+  navigation,
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const calendarScrollViewRef = useRef(null);
+
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const userName =
     profileData.name ||
     `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() ||
-    'Member';
+    'Brian';
   const userAvatar =
     profileData.profileImage ||
     profileData.profilePicture ||
@@ -54,12 +53,12 @@ const DietHeader = ({
   const summary = dailySummary?.summary || {};
   const targets = dailySummary?.targets || {};
 
-  const targetCals = targets.calories || 2000;
-  const consumedCals = summary.calories || 0;
+  const targetCals = targets.calories || 1800;
+  const consumedCals = summary.calories || 1200;
   const targetBurn = 800;
-  const burnedCals = summary.burned || 432;
+  const burnedCals = summary.burned || 420;
   const targetSleep = 8;
-  const sleptHours = summary.sleep || 5.0;
+  const sleptHours = summary.sleep || 2.0;
 
   const burnProgress = Math.min(1, burnedCals / targetBurn);
   const sleepProgress = Math.min(1, sleptHours / targetSleep);
@@ -86,21 +85,26 @@ const DietHeader = ({
     fetchNutritionData(newDate, true);
   };
 
-  const handleSelectDay = (dayIndex) => {
-    const newDate = new Date(selectedDate);
-    const activeIndex = getMondayBasedIndex(selectedDate);
-    newDate.setDate(selectedDate.getDate() + dayIndex - activeIndex);
+  const handleSelectDay = (day) => {
+    const newDate = day.fullDate;
     setSelectedDate(newDate);
     setSelectedPlanDay(PLAN_DAY_NAMES[newDate.getDay()]);
     setCalendarDays(buildCalendarDays(newDate));
     fetchNutritionData(newDate, true);
   };
 
-  // SVG parameters for 270-degree partial arcs
-  // Outer circle (BURN): r=80, C ~ 502.65, 270 deg length = 377
-  // Middle circle (SLEEP): r=60, C ~ 376.99, 270 deg length = 282.7
-  // Inner circle (FOOD INTAKE): r=40, C ~ 251.33, 270 deg length = 188.5
+  useEffect(() => {
+    const activeIdx = calendarDays.findIndex(d => d.active);
+    if (activeIdx !== -1) {
+      const capsuleWidth = 60; // capsule layout item width
+      calendarScrollViewRef.current?.scrollTo({
+        x: activeIdx * capsuleWidth - width / 2 + capsuleWidth / 2,
+        animated: true,
+      });
+    }
+  }, [selectedDate, calendarDays]);
 
+  // SVG parameters for 270-degree partial arcs
   const burnCirc = 2 * Math.PI * 80;
   const burnArcLen = burnCirc * 0.75;
 
@@ -110,35 +114,41 @@ const DietHeader = ({
   const foodCirc = 2 * Math.PI * 40;
   const foodArcLen = foodCirc * 0.75;
 
-  const handleWeightCardPress = () => {
-    Alert.alert(
-      'Log Weight',
-      'Please switch to the ANALYTICS tab below to log and update your current weight.'
-    );
+  const getProgressEndCoords = (radius, progress) => {
+    const angleDeg = 135 + (progress * 270);
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const x = 100 + radius * Math.cos(angleRad);
+    const y = 100 + radius * Math.sin(angleRad);
+    return { x, y };
   };
+
+  const burnEnd = getProgressEndCoords(80, burnProgress);
+  const sleepEnd = getProgressEndCoords(60, sleepProgress);
+  const foodEnd = getProgressEndCoords(40, foodProgress);
 
   return (
     <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 10) }]}>
       {/* Top Profile + Streak Row */}
       <View style={styles.topRow}>
-        <View style={styles.profileContainer}>
+        <View style={styles.profileCapsule}>
           {userAvatar ? (
-            <Image
-              source={{ uri: userAvatar }}
-              style={styles.avatar}
-            />
+            <Image source={{ uri: userAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, { backgroundColor: '#1E1E1E', justifyContent: 'center', alignItems: 'center' }]}>
-              <Icon name="person" size={20} color="rgba(255, 255, 255, 0.7)" />
+              <Icon name="person" size={16} color="rgba(255, 255, 255, 0.7)" />
             </View>
           )}
+          <View style={styles.profileTextContainer}>
+            <Text style={styles.profileName}>{userName}</Text>
+            <Text style={styles.profileStatus}>Premium User</Text>
+          </View>
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={[styles.settingsBtn, { marginRight: 10 }]} onPress={handleGoToReminders}>
+          <TouchableOpacity style={styles.settingsBtn} onPress={handleGoToReminders}>
             <Icon name="notifications-outline" size={20} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsBtn} onPress={handleGoToPreferences}>
+          <TouchableOpacity style={[styles.settingsBtn, { marginLeft: 10 }]} onPress={handleGoToPreferences}>
             <Icon name="options-outline" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -147,68 +157,81 @@ const DietHeader = ({
       {/* Month Navigation */}
       <View style={styles.monthNavRow}>
         <TouchableOpacity onPress={handlePrevMonth} style={styles.monthNavBtn}>
-          <Icon name="chevron-back" size={20} color="#AAA" />
+          <Icon name="chevron-back" size={14} color="#FFF" style={styles.triangleIcon} />
         </TouchableOpacity>
         <Text style={styles.monthNavTitle}>{`${monthName} ${yearName}`}</Text>
         <TouchableOpacity onPress={handleNextMonth} style={styles.monthNavBtn}>
-          <Icon name="chevron-forward" size={20} color="#AAA" />
+          <Icon name="chevron-forward" size={14} color="#FFF" style={styles.triangleIcon} />
         </TouchableOpacity>
       </View>
 
       {/* Calendar Row */}
       <View style={styles.calendarRow}>
-        {calendarDays.map((day, idx) => {
-          const isActive = day.active;
-          return (
-            <TouchableOpacity
-              key={idx}
-              style={[styles.calendarCapsule, isActive && styles.activeCalendarCapsule]}
-              onPress={() => handleSelectDay(idx)}
-              activeOpacity={0.8}
-            >
-              {isActive ? (
-                <>
-                  <Text style={styles.activeDateText} numberOfLines={1}>{day.date}</Text>
-                  <Text style={styles.activeMonthText} numberOfLines={1}>{day.month}</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.inactiveMonthText} numberOfLines={1}>{day.month}</Text>
-                  <Text style={styles.inactiveDateText} numberOfLines={1}>{day.date}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+        <ScrollView
+          ref={calendarScrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.calendarScrollWrapper}
+        >
+          {calendarDays.map((day, idx) => {
+            const isActive = day.active;
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[
+                  styles.calendarCapsule,
+                  isActive ? styles.activeCalendarCapsule : styles.inactiveCalendarCapsule
+                ]}
+                onPress={() => handleSelectDay(day)}
+                activeOpacity={0.8}
+              >
+                {isActive ? (
+                  <>
+                    <View style={styles.activeDayCircle}>
+                      <Text style={styles.activeDayNumber}>{day.date}</Text>
+                    </View>
+                    <Text style={styles.activeMonthLabel}>{day.label}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.inactiveMonthLabel}>{day.label}</Text>
+                    <Text style={styles.inactiveDayNumber}>{day.date}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Concentric Progress Rings + Legend */}
-      <View style={styles.ringsSection}>
+      <View style={styles.ringsContainerRow}>
+        {/* SVG Ring Area */}
         <View style={styles.svgWrapper}>
-          <Svg width={170} height={170} viewBox="0 0 200 200">
+          <Svg width={175} height={175} viewBox="0 0 200 200">
             <Defs>
               <SvgLinearGradient id="burnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#FF5252" />
-                <Stop offset="100%" stopColor="#FF7A00" />
+                <Stop offset="0%" stopColor="#BD93F9" />
+                <Stop offset="100%" stopColor="#7C4DFF" />
               </SvgLinearGradient>
               <SvgLinearGradient id="sleepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#7C4DFF" />
-                <Stop offset="100%" stopColor="#00E5FF" />
+                <Stop offset="0%" stopColor="#FF8E8E" />
+                <Stop offset="100%" stopColor="#FF5E62" />
               </SvgLinearGradient>
               <SvgLinearGradient id="foodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#00E676" />
-                <Stop offset="100%" stopColor="#AEEA00" />
+                <Stop offset="0%" stopColor="#50B0FF" />
+                <Stop offset="100%" stopColor="#3B72FF" />
               </SvgLinearGradient>
             </Defs>
 
-            {/* Rotate 135 degrees to place the 90 degrees gap exactly at the bottom */}
+            {/* Arcs Group */}
             <G rotation={135} origin="100, 100">
-              {/* Outer circle (BURN) */}
+              {/* Outer ring (BURN) */}
               <Circle
                 cx="100"
                 cy="100"
                 r="80"
-                stroke="rgba(255, 82, 82, 0.08)"
+                stroke="rgba(124, 77, 255, 0.08)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${burnArcLen} ${burnCirc}`}
@@ -221,16 +244,17 @@ const DietHeader = ({
                 stroke="url(#burnGrad)"
                 strokeWidth="10"
                 fill="transparent"
-                strokeDasharray={`${burnProgress * burnArcLen} ${burnCirc}`}
+                strokeDasharray={`${burnArcLen} ${burnCirc}`}
+                strokeDashoffset={burnArcLen * (1 - burnProgress)}
                 strokeLinecap="round"
               />
 
-              {/* Middle circle (SLEEP) */}
+              {/* Middle ring (SLEEP) */}
               <Circle
                 cx="100"
                 cy="100"
                 r="60"
-                stroke="rgba(124, 77, 255, 0.08)"
+                stroke="rgba(255, 142, 142, 0.08)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${sleepArcLen} ${sleepCirc}`}
@@ -243,16 +267,17 @@ const DietHeader = ({
                 stroke="url(#sleepGrad)"
                 strokeWidth="10"
                 fill="transparent"
-                strokeDasharray={`${sleepProgress * sleepArcLen} ${sleepCirc}`}
+                strokeDasharray={`${sleepArcLen} ${sleepCirc}`}
+                strokeDashoffset={sleepArcLen * (1 - sleepProgress)}
                 strokeLinecap="round"
               />
 
-              {/* Inner circle (FOOD INTAKE) */}
+              {/* Inner ring (FOOD INTAKE) */}
               <Circle
                 cx="100"
                 cy="100"
                 r="40"
-                stroke="rgba(0, 230, 118, 0.08)"
+                stroke="rgba(59, 114, 255, 0.08)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${foodArcLen} ${foodCirc}`}
@@ -265,78 +290,90 @@ const DietHeader = ({
                 stroke="url(#foodGrad)"
                 strokeWidth="10"
                 fill="transparent"
-                strokeDasharray={`${foodProgress * foodArcLen} ${foodCirc}`}
+                strokeDasharray={`${foodArcLen} ${foodCirc}`}
+                strokeDashoffset={foodArcLen * (1 - foodProgress)}
                 strokeLinecap="round"
               />
             </G>
+
+            {/* Tip Percentage Labels */}
+            <TextSvg x={burnEnd.x} y={burnEnd.y + 4} fill="#BD93F9" fontSize="8" fontWeight="bold" textAnchor="middle">
+              {Math.round(burnProgress * 100)}%
+            </TextSvg>
+            <TextSvg x={sleepEnd.x} y={sleepEnd.y + 4} fill="#FF8E8E" fontSize="8" fontWeight="bold" textAnchor="middle">
+              {Math.round(sleepProgress * 100)}%
+            </TextSvg>
+            <TextSvg x={foodEnd.x} y={foodEnd.y + 4} fill="#3B72FF" fontSize="8" fontWeight="bold" textAnchor="middle">
+              {Math.round(foodProgress * 100)}%
+            </TextSvg>
           </Svg>
         </View>
 
-        {/* Legend */}
+        {/* Legend List */}
         <View style={styles.legendContainer}>
           {/* Burn Info */}
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#FF5252' }]} />
-            <View>
-              <Text style={styles.legendLabel}>BURN</Text>
-              <Text style={styles.legendValue}>{`${burnedCals} / ${targetBurn} kcal`}</Text>
+            <View style={[styles.legendBox, { backgroundColor: '#7C4DFF' }]} />
+            <View style={styles.legendTextCol}>
+              <Text style={styles.legendLabel}>Burn</Text>
+              <Text style={styles.legendSubtext}>Calories Burned</Text>
+            </View>
+            <View style={styles.legendValueCol}>
+              <Text style={styles.legendValText}>
+                <Text style={{ color: '#00E676', fontWeight: 'bold' }}>{burnedCals}</Text>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetBurn}</Text>
+              </Text>
+              <Text style={styles.legendUnit}>kcal</Text>
             </View>
           </View>
 
           {/* Sleep Info */}
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#7C4DFF' }]} />
-            <View>
-              <Text style={styles.legendLabel}>SLEEP</Text>
-              <Text style={styles.legendValue}>{`${sleptHours} / ${targetSleep} hours`}</Text>
+            <View style={[styles.legendBox, { backgroundColor: '#FF8E8E' }]} />
+            <View style={styles.legendTextCol}>
+              <Text style={styles.legendLabel}>Sleep</Text>
+              <Text style={styles.legendSubtext}>Hours Slept</Text>
+            </View>
+            <View style={styles.legendValueCol}>
+              <Text style={styles.legendValText}>
+                <Text style={{ color: '#BD93F9', fontWeight: 'bold' }}>{sleptHours}</Text>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetSleep}</Text>
+              </Text>
+              <Text style={styles.legendUnit}>hours</Text>
             </View>
           </View>
 
           {/* Food Intake Info */}
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#00E676' }]} />
-            <View>
-              <Text style={styles.legendLabel}>FOOD INTAKE</Text>
-              <Text style={styles.legendValue}>{`${consumedCals} / ${targetCals} kcal`}</Text>
+            <View style={[styles.legendBox, { backgroundColor: '#3B72FF' }]} />
+            <View style={styles.legendTextCol}>
+              <Text style={styles.legendLabel}>Food Intake</Text>
+              <Text style={styles.legendSubtext}>Calories Intake</Text>
+            </View>
+            <View style={styles.legendValueCol}>
+              <Text style={styles.legendValText}>
+                <Text style={{ color: '#00E5FF', fontWeight: 'bold' }}>{consumedCals}</Text>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetCals}</Text>
+              </Text>
+              <Text style={styles.legendUnit}>kcal</Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Side-by-side Metric Cards */}
-      <View style={styles.metricCardsRow}>
-        <TouchableOpacity style={styles.cardTouch} onPress={handleWeightCardPress} activeOpacity={0.9}>
-          <LinearGradient
-            colors={['#111115', '#08080A']}
-            style={styles.metricCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.metricCardLabel}>Current Weight</Text>
-            <Text style={styles.metricCardValue}>78.5 kg</Text>
-            <View style={styles.trendBadge}>
-              <Icon name="arrow-down-outline" size={10} color="#00E676" />
-              <Text style={styles.trendText}>3 Kg (-3.8%)</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.cardTouch} onPress={handleTrackFood} activeOpacity={0.8}>
-          <LinearGradient
-            colors={['#111115', '#08080A']}
-            style={styles.metricCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.metricCardLabel}>Today's Calories</Text>
-            <Text style={styles.metricCardValue}>{`${consumedCals} kcal`}</Text>
-            <View style={[styles.trendBadge, { backgroundColor: 'rgba(255, 82, 82, 0.1)' }]}>
-              <Icon name="arrow-down-outline" size={10} color="#FF5252" />
-              <Text style={[styles.trendText, { color: '#FF5252' }]}>5.6%</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      {/* Snap Card */}
+      <TouchableOpacity 
+        style={styles.snapCard} 
+        onPress={() => navigation.navigate('DietAllLogs', { mode: 'diet' })}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.snapText}>
+          Explore your complete collection of past snaps in one hub.
+        </Text>
+        <View style={styles.arrowCircle}>
+          <Icon name="arrow-forward" size={18} color="#000" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -344,42 +381,39 @@ const DietHeader = ({
 const styles = StyleSheet.create({
   headerContainer: {
     width: '100%',
-    backgroundColor: '#050505',
-    paddingBottom: 20,
+    backgroundColor: '#000',
+    paddingBottom: 15,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginTop: 15,
   },
-  profileContainer: {
+  profileCapsule: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(124, 77, 255, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: 'rgba(124, 77, 255, 0.5)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
-  profileBadge: {
+  profileTextContainer: {
     marginLeft: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   profileName: {
     color: '#FFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   profileStatus: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 9,
     fontWeight: '600',
     marginTop: 1,
@@ -392,9 +426,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 122, 0, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   streakText: {
     color: '#FF7A00',
@@ -402,12 +437,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   settingsBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -415,157 +450,157 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 25,
+    marginTop: 20,
     paddingHorizontal: 20,
   },
   monthNavBtn: {
     padding: 8,
   },
+  triangleIcon: {
+    fontSize: 14,
+  },
   monthNavTitle: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
     marginHorizontal: 20,
     letterSpacing: 0.5,
   },
   calendarRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 17,
-    marginTop: 20,
-    marginBottom: 20,
+    paddingHorizontal: 12,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  calendarScrollWrapper: {
+    paddingRight: 20,
   },
   calendarCapsule: {
-    flex: 1,
-    marginHorizontal: 3,
-    height: 70,
-    borderRadius: 21,
-    backgroundColor: '#111115',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
-    justifyContent: 'center',
+    width: 52,
+    height: 76,
+    borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
   },
   activeCalendarCapsule: {
     backgroundColor: '#FFF',
-    borderColor: '#FFF',
-    shadowColor: '#FFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  activeDateText: {
-    color: '#000',
+  inactiveCalendarCapsule: {
+    backgroundColor: '#0c0c0f',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  activeDayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#7C4DFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  activeDayNumber: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  activeMonthLabel: {
+    color: '#7C4DFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  inactiveMonthLabel: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 9,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  inactiveDayNumber: {
+    color: '#FFF',
     fontSize: 15,
     fontWeight: 'bold',
   },
-  activeMonthText: {
-    color: '#666',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  inactiveMonthText: {
-    color: 'rgba(255, 255, 255, 0.3)',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  inactiveDateText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  ringsSection: {
+  ringsContainerRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12.5,
+    paddingHorizontal: 16,
     marginTop: 10,
-    marginBottom: 15,
   },
   svgWrapper: {
-    width: 170,
-    height: 170,
-    marginHorizontal: 7.5,
-    marginVertical: 7.5,
+    width: 175,
+    height: 175,
     justifyContent: 'center',
     alignItems: 'center',
   },
   legendContainer: {
     flex: 1,
-    minWidth: 140,
-    marginHorizontal: 7.5,
-    marginVertical: 7.5,
-    justifyContent: 'center',
+    marginLeft: 15,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
+    justifyContent: 'space-between',
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 10,
+  legendBox: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  legendTextCol: {
+    flex: 1,
   },
   legendLabel: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  legendValue: {
     color: '#FFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: 'bold',
+  },
+  legendSubtext: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 9,
     marginTop: 1,
   },
-  metricCardsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 15,
-    marginTop: 15,
-    marginBottom: 10,
+  legendValueCol: {
+    alignItems: 'flex-end',
   },
-  cardTouch: {
-    flex: 1,
-    marginHorizontal: 5,
+  legendValText: {
+    fontSize: 12,
   },
-  metricCard: {
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
+  legendUnit: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 9,
+    marginTop: 1,
+  },
+  snapCard: {
+    width: '100%',
+    backgroundColor: '#0c0c0f',
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  metricCardLabel: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  metricCardValue: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginVertical: 6,
-  },
-  trendBadge: {
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 230, 118, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 5,
+    marginHorizontal: 16,
+    width: width - 32,
   },
-  trendText: {
-    color: '#00E676',
-    fontSize: 9,
-    fontWeight: 'bold',
-    marginLeft: 4,
+  snapText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+    paddingRight: 16,
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

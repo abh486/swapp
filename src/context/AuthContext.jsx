@@ -194,12 +194,13 @@ export const AuthProvider = ({ children }) => {
       if (!silent) {
         setLoading(true);
       }
+      let resp = null;
       try {
         const savedToken = await getToken();
         if (!savedToken) {
           throw new Error('No token found in storage.');
         }
-
+ 
         let emailFromToken = null;
         try {
           const creds = await auth0.credentialsManager.getApiCredentials(
@@ -221,13 +222,13 @@ export const AuthProvider = ({ children }) => {
         } catch (credsErr) {
           console.log('[AuthContext] Could not extract email from ID Token:', credsErr.message);
         }
-
+ 
         // 🚨 Ensure apiClient uses HTTPS. Cleartext HTTP is disabled.
-        const resp = await apiClient.post('/v1/auth/verify-member');
-
+        resp = await apiClient.post('/v1/auth/verify-member');
+ 
         if (resp.data?.success && resp.data.data) {
           const userObject = resp.data.data.user;
-
+ 
           if (emailFromToken) {
             if (!userObject.email || userObject.email === '') {
               userObject.email = emailFromToken;
@@ -239,11 +240,11 @@ export const AuthProvider = ({ children }) => {
               userObject.memberProfile.email = emailFromToken;
             }
           }
-
+ 
           setUserProfile(userObject);
           setIsAuthenticated(true);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
-
+ 
           if (userObject && userObject.id) {
             console.log('[Clarity] Setting custom user ID:', userObject.id);
             try {
@@ -255,7 +256,7 @@ export const AuthProvider = ({ children }) => {
               console.error('[Clarity] Failed to set user ID/tags:', err);
             }
           }
-
+ 
           if (
             (userObject.userProfile && userObject.userProfile.name) ||
             (userObject.memberProfile && userObject.memberProfile.name)
@@ -265,17 +266,26 @@ export const AuthProvider = ({ children }) => {
             setHasProfile(false);
           }
         } else {
-          throw new Error('Backend verification failed.');
+          throw new Error(resp?.data?.message || 'Backend verification failed.');
         }
       } catch (e) {
         console.error('🔴 ERROR in checkAuthStatus:', e.message);
-        if (e.message === 'Network Error') {
-          console.error(
-            '🔴 Network Error: Check if API_URL is HTTPS. HTTP is blocked.',
-          );
+        
+        const isNetworkError = !e.response || e.message === 'Network Error' || e.code === 'ECONNABORTED';
+ 
+        if (isNetworkError) {
+          console.log('[AuthContext] Network connection error during silent check. Preserving authentication state.');
+        } else {
+          const savedToken = await AsyncStorage.getItem('accessToken');
+          if (savedToken) {
+            console.log('[AuthContext] Active session exists but backend check failed. Directing to profile wizard.');
+            setIsAuthenticated(true);
+            setHasProfile(false);
+          } else {
+            setIsAuthenticated(false);
+            setHasProfile(false);
+          }
         }
-        setIsAuthenticated(false);
-        setHasProfile(false);
       } finally {
         if (!silent) {
           setLoading(false);
@@ -694,21 +704,7 @@ export const AuthProvider = ({ children }) => {
       const credentials = await loginWithEmailPassword(email, password);
       return { user, credentials };
     } catch (err) {
-      console.warn('[AuthContext] Auth0 native signup failed, trying direct backend registration as fallback:', err.message);
-      try {
-        const response = await apiClient.post('/auth/register', { email, password });
-        if (response.data?.success && response.data.data?.token) {
-          const { token, user: userObj } = response.data.data;
-          await AsyncStorage.setItem('accessToken', token);
-          await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
-          setUserProfile(userObj);
-          setIsAuthenticated(true);
-          setHasProfile(false); // New signup needs profile creation
-          return { user: userObj };
-        }
-      } catch (fallbackErr) {
-        console.error('[AuthContext] Fallback backend signup also failed:', fallbackErr.message);
-      }
+      console.error('[AuthContext] Auth0 signup failed:', err.message);
       throw err;
     } finally {
       setIsLoggingIn(false);

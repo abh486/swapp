@@ -9,6 +9,14 @@ import { View, Text, Linking } from 'react-native';
 import MemberProfile from '../screens/MemberProfile'; // 👈 Profile creation/edit screen
 import DietAllLogs from '../screens/activity/diet/DietAllLogs';
 import DietPreferences from '../screens/activity/diet/DietPreferences';
+import AlmostDoneScreen from '../screens/activity/diet/AlmostDoneScreen';
+import AlmostDoneFinalScreen from '../screens/activity/diet/AlmostDoneFinalScreen';
+import AlmostDoneClocheScreen from '../screens/activity/diet/AlmostDoneClocheScreen';
+import WeeklyDietPlanScreen from '../screens/activity/diet/WeeklyDietPlanScreen';
+import MacronutrientDetailsScreen from '../screens/activity/diet/MacronutrientDetailsScreen';
+import HealthKitDataScreen from '../screens/profile/HealthKitDataScreen';
+import WalkDetailsScreen from '../screens/profile/WalkDetailsScreen';
+import SleepDetailsScreen from '../screens/profile/SleepDetailsScreen';
 
 import BottomTabNavigator from './BottomTabNavigator';
 import Community from '../screens/community/Community';
@@ -31,6 +39,7 @@ import MembershipDetailsScreen from '../screens/home/booking/MembershipDetailsSc
 import MembershipBookingScreen from '../screens/home/booking/MembershipBookingScreen';
 import TrainerBookingScreen from '../screens/home/trainer/TrainerBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
+import WeightBodyMetricsScreen from '../screens/profile/WeightBodyMetricsScreen';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -104,6 +113,9 @@ const AppNavigator = () => {
                 <Stack.Screen name="Community" component={Community} />
                 <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
                 <Stack.Screen name="DietPreferences" component={DietPreferences} />
+                <Stack.Screen name="AlmostDone" component={AlmostDoneScreen} />
+                <Stack.Screen name="AlmostDoneFinal" component={AlmostDoneFinalScreen} />
+                <Stack.Screen name="AlmostDoneCloche" component={AlmostDoneClocheScreen} />
                 <Stack.Screen name="Reminders" component={Reminders} />
 
                 <Stack.Screen
@@ -119,6 +131,11 @@ const AppNavigator = () => {
                   component={TrainerDetailScreen}
                 />
                 <Stack.Screen name="Dietplan" component={Dietplan} />
+                <Stack.Screen name="WeeklyDietPlan" component={WeeklyDietPlanScreen} />
+                <Stack.Screen name="HealthKitData" component={HealthKitDataScreen} />
+                <Stack.Screen name="WalkDetails" component={WalkDetailsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="SleepDetails" component={SleepDetailsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="MacronutrientDetails" component={MacronutrientDetailsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Workouts" component={WorkoutsScreen} />
                 <Stack.Screen
                   name="CreateFastWorkoutScreen"
@@ -172,6 +189,10 @@ const AppNavigator = () => {
                 <Stack.Screen
                   name="ProfileSettings"
                   component={ProfileSettingsScreen}
+                />
+                <Stack.Screen
+                  name="WeightBodyMetrics"
+                  component={WeightBodyMetricsScreen}
                 />
                 <Stack.Screen
                   name="AppsAndDevices"

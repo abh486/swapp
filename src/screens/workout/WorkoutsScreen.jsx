@@ -170,7 +170,6 @@ const WorkoutsScreen = ({ navigation }) => {
           <LinearGradient colors={['#3B0764', '#581C87']} style={styles.actionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
           <View style={styles.actionTopRow}>
             <View style={{ flex: 1 }} />
-            {/* Removed background circle wrapper, increased image size */}
             <Image source={require('../../assets/image/tender.png')} style={styles.actionIconImage} resizeMode="contain" />
           </View>
           <Text style={styles.actionLabel}>Create a New{'\n'}Fast Workout</Text>

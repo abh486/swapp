@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const DietLogs = ({ trackedMealImage, handleTrackFood, navigation }) => {
+const DietLogs = ({ logs, trackedMealImage, handleTrackFood, navigation }) => {
   const [selectedFilter, setSelectedFilter] = useState('Nutrition Tracker');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -20,49 +20,45 @@ const DietLogs = ({ trackedMealImage, handleTrackFood, navigation }) => {
     }
   };
 
-  // Mock logged items for visualization
-  const mockMeals = [
-    {
-      id: 'breakfast',
-      type: 'Breakfast',
-      time: '08:15 AM',
-      name: 'Oatmeal with Mixed Berries',
-      calories: 320,
-      macros: 'P: 10g  •  C: 54g  •  F: 6g',
-      image: 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?auto=format&fit=crop&w=120&q=80',
-    },
-    {
-      id: 'lunch',
-      type: 'Lunch',
-      time: '01:30 PM',
-      name: 'Grilled Salmon Salad',
-      calories: 450,
-      macros: 'P: 35g  •  C: 12g  •  F: 28g',
-      image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=120&q=80',
-    },
-  ];
+  // Format real daily logs to display
+  const formattedLogs = (logs || []).map((log, index) => {
+    const logDate = log.createdAt ? new Date(log.createdAt) : new Date(log.date || Date.now());
+    let timeStr = '12:00 PM';
+    try {
+      timeStr = logDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      console.warn('[DietLogs] Date parsing fallback for:', log.createdAt);
+    }
+    
+    const rawType = log.mealType || 'Meal';
+    const type = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
 
-  // If a meal is actively tracked, we prepend it to the list
-  const activeMeals = [];
-  if (trackedMealImage) {
-    activeMeals.push({
-      id: 'tracked',
-      type: 'Lunch',
-      time: '02:00 PM',
-      name: 'Green Luxe Bowl (AI Logged)',
-      calories: 360,
-      macros: 'P: 12g  •  C: 18g  •  F: 8g',
-      image: trackedMealImage,
-    });
-  }
-  
-  // Combine lists
-  const allMeals = [...activeMeals, ...mockMeals];
+    // Map image based on type
+    let image = 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=120&q=80';
+    const typeLower = type.toLowerCase();
+    if (typeLower.includes('breakfast')) {
+      image = 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?auto=format&fit=crop&w=120&q=80';
+    } else if (typeLower.includes('lunch')) {
+      image = 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=120&q=80';
+    } else if (typeLower.includes('dinner')) {
+      image = 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=120&q=80';
+    } else if (typeLower.includes('snack')) {
+      image = 'https://images.unsplash.com/photo-1543362906-acfc16c67564?auto=format&fit=crop&w=120&q=80';
+    }
 
-  // Filter based on dropdown
-  const filteredMeals = selectedFilter === 'All Meals'
-    ? allMeals
-    : allMeals.filter(m => m.type === selectedFilter);
+    return {
+      id: log.id || log._id || `log-${index}`,
+      type,
+      time: timeStr,
+      name: log.mealName || 'Unnamed meal',
+      calories: log.calories || 0,
+      macros: `P: ${log.protein || 0}g  •  C: ${log.carbs || 0}g  •  F: ${log.fats || 0}g`,
+      image: log.imageUrl || image
+    };
+  });
+
+  // Filter based on selected tracker tab
+  const filteredMeals = selectedFilter === 'Nutrition Tracker' ? formattedLogs : [];
 
   return (
     <View style={styles.container}>
@@ -70,42 +66,12 @@ const DietLogs = ({ trackedMealImage, handleTrackFood, navigation }) => {
         {/* Header Row */}
         <View style={styles.headerRow}>
           <Text style={styles.title}>TODAY'S LOGS</Text>
-          
-          <View style={styles.dropdownContainer}>
-            <TouchableOpacity 
-              style={styles.dropdownBtn} 
-              onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dropdownText}>{selectedFilter}</Text>
-              <Icon name={isDropdownOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#FFF" />
-            </TouchableOpacity>
-
-            {isDropdownOpen && (
-              <View style={styles.dropdownList}>
-                {filterOptions.map((opt) => (
-                  <TouchableOpacity 
-                    key={opt} 
-                    style={styles.dropdownItem}
-                    onPress={() => handleSelectFilter(opt)}
-                  >
-                    <Text style={[
-                      styles.dropdownItemText, 
-                      selectedFilter === opt && styles.dropdownItemTextActive
-                    ]}>
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
         </View>
 
         {/* Overlapping Food Circles + Plus Button Row */}
         <View style={styles.circlesRow}>
           <View style={styles.avatarStack}>
-            {allMeals.slice(0, 4).map((meal, idx) => (
+            {formattedLogs.slice(0, 4).map((meal, idx) => (
               <Image
                 key={meal.id}
                 source={{ uri: meal.image }}
@@ -115,7 +81,7 @@ const DietLogs = ({ trackedMealImage, handleTrackFood, navigation }) => {
                 ]}
               />
             ))}
-            {allMeals.length === 0 && (
+            {formattedLogs.length === 0 && (
               <View style={styles.emptyAvatarCircle}>
                 <Icon name="restaurant-outline" size={16} color="rgba(255, 255, 255, 0.3)" />
               </View>

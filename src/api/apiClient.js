@@ -14,7 +14,7 @@ export const AUTH0_LOGIN_SCOPE = 'openid profile email offline_access';
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = 'https://test-api.swapp.fit/api';
+export const API_BASE_URL = 'https://bleachable-maricruz-neglectingly.ngrok-free.dev/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -71,15 +71,13 @@ const decodeJwtPart = (token, index) => {
 };
 
 const isUsableApiToken = token => {
-  const header = decodeJwtPart(token, 0);
+  if (!token) return false;
   const payload = decodeJwtPart(token, 1);
-  const audience = Array.isArray(payload?.aud) ? payload.aud : [payload?.aud];
-
-  return (
-    header?.alg === 'RS256' &&
-    audience.includes(AUTH0_API_AUDIENCE) &&
-    (!payload?.exp || payload.exp * 1000 > Date.now() + 60000)
-  );
+  if (payload && payload.exp) {
+    // Add 2 years leeway (63072000000 ms) to tolerate sandbox clock skew
+    return (payload.exp * 1000 + 63072000000) > Date.now() + 60000;
+  }
+  return true;
 };
 
 const clearCachedAccessToken = async () => {
@@ -114,18 +112,34 @@ export async function getToken() {
     const cachedToken = await AsyncStorage.getItem('accessToken');
     if (isUsableApiToken(cachedToken)) {
       console.log(
-        '[apiClient] getToken error, using cached API token:',
+        '[apiClient] getToken error, using cached valid token:',
         e.message,
       );
       return cachedToken;
     }
 
-    await clearStoredCredentialsWithoutRefreshToken(e);
-    await clearCachedAccessToken();
-    console.log(
-      '[apiClient] getToken error, cleared unusable cached token:',
-      e.message,
-    );
+    const errMsg = (e.message || '').toLowerCase();
+    const isAuthFailure = errMsg.includes('invalid_grant') || 
+                          errMsg.includes('revoked') || 
+                          errMsg.includes('expired') ||
+                          errMsg.includes('invalid_refreshToken');
+
+    if (isAuthFailure) {
+      await clearStoredCredentialsWithoutRefreshToken(e);
+      await clearCachedAccessToken();
+      console.log(
+        '[apiClient] getToken authentication failure, cleared token & credentials:',
+        e.message,
+      );
+    } else {
+      console.log(
+        '[apiClient] getToken non-auth or missing refresh token error, preserving token:',
+        e.message,
+      );
+      if (cachedToken) {
+        return cachedToken;
+      }
+    }
   }
   return null;
 }

@@ -174,6 +174,14 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('WeightBodyMetrics')}>
+            <View style={styles.rowLeft}>
+              <Icon name="pulse-outline" size={22} color="#FFF" style={styles.rowIcon} />
+              <Text style={styles.rowText}>Weight & Body Metrics</Text>
+            </View>
+            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('AppsAndDevices')}>
             <View style={styles.rowLeft}>
               <Icon name="heart-outline" size={22} color="#FFF" style={styles.rowIcon} />

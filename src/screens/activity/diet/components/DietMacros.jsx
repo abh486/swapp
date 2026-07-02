@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-const DietMacros = ({ handleTrackWithCamera, handlePlusButtonPress, dailySummary }) => {
+const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress, navigation }) => {
   const summary = dailySummary?.summary || {};
   const targets = dailySummary?.targets || {};
+
+  const targetCals = targets.calories || 1000;
 
   const targetProt = targets.protein || 120;
   const consumedProt = summary.protein || 0;
@@ -18,78 +20,93 @@ const DietMacros = ({ handleTrackWithCamera, handlePlusButtonPress, dailySummary
   const consumedCarbs = summary.carbs || 0;
   const carbsPct = Math.round(Math.min(100, (consumedCarbs / targetCarbs) * 100));
 
-  const targetFibre = 30;
+  const targetFibre = targets.fibre || 30;
   const consumedFibre = summary.fibre || 0;
   const fibrePct = Math.round(Math.min(100, (consumedFibre / targetFibre) * 100));
 
+  const handlePress = () => {
+    navigation?.navigate('MacronutrientDetails', { dailySummary });
+  };
+
   return (
-    <View style={styles.bottomSection}>
+    <View style={styles.container}>
+      {/* Track Food Header Row */}
       <View style={styles.trackFoodHeader}>
-        <View>
+        <TouchableOpacity 
+          style={styles.titleCol} 
+          onPress={() => navigation?.navigate('DietAllLogs')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.trackFoodTitle}>Track Food</Text>
-          <Text style={styles.trackFoodSubtitle}>Target: {targets.calories || 2000} kcal</Text>
-        </View>
+          <Text style={styles.trackFoodSubtitle}>Eat {targetCals.toLocaleString()} Cal</Text>
+        </TouchableOpacity>
         <View style={styles.trackFoodActions}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleTrackWithCamera}>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleTrackWithCamera} activeOpacity={0.7}>
             <Icon name="camera" size={20} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButtonDark} onPress={handlePlusButtonPress}>
-            <Icon name="add" size={20} color="#000" />
+          <TouchableOpacity style={styles.actionBtn} onPress={handlePlusButtonPress} activeOpacity={0.7}>
+            <Icon name="add" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Macros Grid */}
-      <View style={styles.macrosGrid}>
-        <View style={styles.macroCol}>
-          <View style={styles.macroHeader}>
-            <Text style={styles.macroLabel}>Protein</Text>
-            <Text style={styles.macroValue}>{consumedProt}g / {targetProt}g</Text>
+      <View style={styles.gridRow}>
+        {/* Protein */}
+        <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
+          <View style={styles.labelRow}>
+            <Text style={styles.macroLabel}>Protein:</Text>
+            <Text style={styles.macroValue}>{protPct}%</Text>
           </View>
-          <View style={styles.macroBarTrack}>
-            <View style={[styles.macroBar, { width: `${protPct}%`, backgroundColor: '#FF5252' }]} />
+          <View style={styles.track}>
+            <View style={[styles.bar, { width: `${protPct}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.macroCol}>
-          <View style={styles.macroHeader}>
-            <Text style={styles.macroLabel}>Fats</Text>
-            <Text style={styles.macroValue}>{consumedFats}g / {targetFats}g</Text>
+        {/* fatss */}
+        <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
+          <View style={styles.labelRow}>
+            <Text style={styles.macroLabel}>fatss:</Text>
+            <Text style={styles.macroValue}>{fatsPct}%</Text>
           </View>
-          <View style={styles.macroBarTrack}>
-            <View style={[styles.macroBar, { width: `${fatsPct}%`, backgroundColor: '#FFD700' }]} />
+          <View style={styles.track}>
+            <View style={[styles.bar, { width: `${fatsPct}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.macroCol}>
-          <View style={styles.macroHeader}>
-            <Text style={styles.macroLabel}>Carbs</Text>
-            <Text style={styles.macroValue}>{consumedCarbs}g / {targetCarbs}g</Text>
+      <View style={styles.gridRow}>
+        {/* carbss */}
+        <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
+          <View style={styles.labelRow}>
+            <Text style={styles.macroLabel}>carbss:</Text>
+            <Text style={styles.macroValue}>{carbsPct}%</Text>
           </View>
-          <View style={styles.macroBarTrack}>
-            <View style={[styles.macroBar, { width: `${carbsPct}%`, backgroundColor: '#00E676' }]} />
+          <View style={styles.track}>
+            <View style={[styles.bar, { width: `${carbsPct}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.macroCol}>
-          <View style={styles.macroHeader}>
-            <Text style={styles.macroLabel}>Fibre</Text>
-            <Text style={styles.macroValue}>{consumedFibre}g / {targetFibre}g</Text>
+        {/* fibre */}
+        <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
+          <View style={styles.labelRow}>
+            <Text style={styles.macroLabel}>fibre:</Text>
+            <Text style={styles.macroValue}>{fibrePct}%</Text>
           </View>
-          <View style={styles.macroBarTrack}>
-            <View style={[styles.macroBar, { width: `${fibrePct}%`, backgroundColor: '#00E5FF' }]} />
+          <View style={styles.track}>
+            <View style={[styles.bar, { width: `${fibrePct}%` }]} />
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  bottomSection: {
-    paddingVertical: 20,
+  container: {
     paddingHorizontal: 20,
-    backgroundColor: '#050505',
+    paddingVertical: 15,
+    backgroundColor: '#000',
   },
   trackFoodHeader: {
     flexDirection: 'row',
@@ -97,75 +114,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  titleCol: {
+    flex: 1,
+  },
   trackFoodTitle: {
+    color: '#FFF',
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFF',
   },
   trackFoodSubtitle: {
-    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.4)',
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 2,
   },
   trackFoodActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    justifyContent: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
-    marginRight: 10,
-  },
-  iconButtonDark: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFF',
     justifyContent: 'center',
-    alignItems: 'center',
+    marginLeft: 10,
   },
-  macrosGrid: {
+  gridRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  macroCol: {
-    width: '47%',
     marginBottom: 20,
   },
-  macroHeader: {
+  macroCol: {
+    width: '46%',
+  },
+  labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 6,
   },
   macroLabel: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontWeight: '700',
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
   macroValue: {
-    fontSize: 12,
-    fontWeight: 'bold',
     color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  macroBarTrack: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 3,
+  track: {
     width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 2,
     overflow: 'hidden',
   },
-  macroBar: {
+  bar: {
     height: '100%',
-    borderRadius: 3,
+    backgroundColor: '#FFF',
+    borderRadius: 2,
   },
 });
 

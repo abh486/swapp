@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Text,
   TextInput,
+  Image,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
@@ -20,10 +21,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDispatch } from 'react-redux';
 import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 import { getAccessStatus } from '../../../services/aiDieticianService';
+
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
@@ -46,24 +49,31 @@ const getMondayBasedIndex = (date) => {
 };
 
 const buildCalendarDays = (selectedDate) => {
-  const activeIndex = getMondayBasedIndex(selectedDate);
-
-  return WEEKDAY_LABELS.map((label, index) => {
-    const dayDate = new Date(selectedDate);
-    dayDate.setDate(selectedDate.getDate() + index - activeIndex);
-
-    return {
-      label,
-      date: String(dayDate.getDate()).padStart(2, '0'),
-      active: index === activeIndex,
+  const days = [];
+  const year = selectedDate.getFullYear();
+  const month = selectedDate.getMonth();
+  
+  const numDays = new Date(year, month + 1, 0).getDate();
+  const WEEKDAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  for (let d = 1; d <= numDays; d++) {
+    const dayDate = new Date(year, month, d);
+    days.push({
+      label: WEEKDAY_NAMES_SHORT[dayDate.getDay()],
+      date: String(d).padStart(2, '0'),
+      active: d === selectedDate.getDate(),
       month: dayDate.toLocaleDateString('en-US', { month: 'short' }),
-    };
-  });
+      fullDate: dayDate,
+    });
+  }
+  return days;
 };
 
-const Dietplan = ({ navigation }) => {
+const Dietplan = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const cameraRef = useRef(null);
+  const weeklyPlanScrollViewRef = useRef(null);
+  const isProgrammaticScroll = useRef(false);
   const cameraDevice = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
   const photoOutput = usePhotoOutput({
@@ -89,6 +99,72 @@ const Dietplan = ({ navigation }) => {
   const [selectedPlanDay, setSelectedPlanDay] = useState(() => {
     return PLAN_DAY_NAMES[new Date().getDay()] || 'Monday';
   });
+
+  const [stepsToday, setStepsToday] = useState(2000);
+  const [sleepHoursToday, setSleepHoursToday] = useState(7.5);
+  const [hydrateGlasses, setHydrateGlasses] = useState(2);
+
+  const formatSleep = (hours) => {
+    const hrs = Math.floor(hours);
+    const mins = Math.round((hours - hrs) * 60);
+    return `${hrs} hr ${mins} min`;
+  };
+
+  const reloadHealthKitData = async () => {
+    try {
+      const { requestHealthKitPermission, getStepCountToday, getSleepDurationToday } = require('../../../utils/healthKit');
+      const authorized = await requestHealthKitPermission();
+      if (authorized) {
+        const steps = await getStepCountToday();
+        const sleepHours = await getSleepDurationToday();
+        if (steps > 0) setStepsToday(steps);
+        if (sleepHours > 0) setSleepHoursToday(sleepHours);
+      }
+    } catch (err) {
+      console.warn('[Dietplan] Failed to load HealthKit data:', err.message);
+    }
+  };
+
+  const incrementHydrate = async () => {
+    const newGlasses = Math.min(10, hydrateGlasses + 1);
+    setHydrateGlasses(newGlasses);
+    
+    const dateKey = selectedDate 
+      ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
+      : new Date().toISOString().split('T')[0];
+      
+    try {
+      const currentWaterStr = await AsyncStorage.getItem(`water_intake_${dateKey}`);
+      const currentWater = currentWaterStr ? parseFloat(currentWaterStr) : 0.0;
+      const newWater = Math.min(8.0, currentWater + 0.45);
+      await AsyncStorage.setItem(`water_intake_${dateKey}`, newWater.toFixed(1));
+      fetchNutritionData(selectedDate, false);
+    } catch (err) {
+      console.error('Failed to sync hydrate to water widget:', err);
+    }
+  };
+
+  useEffect(() => {
+    reloadHealthKitData();
+  }, []);
+
+  useEffect(() => {
+    const loadHydrateGlasses = async () => {
+      const dateKey = selectedDate 
+        ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
+        : new Date().toISOString().split('T')[0];
+      try {
+        const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
+        const currentWater = savedVal ? parseFloat(savedVal) : 0.9;
+        const glasses = Math.round(currentWater / 0.45);
+        setHydrateGlasses(glasses);
+      } catch (err) {
+        setHydrateGlasses(2);
+      }
+    };
+    loadHydrateGlasses();
+  }, [selectedDate, dailySummary]);
+
 
   const fetchNutritionData = useCallback(async (dateToFetch = selectedDate, showLoader = false) => {
     if (showLoader) {
@@ -198,6 +274,56 @@ const Dietplan = ({ navigation }) => {
     }
   }, [showMealModal, fetchNutritionData, selectedDate]);
 
+  useEffect(() => {
+    if (recommendation && recommendation.weeklyPlan) {
+      const dayIndex = selectedDate.getDay();
+      const cardWidth = width * 0.82 + 12;
+      isProgrammaticScroll.current = true;
+      weeklyPlanScrollViewRef.current?.scrollTo({
+        x: dayIndex * cardWidth,
+        animated: true,
+      });
+      const timer = setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDate, recommendation]);
+
+  const handleWeeklyPlanScroll = (event) => {
+    if (isProgrammaticScroll.current) return;
+    
+    const contentOffset = event.nativeEvent.contentOffset.x;
+    const cardWidth = width * 0.82 + 12;
+    const index = Math.round(contentOffset / cardWidth);
+    
+    if (index >= 0 && index < PLAN_DAY_NAMES.length) {
+      const targetDayName = PLAN_DAY_NAMES[index];
+      const currentDayTime = selectedDate.getTime();
+      let bestDay = null;
+      let minDiff = Infinity;
+      
+      calendarDays.forEach((d) => {
+        const weekdayName = d.fullDate.toLocaleDateString('en-US', { weekday: 'long' });
+        if (weekdayName.toLowerCase() === targetDayName.toLowerCase()) {
+          const diff = Math.abs(d.fullDate.getTime() - currentDayTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestDay = d;
+          }
+        }
+      });
+      
+      if (bestDay && !bestDay.active) {
+        const newDate = bestDay.fullDate;
+        setSelectedDate(newDate);
+        setSelectedPlanDay(targetDayName);
+        setCalendarDays(buildCalendarDays(newDate));
+        fetchNutritionData(newDate, true);
+      }
+    }
+  };
+
   const handleGenerateWeeklyPlan = useCallback(async () => {
     setIsGeneratingPlan(true);
     try {
@@ -230,8 +356,15 @@ const Dietplan = ({ navigation }) => {
       console.log('[Dietplan] Generating weekly diet plan...');
       const response = await apiClient.get('/recommendations', { params: recommendationsParams });
       if (response.data?.success) {
-        setRecommendation(response.data.data);
-        Alert.alert('Success', 'Weekly diet plan generated successfully!');
+        const dietPlan = response.data.data;
+        setRecommendation(dietPlan);
+        Alert.alert('Success', 'Weekly diet plan generated successfully!', [
+          {
+            text: 'View Plan',
+            onPress: () => navigation.navigate('WeeklyDietPlan', { recommendation: dietPlan })
+          },
+          { text: 'Close', style: 'cancel' }
+        ]);
       }
     } catch (error) {
       console.warn('[Dietplan] Failed to generate weekly diet plan:', error.message);
@@ -313,6 +446,41 @@ const Dietplan = ({ navigation }) => {
     });
   }, [logs, selectedDate]);
 
+  const combinedLogs = useMemo(() => {
+    const items = [];
+    
+    // Add only actual meal logs from dailyLogs
+    dailyLogs.forEach(log => {
+      items.push({
+        type: 'meal',
+        mealType: log.mealType || 'Meal',
+        mealName: log.mealName || 'Unnamed Meal',
+        calories: log.calories || 0,
+        protein: log.protein || 0,
+        fats: log.fats || 0,
+        carbs: log.carbs || 0,
+        fibre: log.fibre || 0,
+        time: log.createdAt ? new Date(log.createdAt) : new Date(log.date || Date.now()),
+        photoUrl: log.photoUrl || log.photo?.uri || log.imageUrl || null,
+        hasLog: true,
+      });
+    });
+
+    // Sort meals chronologically by time first
+    items.sort((a, b) => a.time - b.time);
+
+    // Add a default sleep entry to match Screenshot 2 layout at the absolute bottom
+    items.push({
+      type: 'sleep',
+      title: 'Sleep',
+      duration: formatSleep(sleepHoursToday),
+      target: '8 hr',
+      time: new Date(new Date().setHours(23, 59, 0, 0)),
+    });
+    
+    return items;
+  }, [dailyLogs, sleepHoursToday]);
+
   const handlePlusButtonPress = useCallback(() => {
     setShowMealSelectionModal(true);
   }, []);
@@ -326,6 +494,15 @@ const Dietplan = ({ navigation }) => {
     setMealDescription('');
     setShowMealModal(true);
   }, []);
+
+  useEffect(() => {
+    if (route?.params?.openTrackFood) {
+      const mealType = route.params.mealType || 'Breakfast';
+      // Clear route params so it doesn't trigger again
+      navigation.setParams({ openTrackFood: undefined, mealType: undefined });
+      handleSelectMeal(mealType);
+    }
+  }, [route?.params, handleSelectMeal, navigation]);
 
   const handleUploadPhoto = useCallback(() => {
     launchImageLibrary(
@@ -455,10 +632,6 @@ const Dietplan = ({ navigation }) => {
     if (!recommendation || !recommendation.weeklyPlan) return null;
 
     const days = PLAN_DAY_NAMES;
-    const dayDataKey = Object.keys(recommendation.weeklyPlan).find(
-      key => key.toLowerCase() === selectedPlanDay.toLowerCase()
-    );
-    const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
 
     return (
       <View style={styles.weeklyPlanSection}>
@@ -468,98 +641,103 @@ const Dietplan = ({ navigation }) => {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, width: '100%' }}>
-          <View style={styles.planHeaderRow}>
-            <View style={styles.titleRow}>
-              <Icon name="restaurant-outline" size={18} color="#e74c3c" />
-              <Text style={styles.planTitle}>AI WEEKLY DIET PLAN</Text>
+          <View style={{ paddingVertical: 16, width: '100%' }}>
+            <View style={[styles.planHeaderRow, { paddingHorizontal: 16, marginBottom: 16 }]}>
+              <View style={styles.titleRow}>
+                <Icon name="restaurant-outline" size={18} color="#e74c3c" />
+                <Text style={styles.planTitle}>AI WEEKLY DIET PLAN</Text>
+              </View>
+              <Text style={styles.planSubtitle}>Customized nutritional program for your goal</Text>
             </View>
-            <Text style={styles.planSubtitle}>Customized nutritional program for your goal</Text>
-          </View>
 
-          {/* Day Tabs Container View to wrap ScrollView on iOS */}
-          <View style={styles.dayTabsContainer}>
             <ScrollView
+              ref={weeklyPlanScrollViewRef}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dayTabsWrapper}
+              contentContainerStyle={styles.weeklyPlanScrollWrapper}
+              snapToInterval={width * 0.82 + 12}
+              decelerationRate="fast"
+              bounces={true}
+              onMomentumScrollEnd={handleWeeklyPlanScroll}
             >
               {days.map((day) => {
-                const isActive = day.toLowerCase() === selectedPlanDay.toLowerCase();
-                return (
-                  <TouchableOpacity
-                    key={day}
-                    style={[styles.dayTab, isActive && styles.activeDayTab]}
-                    onPress={() => setSelectedPlanDay(day)}
-                  >
-                    <Text style={[styles.dayTabText, isActive && styles.activeDayTabText]}>
-                      {day}
-                    </Text>
-                  </TouchableOpacity>
+                const dayDataKey = Object.keys(recommendation.weeklyPlan).find(
+                  key => key.toLowerCase() === day.toLowerCase()
                 );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* Meals for Selected Day */}
-          <View style={styles.mealsList}>
-            {meals && meals.length > 0 ? (
-              meals.map((meal, index) => {
-                let iconName = 'restaurant-outline';
-                let iconColor = '#FF7A00';
-                const typeLower = (meal.mealType || meal.type || '').toLowerCase();
-                if (typeLower.includes('breakfast')) {
-                  iconName = 'cafe-outline';
-                  iconColor = '#00E676';
-                } else if (typeLower.includes('snack')) {
-                  iconName = 'nutrition-outline';
-                  iconColor = '#7C4DFF';
-                } else if (typeLower.includes('lunch')) {
-                  iconName = 'restaurant-outline';
-                  iconColor = '#FF7A00';
-                } else if (typeLower.includes('dinner')) {
-                  iconName = 'sunny-outline';
-                  iconColor = '#FF5252';
-                }
-
+                const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
+                const totalCals = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
+                
                 return (
-                  <View key={index} style={styles.mealCard}>
-                    <View style={[styles.mealIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.03)' }]}>
-                      <Icon name={iconName} size={20} color={iconColor} />
+                  <View key={day} style={styles.dayPlanColumn}>
+                    <View style={styles.dayColumnHeader}>
+                      <Text style={styles.dayColumnTitle}>{day.toUpperCase()}</Text>
+                      <View style={styles.dayColumnBadge}>
+                        <Text style={styles.dayColumnBadgeText}>{totalCals} kcal</Text>
+                      </View>
                     </View>
-                    <View style={styles.mealDetails}>
-                      <View style={styles.mealTypeRow}>
-                        <Text style={[styles.mealTypeText, { color: iconColor }]}>
-                          {(meal.mealType || meal.type || 'Meal').toUpperCase()}
+                    
+                    <View style={styles.dayMealsList}>
+                      {meals && meals.length > 0 ? (
+                        meals.map((meal, index) => {
+                          let iconName = 'restaurant-outline';
+                          let iconColor = '#FF7A00';
+                          const typeLower = (meal.mealType || meal.type || '').toLowerCase();
+                          if (typeLower.includes('breakfast')) {
+                            iconName = 'cafe-outline';
+                            iconColor = '#00E676';
+                          } else if (typeLower.includes('snack')) {
+                            iconName = 'nutrition-outline';
+                            iconColor = '#7C4DFF';
+                          } else if (typeLower.includes('lunch')) {
+                            iconName = 'restaurant-outline';
+                            iconColor = '#FF7A00';
+                          } else if (typeLower.includes('dinner')) {
+                            iconName = 'sunny-outline';
+                            iconColor = '#FF5252';
+                          }
+
+                          return (
+                            <View key={index} style={styles.weeklyMealCard}>
+                              <View style={[styles.weeklyMealIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.03)' }]}>
+                                <Icon name={iconName} size={18} color={iconColor} />
+                              </View>
+                              <View style={styles.weeklyMealDetails}>
+                                <View style={styles.weeklyMealTypeRow}>
+                                  <Text style={[styles.weeklyMealTypeText, { color: iconColor }]}>
+                                    {(meal.mealType || meal.type || 'Meal').toUpperCase()}
+                                  </Text>
+                                  <Text style={styles.weeklyMealCaloriesText}>
+                                    {meal.calories || 0} kcal
+                                  </Text>
+                                </View>
+                                <Text style={styles.weeklyMealDescriptionText} numberOfLines={2}>
+                                  {meal.mealName || meal.name || meal.description || 'Nutritious meal'}
+                                </Text>
+                                <View style={styles.weeklyMacroBadgesRow}>
+                                  <View style={[styles.weeklyMacroBadge, { marginRight: 6 }]}>
+                                    <Text style={styles.weeklyMacroBadgeText}>P: {meal.protein || 0}g</Text>
+                                  </View>
+                                  <View style={[styles.weeklyMacroBadge, { marginRight: 6 }]}>
+                                    <Text style={styles.weeklyMacroBadgeText}>C: {meal.carbs || 0}g</Text>
+                                  </View>
+                                  <View style={[styles.weeklyMacroBadge]}>
+                                    <Text style={styles.weeklyMacroBadgeText}>F: {meal.fats || 0}g</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })
+                      ) : (
+                        <Text style={[styles.planSubtitle, { textAlign: 'center', marginVertical: 20 }]}>
+                          No meals recommended for this day.
                         </Text>
-                        <Text style={styles.mealCaloriesText}>
-                          {meal.calories || 0} kcal
-                        </Text>
-                      </View>
-                      <Text style={styles.mealDescriptionText}>
-                        {meal.mealName || meal.name || meal.description || 'Nutritious meal'}
-                      </Text>
-                      <View style={styles.macroBadgesRow}>
-                        <View style={[styles.macroBadge, { marginRight: 6 }]}>
-                          <Text style={styles.macroBadgeText}>P: {meal.protein || 0}g</Text>
-                        </View>
-                        <View style={[styles.macroBadge, { marginRight: 6 }]}>
-                          <Text style={styles.macroBadgeText}>C: {meal.carbs || 0}g</Text>
-                        </View>
-                        <View style={styles.macroBadge}>
-                          <Text style={styles.macroBadgeText}>F: {meal.fats || 0}g</Text>
-                        </View>
-                      </View>
+                      )}
                     </View>
                   </View>
                 );
-              })
-            ) : (
-              <Text style={[styles.planSubtitle, { textAlign: 'center', marginVertical: 10 }]}>
-                No meals recommended for this day.
-              </Text>
-            )}
-          </View>
+              })}
+            </ScrollView>
           </View>
         </LinearGradient>
       </View>
@@ -599,79 +777,237 @@ const Dietplan = ({ navigation }) => {
             handleTrackFood={handleTrackFood}
             handleGoToPreferences={handleGoToPreferences}
             handleGoToReminders={handleGoToReminders}
+            navigation={navigation}
           />
           <DietMacros
+            dailySummary={dailySummary}
             handleTrackWithCamera={handleTrackWithCamera}
             handlePlusButtonPress={handlePlusButtonPress}
-            dailySummary={dailySummary}
+            navigation={navigation}
           />
 
           <DietWaterWidget dailySummary={dailySummary} selectedDate={selectedDate} />
 
-          {!recommendation ? (
-            <View style={styles.weeklyPlanSection}>
-              <LinearGradient
-                colors={['#1a1c23', '#0f1013']}
-                style={styles.weeklyPlanCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40, width: '100%' }}>
-                  <ActivityIndicator size="small" color="#e74c3c" />
-                  <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>LOADING DIET PLAN...</Text>
-                  <Text style={styles.planSubtitle}>Fetching your weekly nutritional program...</Text>
-                </View>
-              </LinearGradient>
-            </View>
-          ) : (
-            isGeneratingPlan ? (
-              <View style={styles.weeklyPlanSection}>
-                <LinearGradient
-                  colors={['#1a1c23', '#0f1013']}
-                  style={styles.weeklyPlanCard}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 40, width: '100%' }}>
-                    <ActivityIndicator size="large" color="#e74c3c" />
-                    <Text style={[styles.planTitle, { marginTop: 12, marginLeft: 0 }]}>GENERATING WEEKLY DIET PLAN...</Text>
-                    <Text style={styles.planSubtitle}>This runs Gemma 3 locally and may take a moment to compute.</Text>
-                  </View>
-                </LinearGradient>
+          {/* Tracker rows matching Screenshot 1 */}
+          <View style={styles.trackerRowsContainer}>
+            {/* Weight card */}
+            <TouchableOpacity 
+              style={styles.trackerRowCard} 
+              onPress={() => navigation.navigate('WeightBodyMetrics')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.rowIconContainerGray}>
+                <MaterialCommunityIcons name="scale-bathroom" size={22} color="#000" />
               </View>
-            ) : (
-              recommendation.weeklyPlan ? renderWeeklyDietPlan() : (
-                <View style={styles.weeklyPlanSection}>
-                  <LinearGradient
-                    colors={['#1a1c23', '#0f1013']}
-                    style={styles.weeklyPlanCard}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={{ alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 30, width: '100%' }}>
-                      <Icon name="restaurant-outline" size={32} color="#e74c3c" style={{ marginBottom: 12 }} />
-                      <Text style={[styles.planTitle, { marginLeft: 0, fontSize: 14, marginBottom: 8 }]}>NO DIET PLAN GENERATED YET</Text>
-                      <Text style={[styles.planSubtitle, { textAlign: 'center', marginHorizontal: 20, marginBottom: 20, lineHeight: 18 }]}>
-                        Customize your preferences and click below to generate your weekly diet plan using AI.
-                      </Text>
-                      <TouchableOpacity
-                        style={{ backgroundColor: '#e74c3c', width: '85%', height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginTop: 10 }}
-                        onPress={handleGenerateWeeklyPlan}
-                      >
-                        <Text style={{ color: '#FFF', fontSize: 14, fontWeight: 'bold' }}>Generate Weekly Diet Plan</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </LinearGradient>
-                </View>
-              )
-            )
-          )}
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Weight</Text>
+                <Text style={styles.rowSubtitle}>
+                  {dailySummary?.summary?.weight ? `${dailySummary.summary.weight} kg` : '2 kg gained'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('WeightBodyMetrics')} style={styles.rowActionBtn}>
+                <Icon name="add" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
 
-          <DietLogs
-            trackedMealImage={trackedMealImage}
-            handleTrackFood={handleTrackFood}
-            navigation={navigation}
-          />
+            {/* Walk card */}
+            <TouchableOpacity 
+              style={styles.trackerRowCard} 
+              onPress={() => navigation.navigate('WalkDetails', { stepsToday })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.rowIconContainerBlue}>
+                <Icon name="walk" size={22} color="#FFF" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Walk</Text>
+                <Text style={styles.rowSubtitle}>
+                  {`${stepsToday.toLocaleString()} of 10,000 steps`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={reloadHealthKitData} style={styles.rowActionBtn}>
+                <Icon name="refresh-outline" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            {/* Sleep card */}
+            <TouchableOpacity 
+              style={styles.trackerRowCard} 
+              onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.rowIconContainerBlue}>
+                <Icon name="moon" size={20} color="#FFF" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Sleep</Text>
+                <Text style={styles.rowSubtitle}>
+                  {`${formatSleep(sleepHoursToday)} of 8hr`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={reloadHealthKitData} style={styles.rowActionBtn}>
+                <Icon name="refresh-outline" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            {/* Hydrate card */}
+            <TouchableOpacity 
+              style={styles.trackerRowCard} 
+              onPress={incrementHydrate}
+              activeOpacity={0.8}
+            >
+              <View style={styles.rowIconContainerBlue}>
+                <MaterialCommunityIcons name="cup-water" size={22} color="#FFF" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Hydrate</Text>
+                <Text style={styles.rowSubtitle}>
+                  {`${hydrateGlasses} of 10 glasses`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={incrementHydrate} style={styles.rowActionBtn}>
+                <Icon name="add" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+
+          {/* Up arrow indicator */}
+          <View style={styles.bottomArrowContainer}>
+            <Icon name="chevron-up" size={24} color="rgba(255, 255, 255, 0.4)" />
+          </View>
+
+          {/* Today's Logs timeline widget */}
+          <View style={styles.todayLogsContainer}>
+            <Text style={styles.todayLogsHeaderTitle}>Today's Logs</Text>
+
+            {combinedLogs.length > 0 ? (
+              combinedLogs.map((item, idx) => {
+                const formattedTime = item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                return (
+                  <View key={`log-${idx}`} style={styles.logRow}>
+                    {/* Left Column: Time */}
+                    <View style={styles.timeColumn}>
+                      <Text style={styles.timeText}>{formattedTime}</Text>
+                    </View>
+
+                    {/* Right Column: Card */}
+                    <View style={styles.cardColumn}>
+                      {item.type === 'meal' ? (
+                        item.hasLog ? (
+                          <View style={styles.mealCard}>
+                            {/* Sparkles AI Icon in Top Right */}
+                            <Icon name="sparkles" size={16} color="#FFF" style={styles.sparklesIcon} />
+
+                            {/* Avatar & Title */}
+                            <View style={styles.cardHeaderRow}>
+                              {item.photoUrl ? (
+                                <Image source={{ uri: item.photoUrl }} style={styles.creamAvatar} />
+                              ) : (
+                                <View style={styles.creamAvatar} />
+                              )}
+                              <Text style={styles.mealTypeTitle}>{item.mealType}</Text>
+                            </View>
+
+                            {/* Calories */}
+                            <Text style={styles.caloriesRow}>
+                              <Text style={styles.caloriesBold}>{item.calories}</Text>
+                              <Text style={styles.caloriesTarget}> / 937 Cal Eaten</Text>
+                            </Text>
+
+                            {/* Meal description */}
+                            <Text style={styles.mealDescriptionText}>{item.mealName}</Text>
+
+                            {/* Macros Circles */}
+                            <View style={styles.macrosCirclesRow}>
+                              {/* Protein */}
+                              <View style={styles.macroCircleCol}>
+                                <View style={styles.macroCircle}>
+                                  <Text style={styles.macroCircleVal}>{Math.round(item.protein)}</Text>
+                                </View>
+                                <Text style={styles.macroCircleLabel}>PROTEIN</Text>
+                                <Text style={styles.macroCircleGram}>{item.protein.toFixed(1)} g</Text>
+                              </View>
+
+                              {/* Fats */}
+                              <View style={styles.macroCircleCol}>
+                                <View style={styles.macroCircle}>
+                                  <Text style={styles.macroCircleVal}>{Math.round(item.fats)}</Text>
+                                </View>
+                                <Text style={styles.macroCircleLabel}>FATS</Text>
+                                <Text style={styles.macroCircleGram}>{item.fats.toFixed(1)} g</Text>
+                              </View>
+
+                              {/* Carbs */}
+                              <View style={styles.macroCircleCol}>
+                                <View style={styles.macroCircle}>
+                                  <Text style={styles.macroCircleVal}>{Math.round(item.carbs)}</Text>
+                                </View>
+                                <Text style={styles.macroCircleLabel}>CARBS</Text>
+                                <Text style={styles.macroCircleGram}>{item.carbs.toFixed(1)} g</Text>
+                              </View>
+
+                              {/* Fibre */}
+                              <View style={styles.macroCircleCol}>
+                                <View style={styles.macroCircle}>
+                                  <Text style={styles.macroCircleVal}>{Math.round(item.fibre)}</Text>
+                                </View>
+                                <Text style={styles.macroCircleLabel}>FIBRE</Text>
+                                <Text style={styles.macroCircleGram}>{item.fibre.toFixed(1)} g</Text>
+                              </View>
+                            </View>
+                          </View>
+                        ) : (
+                          <TouchableOpacity 
+                            style={styles.emptyMealCard} 
+                            onPress={() => handleSelectMeal(item.mealType)}
+                            activeOpacity={0.8}
+                          >
+                            <View style={styles.cardHeaderRow}>
+                              <View style={styles.creamAvatarEmpty} />
+                              <Text style={styles.mealTypeTitle}>{item.mealType}</Text>
+                            </View>
+                            <Text style={styles.emptyMealDescriptionText}>Not tracked yet</Text>
+                            <View style={styles.plusIconContainerEmpty}>
+                              <Icon name="add" size={16} color="#FFF" />
+                            </View>
+                          </TouchableOpacity>
+                        )
+                      ) : (
+                        // Sleep Card
+                        <TouchableOpacity 
+                          style={styles.sleepCard}
+                          onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
+                          activeOpacity={0.8}
+                        >
+                          {/* Sparkles AI Icon in Top Right */}
+                          <Icon name="sparkles" size={16} color="#50FA7B" style={styles.sparklesIcon} />
+
+                          {/* Moon Icon & Title */}
+                          <View style={styles.cardHeaderRow}>
+                            <View style={styles.moonContainer}>
+                              <Icon name="moon" size={14} color="#FFF" />
+                            </View>
+                            <Text style={styles.sleepTitle}>Sleep</Text>
+                          </View>
+
+                          {/* Sleep Duration */}
+                          <Text style={styles.caloriesRow}>
+                            <Text style={styles.caloriesBold}>{item.duration}</Text>
+                            <Text style={styles.caloriesTarget}> / {item.target}</Text>
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.centerState}>
+                <Text style={styles.stateText}>No logs found for today.</Text>
+              </View>
+            )}
+          </View>
 
         </ScrollView>
       )}
@@ -1165,6 +1501,331 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  weeklyPlanScrollWrapper: {
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+  },
+  dayPlanColumn: {
+    width: width * 0.82,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 16,
+    marginHorizontal: 6,
+    alignSelf: 'flex-start',
+  },
+  dayColumnHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    paddingBottom: 10,
+  },
+  dayColumnTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  dayColumnBadge: {
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  dayColumnBadgeText: {
+    color: '#e74c3c',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  weeklyMealCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  weeklyMealIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  weeklyMealDetails: {
+    flex: 1,
+  },
+  weeklyMealTypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weeklyMealTypeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  weeklyMealCaloriesText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '600',
+  },
+  weeklyMealDescriptionText: {
+    fontSize: 13,
+    color: '#FFF',
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  weeklyMacroBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weeklyMacroBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  weeklyMacroBadgeText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  trackerRowsContainer: {
+    paddingHorizontal: 20,
+    marginTop: 15,
+  },
+  trackerRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0c0c0f',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    height: 72,
+  },
+  rowIconContainerGray: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EAEAEA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowIconContainerBlue: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B72FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  rowTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  rowSubtitle: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  rowActionBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomArrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginTop: 10,
+  },
+  todayLogsContainer: {
+    paddingHorizontal: 20,
+    marginTop: 25,
+    paddingBottom: 40,
+  },
+  todayLogsHeaderTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  logRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  timeColumn: {
+    width: 75,
+    paddingTop: 16,
+  },
+  timeText: {
+    color: '#888',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cardColumn: {
+    flex: 1,
+  },
+  mealCard: {
+    backgroundColor: '#0c0c0f',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+    position: 'relative',
+  },
+  sleepCard: {
+    backgroundColor: '#0c0c0f',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+    position: 'relative',
+  },
+  sparklesIcon: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  creamAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF6EE',
+  },
+  moonContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#3B72FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mealTypeTitle: {
+    color: '#BD93F9',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 12,
+  },
+  sleepTitle: {
+    color: '#3B72FF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 12,
+  },
+  caloriesRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  caloriesBold: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  caloriesTarget: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  mealDescriptionText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 20,
+  },
+  macrosCirclesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  macroCircleCol: {
+    alignItems: 'center',
+    width: '23%',
+  },
+  macroCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  macroCircleVal: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  macroCircleLabel: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  macroCircleGram: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  emptyMealCard: {
+    backgroundColor: '#050505',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderStyle: 'dashed',
+    padding: 20,
+    position: 'relative',
+  },
+  creamAvatarEmpty: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  emptyMealDescriptionText: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  plusIconContainerEmpty: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

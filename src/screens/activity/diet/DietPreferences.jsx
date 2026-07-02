@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,6 +21,7 @@ const { width } = Dimensions.get('window');
 const DietPreferences = ({ navigation }) => {
   const [preference, setPreference] = useState('Selective Non-Veg');
   const [skipDays, setSkipDays] = useState(['Monday']);
+  const [nonVegDays, setNonVegDays] = useState(['Wednesday', 'Sunday']);
   const [selectedMeals, setSelectedMeals] = useState(['Lunch', 'Dinner']);
   const [selectedAllergies, setSelectedAllergies] = useState(['No Known Allergies']);
   const [selectedCuisines, setSelectedCuisines] = useState(['USA Food']);
@@ -31,11 +33,12 @@ const DietPreferences = ({ navigation }) => {
   // Sub-screen toggles
   const [showPreferenceSelect, setShowPreferenceSelect] = useState(false);
   const [showSkipDaysSelect, setShowSkipDaysSelect] = useState(false);
+  const [showNonVegDaysSelect, setShowNonVegDaysSelect] = useState(false);
   const [showAllergiesSelect, setShowAllergiesSelect] = useState(false);
   const [showCuisinesSelect, setShowCuisinesSelect] = useState(false);
   const [showAvoidSelect, setShowAvoidSelect] = useState(false);
   const [showCuisineFrequencySelect, setShowCuisineFrequencySelect] = useState(false);
-  const [showFinalCheck, setShowFinalCheck] = useState(false);
+  const [showOtherInfoSelect, setShowOtherInfoSelect] = useState(false);
   const [isFlowMode, setIsFlowMode] = useState(false);
 
   // Load preferences from AsyncStorage on mount
@@ -44,6 +47,7 @@ const DietPreferences = ({ navigation }) => {
       try {
         const savedPreference = await AsyncStorage.getItem('diet_preference');
         const savedSkipDays = await AsyncStorage.getItem('diet_skip_days');
+        const savedNonVegDays = await AsyncStorage.getItem('diet_nonveg_days');
         const savedMeals = await AsyncStorage.getItem('diet_meals');
         const savedAllergies = await AsyncStorage.getItem('diet_allergies');
         const savedCuisines = await AsyncStorage.getItem('diet_cuisines');
@@ -54,6 +58,7 @@ const DietPreferences = ({ navigation }) => {
 
         if (savedPreference) setPreference(savedPreference);
         if (savedSkipDays) setSkipDays(JSON.parse(savedSkipDays));
+        if (savedNonVegDays) setNonVegDays(JSON.parse(savedNonVegDays));
         if (savedMeals) {
           try {
             setSelectedMeals(JSON.parse(savedMeals));
@@ -113,6 +118,7 @@ const DietPreferences = ({ navigation }) => {
         const payload = {
           dietPreference: preference,
           skipDays,
+          nonVegDays,
           meals: selectedMeals,
           allergies: selectedAllergies,
           cuisines: selectedCuisines,
@@ -143,7 +149,7 @@ const DietPreferences = ({ navigation }) => {
     };
 
     syncPreferences();
-  }, [preference, skipDays, selectedMeals, selectedAllergies, selectedCuisines, otherInfo, isLoaded]);
+  }, [preference, skipDays, nonVegDays, selectedMeals, selectedAllergies, selectedCuisines, otherInfo, isLoaded]);
 
   const preferencesOptions = [
     {
@@ -245,12 +251,55 @@ const DietPreferences = ({ navigation }) => {
     setPreference(title);
     setShowPreferenceSelect(false);
     if (isFlowMode) {
-      setShowSkipDaysSelect(true);
+      if (title === 'Selective Non-Veg' || title === 'No Restriction') {
+        setShowNonVegDaysSelect(true);
+      } else {
+        setShowSkipDaysSelect(true);
+      }
     }
     try {
       await AsyncStorage.setItem('diet_preference', title);
     } catch (err) {
       console.error('Failed to save preference:', err);
+    }
+  };
+
+  const handleToggleNonVegDay = async (dayTitle) => {
+    let updatedNonVegDays = [...nonVegDays];
+    if (dayTitle === 'No Fixed Days') {
+      updatedNonVegDays = ['No Fixed Days'];
+    } else {
+      updatedNonVegDays = updatedNonVegDays.filter(d => d !== 'No Fixed Days');
+
+      if (updatedNonVegDays.includes(dayTitle)) {
+        updatedNonVegDays = updatedNonVegDays.filter(d => d !== dayTitle);
+        if (updatedNonVegDays.length === 0) {
+          updatedNonVegDays = ['No Fixed Days'];
+        }
+      } else {
+        updatedNonVegDays.push(dayTitle);
+      }
+    }
+    setNonVegDays(updatedNonVegDays);
+
+    // Calculate skipDays (vegetarian days) as the complement of non-veg days
+    let updatedSkipDays = [];
+    if (updatedNonVegDays.includes('No Fixed Days')) {
+      updatedSkipDays = ['No Fixed Days'];
+    } else {
+      const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      updatedSkipDays = allDays.filter(day => !updatedNonVegDays.includes(day));
+      if (updatedSkipDays.length === 0) {
+        updatedSkipDays = ['No Fixed Days'];
+      }
+    }
+    setSkipDays(updatedSkipDays);
+
+    try {
+      await AsyncStorage.setItem('diet_nonveg_days', JSON.stringify(updatedNonVegDays));
+      await AsyncStorage.setItem('diet_skip_days', JSON.stringify(updatedSkipDays));
+    } catch (err) {
+      console.error('Failed to save non veg / skip days:', err);
     }
   };
 
@@ -260,7 +309,7 @@ const DietPreferences = ({ navigation }) => {
       updatedDays = ['No Fixed Days'];
     } else {
       updatedDays = updatedDays.filter(d => d !== 'No Fixed Days');
-      
+
       if (updatedDays.includes(dayTitle)) {
         updatedDays = updatedDays.filter(d => d !== dayTitle);
         if (updatedDays.length === 0) {
@@ -299,7 +348,7 @@ const DietPreferences = ({ navigation }) => {
       updatedAllergies = ['No Known Allergies'];
     } else {
       updatedAllergies = updatedAllergies.filter(a => a !== 'No Known Allergies');
-      
+
       if (updatedAllergies.includes(allergyTitle)) {
         updatedAllergies = updatedAllergies.filter(a => a !== allergyTitle);
         if (updatedAllergies.length === 0) {
@@ -370,17 +419,26 @@ const DietPreferences = ({ navigation }) => {
     }
   };
 
+  const handleChangeOtherInfo = async (text) => {
+    setOtherInfo(text);
+    try {
+      await AsyncStorage.setItem('diet_other_info', text);
+    } catch (err) {
+      console.error('Failed to save other info:', err);
+    }
+  };
+
   // RENDER SELECTOR VIEW (Grid of Dietary Preferences)
   if (showPreferenceSelect) {
     return (
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowPreferenceSelect(false);
               setIsFlowMode(false);
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -429,7 +487,7 @@ const DietPreferences = ({ navigation }) => {
                         resizeMode="cover"
                       />
                     ) : null}
-                    
+
                     {/* Radio circle in top right */}
                     <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
                       {isSelected && <View style={styles.radioDot} />}
@@ -452,13 +510,90 @@ const DietPreferences = ({ navigation }) => {
     );
   }
 
+  // RENDER NON-VEG DAYS SELECT VIEW (Non-Veg Days Selection)
+  if (showNonVegDaysSelect) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {/* Transparent header with back button */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => {
+              setShowNonVegDaysSelect(false);
+              if (isFlowMode) {
+                setShowPreferenceSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }}
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
+            <Icon name="chevron-back" size={20} color="#FFF" />
+          </TouchableOpacity>
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {isFlowMode ? (
+            <TouchableOpacity onPress={() => { setShowNonVegDaysSelect(false); setShowAllergiesSelect(true); }}>
+              <Text style={styles.skipBtnText}>Next</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitle}>Which days do you prefer non-veg meals?</Text>
+
+          {daysOptions.map((opt) => {
+            const isSelected = nonVegDays.includes(opt.title);
+            return (
+              <TouchableOpacity
+                key={opt.title}
+                style={[styles.dayCard, isSelected && styles.dayCardSelected]}
+                onPress={() => handleToggleNonVegDay(opt.title)}
+                activeOpacity={0.8}
+              >
+                {/* Left side: image */}
+                {opt.image ? (
+                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
+                ) : (
+                  <View style={styles.dayCardLeft} />
+                )}
+
+                {/* Middle: Title & Subtext */}
+                <View style={styles.dayCardMiddle}>
+                  <Text style={styles.dayCardTitle}>{opt.title}</Text>
+                  {opt.desc ? <Text style={styles.dayCardDesc}>{opt.desc}</Text> : null}
+                </View>
+
+                {/* Right side: Checkbox */}
+                <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                  {isSelected && <Icon name="checkmark" size={14} color="#000" />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   // RENDER SKIP DAYS SELECT VIEW (Vegetarian Days Selection)
   if (showSkipDaysSelect) {
     return (
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowSkipDaysSelect(false);
               if (isFlowMode) {
@@ -466,7 +601,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -538,7 +673,7 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowAllergiesSelect(false);
               if (isFlowMode) {
@@ -546,7 +681,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -615,7 +750,7 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button and Skip */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowAvoidSelect(false);
               if (isFlowMode) {
@@ -623,7 +758,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={styles.backBtnRound}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -646,7 +781,12 @@ const DietPreferences = ({ navigation }) => {
               <View style={styles.progressSegment} />
             </View>
           )}
-          <TouchableOpacity onPress={() => { setShowAvoidSelect(false); setShowFinalCheck(true); }}>
+          <TouchableOpacity
+            onPress={() => {
+              setShowAvoidSelect(false);
+              setShowCuisineFrequencySelect(true);
+            }}
+          >
             <Text style={styles.skipBtnText}>{isFlowMode ? 'Next' : 'Skip'}</Text>
           </TouchableOpacity>
         </View>
@@ -696,13 +836,23 @@ const DietPreferences = ({ navigation }) => {
     );
   }
 
-  // RENDER FINAL CHECK VIEW (Step 7)
-  if (showFinalCheck) {
+  // RENDER CUISINE FREQUENCY SELECT VIEW
+  if (showCuisineFrequencySelect) {
     return (
       <SafeAreaView style={styles.container}>
-        {/* Transparent header with back button and Done */}
+        {/* Transparent header with back button and Next/Skip */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => { setShowFinalCheck(false); setShowAvoidSelect(true); }} style={styles.backBtnRound}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowCuisineFrequencySelect(false);
+              if (isFlowMode) {
+                setShowAvoidSelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
             <Icon name="chevron-back" size={20} color="#FFF" />
           </TouchableOpacity>
           {isFlowMode ? (
@@ -713,56 +863,181 @@ const DietPreferences = ({ navigation }) => {
               <View style={styles.progressSegment} />
               <View style={styles.progressSegment} />
               <View style={styles.progressSegmentActive} />
+              <View style={styles.progressSegment} />
             </View>
           ) : (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressSegment} />
-              <View style={styles.progressSegment} />
-              <View style={styles.progressSegmentActive} />
-              <View style={styles.progressSegment} />
-              <View style={styles.progressSegment} />
-            </View>
+            <View style={styles.headerSpacer} />
           )}
           <TouchableOpacity 
-            onPress={async () => {
-              setShowFinalCheck(false);
-              setIsFlowMode(false);
-              try {
-                await AsyncStorage.setItem('diet_flow_completed', 'true');
-              } catch (err) {
-                console.error('Failed to save flow completion flag:', err);
+            onPress={() => {
+              setShowCuisineFrequencySelect(false);
+              if (isFlowMode) {
+                setShowOtherInfoSelect(true);
+              } else {
+                setIsFlowMode(false);
               }
             }}
           >
-            <Text style={styles.doneBtnText}>Done</Text>
+            <Text style={styles.skipBtnText}>{isFlowMode ? 'Next' : 'Skip'}</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.finalCheckScrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.listTitleCenter}>Final Check — Almost{"\n"}Done!</Text>
+        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitle}>How often would you like{"\n"}to eat these cuisines?</Text>
 
-          {/* Gourmet Cloche Dome Image */}
-          <View style={styles.finalImageContainer}>
-            <Image 
-              source={require("../../../assets/image/Gordon Ramsay's Hell's Kitchen Needs Gordon___ 1.png")} 
-              style={styles.finalImage}
-              resizeMode="cover"
+          {cuisineFrequencyOptions.map((opt) => {
+            const currentVal = cuisineFrequency[opt.title];
+            const isSometimes = currentVal === 'Sometimes';
+            const isOften = currentVal === 'Often';
+
+            return (
+              <TouchableOpacity
+                key={opt.title}
+                style={[
+                  styles.dayCard, 
+                  (isSometimes || isOften) && styles.dayCardSelected,
+                  { height: 80 }
+                ]}
+                activeOpacity={0.9}
+              >
+                {/* Left side: image */}
+                {opt.image ? (
+                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
+                ) : (
+                  <View style={styles.dayCardLeft} />
+                )}
+
+                {/* Middle: Title */}
+                <View style={styles.dayCardMiddle}>
+                  <Text style={styles.dayCardTitle}>{opt.title}</Text>
+                </View>
+
+                {/* Right side: Sometimes/Often Buttons in a Column */}
+                <View style={styles.freqButtonsContainer}>
+                  {/* Sometimes Button */}
+                  <TouchableOpacity
+                    style={[styles.freqButtonSometimes, isSometimes && styles.freqButtonSometimesSelected]}
+                    onPress={() => handleSelectCuisineFrequency(opt.title, 'Sometimes')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.freqButtonTextSometimes, isSometimes && styles.freqButtonTextSometimesSelected]}>
+                      Sometimes
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Often Button */}
+                  <TouchableOpacity
+                    style={[styles.freqButtonOften, isOften && styles.freqButtonOftenSelected]}
+                    onPress={() => handleSelectCuisineFrequency(opt.title, 'Often')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.freqButtonTextOften, isOften && styles.freqButtonTextOftenSelected]}>
+                      Often
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // RENDER OTHER INFO SELECT VIEW (Step 7)
+  if (showOtherInfoSelect) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {/* Transparent header with back button and Next/Skip */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => {
+              setShowOtherInfoSelect(false);
+              if (isFlowMode) {
+                setShowCuisineFrequencySelect(true);
+              } else {
+                setIsFlowMode(false);
+              }
+            }} 
+            style={isFlowMode ? styles.backBtnRound : styles.backBtn}
+          >
+            <Icon name="chevron-back" size={20} color="#FFF" />
+          </TouchableOpacity>
+          {isFlowMode ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegment} />
+              <View style={styles.progressSegmentActive} />
+            </View>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          <TouchableOpacity 
+            onPress={() => {
+              setShowOtherInfoSelect(false);
+              if (isFlowMode) {
+                navigation.navigate('AlmostDone', {
+                  preference,
+                  selectedAllergies,
+                  avoidedFoods,
+                });
+              } else {
+                setIsFlowMode(false);
+              }
+            }}
+          >
+            <Text style={styles.skipBtnText}>{isFlowMode ? 'Done' : 'Skip'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitle}>Do you have other{"\n"}information we ought{"\n"}to know?</Text>
+          <Text style={styles.listSubtitle}>Provide any extra preferences or concerns you'd like us to note.</Text>
+
+          {/* Custom Card-like Text Input Field */}
+          <View style={styles.otherInputCard}>
+            <TextInput
+              style={styles.otherTextInput}
+              value={otherInfo}
+              onChangeText={handleChangeOtherInfo}
+              placeholder="Enter details..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              multiline
             />
-          </View>
-
-          {/* Bottom text description block matching the mockup exactly */}
-          <View style={styles.finalTextContainer}>
-            <Text style={styles.finalDescText}>
-              Lose 5 kg in 4 weeks with steady, sustainable progress. Every step forward matters.
-            </Text>
-            <Text style={styles.finalCalorieText}>
-              Daily calorie range: 3698–3798 Cal.
-            </Text>
-            <Text style={styles.finalSubText}>
-              Based on your unique goals and activity level.
-            </Text>
+            {otherInfo.length > 0 && (
+              <TouchableOpacity onPress={() => handleChangeOtherInfo('')} style={styles.clearInputBtn}>
+                <Icon name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
+
+        {/* Bottom Looks Good/Next Button */}
+        <View style={styles.otherBottomWrapper}>
+          <TouchableOpacity 
+            style={styles.nextBtnContainer} 
+            onPress={() => {
+              setShowOtherInfoSelect(false);
+              if (isFlowMode) {
+                navigation.navigate('AlmostDone', {
+                  preference,
+                  selectedAllergies,
+                  avoidedFoods,
+                });
+              } else {
+                setIsFlowMode(false);
+              }
+            }}
+          >
+            <View style={{ width: 16 }} />
+            <Text style={styles.nextBtnText}>Next</Text>
+            <Icon name="chevron-forward" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -773,7 +1048,7 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowCuisinesSelect(false);
               if (isFlowMode) {
@@ -781,7 +1056,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -923,23 +1198,42 @@ const DietPreferences = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Skip Non-veg Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowSkipDaysSelect(true); }} activeOpacity={0.9}>
-          <View style={styles.avatarOverlap}>
-            <View style={styles.avatarInner}>
-              <MaterialCommunityIcons name="calendar-blank" size={20} color="#FFF" />
+        {/* Days selection card based on preference */}
+        {preference === 'Selective Non-Veg' || preference === 'No Restriction' ? (
+          <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowNonVegDaysSelect(true); }} activeOpacity={0.9}>
+            <View style={styles.avatarOverlap}>
+              <View style={styles.avatarInner}>
+                <MaterialCommunityIcons name="calendar-blank" size={20} color="#FFF" />
+              </View>
             </View>
-          </View>
-          <View style={styles.cardContent}>
-            <View style={styles.textWrapper}>
-              <Text style={styles.cardLabel}>Skip Non-veg</Text>
-              <Text style={styles.cardValue}>
-                {skipDays.length > 0 ? skipDays.join(', ') : 'No Fixed Days'}
-              </Text>
+            <View style={styles.cardContent}>
+              <View style={styles.textWrapper}>
+                <Text style={styles.cardLabel}>Non-Veg Days</Text>
+                <Text style={styles.cardValue}>
+                  {nonVegDays.length > 0 ? nonVegDays.join(', ') : 'No Fixed Days'}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
             </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowSkipDaysSelect(true); }} activeOpacity={0.9}>
+            <View style={styles.avatarOverlap}>
+              <View style={styles.avatarInner}>
+                <MaterialCommunityIcons name="calendar-blank" size={20} color="#FFF" />
+              </View>
+            </View>
+            <View style={styles.cardContent}>
+              <View style={styles.textWrapper}>
+                <Text style={styles.cardLabel}>Skip Non-veg</Text>
+                <Text style={styles.cardValue}>
+                  {skipDays.length > 0 ? skipDays.join(', ') : 'No Fixed Days'}
+                </Text>
+              </View>
+              <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+            </View>
+          </TouchableOpacity>
+        )}
 
 
         {/* Allergies Card */}
@@ -997,10 +1291,34 @@ const DietPreferences = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Other Info Card */}
+        {/* Cuisine Frequency Card */}
         <TouchableOpacity 
           style={styles.cardContainer} 
-          onPress={() => Alert.alert('Other Info', 'Add custom instructions in onboarding.')} 
+          onPress={() => { setIsFlowMode(false); setShowCuisineFrequencySelect(true); }} 
+          activeOpacity={0.9}
+        >
+          <View style={styles.avatarOverlap}>
+            <View style={styles.avatarInner}>
+              <Icon name="restaurant-outline" size={18} color="#FFF" />
+            </View>
+          </View>
+          <View style={styles.cardContent}>
+            <View style={styles.textWrapper}>
+              <Text style={styles.cardLabel}>Cuisine Frequency</Text>
+              <Text style={styles.cardValue}>
+                {Object.keys(cuisineFrequency).length > 0 
+                  ? Object.entries(cuisineFrequency).map(([c, f]) => `${c} (${f})`).join(', ') 
+                  : 'None Set'}
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.4)" />
+          </View>
+        </TouchableOpacity>
+
+        {/* Other Info Card */}
+        <TouchableOpacity
+          style={styles.cardContainer}
+          onPress={() => Alert.alert('Other Info', 'Add custom instructions in onboarding.')}
           activeOpacity={0.9}
         >
           <View style={styles.avatarOverlap}>
@@ -1600,50 +1918,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  finalCheckScrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
-  finalImageContainer: {
-    width: width - 48,
-    height: 300,
-    borderRadius: 24,
-    overflow: 'hidden',
+  listSubtitle: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: -20,
     marginBottom: 30,
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
+    paddingHorizontal: 24,
+  },
+  otherInputCard: {
+    width: '100%',
+    minHeight: 120,
+    backgroundColor: '#0a0a0d',
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    position: 'relative',
+    flexDirection: 'row',
   },
-  finalImage: {
-    width: '100%',
-    height: '100%',
+  otherTextInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlignVertical: 'top',
+    paddingRight: 24,
   },
-  finalTextContainer: {
+  clearInputBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+  },
+  otherBottomWrapper: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    backgroundColor: '#000',
+  },
+  nextBtnContainer: {
     width: '100%',
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: '#050505',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 24,
   },
-  finalDescText: {
+  nextBtnText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  finalCalorieText: {
-    color: '#00E676',
-    fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  finalSubText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
-    textAlign: 'center',
   },
 });
 
 export default DietPreferences;
+// force reload metro cache

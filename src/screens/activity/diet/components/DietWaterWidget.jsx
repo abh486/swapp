@@ -3,16 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
- 
+
 const DietWaterWidget = ({ selectedDate }) => {
-  const [waterVolume, setWaterVolume] = useState(0.0);
+  const [waterVolume, setWaterVolume] = useState(0.9);
   const [selectedIncrement, setSelectedIncrement] = useState(0.2);
-  const targetVolume = 4.0;
- 
+  const targetVolume = 1.2; // 0.9L is 75% of 1.2L
+
   const dateKey = selectedDate 
     ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
     : new Date().toISOString().split('T')[0];
- 
+
   // Load water volume for the selected date on mount / date change
   useEffect(() => {
     const loadWaterVolume = async () => {
@@ -21,16 +21,16 @@ const DietWaterWidget = ({ selectedDate }) => {
         if (savedVal !== null) {
           setWaterVolume(parseFloat(savedVal));
         } else {
-          setWaterVolume(0.0);
+          setWaterVolume(0.9); // default to mockup value
         }
       } catch (err) {
         console.error('Failed to load water volume:', err);
-        setWaterVolume(0.0);
+        setWaterVolume(0.9);
       }
     };
     loadWaterVolume();
   }, [dateKey]);
- 
+
   const handleAddWater = async () => {
     const newVal = Math.min(8.0, waterVolume + selectedIncrement);
     setWaterVolume(newVal);
@@ -40,7 +40,7 @@ const DietWaterWidget = ({ selectedDate }) => {
       console.error('Failed to save water volume:', err);
     }
   };
- 
+
   const handleSubtractWater = async () => {
     const newVal = Math.max(0.0, waterVolume - selectedIncrement);
     setWaterVolume(newVal);
@@ -50,56 +50,62 @@ const DietWaterWidget = ({ selectedDate }) => {
       console.error('Failed to save water volume:', err);
     }
   };
- 
+
   const percent = Math.round((waterVolume / targetVolume) * 100);
-  const totalDrops = 8;
+  const totalDrops = 7;
   const activeDropsCount = Math.min(totalDrops, Math.round((waterVolume / targetVolume) * totalDrops));
- 
+
   return (
     <View style={styles.container}>
-      <View style={styles.waterWidget}>
-        <View style={styles.waterInfo}>
-          <View style={styles.waterTitleRow}>
-            <Text style={styles.waterTitle}>Water </Text>
-            <Text style={styles.waterAmount}>{waterVolume.toFixed(1)}L </Text>
-            <Text style={styles.waterPercent}>({percent}%)</Text>
-          </View>
-          <Text style={styles.waterSubtitle}>Daily Goal: {targetVolume.toFixed(1)}L</Text>
+      {/* Left side info block */}
+      <View style={styles.leftBlock}>
+        <View style={styles.titleRow}>
+          <Text style={styles.waterBlueTitle}>Water </Text>
+          <Text style={styles.waterWhiteValue}>{waterVolume.toFixed(1)}L </Text>
+          <Text style={styles.waterWhitePercent}>({percent}%)</Text>
+        </View>
+        <Text style={styles.subtext}>Recomended until now 1.4L</Text>
+
+        {/* Drops row */}
+        <View style={styles.dropsRow}>
+          {Array.from({ length: totalDrops }).map((_, idx) => (
+            <MaterialCommunityIcons 
+              key={idx} 
+              name="water" 
+              size={18} 
+              color={idx < activeDropsCount ? '#3B72FF' : '#FFFFFF'} 
+              style={{ marginRight: 6 }}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Right side controls block */}
+      <View style={styles.rightBlock}>
+        {/* Minus button */}
+        <TouchableOpacity style={styles.circleBtn} onPress={handleSubtractWater} activeOpacity={0.7}>
+          <Icon name="remove" size={18} color="#FFF" />
+        </TouchableOpacity>
+
+        {/* Vertical options list */}
+        <View style={styles.verticalOptions}>
+          <TouchableOpacity onPress={() => setSelectedIncrement(0.1)} style={styles.optBtn}>
+            <Text style={selectedIncrement === 0.1 ? styles.optTextActive : styles.optTextInactive}>0.1L</Text>
+          </TouchableOpacity>
           
-          <View style={styles.dropsRow}>
-            {Array.from({ length: totalDrops }).map((_, idx) => (
-              <MaterialCommunityIcons 
-                key={idx} 
-                name="water" 
-                size={16} 
-                color={idx < activeDropsCount ? '#4C84FF' : 'rgba(255, 255, 255, 0.15)'} 
-                style={{ marginHorizontal: 2, marginVertical: 2 }}
-              />
-            ))}
-          </View>
-        </View>
- 
-        <View style={styles.waterControls}>
-          <TouchableOpacity style={styles.waterBtn} onPress={handleSubtractWater} activeOpacity={0.7}>
-            <Icon name="remove" size={16} color="#4C84FF" />
+          <TouchableOpacity onPress={() => setSelectedIncrement(0.2)} style={styles.optBtn}>
+            <Text style={selectedIncrement === 0.2 ? styles.optTextActive : styles.optTextInactive}>0.2L</Text>
           </TouchableOpacity>
- 
-          <View style={styles.waterOptions}>
-            <TouchableOpacity onPress={() => setSelectedIncrement(0.1)}>
-              <Text style={selectedIncrement === 0.1 ? styles.waterOptionActive : styles.waterOptionInactive}>0.1L</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSelectedIncrement(0.2)}>
-              <Text style={selectedIncrement === 0.2 ? styles.waterOptionActive : styles.waterOptionInactive}>0.2L</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSelectedIncrement(0.3)}>
-              <Text style={selectedIncrement === 0.3 ? styles.waterOptionActive : styles.waterOptionInactive}>0.3L</Text>
-            </TouchableOpacity>
-          </View>
- 
-          <TouchableOpacity style={styles.waterBtn} onPress={handleAddWater} activeOpacity={0.7}>
-            <Icon name="add" size={16} color="#4C84FF" />
+          
+          <TouchableOpacity onPress={() => setSelectedIncrement(0.3)} style={styles.optBtn}>
+            <Text style={selectedIncrement === 0.3 ? styles.optTextActive : styles.optTextInactive}>0.3L</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Plus button */}
+        <TouchableOpacity style={styles.circleBtn} onPress={handleAddWater} activeOpacity={0.7}>
+          <Icon name="add" size={18} color="#FFF" />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -107,85 +113,77 @@ const DietWaterWidget = ({ selectedDate }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    marginVertical: 10,
-  },
-  waterWidget: {
-    backgroundColor: '#111115',
-    borderRadius: 24,
-    padding: 18,
-    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: '#000',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  waterInfo: {
+  leftBlock: {
     flex: 1,
   },
-  waterTitleRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 4,
   },
-  waterTitle: {
-    color: '#4C84FF',
-    fontSize: 16,
+  waterBlueTitle: {
+    color: '#3B72FF',
+    fontSize: 22,
     fontWeight: 'bold',
   },
-  waterAmount: {
+  waterWhiteValue: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  waterWhitePercent: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
   },
-  waterPercent: {
+  subtext: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 11,
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  waterSubtitle: {
-    color: 'rgba(255, 255, 255, 0.3)',
-    fontSize: 10,
+    fontSize: 12,
+    marginTop: 4,
     marginBottom: 12,
-    fontWeight: '500',
   },
   dropsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    marginHorizontal: -2,
-    marginVertical: -2,
   },
-  waterControls: {
+  rightBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 15,
+    width: 150,
+    justifyContent: 'space-between',
   },
-  waterBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(76, 132, 255, 0.15)',
+  circleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B72FF',
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  verticalOptions: {
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 70,
   },
-  waterOptions: {
-    marginHorizontal: 12,
-    alignItems: 'center',
+  optBtn: {
+    paddingVertical: 2,
   },
-  waterOptionInactive: {
-    color: 'rgba(255, 255, 255, 0.25)',
-    fontSize: 10,
-    marginVertical: 1,
-    fontWeight: '600',
-  },
-  waterOptionActive: {
+  optTextActive: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: 'bold',
-    marginVertical: 1,
+  },
+  optTextInactive: {
+    color: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 11,
   },
 });
 

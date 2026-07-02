@@ -65,6 +65,55 @@
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<key>NSPinnedDomains</key>
+		<dict>
+			<key>api.swapp.fit</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+				<key>NSPinnedLeafIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>Sih6iM9xhm0EFt5/lv9XK7UGFMkd9YkHs8W8E3+Kxlo=</string>
+					</dict>
+				</array>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=</string>
+					</dict>
+				</array>
+			</dict>
+			<key>test-api.swapp.fit</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+				<key>NSPinnedLeafIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>Sih6iM9xhm0EFt5/lv9XK7UGFMkd9YkHs8W8E3+Kxlo=</string>
+					</dict>
+				</array>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>SwappFit needs camera access to take profile pictures and gym videos.</string>
@@ -72,11 +121,11 @@
 	<string>SwappFit needs access to read your health data (like steps and active energy) to sync your workouts and track your daily activity levels.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>SwappFit needs permission to write health data to record your Swapp workouts in Apple Health.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
+	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SwappFit needs access to your location to find and display nearby gym partners and show your position on the map.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SwappFit needs access to save photos to your library.</string>

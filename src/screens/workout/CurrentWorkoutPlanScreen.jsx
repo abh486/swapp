@@ -1,6 +1,6 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Image, ScrollView, StatusBar, SafeAreaView, Platform} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Image, ScrollView, StatusBar, SafeAreaView, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -24,38 +24,38 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
     useCallback(() => {
       let isActive = true;
 
-    const fetchTemplates = async () => {
-      setLoading(true);
-      try {
-        const folders = await dispatch(getCustomWorkoutTemplates());
-        const templateFolders = Array.isArray(folders) ? folders : [];
-        const selectedFolder =
-          templateFolders.find(folder => Array.isArray(folder.workouts) && folder.workouts.length > 0) ||
-          templateFolders[0];
-        const folderWorkouts = Array.isArray(selectedFolder?.workouts)
-          ? selectedFolder.workouts
-          : [];
-        const uniqueWorkouts = Array.from(
-          new Map(folderWorkouts.map(workout => [getWorkoutKey(workout), workout])).values(),
-        );
+      const fetchTemplates = async () => {
+        setLoading(true);
+        try {
+          const folders = await dispatch(getCustomWorkoutTemplates());
+          const templateFolders = Array.isArray(folders) ? folders : [];
+          const selectedFolder =
+            templateFolders.find(folder => Array.isArray(folder.workouts) && folder.workouts.length > 0) ||
+            templateFolders[0];
+          const folderWorkouts = Array.isArray(selectedFolder?.workouts)
+            ? selectedFolder.workouts
+            : [];
+          const uniqueWorkouts = Array.from(
+            new Map(folderWorkouts.map(workout => [getWorkoutKey(workout), workout])).values(),
+          );
 
-        if (isActive) {
-          setWorkouts(uniqueWorkouts);
-          setSelectedWorkoutIndex(0);
+          if (isActive) {
+            setWorkouts(uniqueWorkouts);
+            setSelectedWorkoutIndex(0);
+          }
+        } catch (err) {
+          console.error('Failed to fetch templates:', err);
+          if (isActive) {
+            setWorkouts([]);
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
         }
-      } catch (err) {
-        console.error('Failed to fetch templates:', err);
-        if (isActive) {
-          setWorkouts([]);
-        }
-      } finally {
-        if (isActive) {
-          setLoading(false);
-        }
-      }
-    };
+      };
 
-    fetchTemplates();
+      fetchTemplates();
 
       return () => {
         isActive = false;
@@ -130,8 +130,8 @@ const CurrentWorkoutPlanScreen = ({ navigation }) => {
     const isSelected = index === selectedWorkoutIndex;
     const exercises = Array.isArray(item.exercises)
       ? Array.from(
-          new Map(item.exercises.map(exercise => [getExerciseKey(exercise), exercise])).values(),
-        )
+        new Map(item.exercises.map(exercise => [getExerciseKey(exercise), exercise])).values(),
+      )
       : [];
 
     return (

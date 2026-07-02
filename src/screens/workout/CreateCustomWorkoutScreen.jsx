@@ -13,11 +13,25 @@ import {
   setSelectedFilters,
 } from '../../redux/actions/workoutActions';
 import LinearGradient from 'react-native-linear-gradient';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
-const swipeWidth = 240;
-const sliderWidth = 46;
+const LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
 
-// --- Main Screen: Workout Groups ---
+const LEVEL_BODY_PARTS_MAP = {
+  Beginner: ['cardio', 'neck'],
+  Intermediate: ['chest', 'back', 'shoulders', 'upper arms', 'upper legs'],
+  Advanced: ['waist', 'lower arms', 'lower legs'],
+};
+
+const OptionChip = ({ styles, title, isSelected, onSelect }) => (
+  <TouchableOpacity
+    style={[styles.chip, isSelected && styles.chipSelected]}
+    onPress={onSelect}
+    activeOpacity={0.7}>
+    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{title}</Text>
+  </TouchableOpacity>
+);
+
 const CreateCustomWorkoutScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -28,6 +42,14 @@ const CreateCustomWorkoutScreen = () => {
   const [activeFolder, setActiveFolder] = useState(null);
 
   const { equipments, muscles, loading } = useSelector(state => state.workout);
+
+  const { wp, hp, ms, sp, fs, isLandscape } = useResponsiveMetrics();
+  const responsiveStyles = createCustomWorkoutCreationStyles({ wp, hp, ms, sp, fs, isLandscape });
+
+  const [currentStep, setCurrentStep] = useState(1); // 1 = Config screen, 2 = Folders screen
+  const [selectedLevel, setSelectedLevel] = useState('Intermediate');
+  const [selectedEnv, setSelectedEnv] = useState('BASIC GYM');
+  const [selectedDuration, setSelectedDuration] = useState('45min');
 
   useEffect(() => {
     if (!equipments || equipments.length === 0) dispatch(fetchEquipments());
@@ -40,6 +62,7 @@ const CreateCustomWorkoutScreen = () => {
         const backendFolders = await dispatch(getCustomWorkoutTemplates());
         if (backendFolders && backendFolders.length > 0) {
           setFolders(backendFolders);
+          setActiveFolder(prev => prev || backendFolders[0]);
         }
       } catch (err) {
         console.error('Failed to load custom workout folders:', err);
@@ -136,19 +159,23 @@ const CreateCustomWorkoutScreen = () => {
     if (activeFolder) {
       setActiveFolder(null);
     } else {
-      navigation.goBack();
+      setCurrentStep(1);
     }
   };
 
   const handleCreateWorkoutBtn = () => {
-    if (!activeFolder && folders.length === 0) {
-      const newFolder = {
-        id: Date.now().toString(),
-        name: 'Morning',
-        workouts: [],
-      };
-      setFolders([newFolder]);
-      setActiveFolder(newFolder);
+    if (!activeFolder) {
+      if (folders.length === 0) {
+        const newFolder = {
+          id: Date.now().toString(),
+          name: 'Morning',
+          workouts: [],
+        };
+        setFolders([newFolder]);
+        setActiveFolder(newFolder);
+      } else {
+        setActiveFolder(folders[0]);
+      }
     }
     setWorkoutModalVisible(true);
   };
@@ -254,7 +281,7 @@ const CreateCustomWorkoutScreen = () => {
           workoutNameInput.trim() ||
           `WORKOUT ${targetFolder.workouts.length + 1}`,
         muscles: cleanedMuscles,
-        duration: '60 min',
+        duration: selectedDuration,
         calories: '60 kcal',
         equipment: selectedEquipment || 'All Equipement',
         exercises: formattedExercises,
@@ -285,8 +312,8 @@ const CreateCustomWorkoutScreen = () => {
 
       // Auto-navigate to FastWorkoutActive with the newly created custom workout!
       navigation.navigate('FastWorkoutActive', {
-        level: 'Custom',
-        duration: 'Custom',
+        level: selectedLevel,
+        duration: selectedDuration,
         exercises: newWorkout.exercises || [],
         workoutName: newWorkout.name,
       });
@@ -307,9 +334,9 @@ const CreateCustomWorkoutScreen = () => {
         useNativeDriver: false,
       }),
       onPanResponderRelease: (e, gesture) => {
-        if (gesture.dx > swipeWidth - sliderWidth - 20) {
+        if (gesture.dx > 240 - 46 - 20) {
           Animated.spring(pan, {
-            toValue: { x: swipeWidth - sliderWidth, y: 0 },
+            toValue: { x: 240 - 46, y: 0 },
             useNativeDriver: false,
           }).start();
           setTimeout(() => {
@@ -330,27 +357,141 @@ const CreateCustomWorkoutScreen = () => {
     }),
   ).current;
 
+  // Render Step 1: Configuration Screen
+  if (currentStep === 1) {
+    return (
+      <SafeAreaView style={responsiveStyles.container}>
+        {/* Header */}
+        <View style={responsiveStyles.header}>
+          <TouchableOpacity
+            style={responsiveStyles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 19L8 12L15 5"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+          <View style={responsiveStyles.headerPill}>
+            <Image
+              source={require('../../assets/image/threedot.png')}
+              style={responsiveStyles.lightningIcon}
+              resizeMode="contain"
+            />
+            <Text style={responsiveStyles.headerTitle}>Create a Custom Workout</Text>
+          </View>
+        </View>
+
+        {/* Card */}
+        <View style={responsiveStyles.card}>
+          <Text style={responsiveStyles.sectionLabel}>LEVEL</Text>
+          <View style={responsiveStyles.optionsRow}>
+            {['Beginner', 'Intermediate', 'Advanced'].map(level => (
+              <OptionChip
+                styles={responsiveStyles}
+                key={level}
+                title={level}
+                isSelected={selectedLevel === level}
+                onSelect={() => setSelectedLevel(level)}
+              />
+            ))}
+          </View>
+
+          <Text style={responsiveStyles.sectionLabel}>TRAINING ENVIRONMENT</Text>
+          <View style={responsiveStyles.optionsRow}>
+            {['ADVANCED GYM', 'BASIC GYM', 'AT-HOME GYM', 'ZERO EQUIPMENT', 'PERSONALISED'].map(env => (
+              <OptionChip
+                styles={responsiveStyles}
+                key={env}
+                title={env}
+                isSelected={selectedEnv === env}
+                onSelect={() => setSelectedEnv(env)}
+              />
+            ))}
+          </View>
+
+          <Text style={responsiveStyles.sectionLabel}>WORKOUT DURATION</Text>
+          <View style={responsiveStyles.optionsRow}>
+            {['30min', '45min', '50min', 'Choose Duration'].map(dur => (
+              <OptionChip
+                styles={responsiveStyles}
+                key={dur}
+                title={dur}
+                isSelected={selectedDuration === dur}
+                onSelect={() => setSelectedDuration(dur)}
+              />
+            ))}
+          </View>
+
+          {/* Proceed Button */}
+          <View style={responsiveStyles.addExerciseArea}>
+            <TouchableOpacity
+              style={responsiveStyles.proceedButton}
+              onPress={() => setCurrentStep(2)}
+              activeOpacity={0.85}
+            >
+              <Text style={responsiveStyles.proceedButtonText}>Proceed to Workout Groups</Text>
+              <Svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6 }}>
+                <Path
+                  d="M9 5L16 12L9 19"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render Step 2: Folders/Groups list Screen
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
       >
-        <View style={styles.headerPillContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 20, marginBottom: 40, gap: 10 }}>
           <TouchableOpacity
-            style={styles.createWorkoutPill}
+            onPress={handleBackPress}
             activeOpacity={0.8}
-            onPress={handleCreateWorkoutBtn}
+            style={{ padding: 4 }}
           >
-            <Image
-              source={require('../../assets/image/threedot.png')}
-              style={styles.threedotIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.createWorkoutPillText}>
-              Create a Custom Workout
-            </Text>
+            <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 19L8 12L15 5"
+                stroke="#FFFFFF"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </TouchableOpacity>
+          <View style={[styles.headerPillContainer, { marginTop: 0, marginBottom: 0, paddingHorizontal: 0 }]}>
+            <TouchableOpacity
+              style={styles.createWorkoutPill}
+              activeOpacity={0.8}
+              onPress={handleCreateWorkoutBtn}
+            >
+              <Image
+                source={require('../../assets/image/threedot.png')}
+                style={styles.threedotIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.createWorkoutPillText}>
+                Create a Custom Workout
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.groupsSection}>
@@ -484,14 +625,14 @@ const CreateCustomWorkoutScreen = () => {
                     <Text style={styles.statText}>{workout.calories}</Text>
                   </View>
 
-                  {/* FIX: Added || [] to ensure we always pass an array to FastWorkoutActive */}
+                  {/* Chevron triggers player */}
                   <TouchableOpacity
                     style={styles.workoutChevronBtn}
                     activeOpacity={0.8}
                     onPress={() =>
                       navigation.navigate('FastWorkoutActive', {
-                        level: 'Custom',
-                        duration: 'Custom',
+                        level: selectedLevel,
+                        duration: selectedDuration,
                         exercises: workout.exercises || [],
                         workoutName: workout.name,
                       })
@@ -518,18 +659,14 @@ const CreateCustomWorkoutScreen = () => {
         visible={isFolderModalVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setFolderModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : null}
-        >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Folder</Text>
+              <Text style={styles.modalTitle}>Create Folder</Text>
               <TouchableOpacity
-                onPress={() => setFolderModalVisible(false)}
                 style={styles.closeButton}
+                onPress={() => setFolderModalVisible(false)}
               >
                 <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <Path
@@ -542,17 +679,18 @@ const CreateCustomWorkoutScreen = () => {
                 </Svg>
               </TouchableOpacity>
             </View>
+
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Folder name</Text>
+              <Text style={styles.inputLabel}>FOLDER NAME</Text>
               <TextInput
                 style={styles.folderInput}
-                placeholder="e.g. Morning"
+                placeholder="Enter folder name"
                 placeholderTextColor="#555"
                 value={folderName}
                 onChangeText={setFolderName}
-                autoFocus
               />
             </View>
+
             <TouchableOpacity
               style={styles.modalCreateButton}
               onPress={handleCreateFolder}
@@ -560,10 +698,9 @@ const CreateCustomWorkoutScreen = () => {
               <Text style={styles.modalCreateButtonText}>Create Folder</Text>
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
-      {/* Equipment/Muscles Modal */}
       <Modal
         visible={isWorkoutModalVisible}
         animationType="slide"
@@ -660,62 +797,79 @@ const CreateCustomWorkoutScreen = () => {
               contentContainerStyle={styles.listContainer}
             >
               {filteredList.map((item, index) => {
-                    const isChecked = activeTab === 'Equipment'
-                      ? selectedEquipment === item
-                      : selectedMuscles.includes(item);
-                    return (
-                      <View key={index}>
-                        <TouchableOpacity
-                          style={styles.listItem}
-                          onPress={() =>
-                            activeTab === 'Equipment'
-                              ? setSelectedEquipment(item)
-                              : toggleMuscle(item)
-                          }
-                        >
-                          <View style={styles.iconCircle}>
-                            {index === 0 && (
-                              <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                <Path
-                                  d="M4 4H10V10H4V4ZM14 4H20V10H14V4ZM4 14H10V20H4V14ZM14 14H20V20H14V14Z"
-                                  stroke="#FFFFFF"
-                                  strokeWidth="2"
-                                  strokeLinejoin="round"
-                                />
-                              </Svg>
-                            )}
-                          </View>
-                          <Text style={styles.listItemText}>{item}</Text>
-                          {isChecked && (
-                            <Svg
-                              width="22"
-                              height="22"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              style={styles.checkmark}
-                            >
-                              <Path
-                                d="M5 13L9 17L19 7"
-                                stroke="#007AFF"
-                                strokeWidth="2.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </Svg>
-                          )}
-                        </TouchableOpacity>
-                        <View style={styles.itemDivider} />
+                const isChecked =
+                  activeTab === 'Equipment'
+                    ? selectedEquipment === item
+                    : selectedMuscles.includes(item);
+
+                return (
+                  <View key={index}>
+                    <TouchableOpacity
+                      style={styles.listItem}
+                      onPress={() =>
+                        activeTab === 'Equipment'
+                          ? setSelectedEquipment(item)
+                          : toggleMuscle(item)
+                      }
+                    >
+                      <View style={styles.iconCircle}>
+                        {index === 0 && (
+                          <Svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
+                            <Path
+                              d="M4 4H10V10H4V4ZM14 4H20V10H14V4ZM4 14H10V20H4V14ZM14 14H20V20H14V14Z"
+                              stroke="#FFFFFF"
+                              strokeWidth="2"
+                              strokeLinejoin="round"
+                            />
+                          </Svg>
+                        )}
                       </View>
-                    );
-                  })}
-              <View style={{ height: 120 }} />
+                      <Text style={styles.listItemText}>{item}</Text>
+                      {isChecked && (
+                        <View style={styles.checkmark}>
+                          <Svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
+                            <Path
+                              d="M20 6L9 17L4 12"
+                              stroke="#7C3AED"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </Svg>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.itemDivider} />
+                  </View>
+                );
+              })}
             </ScrollView>
           </View>
 
+          {/* Input field for workout name */}
+          <TextInput
+            style={styles.workoutNameInput}
+            placeholder="Name your workout (optional)"
+            placeholderTextColor="#555"
+            value={workoutNameInput}
+            onChangeText={setWorkoutNameInput}
+          />
+
+          {/* Swipe Button */}
           <View style={styles.floatingButtonContainer}>
-            <View style={[styles.floatingButtonBg, { width: swipeWidth }]}>
+            <View style={[styles.floatingButtonBg, { width: 240 }]}>
               <Text style={styles.floatingButtonTextBg}>
-                Create Custom Workout
+                Swipe to Save Workout
               </Text>
               <Svg
                 width="22"
@@ -753,8 +907,8 @@ const CreateCustomWorkoutScreen = () => {
                     transform: [
                       {
                         translateX: pan.x.interpolate({
-                          inputRange: [0, swipeWidth - sliderWidth],
-                          outputRange: [0, swipeWidth - sliderWidth],
+                          inputRange: [0, 240 - 46],
+                          outputRange: [0, 240 - 46],
                           extrapolate: 'clamp',
                         }),
                       },
@@ -765,12 +919,14 @@ const CreateCustomWorkoutScreen = () => {
               >
                 <View style={styles.floatingButtonIcon}>
                   {isSaving ? (
-                    <GlobalLoader size={50} />
+                    <GlobalLoader size={30} />
                   ) : (
                     <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <Path
-                        d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-                        fill="#48075F"
+                        d="M12 5V19M5 12H19"
+                        stroke="#7C3AED"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
                       />
                     </Svg>
                   )}
@@ -783,6 +939,80 @@ const CreateCustomWorkoutScreen = () => {
     </SafeAreaView>
   );
 };
+
+const createCustomWorkoutCreationStyles = ({ wp, hp, ms, sp, fs, isLandscape }) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#000000' },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: sp(18),
+      paddingTop: sp(14),
+      paddingBottom: sp(10),
+      gap: sp(10)
+    },
+    backButton: {
+      padding: sp(4),
+    },
+    headerPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#3B0764',
+      alignSelf: 'flex-start',
+      paddingRight: sp(18),
+      paddingLeft: 0,
+      borderRadius: ms(22),
+      minHeight: ms(44),
+    },
+    lightningIcon: { width: ms(32), height: ms(32), marginLeft: ms(10), marginRight: sp(6) },
+    headerTitle: { fontSize: fs(13), fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.2 },
+    card: {
+      flex: 1,
+      borderRadius: ms(44),
+      marginHorizontal: sp(10),
+      marginBottom: sp(14),
+      paddingHorizontal: sp(22),
+      paddingTop: sp(24),
+      paddingBottom: sp(20),
+      borderWidth: 1.3,
+      borderColor: 'rgba(255,255,255,0.88)',
+      backgroundColor: 'transparent',
+    },
+    sectionLabel: {
+      color: '#FFFFFF',
+      fontSize: 9.5,
+      fontWeight: '800',
+      letterSpacing: 2.2,
+      marginBottom: 10,
+    },
+    optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 18 },
+    chip: {
+      backgroundColor: '#000000',
+      paddingVertical: 8,
+      paddingHorizontal: 13,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#314057',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    chipSelected: { backgroundColor: '#48075F', borderColor: '#48075F' },
+    chipText: { color: '#AEB4C0', fontSize: 11, fontWeight: '600' },
+    chipTextSelected: { color: '#FFFFFF' },
+    addExerciseArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    proceedButton: {
+      backgroundColor: '#3B0764',
+      flexDirection: 'row',
+      height: 52,
+      borderRadius: 26,
+      paddingHorizontal: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    proceedButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 1.1 },
+  });
+
 
 // --- New Screen: Workout Editor ---
 export const WorkoutEditorScreen = ({ route }) => {
@@ -1105,6 +1335,7 @@ export const WorkoutEditorScreen = ({ route }) => {
 };
 
 // --- Styles ---
+const sliderWidth = 46;
 const styles = StyleSheet.create({
   container: {
     flex: 1,

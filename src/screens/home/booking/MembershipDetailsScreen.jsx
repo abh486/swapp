@@ -1103,7 +1103,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
 
         {!isOpenAccess && (
           <>
-            <Text style={styles.sectionKicker}>UPCOMING BOOKINGS</Text>
+            <Text style={styles.upcomingKicker}>UPCOMING BOOKINGS</Text>
             {isLoadingHistory ? (
               <View style={styles.historyLoadingRow}>
                 <ActivityIndicator color="#FFF" />
@@ -1508,6 +1508,14 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     marginBottom: sp(22),
     paddingHorizontal: sp(isTablet ? 48 : 34),
   },
+  upcomingKicker: {
+    color: '#7E7788',
+    fontSize: fs(12),
+    letterSpacing: 1.5,
+    marginTop: sp(20),
+    marginBottom: sp(12),
+    paddingHorizontal: sp(isTablet ? 48 : 34),
+  },
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1551,6 +1559,7 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: sp(28),
   },
   emptySessionText: {
     color: '#AFA7B8',

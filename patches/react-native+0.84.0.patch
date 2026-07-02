@@ -11,3 +11,40 @@ index ccc6510..1f637f1 100644
    }
  
    return nullptr;
+diff --git a/node_modules/react-native/scripts/react-native-xcode.sh b/node_modules/react-native/scripts/react-native-xcode.sh
+index 1dcdf55..8c01082 100755
+--- a/node_modules/react-native/scripts/react-native-xcode.sh
++++ b/node_modules/react-native/scripts/react-native-xcode.sh
+@@ -12,6 +12,9 @@
+ set -x -e
+ DEST="$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+ 
++# Ensure the destination directory exists
++mkdir -p "$DEST"
++
+ # Enables iOS devices to get the IP address of the machine running Metro
+ if [[ ! "$SKIP_BUNDLING_METRO_IP" && "$CONFIGURATION" = *Debug* && ! "$PLATFORM_NAME" == *simulator ]]; then
+   for num in 0 1 2 3 4 5 6 7 8; do
+diff --git a/node_modules/react-native/third-party-podspecs/replace_dependencies_version.js b/node_modules/react-native/third-party-podspecs/replace_dependencies_version.js
+index 66fa888..6b0e8ba 100644
+--- a/node_modules/react-native/third-party-podspecs/replace_dependencies_version.js
++++ b/node_modules/react-native/third-party-podspecs/replace_dependencies_version.js
+@@ -44,10 +44,16 @@ function shouldReplaceRnDepsConfiguration(configuration /*: string */) {
+ 
+   // Assumption: if there is no stored last build, we assume that it was build for debug.
+   if (!fileExists && configuration === 'Debug') {
++    const simulatorPath = 'ReactNativeDependencies/framework/packages/react-native/ReactNativeDependencies.xcframework/ios-arm64_x86_64-simulator';
++    if (fs.existsSync(simulatorPath)) {
++      console.log(
++        'No previous build detected, but Debug Configuration and simulator slice exists. No need to replace RNDeps',
++      );
++      return false;
++    }
+     console.log(
+-      'No previous build detected, but Debug Configuration. No need to replace RNDeps',
++      'No previous build detected, but simulator slice is missing. Forcing replacement of RNDeps',
+     );
+-    return false;
+   }
+ 
+   return true;
