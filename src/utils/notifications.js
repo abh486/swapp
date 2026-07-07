@@ -1,5 +1,6 @@
 import firebase from '@react-native-firebase/app';
 import apiClient from '../api/apiClient';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 
 // Safe messaging module getter
 const getMessaging = () => {
@@ -69,6 +70,33 @@ export const initNotificationListeners = () => {
   // Foreground message handler
   const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
     console.log('[FCM] Foreground message received:', remoteMessage);
+    try {
+      const { notification } = remoteMessage;
+      if (notification) {
+        // Create high importance channel for Android
+        const channelId = await notifee.createChannel({
+          id: 'default_channel',
+          name: 'Default Channel',
+          importance: AndroidImportance.HIGH,
+        });
+
+        // Display a local notification
+        await notifee.displayNotification({
+          title: notification.title,
+          body: notification.body,
+          android: {
+            channelId,
+            importance: AndroidImportance.HIGH,
+            smallIcon: 'ic_launcher',
+            pressAction: {
+              id: 'default',
+            },
+          },
+        });
+      }
+    } catch (err) {
+      console.error('[FCM] Failed to display foreground notification using Notifee:', err);
+    }
   });
 
   // Token refresh handler
