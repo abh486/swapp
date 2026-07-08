@@ -51,6 +51,7 @@ import LoginScreen from '../screens/LoginScreen';
 import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
 import AIDieticianPaywallScreen from '../screens/activity/diet/AIDieticianPaywallScreen';
 import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianSubscriptionScreen';
+import AIDietConfigScreen from '../screens/activity/diet/AIDietConfigScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
@@ -150,6 +151,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="Diet" component={Dietplan} />
                 <Stack.Screen name="Store" component={StoreComingSoon} />
                 <Stack.Screen name="WeeklyDietPlan" component={WeeklyDietPlanScreen} />
+                <Stack.Screen name="AIDietConfig" component={AIDietConfigScreen} />
                 <Stack.Screen name="HealthKitData" component={HealthKitDataScreen} />
                 <Stack.Screen name="WalkDetails" component={WalkDetailsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="SleepDetails" component={SleepDetailsScreen} options={{ headerShown: false }} />

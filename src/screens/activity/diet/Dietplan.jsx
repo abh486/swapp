@@ -636,7 +636,7 @@ const Dietplan = ({ navigation, route }) => {
     return (
       <View style={styles.weeklyPlanSection}>
         <LinearGradient
-          colors={['#1a1c23', '#0f1013']}
+          colors={['#EE822A', '#8F5D98', '#2E4D9F']}
           style={styles.weeklyPlanCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -775,9 +775,9 @@ const Dietplan = ({ navigation, route }) => {
             fetchNutritionData={fetchNutritionData}
             buildCalendarDays={buildCalendarDays}
             handleTrackFood={handleTrackFood}
-            handleGoToPreferences={handleGoToPreferences}
             handleGoToReminders={handleGoToReminders}
             navigation={navigation}
+            recommendation={recommendation}
           />
           <DietMacros
             dailySummary={dailySummary}
@@ -788,12 +788,95 @@ const Dietplan = ({ navigation, route }) => {
 
           <DietWaterWidget dailySummary={dailySummary} selectedDate={selectedDate} />
 
+          {/* ── AI Recommendation Banner ── */}
+          {(() => {
+            if (!recommendation || !recommendation.weeklyPlan) return null;
+            const dayOfWeekName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+            const weeklyPlan = recommendation.weeklyPlan || {};
+            const dayDataKey = Object.keys(weeklyPlan).find(
+              key => key.toLowerCase() === dayOfWeekName.toLowerCase()
+            );
+            const todayMeals = dayDataKey ? weeklyPlan[dayDataKey] : [];
+            if (!todayMeals || todayMeals.length === 0) return null;
+
+            // Pick next upcoming meal by rough hour
+            const hour = new Date().getHours();
+            const MEAL_HOURS = { breakfast: 7, lunch: 12, snack: 16, dinner: 19 };
+            let nextMeal = todayMeals[0];
+            for (const m of todayMeals) {
+              const type = (m.mealType || m.type || 'lunch').toLowerCase();
+              const mealHour = MEAL_HOURS[type] || 12;
+              if (mealHour >= hour) { nextMeal = m; break; }
+            }
+
+            const mealName = nextMeal.meal || nextMeal.mealName || nextMeal.name || nextMeal.description || 'Nutritious meal';
+            const mealType = (nextMeal.mealType || nextMeal.type || 'Meal');
+            const calories = nextMeal.calories || 0;
+            const protein = nextMeal.protein || 0;
+            const isFallback = recommendation.isFallback;
+
+            return (
+              <TouchableOpacity
+                style={styles.aiRecoCard}
+                onPress={() => navigation.navigate('WeeklyDietPlan', { recommendation })}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#0D2B26', '#0B1C18']}
+                  style={styles.aiRecoGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {/* Header */}
+                  <View style={styles.aiRecoHeader}>
+                    <View style={styles.aiRecoBadge}>
+                      <MaterialCommunityIcons
+                        name={isFallback ? 'file-document-outline' : 'brain'}
+                        size={12}
+                        color="#A3D9C9"
+                      />
+                      <Text style={styles.aiRecoBadgeText}>
+                        {isFallback ? "Today's Plan" : 'AI Recommendation'}
+                      </Text>
+                    </View>
+                    <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+                  </View>
+
+                  {/* Next Meal label */}
+                  <Text style={styles.aiRecoNextLabel}>
+                    NEXT · {mealType.toUpperCase()}
+                  </Text>
+                  <Text style={styles.aiRecoMealName} numberOfLines={2}>{mealName}</Text>
+
+                  {/* Stats row */}
+                  <View style={styles.aiRecoStatsRow}>
+                    <View style={styles.aiRecoStat}>
+                      <Icon name="flame-outline" size={13} color="#FF8C69" />
+                      <Text style={styles.aiRecoStatText}>{calories} kcal</Text>
+                    </View>
+                    <View style={styles.aiRecoStatDot} />
+                    <View style={styles.aiRecoStat}>
+                      <MaterialCommunityIcons name="arm-flex-outline" size={13} color="#6BCB77" />
+                      <Text style={styles.aiRecoStatText}>{protein}g protein</Text>
+                    </View>
+                  </View>
+
+                  {/* View Full Plan link */}
+                  <View style={styles.aiRecoFooter}>
+                    <Text style={styles.aiRecoFooterText}>Tap to view full 7-day plan</Text>
+                    <Icon name="arrow-forward-circle-outline" size={16} color="rgba(163, 217, 201, 0.6)" />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          })()}
+
           {/* Tracker rows matching Screenshot 1 */}
           <View style={styles.trackerRowsContainer}>
             {/* Weight card */}
             <TouchableOpacity 
               style={styles.trackerRowCard} 
-              onPress={() => navigation.navigate('WeightBodyMetrics')}
+              onPress={() => navigation.navigate('WeightTracker')}
               activeOpacity={0.8}
             >
               <View style={styles.rowIconContainerGray}>
@@ -805,7 +888,7 @@ const Dietplan = ({ navigation, route }) => {
                   {dailySummary?.summary?.weight ? `${dailySummary.summary.weight} kg` : '2 kg gained'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('WeightBodyMetrics')} style={styles.rowActionBtn}>
+              <TouchableOpacity onPress={() => navigation.navigate('WeightTracker')} style={styles.rowActionBtn}>
                 <Icon name="add" size={20} color="#FFF" />
               </TouchableOpacity>
             </TouchableOpacity>
@@ -853,7 +936,7 @@ const Dietplan = ({ navigation, route }) => {
             {/* Hydrate card */}
             <TouchableOpacity 
               style={styles.trackerRowCard} 
-              onPress={incrementHydrate}
+              onPress={() => navigation.navigate('HydrationTracker')}
               activeOpacity={0.8}
             >
               <View style={styles.rowIconContainerBlue}>
@@ -865,7 +948,27 @@ const Dietplan = ({ navigation, route }) => {
                   {`${hydrateGlasses} of 10 glasses`}
                 </Text>
               </View>
-              <TouchableOpacity onPress={incrementHydrate} style={styles.rowActionBtn}>
+              <TouchableOpacity onPress={() => navigation.navigate('HydrationTracker')} style={styles.rowActionBtn}>
+                <Icon name="add" size={20} color="#FFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            {/* Nutrition Tracker card */}
+            <TouchableOpacity 
+              style={styles.trackerRowCard} 
+              onPress={() => navigation.navigate('MacronutrientDetails', { dailySummary })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.rowIconContainerBlue}>
+                <MaterialCommunityIcons name="nutrition" size={22} color="#FFF" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Nutrition</Text>
+                <Text style={styles.rowSubtitle}>
+                  {`${dailySummary?.summary?.calories || 0} of ${dailySummary?.targets?.calories || 2000} kcal`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('MacronutrientDetails', { dailySummary })} style={styles.rowActionBtn}>
                 <Icon name="add" size={20} color="#FFF" />
               </TouchableOpacity>
             </TouchableOpacity>
@@ -1051,6 +1154,8 @@ const Dietplan = ({ navigation, route }) => {
         mealDescription={mealDescription}
         setMealDescription={setMealDescription}
         setTrackedMealImage={setTrackedMealImage}
+        selectedDate={selectedDate}
+        setSelectedImage={setSelectedImage}
       />
 
       <DietMealSelectionModal
@@ -1093,6 +1198,99 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 150,
+  },
+  aiRecoCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 217, 201, 0.15)',
+    shadowColor: '#1E8B72',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  aiRecoGradient: {
+    padding: 18,
+  },
+  aiRecoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  aiRecoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(163, 217, 201, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(163, 217, 201, 0.2)',
+  },
+  aiRecoBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#A3D9C9',
+    letterSpacing: 0.3,
+  },
+  aiRecoNextLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  aiRecoMealName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 23,
+    marginBottom: 12,
+  },
+  aiRecoStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 8,
+  },
+  aiRecoStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiRecoStatText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  aiRecoStatDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  aiRecoFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingTop: 12,
+  },
+  aiRecoFooterText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '600',
+    flex: 1,
+  },
+  scrollContentFixed: {
     paddingBottom: 150,
   },
   toggleContainer: {
@@ -1726,7 +1924,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mealTypeTitle: {
-    color: '#BD93F9',
+    color: '#EE822A',
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 12,

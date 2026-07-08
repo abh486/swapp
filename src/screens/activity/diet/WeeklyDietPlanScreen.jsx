@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -8,146 +8,655 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDispatch } from 'react-redux';
+import apiClient from '../../../api/apiClient';
+import { saveDietEntry } from '../../../redux/actions/dietActions';
 
 const { width } = Dimensions.get('window');
+
 const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Helper to get dates of the current week starting from Monday
+const getWeekDates = (baseDate) => {
+  const current = new Date(baseDate);
+  const day = current.getDay();
+  // Adjust to get Monday as index 0 (0 = Sunday, 1 = Monday, ...)
+  const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(current.setDate(diff));
+
+  const week = [];
+  for (let i = 0; i < 7; i++) {
+    const nextDay = new Date(monday);
+    nextDay.setDate(monday.getDate() + i);
+    week.push(nextDay);
+  }
+  return week;
+};
+
+const getMonthDates = (baseDate) => {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const numDays = new Date(year, month + 1, 0).getDate();
+  
+  const dates = [];
+  for (let i = 1; i <= numDays; i++) {
+    dates.push(new Date(year, month, i));
+  }
+  return dates;
+};
+
+const getDayLabel = (date) => {
+  const shortNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  return shortNames[date.getDay()];
+};
+
+// Health tips list for "Did you know?"
+const HEALTH_TIPS = [
+  "For authentic South Indian flavor, temper the upma with mustard and curry leaves while keeping oil minimal.",
+  "Drinking a glass of water 30 minutes before a meal can aid digestion and help control portion sizes.",
+  "Adding lean protein to your breakfast keeps you full longer and helps maintain muscle mass.",
+  "Include a variety of colors in your salad to ensure a diverse range of vitamins and minerals.",
+  "Prepare your meals in advance to avoid impulsive food choices during busy weekdays.",
+  "Snacking on unsalted nuts provides healthy fats and protein, keeping energy levels stable.",
+  "Steaming vegetables preserves more water-soluble vitamins compared to boiling them."
+];
+
+// Mock meal images for professional visual representation
+const FOOD_IMAGE_DICTIONARY = [
+  {
+    keywords: ['upma', 'khichdi', 'poha', 'semolina', 'suji'],
+    url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['sambar', 'rasam', 'dal', 'lentil', 'shorba', 'curry', 'gravy', 'chana', 'chole', 'rajma'],
+    url: 'https://images.unsplash.com/photo-1601050690597-df056fb49785?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['egg', 'eggs', 'muttai', 'podimas', 'scramble', 'scrambled', 'omelette', 'omelet', 'bhurji', 'boiled egg'],
+    url: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['chicken', 'murgh', 'poultry', 'turkey', 'breast'],
+    url: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['rice', 'biryani', 'pulao', 'jeera rice', 'curd rice', 'brown rice', 'white rice', 'quinoa', 'millet'],
+    url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['salad', 'green', 'veggies', 'vegetables', 'cucumber', 'tomato', 'broccoli', 'spinach', 'cabbage', 'avocado'],
+    url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['roti', 'chapati', 'phulka', 'naan', 'paratha', 'bread', 'toast', 'sandwich', 'wrap', 'tortilla'],
+    url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['fish', 'salmon', 'tuna', 'seafood', 'prawn', 'shrimp', 'crab', 'cod', 'mackerel'],
+    url: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['steak', 'beef', 'mutton', 'lamb', 'pork', 'meat', 'venison', 'veal', 'tenderloin', 'kebab'],
+    url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['oats', 'oatmeal', 'porridge', 'muesli', 'cereal', 'granola'],
+    url: 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['smoothie', 'shake', 'juice', 'beverage', 'drink', 'coconut water', 'lassi', 'milkshake'],
+    url: 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['paneer', 'cottage cheese', 'tofu', 'tempeh', 'soy', 'soya'],
+    url: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['yogurt', 'curd', 'dahi', 'raita', 'greek yogurt'],
+    url: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['fruit', 'banana', 'apple', 'orange', 'grape', 'berries', 'berry', 'papaya', 'mango', 'peach', 'watermelon', 'melon'],
+    url: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['nuts', 'almond', 'walnut', 'peanut', 'cashew', 'seeds', 'chia', 'flax', 'pumpkin seeds', 'sunflower seeds'],
+    url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['soup', 'broth', 'stew', 'minestrone', 'chowder'],
+    url: 'https://images.unsplash.com/photo-1547592165-e1d17f1a0655?w=200&auto=format&fit=crop&q=80'
+  },
+  {
+    keywords: ['idli', 'dosa', 'uttapam', 'dhokla', 'medu vada'],
+    url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80'
+  }
+];
+
+const MEAL_FALLBACK_IMAGES = {
+  breakfast: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200&auto=format&fit=crop&q=80',
+  lunch: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
+  dinner: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=200&auto=format&fit=crop&q=80',
+  snack: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=200&auto=format&fit=crop&q=80',
+  default: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=200&auto=format&fit=crop&q=80'
+};
+
+const getFoodImage = (foodName, mealTypeKey) => {
+  if (!foodName) return MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
+  const normalized = foodName.toLowerCase();
+  for (const entry of FOOD_IMAGE_DICTIONARY) {
+    if (entry.keywords.some(kw => normalized.includes(kw))) {
+      return entry.url;
+    }
+  }
+  return MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
+};
+
+// Meal time presets
+const MEAL_TIMES = {
+  breakfast: '9:30 AM',
+  lunch: '1:30 PM',
+  dinner: '8:30 PM',
+  snack: '5:00 PM',
+  default: '12:00 PM'
+};
 
 const WeeklyDietPlanScreen = ({ navigation, route }) => {
   const { recommendation } = route.params || {};
-  const weeklyPlanScrollViewRef = useRef(null);
+  const dispatch = useDispatch();
+  
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentRecommendation, setCurrentRecommendation] = useState(recommendation || null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [likedMeals, setLikedMeals] = useState({});
 
-  if (!recommendation || !recommendation.weeklyPlan) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#050505" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>WEEKLY DIET PLAN</Text>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Icon name="restaurant-outline" size={48} color="#e74c3c" />
-          <Text style={styles.emptyText}>No diet plan data available.</Text>
-        </View>
-      </SafeAreaView>
+  const handlePrevWeek = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 7);
+    setSelectedDate(newDate);
+  };
+
+  const handleNextWeek = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 7);
+    setSelectedDate(newDate);
+  };
+
+  const calendarScrollViewRef = useRef(null);
+
+  useEffect(() => {
+    const monthDates = getMonthDates(selectedDate);
+    const activeIdx = monthDates.findIndex(d => d.toDateString() === selectedDate.toDateString());
+    if (activeIdx !== -1) {
+      const itemWidth = 56;
+      const timer = setTimeout(() => {
+        calendarScrollViewRef.current?.scrollTo({
+          x: activeIdx * itemWidth - width / 2 + itemWidth / 2,
+          animated: true,
+        });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDate]);
+
+  const fetchRecommendation = async (generate = false) => {
+    setIsLoading(true);
+    try {
+      const [
+        savedPreference,
+        savedSkipDays,
+        savedMeals,
+        savedAllergies,
+        savedCuisines,
+        savedOtherInfo
+      ] = await Promise.all([
+        AsyncStorage.getItem('diet_preference'),
+        AsyncStorage.getItem('diet_skip_days'),
+        AsyncStorage.getItem('diet_meals'),
+        AsyncStorage.getItem('diet_allergies'),
+        AsyncStorage.getItem('diet_cuisines'),
+        AsyncStorage.getItem('diet_other_info')
+      ]);
+
+      const recommendationsParams = {
+        dietPreference: savedPreference || 'Selective Non-Veg',
+        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
+        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
+        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
+        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
+        generate: generate ? 'true' : 'false'
+      };
+
+      console.log('[WeeklyDietPlanScreen] Fetching weekly plan, generate =', generate);
+      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
+      if (response.data?.success) {
+        setCurrentRecommendation(response.data.data);
+        if (generate) {
+          Alert.alert('Success', 'Weekly diet plan regenerated successfully!');
+        }
+      }
+    } catch (err) {
+      console.warn('[WeeklyDietPlanScreen] Fetch failed:', err);
+      Alert.alert('Error', 'Failed to retrieve diet plan.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentRecommendation) {
+      fetchRecommendation(false);
+    }
+  }, []);
+
+  const handleTrackMeal = async (meal) => {
+    try {
+      const payload = {
+        mealName: meal.meal || meal.name || meal.description || 'Custom Meal',
+        mealType: (meal.mealType || meal.type || 'breakfast').toLowerCase(),
+        calories: parseInt(meal.calories) || 0,
+        protein: parseInt(meal.protein) || 0,
+        carbs: parseInt(meal.carbs) || 0,
+        fats: parseInt(meal.fats || meal.fat) || 0,
+        fiber: parseInt(meal.fibre || meal.fiber) || 0,
+        notes: 'Tracked from AI Diet Plan',
+      };
+      
+      const res = await dispatch(saveDietEntry(payload));
+      if (res && res.success) {
+        Alert.alert('Success', 'Meal tracked successfully!');
+      } else {
+        Alert.alert('Error', 'Failed to track meal.');
+      }
+    } catch (err) {
+      console.warn('Track meal failed:', err);
+      Alert.alert('Error', 'An error occurred while tracking the meal.');
+    }
+  };
+
+  const handleViewDetails = (meal) => {
+    Alert.alert(
+      `${meal.mealType || meal.type || 'Meal'} Details`,
+      `Meal: ${meal.meal || meal.name || meal.description || 'Custom Meal'}\n\n` +
+      `Calories: ${meal.calories || 0} kcal\n` +
+      `Protein: ${meal.protein || 0}g\n` +
+      `Fat: ${meal.fats || meal.fat || 0}g\n` +
+      `Carb: ${meal.carbs || 0}g\n` +
+      `Fibre: ${meal.fibre || meal.fiber || 0}g`
     );
-  }
+  };
 
-  const days = PLAN_DAY_NAMES;
+  const toggleLikeMeal = (mealKey) => {
+    setLikedMeals(prev => {
+      const isLiked = !prev[mealKey];
+      if (isLiked) {
+        Alert.alert('Saved', 'Meal saved to favorites!');
+      }
+      return { ...prev, [mealKey]: isLiked };
+    });
+  };
+
+  // Helper to parse a single string description into list of food items
+  const parseFoodItems = (mealDescription) => {
+    if (!mealDescription) return [];
+    return mealDescription.split(/[+,]/).map(item => item.trim()).filter(Boolean);
+  };
+
+  // Helper to generate a weight for parsed food items
+  const getFoodItemWeight = (itemName) => {
+    let hash = 0;
+    for (let i = 0; i < itemName.length; i++) {
+      hash = itemName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const weight = Math.abs(hash % 250) + 120; // weight between 120 and 370
+    return `${weight} grams`;
+  };
+
+  // Get active day meals based on selectedDate
+  const dayOfWeekName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const weeklyPlan = currentRecommendation?.weeklyPlan || {};
+  const dayDataKey = Object.keys(weeklyPlan).find(
+    key => key.toLowerCase() === dayOfWeekName.toLowerCase()
+  );
+  const meals = dayDataKey ? weeklyPlan[dayDataKey] : [];
+  const totalCalsForDay = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
+
+  // Curated tip for the day
+  const activeDayIndex = selectedDate.getDay();
+  const dayTip = HEALTH_TIPS[activeDayIndex % HEALTH_TIPS.length];
+
+  const renderCalendar = () => {
+    const monthDates = getMonthDates(selectedDate);
+
+    return (
+      <View style={styles.calendarContainer}>
+        <ScrollView
+          ref={calendarScrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.calendarScrollContent}
+        >
+          {monthDates.map((date, idx) => {
+            const isActive = date.toDateString() === selectedDate.toDateString();
+            const dayNum = date.getDate();
+            const dayLabel = getDayLabel(date);
+            
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={styles.calendarDayCol}
+                onPress={() => setSelectedDate(date)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.calendarDayLabel}>{dayLabel}</Text>
+                <View style={[
+                  styles.calendarDateCircle,
+                  isActive ? styles.calendarDateCircleActive : styles.calendarDateCircleInactive
+                ]}>
+                  <Text style={[
+                    styles.calendarDateText,
+                    isActive ? styles.calendarDateTextActive : styles.calendarDateTextInactive
+                  ]}>
+                    {dayNum}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
       
-      {/* Header */}
+      {/* Top Header Row */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <Icon name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>AI WEEKLY DIET PLAN</Text>
-          <Text style={styles.headerSubtitle}>Customized nutritional program for your goal</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity style={[styles.headerBtn, { marginRight: 15 }]} onPress={() => navigation.navigate('Reminders')} activeOpacity={0.7}>
+            <Icon name="notifications-outline" size={20} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('DietPreferences')} activeOpacity={0.7}>
+            <Icon name="options-outline" size={20} color="#FFF" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.weeklyPlanSection}>
-          <LinearGradient
-            colors={['#1a1c23', '#0f1013']}
-            style={styles.weeklyPlanCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={{ paddingVertical: 20, width: '100%' }}>
-              <ScrollView
-                ref={weeklyPlanScrollViewRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.weeklyPlanScrollWrapper}
-                snapToInterval={width * 0.82 + 12}
-                decelerationRate="fast"
-                bounces={true}
-              >
-                {days.map((day) => {
-                  const dayDataKey = Object.keys(recommendation.weeklyPlan).find(
-                    key => key.toLowerCase() === day.toLowerCase()
-                  );
-                  const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
-                  const totalCals = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
-                  
-                  return (
-                    <View key={day} style={styles.dayPlanColumn}>
-                      <View style={styles.dayColumnHeader}>
-                        <Text style={styles.dayColumnTitle}>{day.toUpperCase()}</Text>
-                        <View style={styles.dayColumnBadge}>
-                          <Text style={styles.dayColumnBadgeText}>{totalCals} kcal</Text>
-                        </View>
-                      </View>
-                      
-                      <View style={styles.dayMealsList}>
-                        {meals && meals.length > 0 ? (
-                          meals.map((meal, index) => {
-                            let iconName = 'restaurant-outline';
-                            let iconColor = '#FF7A00';
-                            const typeLower = (meal.mealType || meal.type || '').toLowerCase();
-                            if (typeLower.includes('breakfast')) {
-                              iconName = 'cafe-outline';
-                              iconColor = '#00E676';
-                            } else if (typeLower.includes('snack')) {
-                              iconName = 'nutrition-outline';
-                              iconColor = '#7C4DFF';
-                            } else if (typeLower.includes('lunch')) {
-                              iconName = 'restaurant-outline';
-                              iconColor = '#FF7A00';
-                            } else if (typeLower.includes('dinner')) {
-                              iconName = 'sunny-outline';
-                              iconColor = '#FF5252';
-                            }
+      {/* Month/Week Navigation */}
+      <View style={styles.weekNavRow}>
+        <TouchableOpacity onPress={handlePrevWeek} style={styles.weekNavBtn} activeOpacity={0.7}>
+          <Icon name="chevron-back" size={16} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.weekNavTitle}>{`${selectedDate.toLocaleDateString('en-US', { month: 'long' })} ${selectedDate.getFullYear()}`}</Text>
+        <TouchableOpacity onPress={handleNextWeek} style={styles.weekNavBtn} activeOpacity={0.7}>
+          <Icon name="chevron-forward" size={16} color="#FFF" />
+        </TouchableOpacity>
+      </View>
 
-                            return (
-                              <View key={index} style={styles.weeklyMealCard}>
-                                <View style={[styles.weeklyMealIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.03)' }]}>
-                                  <Icon name={iconName} size={18} color={iconColor} />
-                                </View>
-                                <View style={styles.weeklyMealDetails}>
-                                  <View style={styles.weeklyMealTypeRow}>
-                                    <Text style={[styles.weeklyMealTypeText, { color: iconColor }]}>
-                                      {(meal.mealType || meal.type || 'Meal').toUpperCase()}
-                                    </Text>
-                                    <Text style={styles.weeklyMealCaloriesText}>
-                                      {meal.calories || 0} kcal
-                                    </Text>
-                                  </View>
-                                  <Text style={styles.weeklyMealDescriptionText}>
-                                    {meal.name || meal.description || 'Custom Meal'}
-                                  </Text>
-                                  {meal.protein || meal.carbs || meal.fat ? (
-                                    <Text style={styles.weeklyMealMacrosText}>
-                                      P: {meal.protein || 0}g  C: {meal.carbs || 0}g  F: {meal.fat || 0}g
-                                    </Text>
-                                  ) : null}
-                                </View>
-                              </View>
-                            );
-                          })
-                        ) : (
-                          <View style={styles.emptyDayContainer}>
-                            <Text style={styles.emptyDayText}>Rest Day or No Meals Scheduled</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </LinearGradient>
+      {/* Horizontal Calendar */}
+      {renderCalendar()}
+
+      {isLoading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#A3D9C9" />
+          <Text style={styles.loadingText}>Updating diet plan...</Text>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          
+          {/* Today's Plan Title & Sync Row */}
+          <View style={styles.titleRow}>
+            <Text style={styles.titleText}>
+              {selectedDate.toDateString() === new Date().toDateString() ? "Today's Plan" : `${dayOfWeekName}'s Plan`}
+            </Text>
+            <TouchableOpacity 
+              style={styles.refreshBtn} 
+              onPress={() => fetchRecommendation(true)}
+              activeOpacity={0.7}
+            >
+              <Icon name="sync-outline" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* AI Badge + Quality Pill row */}
+          <View style={styles.badgeRow}>
+            {/* AI vs Fallback indicator */}
+            {currentRecommendation && (
+              <View style={[
+                styles.aiBadge,
+                currentRecommendation.isFallback
+                  ? styles.aiBadgeFallback
+                  : styles.aiBadgeAI
+              ]}>
+                <MaterialCommunityIcons
+                  name={currentRecommendation.isFallback ? 'file-document-outline' : 'brain'}
+                  size={13}
+                  color={currentRecommendation.isFallback ? 'rgba(255,255,255,0.5)' : '#A3D9C9'}
+                />
+                <Text style={[
+                  styles.aiBadgeText,
+                  currentRecommendation.isFallback && { color: 'rgba(255,255,255,0.5)' }
+                ]}>
+                  {currentRecommendation.isFallback ? 'Template Plan' : 'AI Generated'}
+                </Text>
+              </View>
+            )}
+
+            {/* Plan Quality Pill */}
+            {currentRecommendation?.validation?.status && (() => {
+              const status = currentRecommendation.validation.status;
+              const isBalanced = status === 'balanced';
+              return (
+                <View style={[
+                  styles.qualityPill,
+                  isBalanced ? styles.qualityPillGood : styles.qualityPillWarn
+                ]}>
+                  <Icon
+                    name={isBalanced ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                    size={12}
+                    color={isBalanced ? '#6BCB77' : '#FFD93D'}
+                  />
+                  <Text style={[styles.qualityPillText, { color: isBalanced ? '#6BCB77' : '#FFD93D' }]}>
+                    {isBalanced ? 'Balanced' : 'Needs Review'}
+                  </Text>
+                </View>
+              );
+            })()}
+          </View>
+
+          {/* Calories row */}
+          <View style={styles.caloriesRow}>
+            <Icon name="flame-outline" size={20} color="rgba(255, 255, 255, 0.6)" />
+            <Text style={styles.caloriesText}>{totalCalsForDay} Cal for {dayOfWeekName}</Text>
+          </View>
+
+          {/* Macro progress bars */}
+          {meals && meals.length > 0 && (() => {
+            const totalProt = meals.reduce((s, m) => s + (m.protein || 0), 0);
+            const totalCarbs = meals.reduce((s, m) => s + (m.carbs || 0), 0);
+            const totalFats = meals.reduce((s, m) => s + (m.fats || m.fat || 0), 0);
+            const totalMacro = totalProt + totalCarbs + totalFats || 1;
+            return (
+              <View style={styles.macroBarSection}>
+                {[
+                  { label: 'Protein', val: totalProt, color: '#6BCB77' },
+                  { label: 'Carbs', val: totalCarbs, color: '#4D96FF' },
+                  { label: 'Fat', val: totalFats, color: '#FF6B6B' },
+                ].map(({ label, val, color }) => (
+                  <View key={label} style={styles.macroBarRow}>
+                    <Text style={styles.macroBarLabel}>{label}</Text>
+                    <View style={styles.macroBarTrack}>
+                      <View
+                        style={[
+                          styles.macroBarFill,
+                          { width: `${Math.round((val / totalMacro) * 100)}%`, backgroundColor: color }
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.macroBarValue, { color }]}>{val}g</Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+
+          {/* Meals list */}
+          {meals && meals.length > 0 ? (
+            meals.map((meal, index) => {
+              const mealTypeKey = (meal.mealType || meal.type || 'breakfast').toLowerCase();
+              const mealTime = MEAL_TIMES[mealTypeKey] || MEAL_TIMES.default;
+              const parsedItems = parseFoodItems(meal.meal || meal.name || meal.description);
+              const mealKey = `${dayOfWeekName}-${index}`;
+              const isLiked = !!likedMeals[mealKey];
+
+              // Resolve image for each food item dynamically, falling back to meal fallback images if fewer than 3 items
+              const images = parsedItems.slice(0, 3).map(item => getFoodImage(item, mealTypeKey));
+              
+              // Pad with default/fallback images if there are fewer than 3 food items in the parsed list
+              while (images.length < 3) {
+                const mealFallbacks = MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
+                images.push(mealFallbacks);
+              }
+
+              return (
+                <View key={index} style={styles.mealCard}>
+                  {/* Card Header */}
+                  <View style={styles.mealHeaderRow}>
+                    <Text style={styles.mealTitle}>
+                      {meal.mealType || meal.type || 'Meal'}
+                    </Text>
+                    <Text style={styles.mealTime}>{mealTime}</Text>
+                  </View>
+
+                  {/* Overlapping Images */}
+                  <View style={styles.imagesContainer}>
+                    <Image source={{ uri: images[0] }} style={styles.foodImage1} />
+                    <Image source={{ uri: images[1] }} style={styles.foodImage2} />
+                    <Image source={{ uri: images[2] }} style={styles.foodImage3} />
+                  </View>
+
+                  {/* Food Items with Weights */}
+                  <View style={styles.foodList}>
+                    {parsedItems.map((item, idx) => (
+                      <View key={idx} style={styles.foodItemRow}>
+                        <Text style={styles.foodItemName} numberOfLines={1}>{item}</Text>
+                        <Text style={styles.foodItemWeight}>{getFoodItemWeight(item)}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Nutrition row */}
+                  <View style={styles.nutritionRow}>
+                    <View style={styles.nutritionCol}>
+                      <Text style={styles.nutritionValue}>{meal.calories || 0}</Text>
+                      <Text style={styles.nutritionLabel}>Cal</Text>
+                    </View>
+                    <View style={styles.nutritionCol}>
+                      <Text style={styles.nutritionValue}>{meal.protein || 0}g</Text>
+                      <Text style={styles.nutritionLabel}>Protein</Text>
+                    </View>
+                    <View style={styles.nutritionCol}>
+                      <Text style={styles.nutritionValue}>{meal.fats || meal.fat || 0}g</Text>
+                      <Text style={styles.nutritionLabel}>Fat</Text>
+                    </View>
+                    <View style={styles.nutritionCol}>
+                      <Text style={styles.nutritionValue}>{meal.carbs || 0}g</Text>
+                      <Text style={styles.nutritionLabel}>Carb</Text>
+                    </View>
+                    <View style={styles.nutritionCol}>
+                      <Text style={styles.nutritionValue}>{meal.fibre || meal.fiber || 0}g</Text>
+                      <Text style={styles.nutritionLabel}>Fibre</Text>
+                    </View>
+                  </View>
+
+                  {/* Card Actions Row */}
+                  <View style={styles.cardActionsRow}>
+                    <TouchableOpacity 
+                      style={styles.trackBtn} 
+                      onPress={() => handleTrackMeal(meal)}
+                      activeOpacity={0.8}
+                    >
+                      <Icon name="add" size={16} color="#A3D9C9" />
+                      <Text style={styles.trackBtnText}>Track</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.detailsBtn} 
+                      onPress={() => handleViewDetails(meal)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.detailsBtnText}>View Details</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.heartBtn, isLiked && { backgroundColor: '#1A2421', borderColor: '#1F524C' }]} 
+                      onPress={() => toggleLikeMeal(mealKey)}
+                      activeOpacity={0.8}
+                    >
+                      <Icon 
+                        name={isLiked ? "heart" : "heart-outline"} 
+                        size={18} 
+                        color={isLiked ? "#e74c3c" : "#A3D9C9"} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="brain" size={48} color="#A3D9C9" style={{ opacity: 0.6 }} />
+              <Text style={styles.emptyTitle}>No plan for this day</Text>
+              <Text style={styles.emptyText}>Generate a personalised AI diet plan tailored to your goals and preferences.</Text>
+              <TouchableOpacity 
+                style={styles.generateBtn} 
+                onPress={() => navigation.navigate('AIDietConfig')}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#1E8B72', '#0F5C4A']}
+                  style={styles.generateBtnGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <MaterialCommunityIcons name="brain" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.generateBtnText}>Generate AI Plan</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Did you know tip card */}
+          {meals && meals.length > 0 && (
+            <View style={styles.didYouKnowCard}>
+              <Text style={styles.didYouKnowTitle}>Did you know?</Text>
+              <Text style={styles.didYouKnowText}>{dayTip}</Text>
+              <TouchableOpacity 
+                style={styles.didYouKnowHeartBtn}
+                onPress={() => Alert.alert('Liked', 'You liked this diet tip!')}
+                activeOpacity={0.8}
+              >
+                <Icon name="heart-outline" size={14} color="#A3D9C9" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -160,154 +669,453 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 12,
+    paddingBottom: 12,
   },
-  backButton: {
+  headerBtn: {
     padding: 6,
-    marginRight: 12,
   },
-  headerTitleContainer: {
-    flex: 1,
+  calendarContainer: {
+    marginVertical: 10,
+    width: '100%',
   },
-  headerTitle: {
+  calendarScrollContent: {
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  weekNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  weekNavBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1A2421',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+  },
+  weekNavTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  scrollContainer: {
-    paddingVertical: 10,
-  },
-  weeklyPlanSection: {
-    paddingHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  weeklyPlanCard: {
-    flexDirection: 'column',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignSelf: 'stretch',
-    overflow: 'hidden',
-  },
-  weeklyPlanScrollWrapper: {
-    paddingHorizontal: 10,
-    paddingBottom: 8,
-  },
-  dayPlanColumn: {
-    width: width * 0.82,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 16,
-    marginHorizontal: 6,
-    alignSelf: 'flex-start',
-  },
-  dayColumnHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  calendarDayCol: {
+    width: 44,
     alignItems: 'center',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    paddingBottom: 10,
+    marginHorizontal: 6,
   },
-  dayColumnTitle: {
-    fontSize: 15,
+  calendarDayLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFF',
-    letterSpacing: 0.5,
+    marginBottom: 6,
   },
-  dayColumnBadge: {
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  dayColumnBadgeText: {
-    color: '#e74c3c',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  dayMealsList: {
-    minHeight: 100,
-  },
-  weeklyMealCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.015)',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  weeklyMealIconWrapper: {
+  calendarDateCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  weeklyMealDetails: {
-    flex: 1,
+  calendarDateCircleActive: {
+    backgroundColor: '#1E504A',
   },
-  weeklyMealTypeRow: {
+  calendarDateCircleInactive: {
+    backgroundColor: '#1A2421',
+  },
+  calendarDateText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  calendarDateTextActive: {
+    color: '#FFF',
+  },
+  calendarDateTextInactive: {
+    color: '#A3D9C9',
+  },
+  scrollContainer: {
+    paddingBottom: 40,
+  },
+  titleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 16,
   },
-  weeklyMealTypeText: {
-    fontSize: 11,
-    fontWeight: '800',
+  titleText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
-  weeklyMealCaloriesText: {
+  refreshBtn: {
+    padding: 6,
+  },
+  // AI Badge + Quality pill
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 5,
+  },
+  aiBadgeAI: {
+    backgroundColor: 'rgba(163, 217, 201, 0.1)',
+    borderColor: 'rgba(163, 217, 201, 0.3)',
+  },
+  aiBadgeFallback: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  aiBadgeText: {
     fontSize: 11,
+    fontWeight: '700',
+    color: '#A3D9C9',
+    letterSpacing: 0.3,
+  },
+  qualityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  qualityPillGood: {
+    backgroundColor: 'rgba(107, 203, 119, 0.1)',
+    borderColor: 'rgba(107, 203, 119, 0.3)',
+  },
+  qualityPillWarn: {
+    backgroundColor: 'rgba(255, 217, 61, 0.1)',
+    borderColor: 'rgba(255, 217, 61, 0.3)',
+  },
+  qualityPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  // Calories
+  caloriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  caloriesText: {
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.6)',
     fontWeight: '600',
+    marginLeft: 6,
   },
-  weeklyMealDescriptionText: {
-    fontSize: 13,
-    color: '#FFF',
-    fontWeight: '500',
-    marginTop: 4,
+  // Macro bars
+  macroBarSection: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    gap: 8,
   },
-  weeklyMealMacrosText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  emptyDayContainer: {
-    paddingVertical: 20,
+  macroBarRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  emptyDayText: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12,
+  macroBarLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.45)',
+    width: 48,
   },
-  emptyContainer: {
+  macroBarTrack: {
+    flex: 1,
+    height: 5,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  macroBarFill: {
+    height: 5,
+    borderRadius: 4,
+  },
+  macroBarValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    width: 36,
+    textAlign: 'right',
+  },
+  loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  emptyText: {
-    color: 'rgba(255, 255, 255, 0.6)',
+  loadingText: {
+    marginTop: 12,
+    color: '#A3D9C9',
     fontSize: 14,
-    marginTop: 10,
+    fontWeight: '600',
   },
+  mealCard: {
+    backgroundColor: '#121214',
+    borderRadius: 24,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  mealHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mealTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  mealTime: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontWeight: '700',
+  },
+  imagesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingLeft: 6,
+  },
+  foodImage1: {
+    width: 76,
+    height: 76,
+    borderRadius: 20,
+    transform: [{ rotate: '-4deg' }],
+    backgroundColor: '#1E1E1E',
+  },
+  foodImage2: {
+    width: 76,
+    height: 76,
+    borderRadius: 20,
+    marginLeft: -15,
+    transform: [{ rotate: '4deg' }],
+    backgroundColor: '#1E1E1E',
+  },
+  foodImage3: {
+    width: 76,
+    height: 76,
+    borderRadius: 20,
+    marginLeft: -15,
+    transform: [{ rotate: '-2deg' }],
+    backgroundColor: '#1E1E1E',
+  },
+  foodList: {
+    marginBottom: 16,
+  },
+  foodItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  foodItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+    marginRight: 10,
+  },
+  foodItemWeight: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '600',
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 16,
+    marginBottom: 16,
+  },
+  nutritionCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  nutritionValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  nutritionLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 16,
+  },
+  trackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginRight: 8,
+  },
+  trackBtnText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#A3D9C9',
+    marginLeft: 3,
+  },
+  detailsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginRight: 8,
+  },
+  detailsBtnText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#A3D9C9',
+  },
+  heartBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 30,
+    marginHorizontal: 16,
+    marginTop: 20,
+    backgroundColor: '#121214',
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  generateBtn: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#1E8B72',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  generateBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  generateBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  didYouKnowCard: {
+    backgroundColor: '#0D1A16',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+  },
+  didYouKnowTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#A3D9C9',
+    marginBottom: 8,
+  },
+  didYouKnowText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    lineHeight: 20,
+    fontWeight: '600',
+    paddingRight: 40,
+  },
+  didYouKnowHeartBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#121214',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });
 
 export default WeeklyDietPlanScreen;
