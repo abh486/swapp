@@ -69,96 +69,7 @@ const HEALTH_TIPS = [
   "Steaming vegetables preserves more water-soluble vitamins compared to boiling them."
 ];
 
-// Mock meal images for professional visual representation
-const FOOD_IMAGE_DICTIONARY = [
-  {
-    keywords: ['upma', 'khichdi', 'poha', 'semolina', 'suji'],
-    url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['sambar', 'rasam', 'dal', 'lentil', 'shorba', 'curry', 'gravy', 'chana', 'chole', 'rajma'],
-    url: 'https://images.unsplash.com/photo-1601050690597-df056fb49785?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['egg', 'eggs', 'muttai', 'podimas', 'scramble', 'scrambled', 'omelette', 'omelet', 'bhurji', 'boiled egg'],
-    url: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['chicken', 'murgh', 'poultry', 'turkey', 'breast'],
-    url: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['rice', 'biryani', 'pulao', 'jeera rice', 'curd rice', 'brown rice', 'white rice', 'quinoa', 'millet'],
-    url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['salad', 'green', 'veggies', 'vegetables', 'cucumber', 'tomato', 'broccoli', 'spinach', 'cabbage', 'avocado'],
-    url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['roti', 'chapati', 'phulka', 'naan', 'paratha', 'bread', 'toast', 'sandwich', 'wrap', 'tortilla'],
-    url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['fish', 'salmon', 'tuna', 'seafood', 'prawn', 'shrimp', 'crab', 'cod', 'mackerel'],
-    url: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['steak', 'beef', 'mutton', 'lamb', 'pork', 'meat', 'venison', 'veal', 'tenderloin', 'kebab'],
-    url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['oats', 'oatmeal', 'porridge', 'muesli', 'cereal', 'granola'],
-    url: 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['smoothie', 'shake', 'juice', 'beverage', 'drink', 'coconut water', 'lassi', 'milkshake'],
-    url: 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['paneer', 'cottage cheese', 'tofu', 'tempeh', 'soy', 'soya'],
-    url: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['yogurt', 'curd', 'dahi', 'raita', 'greek yogurt'],
-    url: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['fruit', 'banana', 'apple', 'orange', 'grape', 'berries', 'berry', 'papaya', 'mango', 'peach', 'watermelon', 'melon'],
-    url: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['nuts', 'almond', 'walnut', 'peanut', 'cashew', 'seeds', 'chia', 'flax', 'pumpkin seeds', 'sunflower seeds'],
-    url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['soup', 'broth', 'stew', 'minestrone', 'chowder'],
-    url: 'https://images.unsplash.com/photo-1547592165-e1d17f1a0655?w=200&auto=format&fit=crop&q=80'
-  },
-  {
-    keywords: ['idli', 'dosa', 'uttapam', 'dhokla', 'medu vada'],
-    url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80'
-  }
-];
 
-const MEAL_FALLBACK_IMAGES = {
-  breakfast: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200&auto=format&fit=crop&q=80',
-  lunch: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop&q=80',
-  dinner: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=200&auto=format&fit=crop&q=80',
-  snack: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=200&auto=format&fit=crop&q=80',
-  default: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=200&auto=format&fit=crop&q=80'
-};
-
-const getFoodImage = (foodName, mealTypeKey) => {
-  if (!foodName) return MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
-  const normalized = foodName.toLowerCase();
-  for (const entry of FOOD_IMAGE_DICTIONARY) {
-    if (entry.keywords.some(kw => normalized.includes(kw))) {
-      return entry.url;
-    }
-  }
-  return MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
-};
 
 // Meal time presets
 const MEAL_TIMES = {
@@ -530,10 +441,9 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
                 images = [meal.imageUrl];
               }
 
-              // Pad with default/fallback images if fewer than 3 images are available
+              // Pad with placeholder indicator if fewer than 3 images are available
               while (images.length < 3) {
-                const mealFallbacks = MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
-                images.push(mealFallbacks);
+                images.push('placeholder');
               }
 
               return (
@@ -546,11 +456,42 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
                     <Text style={styles.mealTime}>{mealTime}</Text>
                   </View>
 
-                  {/* Overlapping Images */}
+                  {/* Overlapping Images / Vector Icon Fallbacks */}
                   <View style={styles.imagesContainer}>
-                    <Image source={{ uri: images[0] }} style={styles.foodImage1} />
-                    <Image source={{ uri: images[1] }} style={styles.foodImage2} />
-                    <Image source={{ uri: images[2] }} style={styles.foodImage3} />
+                    {images.map((img, idx) => {
+                      const imgStyle = idx === 0 ? styles.foodImage1 : idx === 1 ? styles.foodImage2 : styles.foodImage3;
+                      const isUrl = img && typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder');
+                      
+                      if (isUrl) {
+                        return <Image key={idx} source={{ uri: img }} style={imgStyle} />;
+                      }
+
+                      // Render beautiful vector icon matching meal slot
+                      const iconName = mealTypeKey.includes('breakfast') 
+                        ? 'cafe-outline' 
+                        : mealTypeKey.includes('lunch') 
+                          ? 'restaurant-outline' 
+                          : mealTypeKey.includes('snack') 
+                            ? 'nutrition-outline' 
+                            : 'sunny-outline';
+                      return (
+                        <View 
+                          key={idx} 
+                          style={[
+                            imgStyle, 
+                            { 
+                              justifyContent: 'center', 
+                              alignItems: 'center', 
+                              backgroundColor: '#1E1E20', 
+                              borderColor: 'rgba(255,255,255,0.08)', 
+                              borderWidth: 1 
+                            }
+                          ]}
+                        >
+                          <Icon name={iconName} size={28} color="#A3D9C9" />
+                        </View>
+                      );
+                    })}
                   </View>
 
                   {/* Food Items with Weights */}
