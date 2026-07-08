@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Clarity from '../utils/clarity';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,7 @@ import SleepDetailsScreen from '../screens/profile/SleepDetailsScreen';
 
 import BottomTabNavigator from './BottomTabNavigator';
 import Community from '../screens/community/Community';
+import CommentsScreen from '../screens/community/CommentsScreen';
 import DiscoverProvidersMapScreen from '../screens/home/dashboard/DiscoverProvidersMapScreen';
 import ProviderDetailScreen from '../screens/home/provider/ProviderDetailScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
@@ -29,9 +30,11 @@ import CreateFastWorkoutScreen from '../screens/workout/CreateFastWorkoutScreen'
 import CreateCustomWorkoutScreen, {
   WorkoutEditorScreen,
 } from '../screens/workout/CreateCustomWorkoutScreen';
+import StoreComingSoon from '../screens/store/StoreComingSoon';
 import FastWorkoutActiveScreen from '../screens/workout/FastWorkoutActiveScreen';
 import WorkoutSummaryScreen from '../screens/workout/WorkoutSummaryScreen';
 import CurrentWorkoutPlanScreen from '../screens/workout/CurrentWorkoutPlanScreen';
+import ExerciseDetailScreen from '../screens/workout/ExerciseDetailScreen';
 import CheckoutBrowserScreen from '../screens/home/booking/CheckoutBrowserScreen';
 import SubscriptionSuccessScreen from '../screens/home/booking/SubscriptionSuccessScreen';
 import PaymentProcessingScreen from '../screens/home/booking/PaymentProcessingScreen';
@@ -40,16 +43,23 @@ import MembershipBookingScreen from '../screens/home/booking/MembershipBookingSc
 import TrainerBookingScreen from '../screens/home/trainer/TrainerBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import WeightBodyMetricsScreen from '../screens/profile/WeightBodyMetricsScreen';
+import WeightTrackerScreen from '../screens/profile/WeightTrackerScreen';
+import HydrationTrackerScreen from '../screens/activity/diet/HydrationTrackerScreen';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
 import LoginScreen from '../screens/LoginScreen';
 import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
-import AIDieticianPaywallScreen from '../screens/AIDieticianPaywallScreen';
-import AIDieticianSubscriptionScreen from '../screens/AIDieticianSubscriptionScreen';
+import AIDieticianPaywallScreen from '../screens/activity/diet/AIDieticianPaywallScreen';
+import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianSubscriptionScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
 import AppsAndDevicesScreen from '../screens/profile/AppsAndDevicesScreen';
+import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import LikesListScreen from '../screens/community/LikesListScreen';
+import PostDetailsScreen from '../screens/community/PostDetailsScreen';
+import ComparisonScreen from '../screens/profile/ComparisonScreen';
+import NotificationScreen from '../screens/community/NotificationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -87,9 +97,10 @@ const AppNavigator = () => {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#000000' }}>
       <NavigationContainer
         ref={navigationRef}
+        theme={DarkTheme}
         onStateChange={() => {
           const currentRouteName =
             navigationRef.current?.getCurrentRoute()?.name;
@@ -111,6 +122,7 @@ const AppNavigator = () => {
               <>
                 <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
                 <Stack.Screen name="Community" component={Community} />
+                <Stack.Screen name="CommentsScreen" component={CommentsScreen} />
                 <Stack.Screen name="DietAllLogs" component={DietAllLogs} />
                 <Stack.Screen name="DietPreferences" component={DietPreferences} />
                 <Stack.Screen name="AlmostDone" component={AlmostDoneScreen} />
@@ -131,6 +143,8 @@ const AppNavigator = () => {
                   component={TrainerDetailScreen}
                 />
                 <Stack.Screen name="Dietplan" component={Dietplan} />
+                <Stack.Screen name="Diet" component={Dietplan} />
+                <Stack.Screen name="Store" component={StoreComingSoon} />
                 <Stack.Screen name="WeeklyDietPlan" component={WeeklyDietPlanScreen} />
                 <Stack.Screen name="HealthKitData" component={HealthKitDataScreen} />
                 <Stack.Screen name="WalkDetails" component={WalkDetailsScreen} options={{ headerShown: false }} />
@@ -161,6 +175,10 @@ const AppNavigator = () => {
                 <Stack.Screen
                   name="CurrentWorkoutPlanScreen"
                   component={CurrentWorkoutPlanScreen}
+                />
+                <Stack.Screen
+                  name="ExerciseDetail"
+                  component={ExerciseDetailScreen}
                 />
                 <Stack.Screen
                   name="CheckoutBrowser"
@@ -195,6 +213,14 @@ const AppNavigator = () => {
                   component={WeightBodyMetricsScreen}
                 />
                 <Stack.Screen
+                  name="WeightTracker"
+                  component={WeightTrackerScreen}
+                />
+                <Stack.Screen
+                  name="HydrationTracker"
+                  component={HydrationTrackerScreen}
+                />
+                <Stack.Screen
                   name="AppsAndDevices"
                   component={AppsAndDevicesScreen}
                 />
@@ -219,6 +245,11 @@ const AppNavigator = () => {
                   component={ManageSubscriptionsScreen}
                 />
                 <Stack.Screen name="FollowList" component={FollowListScreen} />
+                <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Comparison" component={ComparisonScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="LikesList" component={LikesListScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PostDetails" component={PostDetailsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
                 {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
               </>
             ) : (
