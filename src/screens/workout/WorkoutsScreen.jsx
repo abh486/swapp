@@ -75,6 +75,12 @@ const ChevronDownIcon = ({ open }) => (
   </Svg>
 );
 
+const CloseIcon = () => (
+  <Svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6 }}>
+    <Path d="M18 6L6 18M6 6L18 18" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
 const LEVEL_BODY_PARTS_MAP = {
   'BEGINNER': ['cardio', 'neck'],
   'INTERMEDIATE': ['chest', 'back', 'shoulders', 'upper arms', 'upper legs'],
@@ -121,6 +127,15 @@ const WorkoutsScreen = ({ navigation }) => {
   const [failedImages, setFailedImages] = useState({});
 
   const hasActiveFilters = selectedGoal !== '' || selectedEquipmentLocal !== '';
+
+  const activeFiltersCount = 
+    (selectedLevel !== 'BEGINNER' ? 1 : 0) +
+    (selectedGoal !== '' ? 1 : 0) +
+    (selectedEquipmentLocal !== '' ? 1 : 0);
+
+  const isLevelActive = selectedLevel !== 'BEGINNER';
+  const isGoalActive = selectedGoal !== '';
+  const isEquipmentActive = selectedEquipmentLocal !== '';
 
   // Dynamic matching results count for bottom sheet "Show X results" button
   const resultsCount = useMemo(() => {
@@ -287,39 +302,112 @@ const WorkoutsScreen = ({ navigation }) => {
         contentContainerStyle={styles.topFilterScrollContent}
       >
         <TouchableOpacity
-          style={styles.topFilterButton}
+          style={[
+            styles.topFilterButton,
+            activeFiltersCount > 0 && styles.topFilterButtonActive
+          ]}
           activeOpacity={0.7}
           onPress={() => setFilterModalVisible(true)}
         >
           <FiltersIcon />
-          <Text style={styles.topFilterButtonText}>Filters</Text>
+          <Text style={[
+            styles.topFilterButtonText,
+            activeFiltersCount > 0 && styles.topFilterButtonTextActive
+          ]}>
+            Filters
+          </Text>
+          {activeFiltersCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topFilterButton}
+          style={[
+            styles.topFilterButton,
+            isLevelActive && styles.topFilterButtonActive
+          ]}
           activeOpacity={0.7}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Text style={styles.topFilterButtonText}>{getLevelLabel(selectedLevel)}</Text>
-          <ChevronDownIcon open={filterModalVisible} />
+          <Text style={[
+            styles.topFilterButtonText,
+            isLevelActive && styles.topFilterButtonTextActive
+          ]}>
+            {getLevelLabel(selectedLevel)}
+          </Text>
+          {isLevelActive ? (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedLevel('BEGINNER');
+                setTempLevel('BEGINNER');
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <CloseIcon />
+            </TouchableOpacity>
+          ) : (
+            <ChevronDownIcon open={filterModalVisible} />
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topFilterButton}
+          style={[
+            styles.topFilterButton,
+            isGoalActive && styles.topFilterButtonActive
+          ]}
           activeOpacity={0.7}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Text style={styles.topFilterButtonText}>{getGoalLabel(selectedGoal)}</Text>
-          <ChevronDownIcon open={filterModalVisible} />
+          <Text style={[
+            styles.topFilterButtonText,
+            isGoalActive && styles.topFilterButtonTextActive
+          ]}>
+            {getGoalLabel(selectedGoal)}
+          </Text>
+          {isGoalActive ? (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedGoal('');
+                setTempGoal('');
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <CloseIcon />
+            </TouchableOpacity>
+          ) : (
+            <ChevronDownIcon open={filterModalVisible} />
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.topFilterButton}
+          style={[
+            styles.topFilterButton,
+            isEquipmentActive && styles.topFilterButtonActive
+          ]}
           activeOpacity={0.7}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Text style={styles.topFilterButtonText}>{getEquipmentLabel(selectedEquipmentLocal)}</Text>
-          <ChevronDownIcon open={filterModalVisible} />
+          <Text style={[
+            styles.topFilterButtonText,
+            isEquipmentActive && styles.topFilterButtonTextActive
+          ]}>
+            {getEquipmentLabel(selectedEquipmentLocal)}
+          </Text>
+          {isEquipmentActive ? (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedEquipmentLocal('');
+                setTempEquipment('');
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <CloseIcon />
+            </TouchableOpacity>
+          ) : (
+            <ChevronDownIcon open={filterModalVisible} />
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -559,10 +647,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 38,
   },
+  topFilterButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
   topFilterButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  topFilterButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  filterBadge: {
+    backgroundColor: '#FFFFFF',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  filterBadgeText: {
+    color: '#007AFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   bottomSheetContainer: {
