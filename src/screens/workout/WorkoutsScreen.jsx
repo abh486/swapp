@@ -90,7 +90,7 @@ const LEVEL_BODY_PARTS_MAP = {
 const WorkoutsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const levels = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
-  const [selectedLevel, setSelectedLevel] = useState('BEGINNER');
+  const [selectedLevel, setSelectedLevel] = useState('');
   const [selectedGoal, setSelectedGoal] = useState('');
   const [selectedEquipmentLocal, setSelectedEquipmentLocal] = useState('');
 
@@ -116,7 +116,7 @@ const WorkoutsScreen = ({ navigation }) => {
   };
 
   // Local temporary states inside the Filters Bottom Sheet modal
-  const [tempLevel, setTempLevel] = useState('BEGINNER');
+  const [tempLevel, setTempLevel] = useState('');
   const [tempGoal, setTempGoal] = useState('');
   const [tempEquipment, setTempEquipment] = useState('');
 
@@ -129,11 +129,11 @@ const WorkoutsScreen = ({ navigation }) => {
   const hasActiveFilters = selectedGoal !== '' || selectedEquipmentLocal !== '';
 
   const activeFiltersCount = 
-    (selectedLevel !== 'BEGINNER' ? 1 : 0) +
+    (selectedLevel !== '' ? 1 : 0) +
     (selectedGoal !== '' ? 1 : 0) +
     (selectedEquipmentLocal !== '' ? 1 : 0);
 
-  const isLevelActive = selectedLevel !== 'BEGINNER';
+  const isLevelActive = selectedLevel !== '';
   const isGoalActive = selectedGoal !== '';
   const isEquipmentActive = selectedEquipmentLocal !== '';
 
@@ -142,26 +142,28 @@ const WorkoutsScreen = ({ navigation }) => {
     let list = exercisesData.exercises || [];
 
     // 1. Filter by Level
-    const bodyParts = LEVEL_BODY_PARTS_MAP[tempLevel] || [];
-    const filterMuscles = [];
-    bodyParts.forEach(bp => {
-      const cleaned = bp.trim().toLowerCase();
-      if (cleaned === 'chest') filterMuscles.push('chest', 'pectorals');
-      else if (cleaned === 'back') filterMuscles.push('lats', 'back', 'middle back', 'lower back', 'traps');
-      else if (cleaned === 'shoulders') filterMuscles.push('shoulders', 'delts', 'deltoids');
-      else if (cleaned === 'upper arms') filterMuscles.push('biceps', 'triceps');
-      else if (cleaned === 'lower arms') filterMuscles.push('forearms');
-      else if (cleaned === 'upper legs') filterMuscles.push('quads', 'hamstrings', 'glutes', 'adductors', 'abductors');
-      else if (cleaned === 'lower legs') filterMuscles.push('calves');
-      else if (cleaned === 'waist') filterMuscles.push('abs', 'abdominals');
-      else filterMuscles.push(cleaned);
-    });
-
-    if (filterMuscles.length > 0) {
-      list = list.filter(ex => {
-        const prims = (ex.primaryMuscles || []).map(m => m.toLowerCase());
-        return prims.some(m => filterMuscles.some(filterM => m.includes(filterM) || filterM.includes(m)));
+    if (tempLevel) {
+      const bodyParts = LEVEL_BODY_PARTS_MAP[tempLevel] || [];
+      const filterMuscles = [];
+      bodyParts.forEach(bp => {
+        const cleaned = bp.trim().toLowerCase();
+        if (cleaned === 'chest') filterMuscles.push('chest', 'pectorals');
+        else if (cleaned === 'back') filterMuscles.push('lats', 'back', 'middle back', 'lower back', 'traps');
+        else if (cleaned === 'shoulders') filterMuscles.push('shoulders', 'delts', 'deltoids');
+        else if (cleaned === 'upper arms') filterMuscles.push('biceps', 'triceps');
+        else if (cleaned === 'lower arms') filterMuscles.push('forearms');
+        else if (cleaned === 'upper legs') filterMuscles.push('quads', 'hamstrings', 'glutes', 'adductors', 'abductors');
+        else if (cleaned === 'lower legs') filterMuscles.push('calves');
+        else if (cleaned === 'waist') filterMuscles.push('abs', 'abdominals');
+        else filterMuscles.push(cleaned);
       });
+
+      if (filterMuscles.length > 0) {
+        list = list.filter(ex => {
+          const prims = (ex.primaryMuscles || []).map(m => m.toLowerCase());
+          return prims.some(m => filterMuscles.some(filterM => m.includes(filterM) || filterM.includes(m)));
+        });
+      }
     }
 
     // 2. Filter by Equipment
@@ -193,8 +195,12 @@ const WorkoutsScreen = ({ navigation }) => {
     const apiFilters = {};
 
     // 1. Level body parts mapping
-    const bodyPartsForLevel = LEVEL_BODY_PARTS_MAP[level] || LEVEL_BODY_PARTS_MAP['BEGINNER'];
-    apiFilters.bodyParts = bodyPartsForLevel;
+    if (level) {
+      const bodyPartsForLevel = LEVEL_BODY_PARTS_MAP[level];
+      if (bodyPartsForLevel) {
+        apiFilters.bodyParts = bodyPartsForLevel;
+      }
+    }
 
     // 2. Equipment filter mapping
     if (eq === 'GYM') {
@@ -247,10 +253,10 @@ const WorkoutsScreen = ({ navigation }) => {
   };
 
   const handleClearFilters = () => {
-    setTempLevel('BEGINNER');
+    setTempLevel('');
     setTempGoal('');
     setTempEquipment('');
-    setSelectedLevel('BEGINNER');
+    setSelectedLevel('');
     setSelectedGoal('');
     setSelectedEquipmentLocal('');
     setFilterModalVisible(false);
@@ -340,16 +346,14 @@ const WorkoutsScreen = ({ navigation }) => {
           {isLevelActive ? (
             <TouchableOpacity
               onPress={() => {
-                setSelectedLevel('BEGINNER');
-                setTempLevel('BEGINNER');
+                setSelectedLevel('');
+                setTempLevel('');
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <CloseIcon />
             </TouchableOpacity>
-          ) : (
-            <ChevronDownIcon open={filterModalVisible} />
-          )}
+          ) : null}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -376,9 +380,7 @@ const WorkoutsScreen = ({ navigation }) => {
             >
               <CloseIcon />
             </TouchableOpacity>
-          ) : (
-            <ChevronDownIcon open={filterModalVisible} />
-          )}
+          ) : null}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -405,9 +407,7 @@ const WorkoutsScreen = ({ navigation }) => {
             >
               <CloseIcon />
             </TouchableOpacity>
-          ) : (
-            <ChevronDownIcon open={filterModalVisible} />
-          )}
+          ) : null}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -440,7 +440,16 @@ const WorkoutsScreen = ({ navigation }) => {
       ? (isGym ? require('../../assets/image/gym_machine.png') : require('../../assets/image/yoga_mat.png'))
       : { uri: gifUrl };
 
-    const formattedLevel = selectedLevel === 'INTERMEDIATE' ? 'Intermediate' : selectedLevel.charAt(0) + selectedLevel.slice(1).toLowerCase();
+    let formattedLevel = 'Beginner';
+    if (selectedLevel) {
+      formattedLevel = selectedLevel === 'INTERMEDIATE' ? 'Intermediate' : selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1).toLowerCase();
+    } else {
+      const prims = (exercise.targetMuscles || []).map(m => m.toLowerCase());
+      const isIntermediate = prims.some(m => ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes'].includes(m));
+      const isAdvanced = prims.some(m => ['abs', 'forearms', 'calves'].includes(m));
+      if (isAdvanced) formattedLevel = 'Advanced';
+      else if (isIntermediate) formattedLevel = 'Intermediate';
+    }
     const formattedEquipment = exercise.equipment || (exercise.equipments && exercise.equipments[0]) || 'Gym Equipment';
     const capitalizedEquipment = formattedEquipment.charAt(0).toUpperCase() + formattedEquipment.slice(1);
 
@@ -492,7 +501,7 @@ const WorkoutsScreen = ({ navigation }) => {
                 <View style={styles.cardRow}>
                   <TouchableOpacity
                     style={[styles.filterCard, tempLevel === 'BEGINNER' && styles.filterCardSelected]}
-                    onPress={() => setTempLevel('BEGINNER')}
+                    onPress={() => setTempLevel(tempLevel === 'BEGINNER' ? '' : 'BEGINNER')}
                   >
                     <LevelIcon fillCount={1} selected={tempLevel === 'BEGINNER'} />
                     <Text style={[styles.filterCardText, tempLevel === 'BEGINNER' && styles.filterCardTextSelected]}>Beginner</Text>
@@ -500,7 +509,7 @@ const WorkoutsScreen = ({ navigation }) => {
 
                   <TouchableOpacity
                     style={[styles.filterCard, tempLevel === 'INTERMEDIATE' && styles.filterCardSelected]}
-                    onPress={() => setTempLevel('INTERMEDIATE')}
+                    onPress={() => setTempLevel(tempLevel === 'INTERMEDIATE' ? '' : 'INTERMEDIATE')}
                   >
                     <LevelIcon fillCount={2} selected={tempLevel === 'INTERMEDIATE'} />
                     <Text style={[styles.filterCardText, tempLevel === 'INTERMEDIATE' && styles.filterCardTextSelected]}>Medium</Text>
@@ -508,7 +517,7 @@ const WorkoutsScreen = ({ navigation }) => {
 
                   <TouchableOpacity
                     style={[styles.filterCard, tempLevel === 'ADVANCED' && styles.filterCardSelected]}
-                    onPress={() => setTempLevel('ADVANCED')}
+                    onPress={() => setTempLevel(tempLevel === 'ADVANCED' ? '' : 'ADVANCED')}
                   >
                     <LevelIcon fillCount={3} selected={tempLevel === 'ADVANCED'} />
                     <Text style={[styles.filterCardText, tempLevel === 'ADVANCED' && styles.filterCardTextSelected]}>Advanced</Text>
