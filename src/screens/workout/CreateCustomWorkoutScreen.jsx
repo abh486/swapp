@@ -101,6 +101,20 @@ const OptionChip = ({ styles, title, isSelected, onSelect }) => (
   </TouchableOpacity>
 );
 
+const DurationClockIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="9" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" />
+    <Path d="M12 7V12L15 13.5" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const CustomDurationIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="13" r="7" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" />
+    <Path d="M12 3V6M9 3H15M12 10V13H15" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
 const EXERCISE_TO_MUSCLE = {
   'bench press': 'Chest',
   'incline bench': 'Chest',
@@ -1044,17 +1058,29 @@ const CreateCustomWorkoutScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.inputLabel}>WORKOUT DURATION</Text>
-                <View style={[responsiveStyles.optionsRow, { flexWrap: 'wrap', marginBottom: 12 }]}>
-                  {['45min', '60min', 'Custom'].map(dur => (
-                    <OptionChip
-                      styles={responsiveStyles}
-                      key={dur}
-                      title={dur}
-                      isSelected={folderDuration === dur}
-                      onSelect={() => setFolderDuration(dur)}
-                    />
-                  ))}
+                <Text style={styles.filterSectionTitle}>Workout Duration</Text>
+                <View style={[styles.cardRow, { marginBottom: 12 }]}>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderDuration === '45min' && styles.filterCardSelected]}
+                    onPress={() => setFolderDuration('45min')}
+                  >
+                    <DurationClockIcon selected={folderDuration === '45min'} />
+                    <Text style={[styles.filterCardText, folderDuration === '45min' && styles.filterCardTextSelected]}>45 min</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderDuration === '60min' && styles.filterCardSelected]}
+                    onPress={() => setFolderDuration('60min')}
+                  >
+                    <DurationClockIcon selected={folderDuration === '60min'} />
+                    <Text style={[styles.filterCardText, folderDuration === '60min' && styles.filterCardTextSelected]}>60 min</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderDuration === 'Custom' && styles.filterCardSelected]}
+                    onPress={() => setFolderDuration('Custom')}
+                  >
+                    <CustomDurationIcon selected={folderDuration === 'Custom'} />
+                    <Text style={[styles.filterCardText, folderDuration === 'Custom' && styles.filterCardTextSelected]}>Custom</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {folderDuration === 'Custom' && (
