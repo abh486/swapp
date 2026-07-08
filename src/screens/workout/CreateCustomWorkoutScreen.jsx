@@ -115,6 +115,8 @@ const CustomDurationIcon = ({ selected }) => (
   </Svg>
 );
 
+const DURATION_OPTIONS = Array.from({ length: 34 }, (_, i) => 15 + i * 5); // 15 to 180 minutes in steps of 5
+
 const EXERCISE_TO_MUSCLE = {
   'bench press': 'Chest',
   'incline bench': 'Chest',
@@ -321,6 +323,29 @@ const CreateCustomWorkoutScreen = () => {
   const [workoutNameInput, setWorkoutNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const pan = React.useRef(new Animated.ValueXY()).current;
+  const flatListRef = React.useRef(null);
+
+  // Auto-scroll the scroller wheel to center the current custom value
+  React.useEffect(() => {
+    if (folderDuration === 'Custom') {
+      const val = parseInt(folderCustomDuration) || 75;
+      const index = DURATION_OPTIONS.indexOf(val);
+      if (index !== -1 && flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.5 });
+        }, 120);
+      }
+    }
+  }, [folderDuration]);
+
+  const onScrollEnd = (e) => {
+    const yOffset = e.nativeEvent.contentOffset.y;
+    const index = Math.round(yOffset / 40);
+    if (index >= 0 && index < DURATION_OPTIONS.length) {
+      const selectedVal = DURATION_OPTIONS[index];
+      setFolderCustomDuration(String(selectedVal));
+    }
+  };
 
   const mapFiltersToApi = (level, goal, eq) => {
     const apiFilters = {};
@@ -1076,7 +1101,12 @@ const CreateCustomWorkoutScreen = () => {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.filterCard, folderDuration === 'Custom' && styles.filterCardSelected]}
-                    onPress={() => setFolderDuration('Custom')}
+                    onPress={() => {
+                      setFolderDuration('Custom');
+                      if (!folderCustomDuration) {
+                        setFolderCustomDuration('75');
+                      }
+                    }}
                   >
                     <CustomDurationIcon selected={folderDuration === 'Custom'} />
                     <Text style={[styles.filterCardText, folderDuration === 'Custom' && styles.filterCardTextSelected]}>Custom</Text>
@@ -1084,16 +1114,38 @@ const CreateCustomWorkoutScreen = () => {
                 </View>
 
                 {folderDuration === 'Custom' && (
-                  <View style={styles.customDurationContainer}>
-                    <TextInput
-                      style={styles.customDurationInput}
-                      placeholder="Minutes (e.g. 75)"
-                      placeholderTextColor="#555"
-                      keyboardType="numeric"
-                      value={folderCustomDuration}
-                      onChangeText={setFolderCustomDuration}
+                  <View style={styles.scrollerOuterContainer}>
+                    <View style={styles.scrollerHighlightFrame} />
+                    <FlatList
+                      ref={flatListRef}
+                      data={DURATION_OPTIONS}
+                      keyExtractor={(item) => item.toString()}
+                      snapToInterval={40}
+                      decelerationRate="fast"
+                      showsVerticalScrollIndicator={false}
+                      contentContainerStyle={{
+                        paddingVertical: 40,
+                      }}
+                      getItemLayout={(_, index) => ({
+                        length: 40,
+                        offset: 40 * index,
+                        index,
+                      })}
+                      onMomentumScrollEnd={onScrollEnd}
+                      renderItem={({ item }) => {
+                        const isSelected = String(item) === folderCustomDuration;
+                        return (
+                          <View style={styles.scrollerItem}>
+                            <Text style={[
+                              styles.scrollerItemText,
+                              isSelected && styles.scrollerItemTextSelected
+                            ]}>
+                              {item} min
+                            </Text>
+                          </View>
+                        );
+                      }}
                     />
-                    <Text style={styles.customDurationSuffix}>min</Text>
                   </View>
                 )}
               </ScrollView>
@@ -2291,27 +2343,41 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-  customDurationContainer: {
-    flexDirection: 'row',
+  scrollerOuterContainer: {
+    height: 120,
+    width: 160,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: 12,
+    overflow: 'hidden',
+  },
+  scrollerHighlightFrame: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 40,
+    height: 40,
+    borderTopWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: '#007AFF',
+    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+    borderRadius: 8,
+  },
+  scrollerItem: {
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0A12',
-    borderWidth: 1,
-    borderColor: '#2A2A40',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginHorizontal: 24,
-    marginBottom: 16,
   },
-  customDurationInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    paddingVertical: 12,
-    fontSize: 15,
-  },
-  customDurationSuffix: {
-    color: '#AEB4C0',
-    fontSize: 14,
+  scrollerItemText: {
+    color: '#666666',
+    fontSize: 16,
     fontWeight: '600',
+  },
+  scrollerItemTextSelected: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
   },
   workoutNameInputCustom: {
     backgroundColor: '#0A0A12',
