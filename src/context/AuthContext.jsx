@@ -228,6 +228,10 @@ export const AuthProvider = ({ children }) => {
  
         if (resp.data?.success && resp.data.data) {
           const userObject = resp.data.data.user;
+          const internalToken = resp.data.data.token;
+          if (internalToken) {
+            await AsyncStorage.setItem('internalToken', internalToken);
+          }
  
           if (emailFromToken) {
             if (!userObject.email || userObject.email === '') {
@@ -583,6 +587,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           await AsyncStorage.setItem('accessToken', token);
+          await AsyncStorage.setItem('internalToken', token);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
           setUserProfile(userObj);
           setIsAuthenticated(true);

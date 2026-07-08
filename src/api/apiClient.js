@@ -14,7 +14,7 @@ export const AUTH0_LOGIN_SCOPE = 'openid profile email offline_access';
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = 'https://bleachable-maricruz-neglectingly.ngrok-free.dev/api';
+export const API_BASE_URL = 'https://test-api.swapp.fit/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -97,7 +97,7 @@ const clearStoredCredentialsWithoutRefreshToken = async error => {
   }
 };
 
-export async function getToken() {
+export async function getAuth0Token() {
   try {
     const creds = await auth0.credentialsManager.getApiCredentials(
       AUTH0_API_AUDIENCE,
@@ -112,7 +112,7 @@ export async function getToken() {
     const cachedToken = await AsyncStorage.getItem('accessToken');
     if (isUsableApiToken(cachedToken)) {
       console.log(
-        '[apiClient] getToken error, using cached valid token:',
+        '[apiClient] getAuth0Token error, using cached valid token:',
         e.message,
       );
       return cachedToken;
@@ -128,12 +128,12 @@ export async function getToken() {
       await clearStoredCredentialsWithoutRefreshToken(e);
       await clearCachedAccessToken();
       console.log(
-        '[apiClient] getToken authentication failure, cleared token & credentials:',
+        '[apiClient] getAuth0Token authentication failure, cleared token & credentials:',
         e.message,
       );
     } else {
       console.log(
-        '[apiClient] getToken non-auth or missing refresh token error, preserving token:',
+        '[apiClient] getAuth0Token non-auth or missing refresh token error, preserving token:',
         e.message,
       );
       if (cachedToken) {
@@ -144,21 +144,40 @@ export async function getToken() {
   return null;
 }
 
+export async function getToken() {
+  const internalToken = await AsyncStorage.getItem('internalToken');
+  if (internalToken) {
+    return internalToken;
+  }
+  // Fallback to Auth0 token if internalToken is not present (e.g. before initial exchange)
+  return await getAuth0Token();
+}
+
 export async function debugStorage() {
   const accessToken = await AsyncStorage.getItem('accessToken');
+  const internalToken = await AsyncStorage.getItem('internalToken');
   const userProfile = await AsyncStorage.getItem('userProfile');
 
   console.log('[apiClient] AsyncStorage debug:', {
     hasAccessToken: Boolean(accessToken),
+    hasInternalToken: Boolean(internalToken),
     hasUserProfile: Boolean(userProfile),
   });
 
-  return { accessToken, userProfile };
+  return { accessToken, internalToken, userProfile };
 }
 
 apiClient.interceptors.request.use(
   async config => {
-    const token = await getToken();
+    let token;
+    // The verification endpoints require the raw Auth0 token (RS256)
+    if (config.url && (config.url.includes('/verify-user') || config.url.includes('/verify-member'))) {
+      token = await getAuth0Token();
+    } else {
+      // All other endpoints require the backend internal JWT (HS256)
+      token = await getToken();
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
