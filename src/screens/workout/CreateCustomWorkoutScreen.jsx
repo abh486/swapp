@@ -1184,14 +1184,6 @@ const CreateCustomWorkoutScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.workoutNameInputCustom}
-            placeholder="Name your workout (optional)"
-            placeholderTextColor="#555"
-            value={workoutNameInput}
-            onChangeText={setWorkoutNameInput}
-          />
-
           <View style={styles.listArea}>
             {loading ? (
               <View style={styles.loadingContainer}>
