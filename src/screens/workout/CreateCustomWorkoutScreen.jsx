@@ -1134,6 +1134,34 @@ const CreateCustomWorkoutScreen = () => {
             />
           </View>
 
+          {/* Horizontal scroll list of selected exercises */}
+          {selectedExercises.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.selectedExercisesRow}
+              contentContainerStyle={styles.selectedExercisesRowContent}
+            >
+              {selectedExercises.map((exercise) => (
+                <TouchableOpacity
+                  key={exercise.id}
+                  style={styles.selectedExercisePill}
+                  onPress={() => {
+                    setSelectedExercises(prev => prev.filter(ex => ex.id !== exercise.id));
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.selectedExercisePillText} numberOfLines={1}>
+                    {exercise.name}
+                  </Text>
+                  <Svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6 }}>
+                    <Path d="M18 6L6 18M6 6L18 18" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           <View style={styles.filtersContainer}>
             <TouchableOpacity
               style={styles.filterButton}
@@ -2280,6 +2308,30 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   // --- Redesigned exercise selector styles ---
+  selectedExercisesRow: {
+    maxHeight: 36,
+    marginBottom: 12,
+  },
+  selectedExercisesRowContent: {
+    gap: 8,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  selectedExercisePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007AFF', // Solid blue brand color
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    height: 28,
+  },
+  selectedExercisePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    maxWidth: 160,
+  },
   searchBarCustom: {
     flexDirection: 'row',
     alignItems: 'center',
