@@ -1,8 +1,8 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Image, PanResponder, Animated} from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Image, PanResponder, Animated, FlatList, TouchableWithoutFeedback, Alert } from 'react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchEquipments,
@@ -11,9 +11,70 @@ import {
   saveCustomWorkoutTemplate,
   getCustomWorkoutTemplates,
   setSelectedFilters,
+  deleteCustomWorkoutFolder,
 } from '../../redux/actions/workoutActions';
 import LinearGradient from 'react-native-linear-gradient';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import exercisesData from '../../assets/exercises.json';
+
+const FiltersIcon = () => (
+  <Svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ marginRight: 6 }}>
+    <Path d="M4 21V14M4 10V3M12 21V12M12 8V3M20 21V16M20 12V3M1 14H7M9 8H15M17 12H23" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const LevelIcon = ({ fillCount, selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Rect x="4" y="14" width="4" height="6" rx="1.5" fill={fillCount >= 1 ? (selected ? '#007AFF' : '#FFFFFF') : '#33333C'} />
+    <Rect x="10" y="10" width="4" height="10" rx="1.5" fill={fillCount >= 2 ? (selected ? '#007AFF' : '#FFFFFF') : '#33333C'} />
+    <Rect x="16" y="6" width="4" height="14" rx="1.5" fill={fillCount >= 3 ? (selected ? '#007AFF' : '#FFFFFF') : '#33333C'} />
+  </Svg>
+);
+
+const FlexArmIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path d="M8.5 7.5c.3-1.6 1.4-2.8 2.7-3.3 1-.4 2.1-.2 2.9.4.8.6 1.2 1.5 1.2 2.6V8c1.3.4 2.3 1.5 2.5 2.8.2 1.4-.4 2.7-1.4 3.5-.8.6-1.8.8-2.7.7-.6 1-1.6 1.7-2.8 1.9-1.2.2-2.3-.2-3.1-1.1L5.5 14c-.6-.6-1-1.4-1.2-2.2-.2-1 .1-2 .7-2.8l1.5-1.5c1-1 2.6-1 3.6 0l1.4 1.4c-.6.6-1 .9-1.5.9-.6 0-1-.4-1-.8V7.5z" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const StrengthIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path d="M2 19h20M5 19v-5h14v5M6 10h12M12 10v4M4 7h16M2 7v3M22 7v3" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const WeightScaleIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Rect x="4" y="4" width="16" height="16" rx="3" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" />
+    <Circle cx="12" cy="10" r="3" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" />
+    <Path d="M12 10l2-2" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const GymIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path d="M6 3h12M6 3v18M18 3v18M6 8h12M12 8v10M10 18h4" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const DumbbellIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path d="M6 8H4v8h2V8zm12 0h-2v8h2V8zM6 12h12M3 10h1v4H3v-4zm17 0h1v4h-1v-4z" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const StandingPersonIcon = ({ selected }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="5" r="2.5" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" />
+    <Path d="M12 7.5v7.5M9 9h6M10.5 15v5M13.5 15v5" stroke={selected ? '#007AFF' : '#FFFFFF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const LEVEL_BODY_PARTS_MAP_UPPER = {
+  BEGINNER: ['cardio', 'neck'],
+  INTERMEDIATE: ['chest', 'back', 'shoulders', 'upper arms', 'upper legs'],
+  ADVANCED: ['waist', 'lower arms', 'lower legs'],
+};
 
 const LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
 
@@ -32,6 +93,97 @@ const OptionChip = ({ styles, title, isSelected, onSelect }) => (
   </TouchableOpacity>
 );
 
+const EXERCISE_TO_MUSCLE = {
+  'bench press': 'Chest',
+  'incline bench': 'Chest',
+  'decline bench': 'Chest',
+  'dumbbell fly': 'Chest',
+  'chest fly': 'Chest',
+  'push up': 'Chest',
+  'overhead press': 'Shoulders',
+  'lateral raise': 'Shoulders',
+  'front raise': 'Shoulders',
+  'shrugs': 'Shoulders',
+  'bicep curl': 'Biceps',
+  'biceps curl': 'Biceps',
+  'hammer curl': 'Biceps',
+  'barbell curl': 'Biceps',
+  'concentration curl': 'Biceps',
+  'preacher curl': 'Biceps',
+  'curl': 'Biceps',
+  'tricep pushdown': 'Arms',
+  'overhead tricep extension': 'Arms',
+  'skull crusher': 'Arms',
+  'dip': 'Arms',
+  'pull up': 'Back',
+  'lat pulldown': 'Back',
+  'bent over row': 'Back',
+  'deadlift': 'Back',
+  't-bar row': 'Back',
+  'squat': 'Legs',
+  'leg press': 'Legs',
+  'leg extension': 'Legs',
+  'leg curl': 'Legs',
+  'calf raise': 'Legs',
+  'lunge': 'Legs',
+  'crunch': 'Core',
+  'plank': 'Core',
+  'leg raise': 'Core',
+  'russian twist': 'Core'
+};
+
+const mapBodyPartToMuscleGroup = (bodyPart, exerciseName = '') => {
+  if (!bodyPart) return null;
+  const bp = bodyPart.toLowerCase().trim();
+  const nameLower = exerciseName.toLowerCase();
+  
+  if (bp.includes('upper arms') || bp.includes('lower arms') || bp.includes('arms')) {
+    if (nameLower.includes('tricep') || nameLower.includes('dip') || nameLower.includes('extension')) {
+      return 'arms';
+    }
+    if (nameLower.includes('bicep') || nameLower.includes('curl') || nameLower.includes('chin') || nameLower.includes('preacher')) {
+      return 'biceps';
+    }
+    return 'arms';
+  }
+  if (bp.includes('chest') || bp.includes('pectorals')) return 'chest';
+  if (bp.includes('shoulders') || bp.includes('deltoids')) return 'shoulders';
+  if (bp.includes('upper legs') || bp.includes('lower legs') || bp.includes('legs') || bp.includes('quadriceps') || bp.includes('hamstrings') || bp.includes('calves') || bp.includes('glutes')) return 'legs';
+  if (bp.includes('back') || bp.includes('lats') || bp.includes('traps') || bp.includes('spine')) return 'back';
+  if (bp.includes('waist') || bp.includes('core') || bp.includes('abs') || bp.includes('abdominals') || bp.includes('cardio')) return 'core';
+  return bp;
+};
+
+const getWorkoutMuscles = (wk) => {
+  if (wk.muscles && wk.muscles.length > 0 && wk.muscles[0].toLowerCase() !== 'full body') {
+    return wk.muscles.map(m => mapBodyPartToMuscleGroup(m) || m);
+  }
+  const list = new Set();
+  const exList = wk.exercises || [];
+  exList.forEach(ex => {
+    const nameLower = ex.name.toLowerCase();
+    let found = false;
+    for (const [key, muscle] of Object.entries(EXERCISE_TO_MUSCLE)) {
+      if (nameLower.includes(key)) {
+        list.add(muscle.toLowerCase());
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      const bp = ex.bodyPart || ex.target;
+      if (bp) {
+        const mapped = mapBodyPartToMuscleGroup(bp, ex.name);
+        if (mapped) {
+          list.add(mapped.toLowerCase());
+        }
+      }
+    }
+  });
+  const result = Array.from(list).slice(0, 3);
+  return result.length > 0 ? result : ['chest', 'back', 'legs'];
+};
+
 const CreateCustomWorkoutScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -41,91 +193,219 @@ const CreateCustomWorkoutScreen = () => {
   const [folderName, setFolderName] = useState('');
   const [activeFolder, setActiveFolder] = useState(null);
 
-  const { equipments, muscles, loading } = useSelector(state => state.workout);
+  const { equipments, muscles, exercises, loading } = useSelector(state => state.workout);
 
   const { wp, hp, ms, sp, fs, isLandscape } = useResponsiveMetrics();
   const responsiveStyles = createCustomWorkoutCreationStyles({ wp, hp, ms, sp, fs, isLandscape });
 
-  const [currentStep, setCurrentStep] = useState(1); // 1 = Config screen, 2 = Folders screen
+  const [currentStep, setCurrentStep] = useState(2); // Start directly on Folders screen (Step 2)
   const [selectedLevel, setSelectedLevel] = useState('Intermediate');
   const [selectedEnv, setSelectedEnv] = useState('BASIC GYM');
   const [selectedDuration, setSelectedDuration] = useState('45min');
+  const [customDuration, setCustomDuration] = useState('');
 
   useEffect(() => {
     if (!equipments || equipments.length === 0) dispatch(fetchEquipments());
     if (!muscles || muscles.length === 0) dispatch(fetchMuscles());
   }, [dispatch, equipments, muscles]);
 
-  useEffect(() => {
-    const loadFolders = async () => {
-      try {
-        const backendFolders = await dispatch(getCustomWorkoutTemplates());
-        if (backendFolders && backendFolders.length > 0) {
-          setFolders(backendFolders);
-          setActiveFolder(prev => prev || backendFolders[0]);
-        }
-      } catch (err) {
-        console.error('Failed to load custom workout folders:', err);
-      }
-    };
-    loadFolders();
-  }, [dispatch]);
+  const isFocused = useIsFocused();
 
-  // Workout Modal State
+  useEffect(() => {
+    if (isFocused) {
+      const loadFolders = async () => {
+        try {
+          const backendFolders = await dispatch(getCustomWorkoutTemplates());
+          if (backendFolders && backendFolders.length > 0) {
+            setFolders(backendFolders);
+            setActiveFolder(prev => {
+              if (!prev) return backendFolders[0];
+              const updated = backendFolders.find(f => f.name === prev.name || f.id === prev.id);
+              return updated || backendFolders[0];
+            });
+          }
+        } catch (err) {
+          console.error('Failed to load custom workout folders:', err);
+        }
+      };
+      loadFolders();
+    }
+  }, [dispatch, isFocused]);
+
+  const handleDeleteFolder = (folder) => {
+    Alert.alert(
+      "Delete Workout Group?",
+      `Are you sure you want to delete "${folder.name}"? This will delete all custom workouts inside this folder.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const isLocalOnly = !folder.id.includes('-');
+              if (!isLocalOnly) {
+                try {
+                  await dispatch(deleteCustomWorkoutFolder(folder.id));
+                } catch (err) {
+                  if (err.statusCode !== 404 && err.message !== 'Folder not found') {
+                    throw err;
+                  }
+                }
+              }
+
+              const updatedFolders = folders.filter(f => f.id !== folder.id);
+              setFolders(updatedFolders);
+
+              if (updatedFolders.length > 0) {
+                setActiveFolder(prev => {
+                  if (!prev) return updatedFolders[0];
+                  const updated = updatedFolders.find(f => f.id === prev.id);
+                  return updated || updatedFolders[0];
+                });
+              } else {
+                setActiveFolder(null);
+              }
+            } catch (err) {
+              console.error("Failed to delete folder:", err);
+              Alert.alert("Error", err.message || "Failed to delete folder.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const [folderLevel, setFolderLevel] = useState('');
+  const [folderGoal, setFolderGoal] = useState('');
+  const [folderEquipment, setFolderEquipment] = useState('');
+  const [folderDuration, setFolderDuration] = useState('');
+  const [folderCustomDuration, setFolderCustomDuration] = useState('');
+
+  const isFolderFormValid = 
+    folderName.trim() !== '' &&
+    folderLevel !== '' &&
+    folderGoal !== '' &&
+    folderEquipment !== '' &&
+    (folderDuration === 'Custom' ? folderCustomDuration.trim() !== '' : folderDuration !== '');
+
   const [isWorkoutModalVisible, setWorkoutModalVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('Equipment');
+  const [isEquipmentModalVisible, setIsEquipmentModalVisible] = useState(false);
+  const [isMuscleModalVisible, setIsMuscleModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState([]);
+  const [selectedExercises, setSelectedExercises] = useState([]);
   const [workoutNameInput, setWorkoutNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const pan = React.useRef(new Animated.ValueXY()).current;
 
+  const mapFiltersToApi = (level, goal, eq) => {
+    const apiFilters = {};
+    const bodyPartsForLevel = LEVEL_BODY_PARTS_MAP_UPPER[level] || LEVEL_BODY_PARTS_MAP_UPPER['BEGINNER'];
+    apiFilters.bodyParts = bodyPartsForLevel;
+
+    if (eq === 'GYM') {
+      apiFilters.equipments = 'barbell,cable,machine,plate,leverage machine,bench';
+    } else if (eq === 'DUMBBELLS') {
+      apiFilters.equipments = 'dumbbell';
+    } else if (eq === 'NONE') {
+      apiFilters.equipments = 'body weight';
+    }
+
+    if (goal === 'GAIN_MUSCLE') {
+      apiFilters.categories = 'strength,powerlifting,strongman';
+    } else if (goal === 'STRENGTH') {
+      apiFilters.categories = 'strength,powerlifting';
+    } else if (goal === 'LOSE_WEIGHT') {
+      apiFilters.categories = 'cardio,plyometrics';
+    }
+
+    return apiFilters;
+  };
+
+  const toggleExerciseSelection = (exercise) => {
+    setSelectedExercises(prev => {
+      if (prev.some(ex => ex.id === exercise.id)) {
+        return prev.filter(ex => ex.id !== exercise.id);
+      }
+      return [...prev, exercise];
+    });
+  };
+
+  useEffect(() => {
+    if (!isWorkoutModalVisible) return;
+    const folderLevelFilter = activeFolder?.level || 'BEGINNER';
+    const folderGoalFilter = activeFolder?.goal || '';
+    const folderEquipmentFilter = activeFolder?.equipment || '';
+
+    const apiFilters = mapFiltersToApi(folderLevelFilter, folderGoalFilter, folderEquipmentFilter);
+
+    if (selectedEquipment) {
+      apiFilters.equipments = selectedEquipment.toLowerCase();
+    }
+    if (selectedMuscles.length > 0) {
+      apiFilters.targetMuscles = selectedMuscles.map(m => m.toLowerCase());
+    }
+
+    dispatch(fetchExercises({
+      limit: 100,
+      ...apiFilters
+    }));
+  }, [selectedEquipment, selectedMuscles, isWorkoutModalVisible, activeFolder, dispatch]);
+
   const equipmentList =
     equipments && equipments.length > 0
-      ? ['All Equipement', ...equipments.map(e => e.name || e)]
+      ? ['All Equipment', ...equipments.map(e => e.name || e)]
       : [
-          'All Equipement',
-          'None',
-          'Barbell',
-          'Dumbbell',
-          'Kettlebell',
-          'Machine',
-          'Plate',
-          'Resistance Band',
-          'Suspension Band',
-          'Other',
-        ];
+        'All Equipment',
+        'None',
+        'Barbell',
+        'Dumbbell',
+        'Kettlebell',
+        'Machine',
+        'Plate',
+        'Resistance Band',
+        'Suspension Band',
+        'Other',
+      ];
 
   const musclesList =
     muscles && muscles.length > 0
       ? ['All Muscles', ...muscles.map(m => m.name || m)]
       : [
-          'All Muscles',
-          'Abdominals',
-          'Abductors',
-          'Adductors',
-          'Biceps',
-          'Calves',
-          'Cardio',
-          'Chest',
-          'Forearms',
-          'Full Body',
-          'Glutes',
-          'Hamstrings',
-          'Lats',
-          'Lower back',
-          'Neck',
-          'Quadriceps',
-          'Shoulders',
-          'Traps',
-          'Triceps',
-          'Upper Back',
-          'Other',
-        ];
+        'All Muscles',
+        'Abdominals',
+        'Abductors',
+        'Adductors',
+        'Biceps',
+        'Calves',
+        'Cardio',
+        'Chest',
+        'Forearms',
+        'Full Body',
+        'Glutes',
+        'Hamstrings',
+        'Lats',
+        'Lower back',
+        'Neck',
+        'Quadriceps',
+        'Shoulders',
+        'Traps',
+        'Triceps',
+        'Upper Back',
+        'Other',
+      ];
 
-  const filteredList = (activeTab === 'Equipment' ? equipmentList : musclesList)
-    .filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+  const selectEquipmentAndClose = (equipment) => {
+    setSelectedEquipment(equipment === 'All Equipment' || equipment === 'All Equipement' ? '' : equipment);
+    setIsEquipmentModalVisible(false);
+  };
+
+  const selectMuscleAndClose = (muscle) => {
+    toggleMuscle(muscle);
+    setIsMuscleModalVisible(false);
+  };
 
   const toggleMuscle = muscle => {
     if (muscle === 'All Muscles') {
@@ -143,14 +423,23 @@ const CreateCustomWorkoutScreen = () => {
   };
 
   const handleCreateFolder = () => {
-    if (folderName.trim() === '') return;
+    if (!isFolderFormValid) return;
     const newFolder = {
       id: Date.now().toString(),
       name: folderName,
+      level: folderLevel,
+      goal: folderGoal,
+      equipment: folderEquipment,
+      duration: folderDuration === 'Custom' ? `${folderCustomDuration}min` : folderDuration,
       workouts: [],
     };
     setFolders([...folders, newFolder]);
     setFolderName('');
+    setFolderLevel('');
+    setFolderGoal('');
+    setFolderEquipment('');
+    setFolderDuration('');
+    setFolderCustomDuration('');
     setFolderModalVisible(false);
     setActiveFolder(newFolder);
   };
@@ -159,7 +448,7 @@ const CreateCustomWorkoutScreen = () => {
     if (activeFolder) {
       setActiveFolder(null);
     } else {
-      setCurrentStep(1);
+      navigation.goBack();
     }
   };
 
@@ -181,79 +470,16 @@ const CreateCustomWorkoutScreen = () => {
   };
 
   const handleSaveWorkout = async () => {
+    let finalExercises = selectedExercises || [];
+    if (finalExercises.length === 0) {
+      Alert.alert('Error', 'Please select at least one exercise for your custom workout.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      dispatch(setSelectedFilters(selectedEquipment, selectedMuscles));
-      const cleanedMuscles = selectedMuscles.filter(m => m !== 'All Muscles');
       const folderToUse =
         activeFolder || (folders.length > 0 ? folders[0] : null);
-
-      const UI_TO_API_MUSCLE_MAP = {
-        abdominals: { type: 'target', value: 'abs' },
-        abductors: { type: 'target', value: 'abductors' },
-        adductors: { type: 'target', value: 'adductors' },
-        biceps: { type: 'target', value: 'biceps' },
-        calves: { type: 'target', value: 'calves' },
-        cardio: { type: 'bodyPart', value: 'cardio' },
-        chest: { type: 'bodyPart', value: 'chest' },
-        forearms: { type: 'target', value: 'forearms' },
-        glutes: { type: 'target', value: 'glutes' },
-        hamstrings: { type: 'target', value: 'hamstrings' },
-        lats: { type: 'target', value: 'lats' },
-        'lower back': { type: 'target', value: 'spine' },
-        neck: { type: 'bodyPart', value: 'neck' },
-        quadriceps: { type: 'target', value: 'quads' },
-        shoulders: { type: 'bodyPart', value: 'shoulders' },
-        traps: { type: 'target', value: 'traps' },
-        triceps: { type: 'target', value: 'triceps' },
-        'upper back': { type: 'target', value: 'upper back' },
-      };
-
-      const UI_TO_API_EQUIPMENT_MAP = {
-        none: 'body weight',
-        machine: 'cable',
-        plate: 'weighted',
-        'suspension band': 'leverage machine',
-      };
-
-      const selectedBodyParts = [];
-      const selectedTargetMuscles = [];
-
-      cleanedMuscles.forEach(m => {
-        const lowerM = m.toLowerCase();
-        if (UI_TO_API_MUSCLE_MAP[lowerM]) {
-          const mapping = UI_TO_API_MUSCLE_MAP[lowerM];
-          if (mapping.type === 'bodyPart') {
-            selectedBodyParts.push(mapping.value);
-          } else {
-            selectedTargetMuscles.push(mapping.value);
-          }
-        } else {
-          selectedTargetMuscles.push(lowerM);
-        }
-      });
-
-      const eqKey = selectedEquipment.toLowerCase();
-      const apiEquipment =
-        UI_TO_API_EQUIPMENT_MAP[eqKey] ||
-        (selectedEquipment && selectedEquipment !== 'All Equipement'
-          ? eqKey
-          : undefined);
-
-      const fetchedExercises = await dispatch(
-        fetchExercises({
-          limit: 30,
-          equipments: apiEquipment,
-          bodyParts:
-            selectedBodyParts.length > 0 ? selectedBodyParts : undefined,
-          targetMuscles:
-            selectedTargetMuscles.length > 0
-              ? selectedTargetMuscles
-              : undefined,
-        }),
-      );
-
-      let finalExercises = fetchedExercises || [];
 
       let formattedExercises = finalExercises.slice(0, 30).map(ex => ({
         ...ex,
@@ -275,15 +501,58 @@ const CreateCustomWorkoutScreen = () => {
         };
       }
 
+      // Extract target muscles dynamically from exercises
+      const muscleList = new Set();
+      formattedExercises.forEach(ex => {
+        if (ex.bodyPart) {
+          muscleList.add(ex.bodyPart.toLowerCase());
+        }
+        if (ex.target) {
+          muscleList.add(ex.target.toLowerCase());
+        }
+        if (ex.muscles && Array.isArray(ex.muscles)) {
+          ex.muscles.forEach(m => muscleList.add(m.toLowerCase()));
+        }
+      });
+      
+      const durationVal = targetFolder?.duration || (selectedDuration === 'Custom' ? (customDuration ? `${customDuration}min` : '45min') : selectedDuration);
+      const durationMins = parseInt(durationVal) || 45;
+      const computedCalories = `${Math.round(durationMins * 7.5)} kcal`;
+
+      const mappedMuscles = new Set();
+      formattedExercises.forEach(ex => {
+        const nameLower = ex.name.toLowerCase();
+        let found = false;
+        for (const [key, muscle] of Object.entries(EXERCISE_TO_MUSCLE)) {
+          if (nameLower.includes(key)) {
+            mappedMuscles.add(muscle.toLowerCase());
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          if (ex.target) {
+            mappedMuscles.add(ex.target.toLowerCase());
+          }
+          if (ex.muscles && Array.isArray(ex.muscles)) {
+            ex.muscles.forEach(m => mappedMuscles.add(m.toLowerCase()));
+          }
+        }
+      });
+      const uniqueMuscles = Array.from(mappedMuscles).slice(0, 3);
+      const finalMuscles = uniqueMuscles.length > 0 ? uniqueMuscles : ['chest', 'back', 'legs'];
+
       const newWorkout = {
         id: Date.now().toString(),
         name:
           workoutNameInput.trim() ||
-          `WORKOUT ${targetFolder.workouts.length + 1}`,
-        muscles: cleanedMuscles,
-        duration: selectedDuration,
-        calories: '60 kcal',
-        equipment: selectedEquipment || 'All Equipement',
+          (targetFolder.workouts.length === 0
+            ? targetFolder.name
+            : `${targetFolder.name} ${targetFolder.workouts.length + 1}`),
+        muscles: finalMuscles,
+        duration: durationVal,
+        calories: computedCalories,
+        equipment: selectedEquipment || 'All Equipment',
         exercises: formattedExercises,
       };
 
@@ -297,25 +566,34 @@ const CreateCustomWorkoutScreen = () => {
         ? folders.map(f => (f.id === updatedFolder.id ? updatedFolder : f))
         : [...folders, updatedFolder];
 
-      setFolders(updatedFoldersList);
-      setActiveFolder(updatedFolder);
-
-      await dispatch(
+      const savedFolder = await dispatch(
         saveCustomWorkoutTemplate(updatedFolder.name, updatedFolder.workouts),
       );
 
-      // Close modal and clean up states
-      setWorkoutModalVisible(false);
-      setSelectedMuscles([]);
-      setSelectedEquipment('');
-      setWorkoutNameInput('');
+      if (savedFolder) {
+        setFolders(prev => prev.map(f => f.name === updatedFolder.name ? savedFolder : f));
+        setActiveFolder(savedFolder);
+      } else {
+        setFolders(updatedFoldersList);
+        setActiveFolder(updatedFolder);
+      }
 
-      // Auto-navigate to FastWorkoutActive with the newly created custom workout!
+      setWorkoutModalVisible(false);
+      setSelectedEquipment('');
+      setSelectedMuscles([]);
+      setWorkoutNameInput('');
+      setSelectedExercises([]);
+
+      const savedWorkout = savedFolder?.workouts?.find(w => w.name === newWorkout.name) || newWorkout;
+
       navigation.navigate('FastWorkoutActive', {
-        level: selectedLevel,
-        duration: selectedDuration,
+        level: folderToUse?.level || 'BEGINNER',
+        duration: newWorkout.duration,
         exercises: newWorkout.exercises || [],
         workoutName: newWorkout.name,
+        folderName: folderToUse?.name,
+        templateId: savedWorkout.id,
+        isSetupMode: true,
       });
     } catch (error) {
       console.error('Failed to save custom workout:', error);
@@ -357,103 +635,59 @@ const CreateCustomWorkoutScreen = () => {
     }),
   ).current;
 
-  // Render Step 1: Configuration Screen
-  if (currentStep === 1) {
+  const displayedExercises = (exercises || []).filter(ex =>
+    (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderExerciseItem = ({ item }) => {
+    const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
+    const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
+    const imageSource = item.gifUrl
+      ? { uri: item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
+      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' };
+    const isSelected = selectedExercises.some(ex => ex.id === item.id);
+
     return (
-      <SafeAreaView style={responsiveStyles.container}>
-        {/* Header */}
-        <View style={responsiveStyles.header}>
-          <TouchableOpacity
-            style={responsiveStyles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 19L8 12L15 5"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
-          <View style={responsiveStyles.headerPill}>
-            <Image
-              source={require('../../assets/image/threedot.png')}
-              style={responsiveStyles.lightningIcon}
-              resizeMode="contain"
-            />
-            <Text style={responsiveStyles.headerTitle}>Create a Custom Workout</Text>
+      <TouchableOpacity
+        style={[styles.exerciseCardCustom, isSelected && styles.exerciseCardSelectedCustom]}
+        activeOpacity={0.75}
+        onPress={() => toggleExerciseSelection(item)}
+      >
+        <View style={styles.exerciseRowCustom}>
+          <Image source={imageSource} style={styles.exerciseThumbnailCustom} resizeMode="cover" />
+          <View style={styles.exerciseInfoCustom}>
+            <Text style={styles.exerciseNameCustom}>{item.name}</Text>
+            <View style={styles.badgeRowCustom}>
+              {target ? (
+                <View style={styles.muscleBadgeCustom}>
+                  <Text style={styles.badgeTextCustom}>{target}</Text>
+                </View>
+              ) : null}
+              {equipment ? (
+                <View style={styles.equipmentBadgeCustom}>
+                  <Text style={styles.badgeTextCustom}>{equipment}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+          <View style={styles.checkboxContainerCustom}>
+            {isSelected ? (
+              <View style={styles.checkboxSelectedCustom}>
+                <Svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+            ) : (
+              <View style={styles.checkboxUnselectedCustom} />
+            )}
           </View>
         </View>
-
-        {/* Card */}
-        <View style={responsiveStyles.card}>
-          <Text style={responsiveStyles.sectionLabel}>LEVEL</Text>
-          <View style={responsiveStyles.optionsRow}>
-            {['Beginner', 'Intermediate', 'Advanced'].map(level => (
-              <OptionChip
-                styles={responsiveStyles}
-                key={level}
-                title={level}
-                isSelected={selectedLevel === level}
-                onSelect={() => setSelectedLevel(level)}
-              />
-            ))}
-          </View>
-
-          <Text style={responsiveStyles.sectionLabel}>TRAINING ENVIRONMENT</Text>
-          <View style={responsiveStyles.optionsRow}>
-            {['ADVANCED GYM', 'BASIC GYM', 'AT-HOME GYM', 'ZERO EQUIPMENT', 'PERSONALISED'].map(env => (
-              <OptionChip
-                styles={responsiveStyles}
-                key={env}
-                title={env}
-                isSelected={selectedEnv === env}
-                onSelect={() => setSelectedEnv(env)}
-              />
-            ))}
-          </View>
-
-          <Text style={responsiveStyles.sectionLabel}>WORKOUT DURATION</Text>
-          <View style={responsiveStyles.optionsRow}>
-            {['30min', '45min', '50min', 'Choose Duration'].map(dur => (
-              <OptionChip
-                styles={responsiveStyles}
-                key={dur}
-                title={dur}
-                isSelected={selectedDuration === dur}
-                onSelect={() => setSelectedDuration(dur)}
-              />
-            ))}
-          </View>
-
-          {/* Proceed Button */}
-          <View style={responsiveStyles.addExerciseArea}>
-            <TouchableOpacity
-              style={responsiveStyles.proceedButton}
-              onPress={() => setCurrentStep(2)}
-              activeOpacity={0.85}
-            >
-              <Text style={responsiveStyles.proceedButtonText}>Proceed to Workout Groups</Text>
-              <Svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6 }}>
-                <Path
-                  d="M9 5L16 12L9 19"
-                  stroke="#FFFFFF"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
+      </TouchableOpacity>
     );
-  }
+  };
 
-  // Render Step 2: Folders/Groups list Screen
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -482,11 +716,6 @@ const CreateCustomWorkoutScreen = () => {
               activeOpacity={0.8}
               onPress={handleCreateWorkoutBtn}
             >
-              <Image
-                source={require('../../assets/image/threedot.png')}
-                style={styles.threedotIcon}
-                resizeMode="contain"
-              />
               <Text style={styles.createWorkoutPillText}>
                 Create a Custom Workout
               </Text>
@@ -521,6 +750,22 @@ const CreateCustomWorkoutScreen = () => {
                   >
                     {folder.name}
                   </Text>
+                  {isActive && (
+                    <TouchableOpacity
+                      style={styles.deleteFolderBtn}
+                      onPress={() => handleDeleteFolder(folder)}
+                    >
+                      <Svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M18 6L6 18M6 6L18 18"
+                          stroke="#FFF"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -562,7 +807,14 @@ const CreateCustomWorkoutScreen = () => {
               <TouchableOpacity
                 style={styles.createWorkoutInnerBtn}
                 onPress={handleCreateWorkoutBtn}
+                activeOpacity={0.8}
               >
+                <LinearGradient
+                  colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                  style={StyleSheet.absoluteFillObject}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
                 <Text style={styles.createWorkoutInnerBtnText}>
                   Create new Workout
                 </Text>
@@ -573,28 +825,49 @@ const CreateCustomWorkoutScreen = () => {
 
         {activeFolder && activeFolder.workouts.length > 0 && (
           <View style={styles.workoutsContainer}>
-            {activeFolder.workouts.map(workout => (
-              <View key={workout.id} style={styles.workoutCardContainer}>
+            {activeFolder.workouts.map((workout, idx) => (
+              <TouchableOpacity
+                key={workout.id}
+                style={styles.workoutCardContainer}
+                activeOpacity={0.9}
+                onPress={() =>
+                  navigation.navigate('FastWorkoutActive', {
+                    level: selectedLevel,
+                    duration: workout.duration || selectedDuration,
+                    exercises: workout.exercises || [],
+                    workoutName: workout.name,
+                    folderName: activeFolder?.name,
+                    templateId: workout.id,
+                  })
+                }
+              >
                 <LinearGradient
-                  colors={['#3B0764', '#1E0A3C']}
+                  colors={['#EE822A', '#8F5D98', '#2E4D9F']}
                   style={StyleSheet.absoluteFill}
                   borderRadius={24}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0.5 }}
                 />
                 <View style={styles.workoutCardContent}>
-                  <Text style={styles.workoutName}>{workout.name}</Text>
+                  <Text style={styles.workoutDayText}>
+                    {activeFolder?.name || `WORKOUT ${idx + 1}`}
+                  </Text>
+                  {(!workout.name || 
+                    workout.name.toLowerCase().startsWith('day ') || 
+                    (activeFolder?.name && workout.name.toLowerCase() === activeFolder.name.toLowerCase())
+                  ) ? null : (
+                    <Text style={styles.workoutName}>{workout.name}</Text>
+                  )}
 
                   <View style={styles.tagsRow}>
-                    {workout.muscles.length > 0 ? (
-                      workout.muscles.slice(0, 3).map((m, i) => (
+                    {(() => {
+                      const displayedMuscles = getWorkoutMuscles(workout);
+                      return displayedMuscles.map((m, i) => (
                         <View key={i} style={styles.tagPill}>
                           <Text style={styles.tagText}>{m.toUpperCase()}</Text>
                         </View>
-                      ))
-                    ) : (
-                      <View style={styles.tagPill}>
-                        <Text style={styles.tagText}>FULL BODY</Text>
-                      </View>
-                    )}
+                      ));
+                    })()}
                   </View>
 
                   <View style={styles.statsRow}>
@@ -622,22 +895,14 @@ const CreateCustomWorkoutScreen = () => {
                         strokeWidth="1.5"
                       />
                     </Svg>
-                    <Text style={styles.statText}>{workout.calories}</Text>
+                    <Text style={styles.statText}>
+                      {(!workout.calories || workout.calories === '60 kcal')
+                        ? `${Math.round((parseInt(workout.duration) || 45) * 7.5)} kcal`
+                        : workout.calories}
+                    </Text>
                   </View>
 
-                  {/* Chevron triggers player */}
-                  <TouchableOpacity
-                    style={styles.workoutChevronBtn}
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      navigation.navigate('FastWorkoutActive', {
-                        level: selectedLevel,
-                        duration: selectedDuration,
-                        exercises: workout.exercises || [],
-                        workoutName: workout.name,
-                      })
-                    }
-                  >
+                  <View style={styles.workoutChevronBtn}>
                     <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <Path
                         d="M9 18L15 12L9 6"
@@ -647,9 +912,9 @@ const CreateCustomWorkoutScreen = () => {
                         strokeLinejoin="round"
                       />
                     </Svg>
-                  </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -658,283 +923,386 @@ const CreateCustomWorkoutScreen = () => {
       <Modal
         visible={isFolderModalVisible}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Folder</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setFolderModalVisible(false)}
-              >
-                <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M18 6L6 18M6 6L18 18"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalKeyboardAvoiding}
+          >
+            <View style={styles.modalContentLarge}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Create Folder</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setFolderModalVisible(false)}
+                >
+                  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="#FFFFFF"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: hp(65) }}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>FOLDER NAME</Text>
+                  <TextInput
+                    style={styles.folderInput}
+                    placeholder="Enter folder name"
+                    placeholderTextColor="#666"
+                    value={folderName}
+                    onChangeText={setFolderName}
                   />
-                </Svg>
+                </View>
+
+                <Text style={styles.filterSectionTitle}>Level</Text>
+                <View style={styles.cardRow}>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderLevel === 'BEGINNER' && styles.filterCardSelected]}
+                    onPress={() => setFolderLevel('BEGINNER')}
+                  >
+                    <LevelIcon fillCount={1} selected={folderLevel === 'BEGINNER'} />
+                    <Text style={[styles.filterCardText, folderLevel === 'BEGINNER' && styles.filterCardTextSelected]}>Beginner</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderLevel === 'INTERMEDIATE' && styles.filterCardSelected]}
+                    onPress={() => setFolderLevel('INTERMEDIATE')}
+                  >
+                    <LevelIcon fillCount={2} selected={folderLevel === 'INTERMEDIATE'} />
+                    <Text style={[styles.filterCardText, folderLevel === 'INTERMEDIATE' && styles.filterCardTextSelected]}>Medium</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderLevel === 'ADVANCED' && styles.filterCardSelected]}
+                    onPress={() => setFolderLevel('ADVANCED')}
+                  >
+                    <LevelIcon fillCount={3} selected={folderLevel === 'ADVANCED'} />
+                    <Text style={[styles.filterCardText, folderLevel === 'ADVANCED' && styles.filterCardTextSelected]}>Advanced</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.filterSectionTitle}>Goal</Text>
+                <View style={styles.cardRow}>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderGoal === 'GAIN_MUSCLE' && styles.filterCardSelected]}
+                    onPress={() => setFolderGoal(folderGoal === 'GAIN_MUSCLE' ? '' : 'GAIN_MUSCLE')}
+                  >
+                    <FlexArmIcon selected={folderGoal === 'GAIN_MUSCLE'} />
+                    <Text style={[styles.filterCardText, folderGoal === 'GAIN_MUSCLE' && styles.filterCardTextSelected]}>Gain Muscle</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderGoal === 'STRENGTH' && styles.filterCardSelected]}
+                    onPress={() => setFolderGoal(folderGoal === 'STRENGTH' ? '' : 'STRENGTH')}
+                  >
+                    <StrengthIcon selected={folderGoal === 'STRENGTH'} />
+                    <Text style={[styles.filterCardText, folderGoal === 'STRENGTH' && styles.filterCardTextSelected]}>Strength</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderGoal === 'LOSE_WEIGHT' && styles.filterCardSelected]}
+                    onPress={() => setFolderGoal(folderGoal === 'LOSE_WEIGHT' ? '' : 'LOSE_WEIGHT')}
+                  >
+                    <WeightScaleIcon selected={folderGoal === 'LOSE_WEIGHT'} />
+                    <Text style={[styles.filterCardText, folderGoal === 'LOSE_WEIGHT' && styles.filterCardTextSelected]}>Lose Weight</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.filterSectionTitle}>Equipment</Text>
+                <View style={styles.cardRow}>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderEquipment === 'GYM' && styles.filterCardSelected]}
+                    onPress={() => setFolderEquipment('GYM')}
+                  >
+                    <GymIcon selected={folderEquipment === 'GYM'} />
+                    <Text style={[styles.filterCardText, folderEquipment === 'GYM' && styles.filterCardTextSelected]}>Gym</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderEquipment === 'DUMBBELLS' && styles.filterCardSelected]}
+                    onPress={() => setFolderEquipment('DUMBBELLS')}
+                  >
+                    <DumbbellIcon selected={folderEquipment === 'DUMBBELLS'} />
+                    <Text style={[styles.filterCardText, folderEquipment === 'DUMBBELLS' && styles.filterCardTextSelected]}>Dumbbells</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.filterCard, folderEquipment === 'NONE' && styles.filterCardSelected]}
+                    onPress={() => setFolderEquipment('NONE')}
+                  >
+                    <StandingPersonIcon selected={folderEquipment === 'NONE'} />
+                    <Text style={[styles.filterCardText, folderEquipment === 'NONE' && styles.filterCardTextSelected]}>None</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>WORKOUT DURATION</Text>
+                <View style={[responsiveStyles.optionsRow, { flexWrap: 'wrap', marginBottom: 12 }]}>
+                  {['45min', '60min', 'Custom'].map(dur => (
+                    <OptionChip
+                      styles={responsiveStyles}
+                      key={dur}
+                      title={dur}
+                      isSelected={folderDuration === dur}
+                      onSelect={() => setFolderDuration(dur)}
+                    />
+                  ))}
+                </View>
+
+                {folderDuration === 'Custom' && (
+                  <View style={styles.customDurationContainer}>
+                    <TextInput
+                      style={styles.customDurationInput}
+                      placeholder="Minutes (e.g. 75)"
+                      placeholderTextColor="#555"
+                      keyboardType="numeric"
+                      value={folderCustomDuration}
+                      onChangeText={setFolderCustomDuration}
+                    />
+                    <Text style={styles.customDurationSuffix}>min</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalCreateButton,
+                  !isFolderFormValid && { backgroundColor: '#333333' }
+                ]}
+                onPress={handleCreateFolder}
+                disabled={!isFolderFormValid}
+                activeOpacity={0.8}
+              >
+                {isFolderFormValid ? (
+                  <LinearGradient
+                    colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                ) : null}
+                <Text style={[
+                  styles.modalCreateButtonText,
+                  !isFolderFormValid && { color: '#666666' }
+                ]}>
+                  Create Folder
+                </Text>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>FOLDER NAME</Text>
-              <TextInput
-                style={styles.folderInput}
-                placeholder="Enter folder name"
-                placeholderTextColor="#555"
-                value={folderName}
-                onChangeText={setFolderName}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.modalCreateButton}
-              onPress={handleCreateFolder}
-            >
-              <Text style={styles.modalCreateButtonText}>Create Folder</Text>
-            </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
       <Modal
         visible={isWorkoutModalVisible}
         animationType="slide"
-        transparent={true}
+        transparent={false}
       >
-        <View style={styles.fullModalContainer}>
-          <TouchableOpacity
-            style={styles.selectorBackButton}
-            onPress={() => setWorkoutModalVisible(false)}
-            activeOpacity={0.8}
-          >
-            <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 19L8 12L15 5"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.editorHeader}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setWorkoutModalVisible(false)}
+            >
+              <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <Path d="M15 19L8 12L15 5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </TouchableOpacity>
+            <View style={styles.headerPillCustom}>
+              <Text style={styles.headerPillTextCustom}>Create a Custom Workout</Text>
+            </View>
+          </View>
 
-          <View style={styles.searchBar}>
-            <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+          <View style={styles.searchBarCustom}>
+            <Svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <Path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
             <TextInput
-              style={styles.searchInput}
+              style={styles.searchInputCustom}
               placeholder="Search Exercise"
-              placeholderTextColor="#444"
+              placeholderTextColor="#666"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
 
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
+          <View style={styles.filtersContainer}>
             <TouchableOpacity
-              style={[
-                styles.tabButton,
-                activeTab === 'Equipment' && styles.tabButtonActive,
-              ]}
-              onPress={() => {
-                setActiveTab('Equipment');
-                setSearchQuery('');
-              }}
+              style={styles.filterButton}
+              onPress={() => setIsEquipmentModalVisible(true)}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'Equipment' && styles.tabTextActive,
-                ]}
-              >
-                All Equipment
+              <Text style={styles.filterLabel}>Equipment</Text>
+              <Text style={styles.filterValue} numberOfLines={1}>
+                {selectedEquipment || 'All Equipment'}
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[
-                styles.tabButton,
-                activeTab === 'Muscles' && styles.tabButtonActive,
-              ]}
-              onPress={() => {
-                setActiveTab('Muscles');
-                setSearchQuery('');
-              }}
+              style={styles.filterButton}
+              onPress={() => setIsMuscleModalVisible(true)}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'Muscles' && styles.tabTextActive,
-                ]}
-              >
-                All Muscles
+              <Text style={styles.filterLabel}>Muscle Group</Text>
+              <Text style={styles.filterValue} numberOfLines={1}>
+                {selectedMuscles.length > 0 ? selectedMuscles.join(', ') : 'All Muscles'}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Content Container */}
-          <View style={styles.fullModalContentContainer}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.selectionModalTitle}>
-              {activeTab === 'Equipment' ? 'Equipment' : 'Muscles'}
-            </Text>
-            <View style={styles.modalDivider} />
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContainer}
-            >
-              {filteredList.map((item, index) => {
-                const isChecked =
-                  activeTab === 'Equipment'
-                    ? selectedEquipment === item
-                    : selectedMuscles.includes(item);
-
-                return (
-                  <View key={index}>
-                    <TouchableOpacity
-                      style={styles.listItem}
-                      onPress={() =>
-                        activeTab === 'Equipment'
-                          ? setSelectedEquipment(item)
-                          : toggleMuscle(item)
-                      }
-                    >
-                      <View style={styles.iconCircle}>
-                        {index === 0 && (
-                          <Svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                          >
-                            <Path
-                              d="M4 4H10V10H4V4ZM14 4H20V10H14V4ZM4 14H10V20H4V14ZM14 14H20V20H14V14Z"
-                              stroke="#FFFFFF"
-                              strokeWidth="2"
-                              strokeLinejoin="round"
-                            />
-                          </Svg>
-                        )}
-                      </View>
-                      <Text style={styles.listItemText}>{item}</Text>
-                      {isChecked && (
-                        <View style={styles.checkmark}>
-                          <Svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                          >
-                            <Path
-                              d="M20 6L9 17L4 12"
-                              stroke="#7C3AED"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </Svg>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.itemDivider} />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* Input field for workout name */}
           <TextInput
-            style={styles.workoutNameInput}
+            style={styles.workoutNameInputCustom}
             placeholder="Name your workout (optional)"
             placeholderTextColor="#555"
             value={workoutNameInput}
             onChangeText={setWorkoutNameInput}
           />
 
-          {/* Swipe Button */}
+          <View style={styles.listArea}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <GlobalLoader size={60} />
+                <Text style={styles.loadingText}>Loading exercises...</Text>
+              </View>
+            ) : displayedExercises.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No exercises found matching your filters.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={displayedExercises}
+                keyExtractor={(item, index) => item.id || index.toString()}
+                renderItem={renderExerciseItem}
+                contentContainerStyle={styles.listContentContainer}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+          </View>
+
           <View style={styles.floatingButtonContainer}>
-            <View style={[styles.floatingButtonBg, { width: 240 }]}>
-              <Text style={styles.floatingButtonTextBg}>
-                Swipe to Save Workout
-              </Text>
-              <Svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ position: 'absolute', right: 12 }}
+            {selectedExercises.length > 0 ? (
+              <TouchableOpacity
+                style={styles.addSelectedButtonCustom}
+                onPress={handleSaveWorkout}
+                activeOpacity={0.85}
               >
-                <Path
-                  d="M9 18L15 12L9 6"
-                  stroke="#555"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <LinearGradient
+                  colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                  style={StyleSheet.absoluteFillObject}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 />
-                <Path
-                  d="M13 18L19 12L13 6"
-                  stroke="#3a3a3a"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <Path
-                  d="M17 18L23 12L17 6"
-                  stroke="#222"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Animated.View
-                style={[
-                  styles.swipeThumb,
-                  {
-                    transform: [
-                      {
+                <Text style={styles.addSelectedButtonTextCustom}>
+                  Save Selected Exercises ({selectedExercises.length})
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.floatingButtonBg, { width: 240 }]}>
+                <Text style={styles.floatingButtonTextBg}>Swipe to Save Workout</Text>
+                <Animated.View
+                  style={[
+                    styles.swipeThumb,
+                    {
+                      transform: [{
                         translateX: pan.x.interpolate({
                           inputRange: [0, 240 - 46],
                           outputRange: [0, 240 - 46],
                           extrapolate: 'clamp',
                         }),
-                      },
-                    ],
-                  },
-                ]}
-                {...panResponder.panHandlers}
-              >
-                <View style={styles.floatingButtonIcon}>
-                  {isSaving ? (
-                    <GlobalLoader size={30} />
-                  ) : (
-                    <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M12 5V19M5 12H19"
-                        stroke="#7C3AED"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                    </Svg>
-                  )}
-                </View>
-              </Animated.View>
+                      }],
+                    },
+                  ]}
+                  {...panResponder.panHandlers}>
+                  <View style={styles.floatingButtonIcon}>
+                    {isSaving ? (
+                      <GlobalLoader size={30} />
+                    ) : (
+                      <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <Path d="M12 5V19M5 12H19" stroke="#007AFF" strokeWidth="2.5" strokeLinecap="round" />
+                      </Svg>
+                    )}
+                  </View>
+                </Animated.View>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
+
+        <Modal visible={isEquipmentModalVisible} animationType="slide" transparent>
+          <View style={styles.bottomModalOverlay}>
+            <View style={styles.bottomModalContentContainer}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Equipment</Text>
+                <TouchableOpacity onPress={() => setIsEquipmentModalVisible(false)} style={styles.closeButton}>
+                  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalDivider} />
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+                {equipmentList.map((item, index) => {
+                  const isSelected = selectedEquipment === item || (item === 'All Equipment' && !selectedEquipment);
+                  return (
+                    <View key={index}>
+                      <TouchableOpacity style={styles.listItem} onPress={() => selectEquipmentAndClose(item)}>
+                        <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
+                        {isSelected && (
+                          <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
+                        )}
+                      </TouchableOpacity>
+                      <View style={styles.itemDivider} />
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
           </View>
-        </View>
+        </Modal>
+
+        <Modal visible={isMuscleModalVisible} animationType="slide" transparent>
+          <View style={styles.bottomModalOverlay}>
+            <View style={styles.bottomModalContentContainer}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Muscle Group</Text>
+                <TouchableOpacity onPress={() => setIsMuscleModalVisible(false)} style={styles.closeButton}>
+                  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalDivider} />
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+                {musclesList.map((item, index) => {
+                  const isSelected = selectedMuscles.includes(item) || (item === 'All Muscles' && selectedMuscles.length === 0);
+                  return (
+                    <View key={index}>
+                      <TouchableOpacity style={styles.listItem} onPress={() => toggleMuscle(item)}>
+                        <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
+                        {isSelected && (
+                          <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
+                        )}
+                      </TouchableOpacity>
+                      <View style={styles.itemDivider} />
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.modalApplyBtn}
+                  onPress={() => setIsMuscleModalVisible(false)}
+                >
+                  <Text style={styles.modalApplyBtnText}>Apply Selection</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Modal>
     </SafeAreaView>
   );
@@ -957,7 +1325,7 @@ const createCustomWorkoutCreationStyles = ({ wp, hp, ms, sp, fs, isLandscape }) 
     headerPill: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#3B0764',
+      backgroundColor: '#1E2436', // Brand dark blue
       alignSelf: 'flex-start',
       paddingRight: sp(18),
       paddingLeft: 0,
@@ -1029,48 +1397,48 @@ export const WorkoutEditorScreen = ({ route }) => {
   const [exercises, setExercises] = useState(
     routeExercises.length > 0
       ? routeExercises.map(ex => ({
-          ...ex,
-          loggedSets: ex.loggedSets || 0,
-          isCompleted: ex.isCompleted || false,
-        }))
+        ...ex,
+        loggedSets: ex.loggedSets || 0,
+        isCompleted: ex.isCompleted || false,
+      }))
       : [
-          {
-            id: '1',
-            name: 'Dumbbell Bench Press',
-            sets: 3,
-            reps: 12,
-            weight: '4.00',
-            loggedSets: 0,
-            isCompleted: false,
-          },
-          {
-            id: '2',
-            name: 'Dumbbell Fly',
-            sets: 2,
-            reps: 15,
-            weight: '4.00',
-            loggedSets: 0,
-            isCompleted: false,
-          },
-          {
-            id: '3',
-            name: 'Incline Dumbbell Press',
-            sets: 3,
-            reps: 10,
-            weight: '6.00',
-            loggedSets: 0,
-            isCompleted: false,
-          },
-          {
-            id: '4',
-            name: 'Cable Crossover',
-            sets: 3,
-            reps: 12,
-            weight: '5.00',
-            loggedSets: 0,
-            isCompleted: false,
-          },
-        ],
+        {
+          id: '1',
+          name: 'Dumbbell Bench Press',
+          sets: 3,
+          reps: 12,
+          weight: '4.00',
+          loggedSets: 0,
+          isCompleted: false,
+        },
+        {
+          id: '2',
+          name: 'Dumbbell Fly',
+          sets: 2,
+          reps: 15,
+          weight: '4.00',
+          loggedSets: 0,
+          isCompleted: false,
+        },
+        {
+          id: '3',
+          name: 'Incline Dumbbell Press',
+          sets: 3,
+          reps: 10,
+          weight: '6.00',
+          loggedSets: 0,
+          isCompleted: false,
+        },
+        {
+          id: '4',
+          name: 'Cable Crossover',
+          sets: 3,
+          reps: 12,
+          weight: '5.00',
+          loggedSets: 0,
+          isCompleted: false,
+        },
+      ],
   );
 
   const [activeExerciseId, setActiveExerciseId] = useState(
@@ -1198,7 +1566,7 @@ export const WorkoutEditorScreen = ({ route }) => {
               <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 5V19M5 12H19"
-                  stroke="#7C3AED"
+                  stroke="#007AFF"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                 />
@@ -1348,13 +1716,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   createWorkoutPill: {
-    backgroundColor: '#2A0548',
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 30,
-    paddingRight: 20,
-    paddingVertical: 5,
-    paddingLeft: 5,
   },
   threedotIcon: {
     width: 44,
@@ -1363,8 +1727,8 @@ const styles = StyleSheet.create({
   },
   createWorkoutPillText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
   },
   plusIcon: {
     marginRight: 10,
@@ -1392,10 +1756,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   folderPillActive: {
     backgroundColor: '#2A0548',
     borderColor: '#E9D5FF', // Light purple/white border as in image
+  },
+  deleteFolderBtn: {
+    marginLeft: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   folderPillText: {
     color: '#8E8E9A',
@@ -1453,10 +1828,12 @@ const styles = StyleSheet.create({
     marginBottom: 30, // Space before the button
   },
   createWorkoutInnerBtn: {
-    backgroundColor: '#2A0548', // Dark purple background
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25, // Rounded pill
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   createWorkoutInnerBtnText: {
     color: '#FFFFFF',
@@ -1476,6 +1853,19 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#2A2A40',
+  },
+  modalContentLarge: {
+    width: '90%',
+    maxHeight: '85%',
+    backgroundColor: '#15151F',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#2A2A40',
+  },
+  modalKeyboardAvoiding: {
+    width: '100%',
+    alignItems: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1512,9 +1902,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   modalCreateButton: {
-    backgroundColor: '#7C3AED',
+    width: '100%',
     height: 52,
     borderRadius: 26,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1546,6 +1937,13 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     position: 'relative',
+  },
+  workoutDayText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    marginBottom: 4,
   },
   workoutName: {
     color: '#FFFFFF',
@@ -1751,6 +2149,230 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 4,
   },
+  // --- New modular select screen styles ---
+  filtersContainer: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16, marginTop: 10 },
+  filterSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+  },
+  filterCard: {
+    flex: 1,
+    backgroundColor: '#1C1C24',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  filterCardSelected: {
+    borderColor: '#007AFF',
+    backgroundColor: '#1E2436',
+  },
+  filterCardText: {
+    color: '#8E8E9A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterCardTextSelected: {
+    color: '#FFFFFF',
+  },
+  filterButton: {
+    flex: 1,
+    backgroundColor: '#161224',
+    borderWidth: 1,
+    borderColor: '#48075F',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  filterLabel: { color: '#AEB4C0', fontSize: 10, fontWeight: '600', marginBottom: 2 },
+  filterValue: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  bottomModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  bottomModalContentContainer: {
+    backgroundColor: '#120F1A',
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    maxHeight: '75%',
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderBottomWidth: 0,
+    width: '100%',
+  },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 12 },
+  modalList: { paddingHorizontal: 24, paddingTop: 12 },
+  listItemTextSelected: { color: '#7C3AED', fontWeight: '800' },
+  modalFooter: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  modalApplyBtn: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+    marginBottom: 8,
+  },
+  modalApplyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  customDurationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0A0A12',
+    borderWidth: 1,
+    borderColor: '#2A2A40',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginHorizontal: 24,
+    marginBottom: 16,
+  },
+  customDurationInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  customDurationSuffix: {
+    color: '#AEB4C0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  workoutNameInputCustom: {
+    backgroundColor: '#0A0A12',
+    borderWidth: 1,
+    borderColor: '#2A2A40',
+    borderRadius: 12,
+    color: '#FFFFFF',
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    fontSize: 15,
+    marginHorizontal: 24,
+    marginBottom: 20,
+  },
+  // --- Redesigned exercise selector styles ---
+  searchBarCustom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    height: 38,
+    marginBottom: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    marginTop: 10,
+  },
+  searchInputCustom: { color: '#fff', marginLeft: 8, flex: 1, fontSize: 13, fontWeight: '500' },
+  listArea: {
+    flex: 1,
+    marginHorizontal: 16,
+  },
+  listContentContainer: { paddingBottom: 100 },
+  exerciseCardCustom: {
+    backgroundColor: '#1E1C2E',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+  },
+  exerciseCardSelectedCustom: {
+    borderColor: 'rgba(124, 58, 237, 0.4)', // Purple border
+    backgroundColor: '#252136',
+  },
+  exerciseRowCustom: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  exerciseThumbnailCustom: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  exerciseInfoCustom: { flex: 1, gap: 4 },
+  exerciseNameCustom: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textTransform: 'capitalize' },
+  badgeRowCustom: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  muscleBadgeCustom: { backgroundColor: '#EE822A', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  equipmentBadgeCustom: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  badgeTextCustom: { color: '#FFFFFF', fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
+  checkboxContainerCustom: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 10,
+  },
+  checkboxSelectedCustom: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#2E4D9F', // Brand blue selection color
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxUnselectedCustom: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'transparent',
+  },
+  addSelectedButtonCustom: {
+    width: '85%',
+    height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addSelectedButtonTextCustom: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { color: '#AEB4C0', fontSize: 12, fontWeight: '600' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  emptyText: { color: '#AEB4C0', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  headerPillCustom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E2436', // Brand dark blue
+    alignSelf: 'flex-start',
+    paddingRight: 18,
+    paddingLeft: 16,
+    borderRadius: 22,
+    minHeight: 44,
+  },
+  headerPillTextCustom: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+
 
   // --- Workout Editor Styles ---
   editorHeader: {
@@ -1835,7 +2457,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addExerciseText: {
-    color: '#7C3AED',
+    color: '#EE822A', // Brand orange
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
@@ -1852,9 +2474,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   exerciseCardActive: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#1A1025',
-    shadowColor: '#7C3AED',
+    borderColor: '#2E4D9F', // Brand blue
+    backgroundColor: '#1E2436', // Brand dark blue
+    shadowColor: '#2E4D9F',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1890,8 +2512,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   loggedBadgeActive: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#2D1B4E',
+    borderColor: '#EE822A', // Brand orange
+    backgroundColor: '#2C221F', // Brand dark orange
   },
   loggedBadgeDone: {
     borderColor: '#4CAF50',
@@ -1903,7 +2525,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   loggedBadgeTextActive: {
-    color: '#D8B4E2',
+    color: '#EE822A', // Brand orange
   },
   loggedBadgeTextDone: {
     color: '#4CAF50',
@@ -1951,7 +2573,7 @@ const styles = StyleSheet.create({
   restTimerSheet: {
     height: '55%',
     marginHorizontal: 8,
-    backgroundColor: '#12051C',
+    backgroundColor: '#1E2436', // Brand dark blue
     borderTopLeftRadius: 42,
     borderTopRightRadius: 42,
     borderWidth: 1,
@@ -1984,12 +2606,12 @@ const styles = StyleSheet.create({
     width: 270,
     height: 270,
     borderRadius: 135,
-    backgroundColor: '#2A0A3A',
+    backgroundColor: '#1E2436', // Brand dark blue
     borderWidth: 12,
     borderColor: 'rgba(255,255,255,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#7C3AED',
+    shadowColor: '#2E4D9F', // Brand blue shadow
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.35,
     shadowRadius: 24,
