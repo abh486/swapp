@@ -519,14 +519,18 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
             meals.map((meal, index) => {
               const mealTypeKey = (meal.mealType || meal.type || 'breakfast').toLowerCase();
               const mealTime = MEAL_TIMES[mealTypeKey] || MEAL_TIMES.default;
-              const parsedItems = parseFoodItems(meal.meal || meal.name || meal.description);
               const mealKey = `${dayOfWeekName}-${index}`;
               const isLiked = !!likedMeals[mealKey];
 
-              // Resolve image for each food item dynamically, falling back to meal fallback images if fewer than 3 items
-              const images = parsedItems.slice(0, 3).map(item => getFoodImage(item, mealTypeKey));
-              
-              // Pad with default/fallback images if there are fewer than 3 food items in the parsed list
+              // Resolve overlapping images from backend component images or main meal image
+              let images = [];
+              if (meal.components && Array.isArray(meal.components) && meal.components.length > 0) {
+                images = meal.components.map(comp => comp.image).filter(Boolean);
+              } else if (meal.imageUrl) {
+                images = [meal.imageUrl];
+              }
+
+              // Pad with default/fallback images if fewer than 3 images are available
               while (images.length < 3) {
                 const mealFallbacks = MEAL_FALLBACK_IMAGES[mealTypeKey] || MEAL_FALLBACK_IMAGES.default;
                 images.push(mealFallbacks);
@@ -551,12 +555,27 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
 
                   {/* Food Items with Weights */}
                   <View style={styles.foodList}>
-                    {parsedItems.map((item, idx) => (
-                      <View key={idx} style={styles.foodItemRow}>
-                        <Text style={styles.foodItemName} numberOfLines={1}>{item}</Text>
-                        <Text style={styles.foodItemWeight}>{getFoodItemWeight(item)}</Text>
-                      </View>
-                    ))}
+                    {meal.components && Array.isArray(meal.components) && meal.components.length > 0 ? (
+                      meal.components.map((comp, idx) => (
+                        <View key={idx} style={styles.foodItemRow}>
+                          <Text style={styles.foodItemName} numberOfLines={1}>{comp.name}</Text>
+                          <Text style={styles.foodItemWeight}>{comp.portion}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      // Fallback: split by plus (+) sign only (never by commas, to prevent breaking technical USDA names)
+                      (meal.meal || meal.name || meal.description || '').split('+').map(item => item.trim()).filter(Boolean).map((item, idx) => {
+                        const match = item.match(/^(\d+(?:\.\d+)?\s*(?:g|ml|slices?|scoops?|medium|large|small)?)\b\s*(.+)$/i);
+                        const name = match ? match[2].trim() : item;
+                        const weight = match ? match[1].trim() : '100g';
+                        return (
+                          <View key={idx} style={styles.foodItemRow}>
+                            <Text style={styles.foodItemName} numberOfLines={1}>{name}</Text>
+                            <Text style={styles.foodItemWeight}>{weight}</Text>
+                          </View>
+                        );
+                      })
+                    )}
                   </View>
 
                   {/* Nutrition row */}
