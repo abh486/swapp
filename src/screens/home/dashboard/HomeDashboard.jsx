@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocation } from '../../../context/LocationContext';
 import { getHomeFeed } from '../../../redux/actions/homeActions';
+import { FullScreenLoader } from '../../../components/GlobalLoader';
 import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
 import { getAccessStatus } from '../../../services/aiDieticianService';
@@ -80,7 +81,7 @@ export const HomeDashboard = ({ navigation }) => {
     showPermissionModal,
     actions: locationActions,
   } = useLocation();
-  const { feed, loading } = useSelector(state => state.home);
+  const { feed, loading, error } = useSelector(state => state.home);
   const metrics = useResponsiveMetrics();
   const { ms, sp, wp, hp } = metrics;
   const subscriptionCardWidth = wp(92);
@@ -403,7 +404,7 @@ export const HomeDashboard = ({ navigation }) => {
             <Icon
               name={item.icon || 'apps'}
               size={24}
-              color="#e74c3c"
+              color="#3498db"
             />
           </View>
 
@@ -769,7 +770,7 @@ export const HomeDashboard = ({ navigation }) => {
         }}
       >
         <LinearGradient
-          colors={['#030303', '#09050D', '#160420']}
+          colors={['#EE822A', '#8F5D98', '#2E4D9F']}
           style={styles.membershipGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -891,6 +892,15 @@ export const HomeDashboard = ({ navigation }) => {
     </View>
   );
 
+  if (!feed && !error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#050505" />
+        <FullScreenLoader />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
@@ -901,7 +911,7 @@ export const HomeDashboard = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#e74c3c"
+            tintColor="#3498db"
           />
         }
       >
@@ -914,7 +924,7 @@ export const HomeDashboard = ({ navigation }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.permissionModal}>
               <View style={styles.modalIconContainer}>
-                <Icon name="location" size={40} color="#e74c3c" />
+                <Icon name="location" size={40} color="#3498db" />
               </View>
               <Text style={styles.modalTitle}>Enable Location</Text>
               <Text style={styles.modalSub}>
@@ -1076,7 +1086,7 @@ export const HomeDashboard = ({ navigation }) => {
           <Text style={styles.sectionTitle}>
             {activeCategory === 'trainer' ? 'TRAINERS NEAR' : 'PARTNERS NEAR'}{' '}
             <Text
-              style={{ textDecorationLine: 'underline', color: '#e74c3c' }}
+              style={{ textDecorationLine: 'underline', color: '#3498db' }}
               onPress={() => setLocationModalVisible(true)}
             >
               {locationName ? locationName.toUpperCase() : 'YOU'}
@@ -1175,7 +1185,7 @@ const styles = StyleSheet.create({
   },
   paginationDotActive: {
     width: 16,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#EE822A',
   },
   header: {
     flexDirection: 'row',
@@ -1197,9 +1207,9 @@ const styles = StyleSheet.create({
   workoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    backgroundColor: 'rgba(52, 152, 219, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(231, 76, 60, 0.3)',
+    borderColor: 'rgba(52, 152, 219, 0.3)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
