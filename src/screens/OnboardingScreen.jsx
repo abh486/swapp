@@ -259,22 +259,22 @@ const OnboardingScreen = () => {
                     />
                   ) : (
                     <TouchableOpacity
+                      style={styles.simpleClickButton}
                       onPress={handleNext}
                       disabled={loading}
                       activeOpacity={0.8}
                     >
                       <LinearGradient
                         colors={['#EE822A', '#8F5D98', '#2E4D9F']}
-                        style={styles.simpleClickButton}
+                        style={StyleSheet.absoluteFillObject}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                      >
-                        {loading ? (
-                          <GlobalLoader size={26} />
-                        ) : (
-                          <Text style={styles.simpleClickButtonText}>{item.buttonText}</Text>
-                        )}
-                      </LinearGradient>
+                      />
+                      {loading ? (
+                        <GlobalLoader size={26} />
+                      ) : (
+                        <Text style={styles.simpleClickButtonText}>{item.buttonText}</Text>
+                      )}
                     </TouchableOpacity>
                   )}
                 </View>
@@ -374,6 +374,7 @@ const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) => {
       width: wp(60),
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
     simpleClickButtonText: {
       color: '#FFF',
