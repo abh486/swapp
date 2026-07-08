@@ -1,6 +1,6 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, PanResponder, Animated, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, PanResponder, Animated, Image, ScrollView, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -24,7 +24,7 @@ const LEVEL_BODY_PARTS_MAP = {
 const CreateFastWorkoutScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { equipments, muscles } = useSelector(state => state.workout);
+  const { equipments, muscles, exercises, loading } = useSelector(state => state.workout);
   const { wp, hp, ms, sp, fs } = useResponsiveMetrics();
   const styles = createFastWorkoutStyles({ wp, hp, ms, sp, fs });
   const swipeWidth = wp(65);
@@ -40,11 +40,51 @@ const CreateFastWorkoutScreen = () => {
   const selectedEnv = 'BASIC GYM';
   const selectedDuration = '45min';
 
-  const [activeTab, setActiveTab] = useState('Equipment');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEquipmentModalVisible, setIsEquipmentModalVisible] = useState(false);
+  const [isMuscleModalVisible, setIsMuscleModalVisible] = useState(false);
+  const [selectedExercises, setSelectedExercises] = useState([]);
+
+  const toggleExerciseSelection = (exercise) => {
+    setSelectedExercises(prev => {
+      if (prev.some(ex => ex.id === exercise.id)) {
+        return prev.filter(ex => ex.id !== exercise.id);
+      }
+      return [...prev, exercise];
+    });
+  };
+
+  const handleAddSelectedExercises = () => {
+    navigation.navigate('FastWorkoutActive', { addedExercises: selectedExercises });
+  };
+
+  useEffect(() => {
+    const apiFilters = {};
+    if (selectedEquipment && selectedEquipment !== 'All Equipment' && selectedEquipment !== 'All Equipement') {
+      apiFilters.equipments = selectedEquipment.toLowerCase();
+    }
+    const cleanedMuscles = selectedMuscles.filter(m => m !== 'All Muscles');
+    if (cleanedMuscles.length > 0) {
+      apiFilters.targetMuscles = cleanedMuscles.map(m => m.toLowerCase());
+    }
+    dispatch(fetchExercises({
+      limit: 100,
+      ...apiFilters
+    }));
+  }, [selectedEquipment, selectedMuscles, dispatch]);
+
+  const selectEquipmentAndClose = (equipment) => {
+    setSelectedEquipment(equipment === 'All Equipment' || equipment === 'All Equipement' ? '' : equipment);
+    setIsEquipmentModalVisible(false);
+  };
+
+  const selectMuscleAndClose = (muscle) => {
+    toggleMuscle(muscle);
+    setIsMuscleModalVisible(false);
+  };
 
   const equipmentList = equipments?.length
     ? ['All Equipement', ...equipments.map(e => e.name || e)]
@@ -213,8 +253,60 @@ const CreateFastWorkoutScreen = () => {
     }),
   ).current;
 
-  const filteredList = (activeTab === 'Equipment' ? equipmentList : musclesList)
-    .filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+  const displayedExercises = (exercises || []).filter(ex =>
+    (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderExerciseItem = ({ item }) => {
+    const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
+    const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
+
+    const imageSource = item.gifUrl
+      ? { uri: item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
+      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' };
+
+    const isSelected = selectedExercises.some(ex => ex.id === item.id);
+
+    return (
+      <TouchableOpacity
+        style={[styles.exerciseCard, isSelected && styles.exerciseCardSelected]}
+        activeOpacity={0.75}
+        onPress={() => toggleExerciseSelection(item)}
+      >
+        <View style={styles.exerciseRow}>
+          <Image source={imageSource} style={styles.exerciseThumbnail} resizeMode="cover" />
+          <View style={styles.exerciseInfo}>
+            <Text style={styles.exerciseName}>{item.name}</Text>
+            <View style={styles.badgeRow}>
+              {target ? (
+                <View style={styles.muscleBadge}>
+                  <Text style={styles.badgeText}>{target}</Text>
+                </View>
+              ) : null}
+              {equipment ? (
+                <View style={styles.equipmentBadge}>
+                  <Text style={styles.badgeText}>{equipment}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+          <View style={styles.checkboxContainer}>
+            {isSelected ? (
+              <View style={styles.checkboxSelected}>
+                <Svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+            ) : (
+              <View style={styles.checkboxUnselected} />
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -227,8 +319,7 @@ const CreateFastWorkoutScreen = () => {
             </Svg>
           </TouchableOpacity>
           <View style={styles.headerPill}>
-            <Image source={LIGHTNING_ICON} style={styles.lightningIcon} resizeMode="contain" />
-            <Text style={styles.headerTitle}>Create a New Fast Workout</Text>
+            <Text style={[styles.headerTitle, { paddingLeft: 16 }]}>Create a New Fast Workout</Text>
           </View>
         </View>
       </View>
@@ -240,100 +331,208 @@ const CreateFastWorkoutScreen = () => {
         </Svg>
         <TextInput
           style={styles.searchInput}
-          placeholder={activeTab === 'Equipment' ? "Search Equipment" : "Search Muscles"}
+          placeholder="Search Exercise"
           placeholderTextColor="#666"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        {['Equipment', 'Muscles'].map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
-            onPress={() => { setActiveTab(tab); setSearchQuery(''); }}>
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab === 'Equipment' ? 'All Equipment' : 'All Muscles'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Horizontal scroll list of selected exercises */}
+      {selectedExercises.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.selectedExercisesRow}
+          contentContainerStyle={styles.selectedExercisesRowContent}
+        >
+          {selectedExercises.map((exercise) => (
+            <TouchableOpacity
+              key={exercise.id}
+              style={styles.selectedExercisePill}
+              onPress={() => {
+                setSelectedExercises(prev => prev.filter(ex => ex.id !== exercise.id));
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.selectedExercisePillText} numberOfLines={1}>
+                {exercise.name}
+              </Text>
+              <Svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6 }}>
+                <Path d="M18 6L6 18M6 6L18 18" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Filters Row */}
+      <View style={styles.filtersContainer}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setIsEquipmentModalVisible(true)}
+        >
+          <Text style={styles.filterLabel}>Equipment</Text>
+          <Text style={styles.filterValue} numberOfLines={1}>
+            {selectedEquipment || 'All Equipment'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setIsMuscleModalVisible(true)}
+        >
+          <Text style={styles.filterLabel}>Muscle Group</Text>
+          <Text style={styles.filterValue} numberOfLines={1}>
+            {selectedMuscles.length > 0 ? selectedMuscles.join(', ') : 'All Muscles'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Main List Area */}
       <View style={styles.listArea}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-          {filteredList.map((item, index) => {
-            const isChecked = activeTab === 'Equipment'
-              ? selectedEquipment === item
-              : selectedMuscles.includes(item);
-            return (
-              <View key={index}>
-                <TouchableOpacity
-                  style={styles.listItem}
-                  onPress={() => activeTab === 'Equipment' ? setSelectedEquipment(item) : toggleMuscle(item)}>
-                  <View style={styles.iconCircle}>
-                    {isChecked ? (
-                      <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    ) : index === 0 ? (
-                      <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <Path d="M4 4H10V10H4V4ZM14 4H20V10H14V4ZM4 14H10V20H4V14ZM14 14H20V20H14V14Z" stroke="#48075F" strokeWidth="2" strokeLinejoin="round" />
-                      </Svg>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.listItemText, isChecked && styles.listItemTextSelected]}>{item}</Text>
-                  {isChecked && (
-                    <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  )}
-                </TouchableOpacity>
-                <View style={styles.itemDivider} />
-              </View>
-            );
-          })}
-          <View style={{ height: 100 }} />
-        </ScrollView>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <GlobalLoader size={60} />
+            <Text style={styles.loadingText}>Loading exercises...</Text>
+          </View>
+        ) : displayedExercises.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No exercises found matching your filters.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={displayedExercises}
+            keyExtractor={(item, index) => item.id || index.toString()}
+            renderItem={renderExerciseItem}
+            contentContainerStyle={styles.listContentContainer}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+          />
+        )}
       </View>
 
-      {/* Swipe to Create */}
+      {/* Floating Actions at Bottom */}
       <View style={styles.floatingButtonContainer}>
-        <View style={[styles.floatingButtonBg, { width: swipeWidth }]}>
-          <Text style={styles.floatingButtonTextBg}>Create Fast Workout</Text>
-          <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: 12 }}>
-            <Path d="M9 18L15 12L9 6" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M13 18L19 12L13 6" stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M17 18L23 12L17 6" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Animated.View
-            style={[
-              styles.swipeThumb,
-              {
-                transform: [{
-                  translateX: pan.x.interpolate({
-                    inputRange: [0, swipeWidth - sliderWidth],
-                    outputRange: [0, swipeWidth - sliderWidth],
-                    extrapolate: 'clamp',
-                  }),
-                }],
-              },
-            ]}
-            {...panResponder.panHandlers}>
-            <View style={styles.floatingButtonIcon}>
-              {isCreating ? (
-                <GlobalLoader size={50} />
-              ) : (
-                <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <Path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#48075F" />
-                </Svg>
-              )}
-            </View>
-          </Animated.View>
-        </View>
+        {selectedExercises.length > 0 ? (
+          <TouchableOpacity
+            style={styles.addSelectedButton}
+            onPress={handleAddSelectedExercises}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.addSelectedButtonText}>
+              Add Selected Exercises ({selectedExercises.length})
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.floatingButtonBg, { width: swipeWidth }]}>
+            <Text style={styles.floatingButtonTextBg}>Create Fast Workout</Text>
+            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: 12 }}>
+              <Path d="M9 18L15 12L9 6" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M13 18L19 12L13 6" stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M17 18L23 12L17 6" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <Animated.View
+              style={[
+                styles.swipeThumb,
+                {
+                  transform: [{
+                    translateX: pan.x.interpolate({
+                      inputRange: [0, swipeWidth - sliderWidth],
+                      outputRange: [0, swipeWidth - sliderWidth],
+                      extrapolate: 'clamp',
+                    }),
+                  }],
+                },
+              ]}
+              {...panResponder.panHandlers}>
+              <View style={styles.floatingButtonIcon}>
+                {isCreating ? (
+                  <GlobalLoader size={50} />
+                ) : (
+                  <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <Path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#EE822A" />
+                  </Svg>
+                )}
+              </View>
+            </Animated.View>
+          </View>
+        )}
       </View>
+
+      {/* Equipment Modal */}
+      <Modal visible={isEquipmentModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContentContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Equipment</Text>
+              <TouchableOpacity onPress={() => setIsEquipmentModalVisible(false)} style={styles.closeButton}>
+                <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalDivider} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+              {equipmentList.map((item, index) => {
+                const isSelected = selectedEquipment === item || (item === 'All Equipment' && !selectedEquipment);
+                return (
+                  <View key={index}>
+                    <TouchableOpacity style={styles.listItem} onPress={() => selectEquipmentAndClose(item)}>
+                      <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
+                      {isSelected && (
+                        <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.itemDivider} />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Muscle Modal */}
+      <Modal visible={isMuscleModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContentContainer}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select Muscle Group</Text>
+              <TouchableOpacity onPress={() => setIsMuscleModalVisible(false)} style={styles.closeButton}>
+                <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalDivider} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+              {musclesList.map((item, index) => {
+                const isSelected = selectedMuscles.includes(item) || (item === 'All Muscles' && selectedMuscles.length === 0);
+                return (
+                  <View key={index}>
+                    <TouchableOpacity style={styles.listItem} onPress={() => selectMuscleAndClose(item)}>
+                      <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
+                      {isSelected && (
+                        <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.itemDivider} />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -356,7 +555,7 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     headerPill: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#3A0751',
+      backgroundColor: '#1E2436',
       alignSelf: 'flex-start',
       paddingRight: sp(18),
       paddingLeft: 0,
@@ -369,63 +568,106 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: '#FFFFFF',
+      borderColor: 'rgba(255,255,255,0.2)',
       borderRadius: 20,
       paddingHorizontal: 14,
       marginHorizontal: 20,
       height: 38,
-      marginBottom: 16,
-      backgroundColor: '#000000',
+      marginBottom: 14,
+      backgroundColor: 'rgba(255,255,255,0.03)',
       marginTop: sp(10),
     },
     searchInput: { color: '#fff', marginLeft: 8, flex: 1, fontSize: 13, fontWeight: '500' },
-    tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, gap: 6 },
-    tabButton: {
-      flex: 1,
-      borderWidth: 1,
-      borderColor: '#FFFFFF',
-      borderRadius: 18,
-      paddingVertical: 10,
-      alignItems: 'center',
-      backgroundColor: '#000000',
+
+    // Selected Exercises Row
+    selectedExercisesRow: {
+      maxHeight: 36,
+      marginBottom: 12,
     },
-    tabButtonActive: { borderColor: '#FFFFFF', backgroundColor: '#3A0751' },
-    tabText: { color: '#FFFFFF', fontSize: 13, fontWeight: '500' },
-    tabTextActive: { color: '#FFFFFF' },
+    selectedExercisesRowContent: {
+      gap: 8,
+      alignItems: 'center',
+      paddingHorizontal: 20,
+    },
+    selectedExercisePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#007AFF', // Solid blue brand color
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      height: 28,
+    },
+    selectedExercisePillText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+      maxWidth: 160,
+    },
+
+    // Filters Row
+    filtersContainer: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16 },
+    filterButton: {
+      flex: 1,
+      backgroundColor: '#161224',
+      borderWidth: 1,
+      borderColor: '#2E4D9F',
+      borderRadius: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    filterLabel: { color: '#AEB4C0', fontSize: 10, fontWeight: '600', marginBottom: 2 },
+    filterValue: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+
+    // Exercise List
     listArea: {
       flex: 1,
       marginHorizontal: 16,
-      borderWidth: 1.3,
-      borderColor: 'rgba(255,255,255,0.88)',
-      borderRadius: 36,
-      backgroundColor: '#000000',
+    },
+    listContentContainer: { paddingBottom: 100 },
+    exerciseCard: {
+      backgroundColor: '#1E1C2E',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.06)',
+      borderRadius: 16,
+      padding: 12,
+      marginBottom: 12,
+    },
+    exerciseRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    exerciseThumbnail: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: '#FFFFFF',
       overflow: 'hidden',
     },
-    listContainer: { paddingHorizontal: 20, paddingTop: 12 },
-    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, minHeight: 52 },
-    iconCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: '#FFFFFF',
-      marginRight: 12,
-      backgroundColor: '#000000',
+    exerciseInfo: { flex: 1, gap: 4 },
+    exerciseName: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textTransform: 'capitalize' },
+    badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+    muscleBadge: { backgroundColor: '#EE822A', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    equipmentBadge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
+    arrowContainer: {
+      paddingLeft: 6,
+      paddingRight: 2,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    listItemText: { color: '#fff', fontSize: 14, flex: 1, fontWeight: '700' },
-    listItemTextSelected: { color: '#FFFFFF' },
-    itemDivider: { height: 1, backgroundColor: '#A8A8A8' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+    loadingText: { color: '#AEB4C0', fontSize: 12, fontWeight: '600' },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+    emptyText: { color: '#AEB4C0', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+
+    // Swipe Slider
     floatingButtonContainer: { alignItems: 'center', paddingVertical: 16 },
     floatingButtonBg: {
-      backgroundColor: '#2A0A3A',
+      backgroundColor: '#1E2436',
       flexDirection: 'row',
       alignItems: 'center',
       height: ms(46),
       borderRadius: ms(23),
       borderWidth: 1,
-      borderColor: '#3D1A54',
+      borderColor: '#2E4D9F',
       overflow: 'hidden',
     },
     floatingButtonTextBg: {
@@ -457,6 +699,75 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
       alignItems: 'center',
       marginLeft: 4,
     },
+    exerciseCardSelected: {
+      borderColor: 'rgba(0, 122, 255, 0.4)',
+      backgroundColor: '#232135',
+    },
+    checkboxContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingLeft: 10,
+    },
+    checkboxSelected: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: '#007AFF',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    checkboxUnselected: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      backgroundColor: 'transparent',
+    },
+    addSelectedButton: {
+      width: '85%',
+      height: 50,
+      backgroundColor: '#007AFF',
+      borderRadius: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addSelectedButtonText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+
+    // Modal Styles
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+    modalContentContainer: {
+      backgroundColor: '#120F1A',
+      borderTopLeftRadius: 36,
+      borderTopRightRadius: 36,
+      maxHeight: hp(75),
+      paddingTop: 16,
+      paddingBottom: 24,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+      borderBottomWidth: 0,
+    },
+    modalHandle: { width: 36, height: 4, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+    modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 12 },
+    modalTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+    modalList: { paddingHorizontal: 24, paddingTop: 12 },
+    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, minHeight: 52 },
+    listItemText: { color: '#AEB4C0', fontSize: 14, flex: 1, fontWeight: '600' },
+    listItemTextSelected: { color: '#FFFFFF', fontWeight: '800' },
+    itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
   });
 
 export default CreateFastWorkoutScreen;
