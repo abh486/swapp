@@ -86,9 +86,17 @@ const LEVEL_BODY_PARTS_MAP = {
 
 const OptionChip = ({ styles, title, isSelected, onSelect }) => (
   <TouchableOpacity
-    style={[styles.chip, isSelected && styles.chipSelected]}
+    style={[styles.chip, isSelected && { borderColor: 'transparent' }]}
     onPress={onSelect}
     activeOpacity={0.7}>
+    {isSelected ? (
+      <LinearGradient
+        colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+        style={[StyleSheet.absoluteFillObject, { borderRadius: (styles.chip?.borderRadius ?? 10) }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+    ) : null}
     <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{title}</Text>
   </TouchableOpacity>
 );
