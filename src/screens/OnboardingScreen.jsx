@@ -1,6 +1,7 @@
 import { GlobalLoader } from '../components/GlobalLoader';
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, Image, SafeAreaView, Alert, Animated, PanResponder, Easing } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -26,8 +27,7 @@ const slides = [
     image: require('../assets/image/welcome2.jpg'),
     type: 'image_bg',
     title: 'Push Past\nLimits,\nChase\nResults',
-    buttonText: 'Lets start',
-    isSwipeButton: true,
+    buttonText: 'Continue',
   },
 ];
 
@@ -102,7 +102,7 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd,
   });
 
   return (
-    <View 
+    <View
       style={[styles.swipeTrack, { padding: padding, borderRadius: ms(31), height: ms(62) }]}
       onStartShouldSetResponder={() => true}
       onResponderGrant={() => { if (onSwipeStart) onSwipeStart(); }}
@@ -144,7 +144,7 @@ const SwipeButton = ({ onSwipeComplete, loading, text, onSwipeStart, onSwipeEnd,
 // ─────────────────────────────────────────────
 const RingsGraphic = ({ style }) => {
   return (
-    <Image 
+    <Image
       source={require('../assets/image/Group 20000347.png')} // Clean version without any baked-in text
       style={style}
       resizeMode="contain"
@@ -165,6 +165,17 @@ const OnboardingScreen = () => {
   const { width: screenWidth, height: screenHeight, wp, hp, ms, fs, sp } = useResponsiveMetrics();
   const isSmallScreen = screenHeight < 720;
   const styles = createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp });
+
+  useEffect(() => {
+    if (currentIndex < slides.length - 1) {
+      const timer = setTimeout(() => {
+        const nextIndex = currentIndex + 1;
+        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        setCurrentIndex(nextIndex);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex]);
 
   const handleLogin = () => {
     console.log('Navigating from onboarding to LoginScreen...');
@@ -200,7 +211,7 @@ const OnboardingScreen = () => {
           {/* Centre content */}
           <View style={[styles.watchMiddleContent, { paddingHorizontal: sp(20), marginTop: isSmallScreen ? screenHeight * 0.14 : screenHeight * 0.26, marginBottom: isSmallScreen ? screenHeight * 0.14 : screenHeight * 0.26 }]}>
             {/* Activity rings + labels */}
-            <View style={[styles.activityRingsContainer, { width: screenWidth * 0.95, height: isSmallScreen ? ms(180) : ms(280) }]}> 
+            <View style={[styles.activityRingsContainer, { width: screenWidth * 0.95, height: isSmallScreen ? ms(180) : ms(280) }]}>
               <RingsGraphic style={[styles.ringsImage, { width: screenWidth * 0.95, height: isSmallScreen ? ms(180) : ms(280) }]} />
             </View>
             {/* Text block */}
@@ -222,7 +233,7 @@ const OnboardingScreen = () => {
 
     // ── Image-background slides (slide 1 & 3) ───────────────
     return (
-      <View style={[styles.slide, { width: screenWidth, height: screenHeight }]}> 
+      <View style={[styles.slide, { width: screenWidth, height: screenHeight }]}>
         <ImageBackground source={item.image} style={styles.imageBackground} resizeMode="cover">
           <View style={styles.overlay} />
           <SafeAreaView style={styles.safeArea}>
@@ -248,23 +259,22 @@ const OnboardingScreen = () => {
                     />
                   ) : (
                     <TouchableOpacity
-                      style={styles.startButton}
                       onPress={handleNext}
                       disabled={loading}
+                      activeOpacity={0.8}
                     >
-                      <View style={styles.buttonIconContainer}>
+                      <LinearGradient
+                        colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                        style={styles.simpleClickButton}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
                         {loading ? (
-                          <GlobalLoader size={30} />
+                          <GlobalLoader size={26} />
                         ) : (
-                          <Icon name="chevron-right" size={24} color="#000" />
+                          <Text style={styles.simpleClickButtonText}>{item.buttonText}</Text>
                         )}
-                      </View>
-                      <Text style={styles.startButtonText}>{item.buttonText}</Text>
-                      <View style={styles.chevronGroup}>
-                        <Icon name="chevron-right" size={20} color="#A0A0A0" />
-                        <Icon name="chevron-right" size={20} color="#D0D0D0" />
-                        <Icon name="chevron-right" size={20} color="#FFFFFF" />
-                      </View>
+                      </LinearGradient>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -358,35 +368,17 @@ const createStyles = ({ screenWidth, screenHeight, wp, hp, ms, fs, sp }) => {
       alignItems: 'center',
       marginBottom: sp(20),
     },
-    startButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'rgba(70, 70, 70, 0.8)',
+    simpleClickButton: {
       paddingVertical: sp(12),
-      paddingHorizontal: sp(16),
-      borderRadius: ms(40),
-      width: '100%',
-      justifyContent: 'space-between',
-    },
-    buttonIconContainer: {
-      backgroundColor: '#FFF',
-      width: ms(40),
-      height: ms(40),
-      borderRadius: ms(20),
+      borderRadius: ms(24),
+      width: wp(60),
+      alignItems: 'center',
       justifyContent: 'center',
-      alignItems: 'center',
     },
-    startButtonText: {
+    simpleClickButtonText: {
       color: '#FFF',
-      fontSize: fs(18),
-      fontWeight: '600',
-      flex: 1,
-      textAlign: 'center',
-      marginRight: sp(10),
-    },
-    chevronGroup: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      fontSize: fs(16),
+      fontWeight: 'bold',
     },
 
     // ── Swipe button ─────────────────────────────
