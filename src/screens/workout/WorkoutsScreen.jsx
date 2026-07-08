@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     maxHeight: 40,
   },
   topFilterScrollContent: {
-    gap: 8,
+    gap: 12,
   },
   topFilterButton: {
     flexDirection: 'row',
