@@ -568,32 +568,41 @@ export const AuthProvider = ({ children }) => {
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.warn('[AuthContext] Auth0 native login failed, trying direct backend login as fallback:', err.message);
+      console.warn('[AuthContext] Auth0 native login failed, trying direct HTTP Auth0 fallback:', err.message);
       try {
-        const response = await apiClient.post('/auth/login', { email, password });
-        if (response.data?.success && response.data.data?.token) {
-          const { token, user: userObj } = response.data.data;
+        const tokenResp = await fetch('https://login.swapp.fit/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'http://auth0.com/oauth/grant-type/password-realm',
+            client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+            username: email,
+            password: password,
+            audience: AUTH0_API_AUDIENCE,
+            scope: AUTH0_LOGIN_SCOPE,
+            realm: AUTH_CONFIG.databaseConnection,
+          }),
+        });
 
-          if (!userObj.email || userObj.email === '') {
-            userObj.email = email;
-          }
-          if (userObj.userProfile && (!userObj.userProfile.email || userObj.userProfile.email === '')) {
-            userObj.userProfile.email = email;
-          }
-          if (userObj.memberProfile && (!userObj.memberProfile.email || userObj.memberProfile.email === '')) {
-            userObj.memberProfile.email = email;
-          }
-
-          await AsyncStorage.setItem('accessToken', token);
-          await AsyncStorage.setItem('internalToken', token);
-          await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
-          setUserProfile(userObj);
-          setIsAuthenticated(true);
-          setHasProfile((userObj.userProfile && userObj.userProfile.name) ? true : false);
-          return { accessToken: token };
+        const tokenData = await tokenResp.json();
+        if (tokenResp.ok && tokenData.access_token) {
+          const creds = {
+            accessToken: tokenData.access_token,
+            idToken: tokenData.id_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt: Date.now() + (tokenData.expires_in || 86400) * 1000,
+            scope: tokenData.scope || AUTH0_LOGIN_SCOPE,
+            tokenType: tokenData.token_type || 'Bearer',
+          };
+          await auth0.credentialsManager.saveCredentials(creds);
+          await AsyncStorage.setItem('accessToken', creds.accessToken);
+          await checkAuthStatus();
+          return creds;
+        } else {
+          throw new Error(tokenData.error_description || 'Auth0 HTTP login failed');
         }
       } catch (fallbackErr) {
-        console.error('[AuthContext] Fallback backend login also failed:', fallbackErr.message);
+        console.error('[AuthContext] Fallback Auth0 login also failed:', fallbackErr.message);
       }
       if (AUTH_CONFIG.enableLegacyWebviewLogin) {
         console.log('[AuthContext] Falling back to WebView login...');
