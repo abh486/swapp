@@ -97,6 +97,7 @@ const DietAllLogs = ({ navigation, route }) => {
     { type: 'Lunch', label: 'Lunch', time: '01:30 PM', defaultImage: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=150&q=80' },
     { type: 'Evening Snack', label: 'Evening Snack', time: '04:30 PM', defaultImage: 'https://images.unsplash.com/photo-1543362906-acfc16c67564?auto=format&fit=crop&w=150&q=80' },
     { type: 'Dinner', label: 'Dinner', time: '07:30 PM', defaultImage: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=150&q=80' },
+    { type: 'Custom Meal', label: 'Custom Meal', time: 'Anytime', defaultImage: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=150&q=80' },
   ];
 
   const isToday = selectedDate.toDateString() === new Date().toDateString();
@@ -232,20 +233,20 @@ const DietAllLogs = ({ navigation, route }) => {
                     </View>
                   </View>
 
-                  {/* Connectors (except for last element) */}
-                  {index < categories.length - 1 && (
-                    <View style={styles.dashedConnectorContainer}>
+                  {/* Connectors & Specific Add buttons */}
+                  <View style={styles.dashedConnectorContainer}>
+                    <View style={styles.verticalDashedLine} />
+                    <TouchableOpacity 
+                      style={styles.addMealPill}
+                      onPress={() => navigation.navigate('Dietplan', { openTrackFood: true, mealType: cat.type })}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.addMealPillText}>Add {cat.label} +</Text>
+                    </TouchableOpacity>
+                    {index < categories.length - 1 && (
                       <View style={styles.verticalDashedLine} />
-                      <TouchableOpacity 
-                        style={styles.addMealPill}
-                        onPress={() => navigation.navigate('Dietplan', { openTrackFood: true, mealType: cat.type })}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.addMealPillText}>Add Meal +</Text>
-                      </TouchableOpacity>
-                      <View style={styles.verticalDashedLine} />
-                    </View>
-                  )}
+                    )}
+                  </View>
                 </View>
               );
             })}

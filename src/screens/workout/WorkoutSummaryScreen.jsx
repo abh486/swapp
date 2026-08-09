@@ -1,6 +1,6 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar, Alert, TextInput } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
@@ -14,25 +14,34 @@ import {
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 
 const { width } = Dimensions.get('window');
-
 const WorkoutSummaryScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
 
-  const { sessionData, progressPhoto } = route.params || {};
-  // Use a fallback image if no progress photo is provided to match the mockup aesthetic
-  const [selectedImage, setSelectedImage] = useState(
-    progressPhoto ||
-      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop',
+  const { sessionData, progressPhoto, progressPhotos } = route.params || {};
+
+  // State for multiple images
+  const [selectedImages, setSelectedImages] = useState(
+    progressPhotos && progressPhotos.length > 0
+      ? progressPhotos
+      : progressPhoto
+        ? [progressPhoto]
+        : []
   );
 
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [workoutTitle, setWorkoutTitle] = useState(
+    sessionData?.workoutName || sessionData?.workoutType || 'Workout'
+  );
+  const [workoutNotes, setWorkoutNotes] = useState(
+    sessionData?.notes || ''
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const handlePickImage = () => {
-    console.log('[WorkoutSummaryScreen] handlePickImage triggered');
     if (typeof launchCamera !== 'function' || typeof launchImageLibrary !== 'function') {
-      Alert.alert('Module Error', 'Native image picker functions are not loaded. Please ensure npm install and pod install were run, and the app was completely rebuilt.');
+      Alert.alert('Module Error', 'Native image picker functions are not loaded. Please rebuild the app.');
       return;
     }
     Alert.alert('Add Photo', 'Choose a photo for your workout summary', [
@@ -53,7 +62,7 @@ const WorkoutSummaryScreen = () => {
                   } else if (response.errorCode) {
                     Alert.alert('Camera Error', response.errorMessage || `Error code: ${response.errorCode}`);
                   } else if (response.assets && response.assets.length > 0) {
-                    setSelectedImage(response.assets[0].uri);
+                    setSelectedImages(prev => [...prev, response.assets[0].uri]);
                   }
                 }
               );
@@ -72,7 +81,7 @@ const WorkoutSummaryScreen = () => {
                 {
                   mediaType: 'photo',
                   quality: 0.8,
-                  selectionLimit: 1,
+                  selectionLimit: 5 - selectedImages.length,
                 },
                 response => {
                   if (response.didCancel) {
@@ -80,7 +89,8 @@ const WorkoutSummaryScreen = () => {
                   } else if (response.errorCode) {
                     Alert.alert('Gallery Error', response.errorMessage || `Error code: ${response.errorCode}`);
                   } else if (response.assets && response.assets.length > 0) {
-                    setSelectedImage(response.assets[0].uri);
+                    const newUris = response.assets.map(asset => asset.uri);
+                    setSelectedImages(prev => [...prev, ...newUris].slice(0, 5));
                   }
                 }
               );
@@ -103,77 +113,59 @@ const WorkoutSummaryScreen = () => {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      let finalImageUrl =
-        typeof selectedImage === 'string' ? selectedImage : selectedImage?.uri;
+    // 1. Immediately reset navigation back to MainTabs (0ms delay for user)
+    navigation.reset({
+      index: 1,
+      routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+    });
 
-      // If the image is a local URI from device (e.g. file:// or content://), upload it to Cloudinary
-      if (selectedImage) {
-        let isLocal = false;
-        let imageObj = null;
-
-        if (typeof selectedImage === 'string') {
-          if (!selectedImage.startsWith('http')) {
-            isLocal = true;
-            imageObj = { uri: selectedImage };
-          }
-        } else if (selectedImage.uri && !selectedImage.uri.startsWith('http')) {
-          isLocal = true;
-          imageObj = selectedImage;
-        }
-
-        if (isLocal && imageObj) {
-          const uploadedUrl = await uploadToCloudinary(imageObj);
-          if (uploadedUrl) {
-            finalImageUrl = uploadedUrl;
-          }
-        }
-      }
-
-      // Include imageUrl in sessionData for the community post
-      const finalData = { ...sessionData, imageUrl: finalImageUrl };
-
-      // Save to AsyncStorage as a fallback
+    // 2. Perform background uploading, caching, and dispatching unblocked
+    setTimeout(async () => {
       try {
-        await AsyncStorage.setItem(
-          'latestWorkoutData',
-          JSON.stringify(finalData),
-        );
-      } catch (e) {
-        console.error('Error saving fallback data:', e);
-      }
+        let finalImageUrl = '';
 
-      // Dispatch the workout log action
-      dispatch(logWorkoutSession(finalData));
+        const validImages = selectedImages;
+        if (validImages.length > 0) {
+          const uploadPromises = validImages.map(async (imageUri) => {
+            if (imageUri.startsWith('http')) {
+              return imageUri;
+            }
+            const imageObj = { uri: imageUri };
+            return await uploadToCloudinary(imageObj);
+          });
 
-      // If this was from a custom template, update the template with completed exercises
-      if (
-        sessionData.templateId &&
-        sessionData.templateExercises &&
-        sessionData.templateExercises.length > 0
-      ) {
-        try {
-          await dispatch(
+          const uploadedUrls = await Promise.all(uploadPromises);
+          const validUrls = uploadedUrls.filter(Boolean);
+          finalImageUrl = JSON.stringify(validUrls);
+        }
+
+        const finalData = {
+          ...sessionData,
+          workoutName: workoutTitle.trim() || sessionData?.workoutName || 'Workout',
+          notes: workoutNotes.trim() || null,
+          imageUrl: finalImageUrl || null,
+        };
+
+        AsyncStorage.setItem('latestWorkoutData', JSON.stringify(finalData)).catch(() => {});
+
+        dispatch(logWorkoutSession(finalData));
+
+        if (
+          sessionData?.templateId &&
+          sessionData?.templateExercises &&
+          sessionData.templateExercises.length > 0
+        ) {
+          dispatch(
             updateCustomWorkoutTemplate(
               sessionData.templateId,
               sessionData.templateExercises,
             ),
           );
-        } catch (err) {
-          console.error('Failed to update custom template:', err);
         }
+      } catch (error) {
+        console.error('Error saving background workout log:', error);
       }
-
-      navigation.reset({
-        index: 1,
-        routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
-      });
-    } catch (error) {
-      console.error('Error saving workout:', error);
-    } finally {
-      setIsSaving(false);
-    }
+    }, 50);
   };
 
   const totalSets =
@@ -193,22 +185,52 @@ const WorkoutSummaryScreen = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Share Your Workout</Text>
           <Text style={styles.subtitle}>
-            Nice work ! Lets keep the momentum going .
+            Nice work! Let's keep the momentum going.
           </Text>
         </View>
 
         {/* Polaroid/Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={handlePickImage} activeOpacity={0.9}>
-          <Image
-            source={{
-              uri:
-                typeof selectedImage === 'string'
-                  ? selectedImage
-                  : selectedImage?.uri,
+        <View style={styles.cardContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={{ flex: 1 }}
+            onScroll={(event) => {
+              const slide = Math.round(
+                event.nativeEvent.contentOffset.x /
+                event.nativeEvent.layoutMeasurement.width
+              );
+              if (slide !== currentSlide) {
+                setCurrentSlide(slide);
+              }
             }}
-            style={styles.cardImage}
-            resizeMode="cover"
-          />
+            scrollEventThrottle={16}
+          >
+            {selectedImages.filter(uri => typeof uri === 'string' && uri.trim().length > 0).map((uri, index) => (
+              <Image
+                key={index}
+                source={{ uri }}
+                style={[styles.cardImage, { width: width - 40 }]}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+
+          {/* Dots Indicator inside the card */}
+          {selectedImages.length > 1 && (
+            <View style={styles.dotsContainer}>
+              {selectedImages.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    index === currentSlide && styles.activeDot,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
 
           <View style={styles.overlay} />
 
@@ -221,7 +243,7 @@ const WorkoutSummaryScreen = () => {
           </Text>
 
           <View style={styles.cardBottomSection}>
-            <Text style={styles.cardTitle}>Workout{'\n'}Complete !</Text>
+            <Text style={styles.cardTitle}>{workoutTitle || 'Workout'}{'\n'}Complete!</Text>
 
             <View style={styles.statsContainer}>
               <View style={styles.statRow}>
@@ -259,14 +281,68 @@ const WorkoutSummaryScreen = () => {
               </View>
             </View>
 
-            <Text style={styles.usernameText}>@username</Text>
+            <Text style={styles.usernameText}>@workout_complete</Text>
           </View>
+        </View>
 
-          {/* Edit Badge */}
-          <View style={styles.cardEditBadge}>
-            <Icon name="camera" size={18} color="#FFF" />
-          </View>
-        </TouchableOpacity>
+        {/* Thumbnail row below polaroid */}
+        <View style={styles.thumbnailsContainer}>
+          <Text style={styles.sectionTitle}>Workout Photos ({selectedImages.length})</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailsScroll}>
+            {selectedImages.map((uri, index) => (
+              <View key={index} style={styles.thumbnailWrapper}>
+                <Image source={{ uri }} style={styles.thumbnailImage} />
+                <TouchableOpacity
+                  style={styles.deleteThumbnailBtn}
+                  onPress={() => {
+                    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Icon name="close" size={12} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {selectedImages.length > 0 && selectedImages.length < 5 && (
+              <TouchableOpacity style={styles.addThumbnailBtn} onPress={handlePickImage}>
+                <Icon name="camera-outline" size={22} color="#8E8E93" />
+                <Text style={styles.addThumbnailText}>Add</Text>
+              </TouchableOpacity>
+            )}
+
+            {selectedImages.length === 0 && (
+              <TouchableOpacity style={styles.addFirstPhotoBtn} onPress={handlePickImage}>
+                <Icon name="camera-outline" size={24} color="#5E5CE6" />
+                <Text style={styles.addFirstPhotoText}>Add Photos</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Workout Title Input */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Workout Title</Text>
+          <TextInput
+            value={workoutTitle}
+            onChangeText={setWorkoutTitle}
+            placeholder="e.g. Chest & Triceps, Leg Day..."
+            placeholderTextColor="rgba(255,255,255,0.4)"
+            style={styles.textInput}
+          />
+        </View>
+
+        {/* Description / Notes Input */}
+        <View style={[styles.inputContainer, { marginTop: 15 }]}>
+          <Text style={styles.inputLabel}>Description / Notes</Text>
+          <TextInput
+            value={workoutNotes}
+            onChangeText={setWorkoutNotes}
+            placeholder="e.g. Felt strong today, pushed harder on bench..."
+            placeholderTextColor="rgba(255,255,255,0.4)"
+            multiline
+            style={[styles.textInput, { height: 60, textAlignVertical: 'top' }]}
+          />
+        </View>
 
         {/* Share To */}
         <Text style={styles.shareToTitle}>Share to</Text>
@@ -392,41 +468,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: 150,
   },
   header: {
     alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 30,
+    marginTop: 20,
+    marginBottom: 20,
   },
   title: {
     color: '#FFF',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
+    fontFamily: 'BRLNSR',
   },
   subtitle: {
-    color: '#AAA',
+    color: '#888',
     fontSize: 14,
+    marginTop: 6,
   },
   cardContainer: {
     width: width - 40,
-    height: width * 1.15, // Aspect ratio to match the portrait card
+    height: width * 1.15,
     alignSelf: 'center',
     borderRadius: 25,
     borderWidth: 1.5,
     borderColor: '#FFF',
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 40,
+    marginBottom: 20,
+    backgroundColor: '#1C1C1E',
   },
   cardImage: {
-    width: '100%',
     height: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)', // Darken image so text pops out
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   cardDate: {
     position: 'absolute',
@@ -440,13 +517,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     left: 20,
+    right: 20,
   },
   cardTitle: {
     color: '#FFF',
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: 'bold',
-    lineHeight: 40,
-    marginBottom: 20,
+    fontFamily: 'BRLNSR',
+    lineHeight: 36,
+    marginBottom: 16,
   },
   statsContainer: {
     marginBottom: 10,
@@ -483,10 +562,119 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 10,
   },
+  dotsContainer: {
+    position: 'absolute',
+    top: 24,
+    left: 20,
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 10,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  activeDot: {
+    backgroundColor: '#5E5CE6',
+  },
+  thumbnailsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
+    marginBottom: 10,
+  },
+  thumbnailsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thumbnailWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  deleteThumbnailBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addThumbnailBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#3A3A3C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+  },
+  addThumbnailText: {
+    color: '#8E8E93',
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  addFirstPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#5E5CE6',
+    backgroundColor: 'rgba(94, 92, 230, 0.1)',
+  },
+  addFirstPhotoText: {
+    color: '#5E5CE6',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+  },
+  inputContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  inputLabel: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 8,
+    color: '#FFF',
+    fontSize: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   shareToTitle: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
     marginLeft: 20,
     marginBottom: 15,
   },
@@ -500,7 +688,8 @@ const styles = StyleSheet.create({
   shareBox: {
     width: 60,
     height: 60,
-    backgroundColor: '#888',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -517,7 +706,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneBtn: {
-    backgroundColor: '#2A0042', // Dark purple from the image
+    backgroundColor: '#5E5CE6',
     width: 220,
     paddingVertical: 15,
     borderRadius: 25,
@@ -528,19 +717,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 2,
-  },
-  cardEditBadge: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    fontFamily: 'BRLNSR',
   },
 });
 

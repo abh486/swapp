@@ -18,7 +18,7 @@ export const API_BASE_URL = 'https://test-api.swapp.fit/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 120000,
+  timeout: 0, // Disable timeout to allow Ollama generation to finish
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -97,7 +97,7 @@ const clearStoredCredentialsWithoutRefreshToken = async error => {
   }
 };
 
-export async function getAuth0Token() {
+export async function getToken() {
   try {
     const creds = await auth0.credentialsManager.getApiCredentials(
       AUTH0_API_AUDIENCE,
@@ -112,28 +112,28 @@ export async function getAuth0Token() {
     const cachedToken = await AsyncStorage.getItem('accessToken');
     if (isUsableApiToken(cachedToken)) {
       console.log(
-        '[apiClient] getAuth0Token error, using cached valid token:',
+        '[apiClient] getToken error, using cached valid token:',
         e.message,
       );
       return cachedToken;
     }
 
     const errMsg = (e.message || '').toLowerCase();
-    const isAuthFailure = errMsg.includes('invalid_grant') || 
-                          errMsg.includes('revoked') || 
-                          errMsg.includes('expired') ||
-                          errMsg.includes('invalid_refreshToken');
+    const isAuthFailure = errMsg.includes('invalid_grant') ||
+      errMsg.includes('revoked') ||
+      errMsg.includes('expired') ||
+      errMsg.includes('invalid_refreshToken');
 
     if (isAuthFailure) {
       await clearStoredCredentialsWithoutRefreshToken(e);
       await clearCachedAccessToken();
       console.log(
-        '[apiClient] getAuth0Token authentication failure, cleared token & credentials:',
+        '[apiClient] getToken authentication failure, cleared token & credentials:',
         e.message,
       );
     } else {
       console.log(
-        '[apiClient] getAuth0Token non-auth or missing refresh token error, preserving token:',
+        '[apiClient] getToken non-auth or missing refresh token error, preserving token:',
         e.message,
       );
       if (cachedToken) {
@@ -144,40 +144,21 @@ export async function getAuth0Token() {
   return null;
 }
 
-export async function getToken() {
-  const internalToken = await AsyncStorage.getItem('internalToken');
-  if (internalToken) {
-    return internalToken;
-  }
-  // Fallback to Auth0 token if internalToken is not present (e.g. before initial exchange)
-  return await getAuth0Token();
-}
-
 export async function debugStorage() {
   const accessToken = await AsyncStorage.getItem('accessToken');
-  const internalToken = await AsyncStorage.getItem('internalToken');
   const userProfile = await AsyncStorage.getItem('userProfile');
 
   console.log('[apiClient] AsyncStorage debug:', {
     hasAccessToken: Boolean(accessToken),
-    hasInternalToken: Boolean(internalToken),
     hasUserProfile: Boolean(userProfile),
   });
 
-  return { accessToken, internalToken, userProfile };
+  return { accessToken, userProfile };
 }
 
 apiClient.interceptors.request.use(
   async config => {
-    let token;
-    // The verification endpoints require the raw Auth0 token (RS256)
-    if (config.url && (config.url.includes('/verify-user') || config.url.includes('/verify-member'))) {
-      token = await getAuth0Token();
-    } else {
-      // All other endpoints require the backend internal JWT (HS256)
-      token = await getToken();
-    }
-    
+    const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

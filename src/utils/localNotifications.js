@@ -1,4 +1,4 @@
-import notifee, { TriggerType, RepeatFrequency } from '@notifee/react-native';
+import notifee, { TriggerType } from '@notifee/react-native';
 
 export const syncLocalNotifications = async (reminders) => {
   try {
@@ -53,18 +53,14 @@ const scheduleLocalNotification = async (mealType, item) => {
       // Spacing it out to 24 separate daily recurring triggers ensures high reliability on iOS and Android,
       // and respects the exact start time.
       for (let i = 0; i < 24; i++) {
-        const waterDate = new Date(date.getTime());
-        waterDate.setHours(waterDate.getHours() + i);
-
-        // If scheduled time has already passed today, set for tomorrow
-        if (waterDate.getTime() <= Date.now() + 10000) {
-          waterDate.setDate(waterDate.getDate() + 1);
-        }
+        const waterHour = (targetHour + i) % 24;
 
         const trigger = {
-          type: TriggerType.TIMESTAMP,
-          timestamp: waterDate.getTime(),
-          repeatFrequency: RepeatFrequency.DAILY, // Repeat daily at this exact hour
+          type: TriggerType.CALENDAR,
+          date: {
+            hour: waterHour,
+            minute: targetMin,
+          },
         };
 
         await notifee.createTriggerNotification(
@@ -94,16 +90,25 @@ const scheduleLocalNotification = async (mealType, item) => {
       }
       console.log(`[LocalNotifications] Scheduled 24 hourly Water reminders starting at ${targetHour}:${targetMin} ${item.ampm}`);
     } else {
-      // If scheduled time has already passed today, set for tomorrow
-      if (date.getTime() <= Date.now() + 10000) {
-        date.setDate(date.getDate() + 1);
+      let trigger;
+      if (item.repeat) {
+        trigger = {
+          type: TriggerType.CALENDAR,
+          date: {
+            hour: targetHour,
+            minute: targetMin,
+          },
+        };
+      } else {
+        // If scheduled time has already passed today, set for tomorrow
+        if (date.getTime() <= Date.now() + 10000) {
+          date.setDate(date.getDate() + 1);
+        }
+        trigger = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: date.getTime(),
+        };
       }
-
-      const trigger = {
-        type: TriggerType.TIMESTAMP,
-        timestamp: date.getTime(),
-        repeatFrequency: item.repeat ? RepeatFrequency.DAILY : undefined,
-      };
 
       // Create high importance channel for Android
       const channelId = await notifee.createChannel({

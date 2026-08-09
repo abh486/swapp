@@ -43,6 +43,23 @@ const { width } = Dimensions.get('window');
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const migrateMeals = (mealsStr) => {
+  if (!mealsStr) return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+  try {
+    const parsed = JSON.parse(mealsStr);
+    if (Array.isArray(parsed) && parsed.length === 2 && parsed.includes('Lunch') && parsed.includes('Dinner')) {
+      return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+    }
+    return parsed;
+  } catch (e) {
+    const splitMeals = mealsStr.split(', ').filter(Boolean);
+    if (splitMeals.length === 2 && splitMeals.includes('Lunch') && splitMeals.includes('Dinner')) {
+      return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+    }
+    return splitMeals;
+  }
+};
+
 const getMondayBasedIndex = (date) => {
   const dayOfWeek = date.getDay();
   return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -52,10 +69,10 @@ const buildCalendarDays = (selectedDate) => {
   const days = [];
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
-  
+
   const numDays = new Date(year, month + 1, 0).getDate();
   const WEEKDAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
+
   for (let d = 1; d <= numDays; d++) {
     const dayDate = new Date(year, month, d);
     days.push({
@@ -84,7 +101,8 @@ const Dietplan = ({ navigation, route }) => {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showMealSelectionModal, setShowMealSelectionModal] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [checkingAccess, setCheckingAccess] = useState(false);
+  const [hasAccess, setHasAccess] = useState(true);
 
   // --- NUTRITION ENGINE STATES ---
   const [dailySummary, setDailySummary] = useState(null);
@@ -103,6 +121,8 @@ const Dietplan = ({ navigation, route }) => {
   const [stepsToday, setStepsToday] = useState(2000);
   const [sleepHoursToday, setSleepHoursToday] = useState(7.5);
   const [hydrateGlasses, setHydrateGlasses] = useState(2);
+  const [workoutCaloriesToday, setWorkoutCaloriesToday] = useState(0);
+  const [sleepLogDetails, setSleepLogDetails] = useState(null); // { bedTime, wakeTime, duration }
 
   const formatSleep = (hours) => {
     const hrs = Math.floor(hours);
@@ -110,29 +130,70 @@ const Dietplan = ({ navigation, route }) => {
     return `${hrs} hr ${mins} min`;
   };
 
-  const reloadHealthKitData = async () => {
+
+
+  const reloadHealthKitData = async (dateToLoad = selectedDate) => {
     try {
-      const { requestHealthKitPermission, getStepCountToday, getSleepDurationToday } = require('../../../utils/healthKit');
-      const authorized = await requestHealthKitPermission();
-      if (authorized) {
-        const steps = await getStepCountToday();
-        const sleepHours = await getSleepDurationToday();
-        if (steps > 0) setStepsToday(steps);
-        if (sleepHours > 0) setSleepHoursToday(sleepHours);
+      const dateObj = dateToLoad instanceof Date ? dateToLoad : new Date(dateToLoad);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
+      // 1. Fetch steps for the selected date
+      const connected = await AsyncStorage.getItem('healthkit_connected');
+      if (connected === 'true') {
+        const { getStepCountForDate } = require('../../../utils/healthKit');
+        const steps = await getStepCountForDate(dateObj);
+        setStepsToday(steps || 0);
+      } else {
+        setStepsToday(0);
       }
+
+      // 2. Check if there is a manually logged sleep value in AsyncStorage
+      const manualSleepStr = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
+      if (manualSleepStr) {
+        setSleepHoursToday(parseFloat(manualSleepStr));
+
+        // Also fetch the full sleep log details if exists
+        const logStr = await AsyncStorage.getItem(`sleep_log_${dateKey}`);
+        if (logStr) {
+          setSleepLogDetails(JSON.parse(logStr));
+        } else {
+          setSleepLogDetails(null);
+        }
+        return;
+      }
+
+      // 3. If no manual entry, check HealthKit sleep duration
+      setSleepLogDetails(null);
+      if (connected === 'true') {
+        const { getSleepDurationToday } = require('../../../utils/healthKit');
+        const isToday = new Date().toDateString() === dateObj.toDateString();
+        if (isToday) {
+          const sleepHours = await getSleepDurationToday();
+          if (sleepHours > 0) {
+            setSleepHoursToday(sleepHours);
+            return;
+          }
+        }
+      }
+
+      // 4. Fallback default
+      setSleepHoursToday(7.5);
     } catch (err) {
-      console.warn('[Dietplan] Failed to load HealthKit data:', err.message);
+      console.warn('[Dietplan] Failed to load HealthKit/AsyncStorage data:', err.message);
     }
   };
 
   const incrementHydrate = async () => {
     const newGlasses = Math.min(10, hydrateGlasses + 1);
     setHydrateGlasses(newGlasses);
-    
-    const dateKey = selectedDate 
+
+    const dateKey = selectedDate
       ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
       : new Date().toISOString().split('T')[0];
-      
+
     try {
       const currentWaterStr = await AsyncStorage.getItem(`water_intake_${dateKey}`);
       const currentWater = currentWaterStr ? parseFloat(currentWaterStr) : 0.0;
@@ -145,12 +206,12 @@ const Dietplan = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    reloadHealthKitData();
-  }, []);
+    reloadHealthKitData(selectedDate);
+  }, [selectedDate]);
 
   useEffect(() => {
     const loadHydrateGlasses = async () => {
-      const dateKey = selectedDate 
+      const dateKey = selectedDate
         ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
         : new Date().toISOString().split('T')[0];
       try {
@@ -196,18 +257,19 @@ const Dietplan = ({ navigation, route }) => {
       const recommendationsParams = {
         dietPreference: savedPreference || 'Selective Non-Veg',
         skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+        meals: migrateMeals(savedMeals),
         allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
         cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
         otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
         generate: 'false'
       };
 
-      const [summaryResponse, recsResponse, analyticsResponse, logsResponse] = await Promise.all([
+      const [summaryResponse, recsResponse, analyticsResponse, logsResponse, workoutsResponse] = await Promise.all([
         apiClient.get(`/summary/daily?date=${formattedDate}`),
         apiClient.get('/recommendations', { params: recommendationsParams }),
         apiClient.get('/analytics'),
-        apiClient.get('/diet/logs')
+        apiClient.get('/diet/logs'),
+        apiClient.get('/workouts/sessions?limit=100')
       ]);
 
       if (summaryResponse.data?.success) {
@@ -228,6 +290,24 @@ const Dietplan = ({ navigation, route }) => {
             : [];
         setLogs(normalized);
       }
+
+      // Calculate workouts calories
+      let todayWorkoutCals = 0;
+      if (workoutsResponse?.data?.success) {
+        const sessions = workoutsResponse.data.data || [];
+        const todaySessions = sessions.filter(session => {
+          const sessionDate = session.date ? new Date(session.date) : new Date();
+          return sessionDate.toDateString() === dateToFetch.toDateString();
+        });
+
+        todayWorkoutCals = todaySessions.reduce((sum, session) => {
+          const duration = session.duration || 0;
+          const intensity = session.intensity || 3;
+          const metFactor = intensity === 1 ? 4 : intensity === 2 ? 6 : intensity === 3 ? 8 : intensity === 4 ? 10 : 12;
+          return sum + (duration * metFactor);
+        }, 0);
+      }
+      setWorkoutCaloriesToday(todayWorkoutCals);
     } catch (error) {
       console.warn('[Dietplan] Failed to fetch nutrition/analytics data:', error.message);
     } finally {
@@ -237,30 +317,44 @@ const Dietplan = ({ navigation, route }) => {
     }
   }, [selectedDate]);
 
+  const lastDietCheckRef = useRef(0);
+
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      setCheckingAccess(true);
+      const now = Date.now();
+
       const checkSubscriptionAccess = async () => {
         try {
           const access = await getAccessStatus();
           if (isMounted) {
             if (!access || !access.hasAccess) {
+              setHasAccess(false);
+              setCheckingAccess(false);
               navigation.navigate('AIDieticianPaywall', { fromDietTab: true });
             } else {
+              setHasAccess(true);
               setCheckingAccess(false);
               fetchNutritionData(selectedDate, false);
+              reloadHealthKitData(selectedDate);
             }
           }
         } catch (err) {
           console.warn('[Dietplan] Failed to check subscription status:', err);
           if (isMounted) {
-            navigation.navigate('AIDieticianPaywall', { fromDietTab: true });
+            setCheckingAccess(false);
           }
         }
       };
 
-      checkSubscriptionAccess();
+      if (now - lastDietCheckRef.current > 60000) {
+        lastDietCheckRef.current = now;
+        checkSubscriptionAccess();
+      } else {
+        setCheckingAccess(false);
+        fetchNutritionData(selectedDate, false);
+        reloadHealthKitData(selectedDate);
+      }
 
       return () => {
         isMounted = false;
@@ -292,17 +386,17 @@ const Dietplan = ({ navigation, route }) => {
 
   const handleWeeklyPlanScroll = (event) => {
     if (isProgrammaticScroll.current) return;
-    
+
     const contentOffset = event.nativeEvent.contentOffset.x;
     const cardWidth = width * 0.82 + 12;
     const index = Math.round(contentOffset / cardWidth);
-    
+
     if (index >= 0 && index < PLAN_DAY_NAMES.length) {
       const targetDayName = PLAN_DAY_NAMES[index];
       const currentDayTime = selectedDate.getTime();
       let bestDay = null;
       let minDiff = Infinity;
-      
+
       calendarDays.forEach((d) => {
         const weekdayName = d.fullDate.toLocaleDateString('en-US', { weekday: 'long' });
         if (weekdayName.toLowerCase() === targetDayName.toLowerCase()) {
@@ -313,7 +407,7 @@ const Dietplan = ({ navigation, route }) => {
           }
         }
       });
-      
+
       if (bestDay && !bestDay.active) {
         const newDate = bestDay.fullDate;
         setSelectedDate(newDate);
@@ -346,7 +440,7 @@ const Dietplan = ({ navigation, route }) => {
       const recommendationsParams = {
         dietPreference: savedPreference || 'Selective Non-Veg',
         skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+        meals: migrateMeals(savedMeals),
         allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
         cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
         otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
@@ -448,7 +542,7 @@ const Dietplan = ({ navigation, route }) => {
 
   const combinedLogs = useMemo(() => {
     const items = [];
-    
+
     // Add only actual meal logs from dailyLogs
     dailyLogs.forEach(log => {
       items.push({
@@ -469,17 +563,34 @@ const Dietplan = ({ navigation, route }) => {
     // Sort meals chronologically by time first
     items.sort((a, b) => a.time - b.time);
 
-    // Add a default sleep entry to match Screenshot 2 layout at the absolute bottom
+    const formatTimeStr = (isoString) => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    // Construct sleep log duration string
+    let sleepDurationText = formatSleep(sleepHoursToday);
+    let sleepTime = new Date(new Date().setHours(23, 59, 0, 0));
+
+    if (sleepLogDetails && sleepLogDetails.bedTime && sleepLogDetails.wakeTime) {
+      const bedStr = formatTimeStr(sleepLogDetails.bedTime);
+      const wakeStr = formatTimeStr(sleepLogDetails.wakeTime);
+      sleepDurationText = `${bedStr} - ${wakeStr} (${formatSleep(sleepHoursToday)})`;
+      sleepTime = new Date(sleepLogDetails.wakeTime);
+    }
+
+    // Add a default/manual sleep entry to match layout at the absolute bottom
     items.push({
       type: 'sleep',
       title: 'Sleep',
-      duration: formatSleep(sleepHoursToday),
+      duration: sleepDurationText,
       target: '8 hr',
-      time: new Date(new Date().setHours(23, 59, 0, 0)),
+      time: sleepTime,
     });
-    
+
     return items;
-  }, [dailyLogs, sleepHoursToday]);
+  }, [dailyLogs, sleepHoursToday, sleepLogDetails]);
 
   const handlePlusButtonPress = useCallback(() => {
     setShowMealSelectionModal(true);
@@ -525,7 +636,15 @@ const Dietplan = ({ navigation, route }) => {
             console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
             const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
             if (aiResponse.success && aiResponse.data) {
-              setNutritionData(aiResponse.data);
+              const analysis = aiResponse.data.analysis || {};
+              setNutritionData({
+                mealName: analysis.cleanMealName || analysis.mealName || 'Unnamed Meal',
+                calories: analysis.calories || 0,
+                protein: analysis.protein || 0,
+                carbs: analysis.carbs || 0,
+                fats: analysis.fats || 0
+              });
+              setMealStep(2);
             } else {
               Alert.alert("AI Error", aiResponse.message || "Failed to analyze image.");
             }
@@ -574,7 +693,15 @@ const Dietplan = ({ navigation, route }) => {
           console.log('[Dietplan] Triggering AI analysis for:', uploadedUrl);
           const aiResponse = await dispatch(analyzeMealWithAI(uploadedUrl, ''));
           if (aiResponse.success && aiResponse.data) {
-            setNutritionData(aiResponse.data);
+            const analysis = aiResponse.data.analysis || {};
+            setNutritionData({
+              mealName: analysis.cleanMealName || analysis.mealName || 'Unnamed Meal',
+              calories: analysis.calories || 0,
+              protein: analysis.protein || 0,
+              carbs: analysis.carbs || 0,
+              fats: analysis.fats || 0
+            });
+            setMealStep(2);
           } else {
             Alert.alert("AI Error", aiResponse.message || "Failed to analyze captured image.");
           }
@@ -666,7 +793,7 @@ const Dietplan = ({ navigation, route }) => {
                 );
                 const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
                 const totalCals = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
-                
+
                 return (
                   <View key={day} style={styles.dayPlanColumn}>
                     <View style={styles.dayColumnHeader}>
@@ -675,12 +802,12 @@ const Dietplan = ({ navigation, route }) => {
                         <Text style={styles.dayColumnBadgeText}>{totalCals} kcal</Text>
                       </View>
                     </View>
-                    
+
                     <View style={styles.dayMealsList}>
                       {meals && meals.length > 0 ? (
                         meals.map((meal, index) => {
                           let iconName = 'restaurant-outline';
-                          let iconColor = '#FF7A00';
+                          let iconColor = '#FF9500';
                           const typeLower = (meal.mealType || meal.type || '').toLowerCase();
                           if (typeLower.includes('breakfast')) {
                             iconName = 'cafe-outline';
@@ -690,7 +817,7 @@ const Dietplan = ({ navigation, route }) => {
                             iconColor = '#7C4DFF';
                           } else if (typeLower.includes('lunch')) {
                             iconName = 'restaurant-outline';
-                            iconColor = '#FF7A00';
+                            iconColor = '#FF9500';
                           } else if (typeLower.includes('dinner')) {
                             iconName = 'sunny-outline';
                             iconColor = '#FF5252';
@@ -754,6 +881,31 @@ const Dietplan = ({ navigation, route }) => {
           <Text style={styles.loadingText}>Verifying subscription...</Text>
           <Text style={styles.loadingSubtext}>Please wait a moment...</Text>
         </View>
+      ) : !hasAccess ? (
+        <View style={styles.lockedContainer}>
+          <View style={styles.lockedIconBg}>
+            <Icon name="lock-closed" size={48} color="#e74c3c" />
+          </View>
+          <Text style={styles.lockedTitle}>7-Day Free Trial Expired</Text>
+          <Text style={styles.lockedSubtitle}>
+            Your free trial for AI Dietician has finished. Unlock premium access to continue tracking your meals, macros, personalized plans, and AI food scanner.
+          </Text>
+          <TouchableOpacity
+            style={styles.unlockButton}
+            onPress={() => navigation.navigate('AIDieticianPaywall', { fromDietTab: true })}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+              style={styles.unlockGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Icon name="sparkles" size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.unlockButtonText}>Unlock AI Dietician Premium</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       ) : isNutritionLoading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#e74c3c" />
@@ -778,6 +930,9 @@ const Dietplan = ({ navigation, route }) => {
             handleGoToReminders={handleGoToReminders}
             navigation={navigation}
             recommendation={recommendation}
+            stepsToday={stepsToday}
+            sleepHoursToday={sleepHoursToday}
+            workoutCaloriesToday={workoutCaloriesToday}
           />
           <DietMacros
             dailySummary={dailySummary}
@@ -874,13 +1029,13 @@ const Dietplan = ({ navigation, route }) => {
           {/* Tracker rows matching Screenshot 1 */}
           <View style={styles.trackerRowsContainer}>
             {/* Weight card */}
-            <TouchableOpacity 
-              style={styles.trackerRowCard} 
+            <TouchableOpacity
+              style={styles.trackerRowCard}
               onPress={() => navigation.navigate('WeightTracker')}
               activeOpacity={0.8}
             >
-              <View style={styles.rowIconContainerGray}>
-                <MaterialCommunityIcons name="scale-bathroom" size={22} color="#000" />
+              <View style={styles.rowIconContainerBlue}>
+                <MaterialCommunityIcons name="scale-bathroom" size={22} color="#FFF" />
               </View>
               <View style={styles.rowTextContainer}>
                 <Text style={styles.rowTitle}>Weight</Text>
@@ -894,8 +1049,8 @@ const Dietplan = ({ navigation, route }) => {
             </TouchableOpacity>
 
             {/* Walk card */}
-            <TouchableOpacity 
-              style={styles.trackerRowCard} 
+            <TouchableOpacity
+              style={styles.trackerRowCard}
               onPress={() => navigation.navigate('WalkDetails', { stepsToday })}
               activeOpacity={0.8}
             >
@@ -914,8 +1069,8 @@ const Dietplan = ({ navigation, route }) => {
             </TouchableOpacity>
 
             {/* Sleep card */}
-            <TouchableOpacity 
-              style={styles.trackerRowCard} 
+            <TouchableOpacity
+              style={styles.trackerRowCard}
               onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
               activeOpacity={0.8}
             >
@@ -934,8 +1089,8 @@ const Dietplan = ({ navigation, route }) => {
             </TouchableOpacity>
 
             {/* Hydrate card */}
-            <TouchableOpacity 
-              style={styles.trackerRowCard} 
+            <TouchableOpacity
+              style={styles.trackerRowCard}
               onPress={() => navigation.navigate('HydrationTracker')}
               activeOpacity={0.8}
             >
@@ -954,8 +1109,8 @@ const Dietplan = ({ navigation, route }) => {
             </TouchableOpacity>
 
             {/* Nutrition Tracker card */}
-            <TouchableOpacity 
-              style={styles.trackerRowCard} 
+            <TouchableOpacity
+              style={styles.trackerRowCard}
               onPress={() => navigation.navigate('MacronutrientDetails', { dailySummary })}
               activeOpacity={0.8}
             >
@@ -986,7 +1141,7 @@ const Dietplan = ({ navigation, route }) => {
             {combinedLogs.length > 0 ? (
               combinedLogs.map((item, idx) => {
                 const formattedTime = item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
+
                 return (
                   <View key={`log-${idx}`} style={styles.logRow}>
                     {/* Left Column: Time */}
@@ -1061,8 +1216,8 @@ const Dietplan = ({ navigation, route }) => {
                             </View>
                           </View>
                         ) : (
-                          <TouchableOpacity 
-                            style={styles.emptyMealCard} 
+                          <TouchableOpacity
+                            style={styles.emptyMealCard}
                             onPress={() => handleSelectMeal(item.mealType)}
                             activeOpacity={0.8}
                           >
@@ -1078,7 +1233,7 @@ const Dietplan = ({ navigation, route }) => {
                         )
                       ) : (
                         // Sleep Card
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={styles.sleepCard}
                           onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
                           activeOpacity={0.8}
@@ -1825,7 +1980,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#3B72FF',
+    backgroundColor: '#FF9500',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1919,7 +2074,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#3B72FF',
+    backgroundColor: '#FF9500',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1930,7 +2085,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   sleepTitle: {
-    color: '#3B72FF',
+    color: '#FF9500',
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 12,
@@ -2024,6 +2179,55 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    backgroundColor: '#050505',
+  },
+  lockedIconBg: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
+  },
+  lockedTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  lockedSubtitle: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  unlockButton: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  unlockGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  unlockButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

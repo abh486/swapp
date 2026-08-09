@@ -12,7 +12,7 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [radius, setRadius] = useState(10); // Default radius in km
+  const [radius, setRadius] = useState(30); // Default radius in km/miles
 
   const fetchProviders = useCallback(async (page, newRadius) => {
     page === 1 ? setIsLoading(true) : setIsLoadingMore(true);

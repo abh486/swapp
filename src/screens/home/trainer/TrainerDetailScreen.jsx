@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -69,7 +69,10 @@ const TrainerDetailScreen = ({ route, navigation }) => {
   const [token, setToken] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const { wp, hp, ms, sp, fs, isTablet } = useResponsiveMetrics();
-  const styles = createStyles({ wp, hp, ms, sp, fs, isTablet });
+  const styles = useMemo(
+    () => createStyles({ wp, hp, ms, sp, fs, isTablet }),
+    [wp, hp, ms, sp, fs, isTablet]
+  );
 
   // Vertical-aware flags — derived once provider loads
   const primaryVertical = (() => {
@@ -453,21 +456,16 @@ const TrainerDetailScreen = ({ route, navigation }) => {
           onPress={() => setSelectedPlan(plan)}
           activeOpacity={0.8}
         >
-          <View style={styles.planCardLeft}>
-            <View
-              style={[
-                styles.planImagePlaceholder,
-                { backgroundColor: plan.imageUrl ? 'transparent' : '#fff' },
-              ]}
-            >
-              {plan.imageUrl && (
+          {Boolean(plan.imageUrl) && (
+            <View style={styles.planCardLeft}>
+              <View style={styles.planImagePlaceholder}>
                 <Image
                   source={{ uri: plan.imageUrl }}
                   style={{ width: '100%', height: '100%', borderRadius: 8 }}
                 />
-              )}
+              </View>
             </View>
-          </View>
+          )}
           <View style={styles.planCardRight}>
             <View style={styles.planCardHeaderRow}>
               <View

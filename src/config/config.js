@@ -239,7 +239,7 @@ export const Strings = {
       emptySubtitle: "Tap 'Add' to build your workout.",
       startBtn: 'Start Workout',
       // Moved from hardcoded component
-      videoSource: require('../assets/video/2376809-hd_1920_1080_24fps.mp4'),
+      videoSource: null,
     },
     alerts: {
       saveSuccess: 'Success!',
@@ -274,14 +274,7 @@ export const Strings = {
       core: '#2196F3', cardio: '#4CAF50',
     },
     // Moved from hardcoded component
-    equipmentList: [
-      { id: 1, source: require('../assets/image/eq1.jpg') },
-      { id: 2, source: require('../assets/image/eq2.jpg') },
-      { id: 3, source: require('../assets/image/eq3.jpg') },
-      { id: 4, source: require('../assets/image/eq4.jpg') },
-      { id: 5, source: require('../assets/image/eq5.jpg') },
-      { id: 6, source: require('../assets/image/eq6.jpg') }
-    ],
+    equipmentList: [],
     // Data updated to include image paths directly
     data: [
       {
@@ -324,7 +317,7 @@ export const Strings = {
         type: 'shoulders',
         equipment: ['Dumbbell'],
         difficulty: 'Intermediate',
-        image: require('../assets/image/frontraise.jpg')
+        image: require('../assets/image/arm.jpg')
       },
     ],
   },

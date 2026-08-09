@@ -30,6 +30,7 @@ import { syncLocalNotifications } from '../utils/localNotifications';
 const auth0 = new Auth0({
   domain: 'login.swapp.fit',
   clientId: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+  timeout: 30000,
 });
 
 // Create a context for image selection state
@@ -200,7 +201,7 @@ export const AuthProvider = ({ children }) => {
         if (!savedToken) {
           throw new Error('No token found in storage.');
         }
- 
+
         let emailFromToken = null;
         try {
           const creds = await auth0.credentialsManager.getApiCredentials(
@@ -222,17 +223,17 @@ export const AuthProvider = ({ children }) => {
         } catch (credsErr) {
           console.log('[AuthContext] Could not extract email from ID Token:', credsErr.message);
         }
- 
+
         // 🚨 Ensure apiClient uses HTTPS. Cleartext HTTP is disabled.
         resp = await apiClient.post('/v1/auth/verify-member');
- 
+
         if (resp.data?.success && resp.data.data) {
           const userObject = resp.data.data.user;
           const internalToken = resp.data.data.token;
           if (internalToken) {
             await AsyncStorage.setItem('internalToken', internalToken);
           }
- 
+
           if (emailFromToken) {
             if (!userObject.email || userObject.email === '') {
               userObject.email = emailFromToken;
@@ -244,11 +245,11 @@ export const AuthProvider = ({ children }) => {
               userObject.memberProfile.email = emailFromToken;
             }
           }
- 
+
           setUserProfile(userObject);
           setIsAuthenticated(true);
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
- 
+
           if (userObject && userObject.id) {
             console.log('[Clarity] Setting custom user ID:', userObject.id);
             try {
@@ -260,7 +261,7 @@ export const AuthProvider = ({ children }) => {
               console.error('[Clarity] Failed to set user ID/tags:', err);
             }
           }
- 
+
           if (
             (userObject.userProfile && userObject.userProfile.name) ||
             (userObject.memberProfile && userObject.memberProfile.name)
@@ -274,9 +275,9 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (e) {
         console.error('🔴 ERROR in checkAuthStatus:', e.message);
-        
+
         const isNetworkError = !e.response || e.message === 'Network Error' || e.code === 'ECONNABORTED';
- 
+
         if (isNetworkError) {
           console.log('[AuthContext] Network connection error during silent check. Preserving authentication state.');
         } else {
@@ -314,7 +315,7 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(true);
           setHasProfile(
             (userObject.userProfile && userObject.userProfile.name) ||
-            (userObject.memberProfile && userObject.memberProfile.name)
+              (userObject.memberProfile && userObject.memberProfile.name)
               ? true
               : false
           );
@@ -324,7 +325,7 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setLoading(false);
       }
-      
+
       // Perform background verify check silently without blocking the UI
       await checkAuthStatus({ silent: true });
     };
@@ -394,20 +395,17 @@ export const AuthProvider = ({ children }) => {
       };
 
       syncReminders();
-      
-      let socketCleanUp = () => {};
+
+      let socketCleanUp = () => { };
       import('../api/socketService').then(({ default: socketService }) => {
         socketService.connect().then(() => {
-          socketService.onNotification((notif) => {
-            setNotificationBanner({ title: notif.title, body: notif.body });
-          });
           socketCleanUp = () => {
             socketService.disconnect();
           };
-        }).catch(err => {
-          console.error('[Socket.IO] Failed to connect globally:', err);
+        }).catch(() => {
+          // Suppress global socket connection error when socket backend is inactive
         });
-      });
+      }).catch(() => { });
 
       return () => {
         cleanUp();
@@ -575,7 +573,7 @@ export const AuthProvider = ({ children }) => {
         const response = await apiClient.post('/auth/login', { email, password });
         if (response.data?.success && response.data.data?.token) {
           const { token, user: userObj } = response.data.data;
-          
+
           if (!userObj.email || userObj.email === '') {
             userObj.email = email;
           }
@@ -697,14 +695,49 @@ export const AuthProvider = ({ children }) => {
     setIsLoggingIn(true);
     try {
       console.log('[AuthContext] createAccount starting...');
-      const user = await auth0.auth.createUser({
-        email: email,
-        password: password,
-        connection: AUTH_CONFIG.databaseConnection,
-      });
-      console.log('[AuthContext] createAccount successful');
+      let user = null;
+      try {
+        user = await auth0.auth.createUser({
+          email: email,
+          password: password,
+          connection: AUTH_CONFIG.databaseConnection,
+        });
+      } catch (authErr) {
+        console.warn('[AuthContext] Auth0 SDK createUser warning/error:', authErr?.message, authErr?.json);
+        const detailedErr = authErr?.json?.description || authErr?.json?.error_description || authErr?.description || authErr?.json?.message;
 
-      // Auto-login the user immediately
+        if (
+          authErr?.message?.includes('invalid') ||
+          authErr?.name?.includes('invalid') ||
+          authErr?.message?.includes('timed out') ||
+          authErr?.name === 'TimeoutError' ||
+          authErr?.message?.includes('10000ms')
+        ) {
+          console.log('[AuthContext] SDK error or timeout, attempting direct Auth0 HTTPS signup fallback...');
+          const resp = await fetch('https://login.swapp.fit/dbconnections/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+              email: email,
+              password: password,
+              connection: AUTH_CONFIG.databaseConnection,
+            }),
+          });
+          const textData = await resp.text();
+          if (!resp.ok) {
+            let parsedErr;
+            try { parsedErr = JSON.parse(textData); } catch (e) { }
+            const signupErrMsg = parsedErr?.description || parsedErr?.error_description || parsedErr?.message || textData || 'Signup failed';
+            throw new Error(signupErrMsg);
+          }
+          try { user = JSON.parse(textData); } catch (e) { user = { email }; }
+        } else {
+          throw new Error(detailedErr || authErr.message);
+        }
+      }
+
+      console.log('[AuthContext] createAccount successful');
       console.log('[AuthContext] Auto-logging in user...');
       const credentials = await loginWithEmailPassword(email, password);
       return { user, credentials };

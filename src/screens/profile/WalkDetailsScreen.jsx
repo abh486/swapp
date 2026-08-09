@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,19 @@ import {
   TouchableOpacity,
   Dimensions,
   SafeAreaView,
+  Platform,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Circle } from 'react-native-svg';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getStepCountForDate,
+  getActiveEnergyBurnedForDate,
+  getDistanceWalkingRunningForDate,
+  getStepsHistoryLastDays,
+} from '../../utils/healthKit';
 
 const { width } = Dimensions.get('window');
 
@@ -17,26 +27,93 @@ const WalkDetailsScreen = ({ route, navigation }) => {
   const [stepsToday, setStepsToday] = useState(stepsTodayParam);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('Day'); // 'Day' | 'Week' | 'Month'
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [caloriesBurned, setCaloriesBurned] = useState(Math.round(stepsTodayParam * 0.045));
+  const [distanceKm, setDistanceKm] = useState((stepsTodayParam * 0.0008).toFixed(2));
+  const [durationStr, setDurationStr] = useState('00:16:19');
+  const [topSteps, setTopSteps] = useState([
+    { rank: '01.', steps: 15292, kcal: 612, distance: '13.76 KM' },
+    { rank: '02.', steps: 12450, kcal: 498, distance: '11.20 KM' },
+    { rank: '03.', steps: 10120, kcal: 405, distance: '9.10 KM' },
+  ]);
+
+  const handleDateChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+
+
+  const loadMetrics = useCallback(async () => {
+    console.log('[WalkDetailsScreen] loadMetrics started. selectedDate:', selectedDate.toDateString());
+    try {
+      const connected = await AsyncStorage.getItem('healthkit_connected');
+      console.log('[WalkDetailsScreen] healthkit_connected from storage:', connected);
+      if (connected === 'true' && Platform.OS === 'ios') {
+        const [hkSteps, hkCalories, hkDistance] = await Promise.all([
+          getStepCountForDate(selectedDate),
+          getActiveEnergyBurnedForDate(selectedDate),
+          getDistanceWalkingRunningForDate(selectedDate),
+        ]);
+        console.log('[WalkDetailsScreen] HealthKit raw output: steps =', hkSteps, 'calories =', hkCalories, 'distance =', hkDistance);
+
+        const resolvedSteps = hkSteps || 0;
+        const resolvedCalories = hkCalories || Math.round(resolvedSteps * 0.045);
+        const resolvedDistance = hkDistance ? hkDistance.toFixed(2) : (resolvedSteps * 0.0008).toFixed(2);
+        console.log('[WalkDetailsScreen] Resolved metrics: steps =', resolvedSteps, 'calories =', resolvedCalories, 'distance =', resolvedDistance);
+
+        setStepsToday(resolvedSteps);
+        setCaloriesBurned(resolvedCalories);
+        setDistanceKm(resolvedDistance);
+
+        const totalMins = Math.round(resolvedSteps * 0.008);
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        setDurationStr(`${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`);
+
+        const hkHistory = await getStepsHistoryLastDays(30);
+        console.log('[WalkDetailsScreen] HealthKit history count:', hkHistory ? hkHistory.length : 0);
+        if (hkHistory && hkHistory.length > 0) {
+          const sorted = [...hkHistory].sort((a, b) => b.steps - a.steps);
+          const topList = sorted.slice(0, 3).map((item, idx) => ({
+            rank: `0${idx + 1}.`,
+            steps: item.steps,
+            kcal: item.kcal,
+            distance: `${parseFloat(item.distance).toFixed(2)} KM`
+          }));
+          setTopSteps(topList);
+        } else {
+          setTopSteps([]);
+        }
+      } else {
+        setStepsToday(0);
+        setCaloriesBurned(0);
+        setDistanceKm('0.00');
+        setDurationStr('00:00:00');
+        setTopSteps([]);
+      }
+    } catch (err) {
+      console.warn('[WalkDetailsScreen] Error loading metrics:', err);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics, activeTab]);
 
   const targetSteps = 10000;
   const progress = Math.min(1, stepsToday / targetSteps);
 
-  // SVG parameters for 360-degree circular ring
   const radius = 70;
   const strokeWidth = 10;
   const circ = 2 * Math.PI * radius;
   const strokeDashoffset = circ * (1 - progress);
 
-  // Computed metrics based on step count
-  const caloriesBurned = Math.round(stepsToday * 0.045);
-  const distanceKm = (stepsToday * 0.0008).toFixed(2);
-  
-  const totalMins = Math.round(stepsToday * 0.008);
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  const durationStr = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:19`;
-
-  // Date Navigator helper
   const handlePrevDate = () => {
     const newDate = new Date(selectedDate);
     if (activeTab === 'Day') {
@@ -77,12 +154,7 @@ const WalkDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Static top steps lists matching Screenshot 3
-  const topSteps = [
-    { rank: '01.', steps: 15292, kcal: 612, distance: '13,76 KM' },
-    { rank: '02.', steps: 12450, kcal: 498, distance: '11,20 KM' },
-    { rank: '03.', steps: 10120, kcal: 405, distance: '9,10 KM' },
-  ];
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -118,11 +190,47 @@ const WalkDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity onPress={handlePrevDate} style={styles.arrowBtn}>
           <Icon name="chevron-back" size={20} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.dateTitleText}>{getHeaderDateText()}</Text>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={[styles.dateTitleText, { marginRight: 8, marginHorizontal: 0 }]}>{getHeaderDateText()}</Text>
+          <Icon name="caret-down" size={14} color="#FFF" style={{ marginTop: 2 }} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={handleNextDate} style={styles.arrowBtn}>
           <Icon name="chevron-forward" size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
+
+      {showDatePicker && Platform.OS === 'ios' && (
+        <Modal visible={showDatePicker} transparent={true} animationType="fade">
+          <View style={styles.modalOverlayCentered}>
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="inline"
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+                themeVariant="dark"
+              />
+              <TouchableOpacity 
+                style={styles.datePickerDoneBtn} 
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.datePickerDoneBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          maximumDate={new Date()}
+        />
+      )}
 
       {/* Steps Circle Progress */}
       <View style={styles.circleWrapper}>
@@ -377,6 +485,35 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.45)',
     fontSize: 14,
     fontWeight: '500',
+  },
+  modalOverlayCentered: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: '#1E1E24',
+    borderRadius: 16,
+    padding: 16,
+    width: width * 0.9,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  datePickerDoneBtn: {
+    marginTop: 16,
+    backgroundColor: '#7C4DFF',
+    paddingVertical: 10,
+    paddingHorizontal: 40,
+    borderRadius: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
+  datePickerDoneBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

@@ -166,7 +166,7 @@ export const LocationContent = ({
           region={mapRegion}
         >
           {userLocation && (
-            <Marker coordinate={userLocation} title="You are here">
+            <Marker coordinate={userLocation} title="You are here" tracksViewChanges={false}>
               <View style={styles.userLocationMarker}>
                 <Animated.View style={[styles.userLocationPulse, { transform: [{ scale: pulseAnim }] }]} />
                 <View style={styles.userLocationDot} />
@@ -179,6 +179,7 @@ export const LocationContent = ({
               <Marker
                 key={gym.id}
                 coordinate={gym.coordinates}
+                tracksViewChanges={false}
                 title={gym.name || 'Gym'}
                 pinColor={mapSelectedGym?.id === gym.id ? "#e74c3c" : "#442728"}
                 onPress={() => onMapMarkerPress(gym)}

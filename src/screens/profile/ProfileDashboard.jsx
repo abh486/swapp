@@ -14,8 +14,9 @@ import {
   useWindowDimensions,
   Platform,
   Alert,
+  StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -24,6 +25,25 @@ import { fetchWorkoutHistory } from '../../redux/actions/workoutActions';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/apiClient';
 import LinearGradient from 'react-native-linear-gradient';
+
+const filterApplePrivateRelayEmail = (email) => {
+  if (!email) return '';
+  const str = String(email).trim();
+  if (str.toLowerCase().includes('privaterelay.appleid.com') || str.toLowerCase().includes('appleid.com')) {
+    return '';
+  }
+  return str;
+};
+
+const isCustomAvatar = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const str = url.trim().toLowerCase();
+  if (!str) return false;
+  if (str.includes('cdn.auth0.com') || str.includes('gravatar.com') || str.includes('default-avatar') || str.includes('avatar-placeholder')) {
+    return false;
+  }
+  return true;
+};
 
 const THEME = {
   colors: {
@@ -101,7 +121,19 @@ const ProfileDashboard = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { width } = useWindowDimensions();
-  const { user } = useAuth();
+  const { user, refreshAuthStatus } = useAuth();
+
+  const lastProfileCheckRef = React.useRef(0);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const now = Date.now();
+      if (refreshAuthStatus && now - lastProfileCheckRef.current > 60000) {
+        lastProfileCheckRef.current = now;
+        refreshAuthStatus();
+      }
+    }, [refreshAuthStatus])
+  );
 
   const [workouts, setWorkouts] = useState([]);
   const [allUserWorkouts, setAllUserWorkouts] = useState([]);
@@ -116,10 +148,11 @@ const ProfileDashboard = () => {
 
   // Dynamic user data
   const profileData = user?.userProfile || user?.memberProfile || user || {};
-  const userName =
-    profileData.name ||
-    `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() ||
-    'Member';
+  const userName = profileData.username
+    ? (profileData.username.startsWith('@') ? profileData.username : `@${profileData.username}`)
+    : profileData.name ||
+      `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() ||
+      'Member';
   const userAvatar =
     profileData.profileImage ||
     profileData.profilePicture ||
@@ -127,17 +160,59 @@ const ProfileDashboard = () => {
     profileData.avatar;
   const hasUserAvatar = Boolean(userAvatar);
 
+  const profileCompletion = useMemo(() => {
+    const p = user?.userProfile || user?.memberProfile || {};
+    const rawAvatar = p.profileImage || p.profilePicture || p.avatar || user?.profileImage || user?.avatar;
+    const hasAvatar = isCustomAvatar(rawAvatar);
+    const hasName = Boolean(p.name && String(p.name).trim().length > 0);
+    const hasUsername = Boolean(p.username && String(p.username).trim().length > 0);
+    const hasBio = Boolean((p.bio || p.otherInfo) && String(p.bio || p.otherInfo).trim().length > 0);
+    const hasGender = Boolean(p.gender && String(p.gender).trim().length > 0);
+    const hasDob = Boolean((p.dateOfBirth || p.birthDate || user?.birthDate) && String(p.dateOfBirth || p.birthDate || user?.birthDate).trim().length > 0);
+    const hasFood = Boolean((p.foodPreference || p.dietPreference) && String(p.foodPreference || p.dietPreference).trim().length > 0);
+    const hasFitness = Boolean((p.fitnessLevel || p.activityLevel) && String(p.fitnessLevel || p.activityLevel).trim().length > 0);
+    const rawPhoneDigits = String(p.phone || p.mobileNumber || user?.mobileNumber || '').replace(/[^0-9]/g, '');
+    const hasPhone = Boolean(rawPhoneDigits.length >= 10);
+    const rawEmail = p.email || user?.email || '';
+    const cleanEmail = filterApplePrivateRelayEmail(rawEmail);
+    const hasEmail = Boolean(cleanEmail && cleanEmail.trim().length > 0);
+    const hasCountry = Boolean((p.country || user?.countryOfResidence) && String(p.country || user?.countryOfResidence).trim().length > 0);
+
+    const fields = [
+      { label: 'Profile Photo', isFilled: hasAvatar },
+      { label: 'Name', isFilled: hasName },
+      { label: 'Username', isFilled: hasUsername },
+      { label: 'Bio', isFilled: hasBio },
+      { label: 'Gender', isFilled: hasGender },
+      { label: 'Date of Birth', isFilled: hasDob },
+      { label: 'Food Preference', isFilled: hasFood },
+      { label: 'Fitness Level', isFilled: hasFitness },
+      { label: 'Phone Number', isFilled: hasPhone },
+      { label: 'Gmail', isFilled: hasEmail },
+      { label: 'Country', isFilled: hasCountry },
+    ];
+
+    const filledCount = fields.filter(f => f.isFilled).length;
+    const totalCount = fields.length;
+    const percentage = Math.round((filledCount / totalCount) * 100);
+    const pendingFields = fields.filter(f => !f.isFilled).map(f => f.label);
+
+    return {
+      percentage,
+      filledCount,
+      totalCount,
+      pendingFields,
+    };
+  }, [user]);
+
   useEffect(() => {
     const loadWorkouts = async () => {
       try {
         const response = await dispatch(fetchWorkoutHistory());
         if (response && response.data && response.data.length > 0) {
           setAllUserWorkouts(response.data);
-          // Filter to only show PRIVATE workouts in profile (everyone goes only to community)
-          const privateWorkouts = response.data.filter(
-            w => w.visibility === 'PRIVATE',
-          );
-          setWorkouts(privateWorkouts);
+          // Show all logged workouts (both EVERYONE and PRIVATE) in the user's profile
+          setWorkouts(response.data);
         } else {
           // If no workouts from backend, check AsyncStorage for a fallback
           const storedDataStr = await AsyncStorage.getItem('latestWorkoutData');
@@ -154,11 +229,7 @@ const ProfileDashboard = () => {
               },
             ];
             setAllUserWorkouts(fallbackWorkouts);
-            if (storedData.visibility === 'PRIVATE') {
-              setWorkouts(fallbackWorkouts);
-            } else {
-              setWorkouts([]);
-            }
+            setWorkouts(fallbackWorkouts);
           }
         }
       } catch (error) {
@@ -179,11 +250,7 @@ const ProfileDashboard = () => {
               },
             ];
             setAllUserWorkouts(fallbackWorkouts);
-            if (storedData.visibility === 'PRIVATE') {
-              setWorkouts(fallbackWorkouts);
-            } else {
-              setWorkouts([]);
-            }
+            setWorkouts(fallbackWorkouts);
           }
         } catch (e) {
           console.error('Failed to load profile local fallback', e);
@@ -337,7 +404,21 @@ const ProfileDashboard = () => {
     if (numericCount >= 1000) return `${(numericCount / 1000).toFixed(1)}K`;
     return numericCount.toString();
   };
-
+  const getSingleImageUri = (imageUrl) => {
+    if (!imageUrl) return 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop';
+    try {
+      if (imageUrl.startsWith('[')) {
+        const list = JSON.parse(imageUrl);
+        if (list && list.length > 0) return list[0];
+      } else if (imageUrl.includes(',')) {
+        const list = imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+        if (list && list.length > 0) return list[0];
+      }
+    } catch (e) {
+      console.warn('Error parsing image list in ProfileDashboard:', e);
+    }
+    return imageUrl;
+  };
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -347,6 +428,15 @@ const ProfileDashboard = () => {
       >
         {/* TOP BAR */}
         <View style={[styles.headerContainer, { height: headerHeight }]}>
+          {/* Back Button Top Left */}
+          <TouchableOpacity
+            style={styles.backButtonTopLeft}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Icon name="chevron-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+
           {/* Settings Button */}
           <TouchableOpacity
             style={styles.settingsButton}
@@ -400,7 +490,7 @@ const ProfileDashboard = () => {
             </View>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={handleSettingsPress}
+              onPress={() => navigation.navigate('EditPersonalInfo')}
             >
               <Icon name="pencil-outline" size={16} color="#000" />
             </TouchableOpacity>
@@ -449,6 +539,46 @@ const ProfileDashboard = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* PROFILE COMPLETION CARD - Shown only when pending items exist */}
+        {profileCompletion.percentage < 100 && (
+          <TouchableOpacity
+            style={styles.completionDashboardCard}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('EditPersonalInfo')}
+          >
+            <View style={styles.completionDashboardHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.completionDashboardTitle}>Profile Completion</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.completionDashboardPercentage}>
+                  {profileCompletion.percentage}%
+                </Text>
+                <Icon name="chevron-forward" size={16} color="#888" style={{ marginLeft: 4 }} />
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View style={styles.completionProgressBarBg}>
+              <View style={[
+                styles.completionProgressBarFill,
+                {
+                  width: `${profileCompletion.percentage}%`,
+                  backgroundColor: '#0055FF'
+                }
+              ]} />
+            </View>
+
+            {/* Subtitle / pending summary */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.completionPendingText}>
+                {profileCompletion.pendingFields.length} pending
+              </Text>
+              <Text style={styles.completionActionText}>Complete now ›</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* CHART SECTION */}
         <View style={styles.chartSection}>
@@ -600,7 +730,12 @@ const ProfileDashboard = () => {
             </Text>
           ) : (
             workouts.map((workout, idx) => (
-              <View key={workout.id || idx} style={styles.workoutCard}>
+              <TouchableOpacity
+                key={workout.id || idx}
+                style={styles.workoutCard}
+                activeOpacity={0.95}
+                onPress={() => navigation.navigate('PostDetails', { post: { ...workout, user: profileData } })}
+              >
                 <View style={styles.workoutHeader}>
                   {hasUserAvatar ? (
                     <Image
@@ -638,9 +773,7 @@ const ProfileDashboard = () => {
                 <View style={styles.workoutImageContainer}>
                   <Image
                     source={{
-                      uri:
-                        workout.imageUrl ||
-                        'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop',
+                      uri: getSingleImageUri(workout.imageUrl),
                     }}
                     style={styles.workoutMainImage}
                     resizeMode="cover"
@@ -658,7 +791,7 @@ const ProfileDashboard = () => {
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -672,6 +805,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
@@ -681,6 +815,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     width: '100%',
+  },
+  backButtonTopLeft: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 10 : 20,
+    left: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 8,
+    borderRadius: 20,
+    zIndex: 10,
   },
   settingsButton: {
     position: 'absolute',
@@ -773,6 +916,56 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     flex: 1,
+  },
+  // Profile Completion Dashboard Card Styles
+  completionDashboardCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  completionDashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  completionDashboardTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  completionDashboardPercentage: {
+    color: '#0055FF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  completionProgressBarBg: {
+    height: 8,
+    backgroundColor: '#1F1F28',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  completionProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#0055FF',
+    borderRadius: 4,
+  },
+  completionSuccessText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  completionPendingText: {
+    color: '#9CA3AF',
+    fontSize: 12.5,
+    flex: 1,
+    marginRight: 8,
+  },
+  completionActionText: {
+    color: '#0055FF',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   statValue: {
     color: THEME.colors.text,

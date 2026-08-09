@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -120,7 +120,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
 
   const metrics = useResponsiveMetrics();
   const { sp, ms, fs, wp } = metrics;
-  const styles = createStyles(metrics);
+  const styles = useMemo(() => createStyles(metrics), [metrics]);
 
   const [downloading, setDownloading] = useState(false);
 

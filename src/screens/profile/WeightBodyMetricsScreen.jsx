@@ -17,6 +17,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WeightBodyMetricsScreen = ({ navigation }) => {
   const [metrics, setMetrics] = useState({
+    height: '',
+    weight: '',
+    targetWeight: '',
     bodyFat: '',
     muscleMass: '',
     bmi: '',
@@ -35,6 +38,9 @@ const WeightBodyMetricsScreen = ({ navigation }) => {
 
   // Ideal ranges definition
   const metricConfigs = [
+    { key: 'height', label: 'Height', suffix: ' cm', range: 'Configure your height' },
+    { key: 'weight', label: 'Weight', suffix: ' kg', range: 'Configure your weight' },
+    { key: 'targetWeight', label: 'Target Weight', suffix: ' kg', range: 'Configure your goal weight' },
     { key: 'bodyFat', label: 'Body Fat', suffix: '%', range: 'Ideal range: 8.0% - 19.99%' },
     { key: 'muscleMass', label: 'Muscle Mass %', suffix: '%', range: 'Ideal range: 75.01% - 89.0%' },
     { key: 'bmi', label: 'BMI', suffix: '', range: 'Ideal range: 18.5 - 23.0' },
@@ -113,7 +119,13 @@ const WeightBodyMetricsScreen = ({ navigation }) => {
               <TouchableOpacity
                 key={config.key}
                 style={styles.metricRow}
-                onPress={() => openInputModal(config)}
+                onPress={() => {
+                  if (config.key === 'weight' || config.key === 'targetWeight') {
+                    navigation.navigate('WeightTracker');
+                  } else {
+                    openInputModal(config);
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>

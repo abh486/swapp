@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { createBooking, createReservation } from '../../../api/bookingApi';
+import { useIsFocused } from '@react-navigation/native';
+import { createBooking, createReservation, getMyBookings } from '../../../api/bookingApi';
 import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { parseApiFailure } from '../../../api/apiUtils';
@@ -71,7 +72,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
-  const styles = createStyles(metrics, insets);
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
   const packageType = useMemo(
     () =>
       normalizePackageType(
@@ -123,7 +124,9 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       .filter(item => item.id && item.name);
   }, [entitlements]);
 
-  const [activeCategoryId, setActiveCategoryId] = useState(routeCategoryId || '');
+  const [activeCategoryId, setActiveCategoryId] = useState(
+    routeCategoryId || (categories.length > 0 ? categories[0].id : '')
+  );
 
   useEffect(() => {
     if (!isGlobalBundlePackage) {
@@ -132,8 +135,10 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     }
     if (routeCategoryId && categories.some(category => category.id === routeCategoryId)) {
       setActiveCategoryId(routeCategoryId);
+    } else if (!activeCategoryId && categories.length > 0) {
+      setActiveCategoryId(categories[0].id);
     }
-  }, [categories, isGlobalBundlePackage, routeCategoryId]);
+  }, [categories, isGlobalBundlePackage, routeCategoryId, activeCategoryId]);
 
   const activeEntitlement = useMemo(() => {
     return entitlements.find(item => {
@@ -217,6 +222,8 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     });
   }, [activeCategoryId, isOpenAccess, isUpgradeOnlyPackage, navigation, routeCategoryId, subscription]);
 
+  const isFocused = useIsFocused();
+
   useEffect(() => {
     if (isOpenAccess || isUpgradeOnlyPackage) return;
     if (isGlobalBundlePackage && !activeCategoryId) {
@@ -238,6 +245,30 @@ const MembershipBookingScreen = ({ route, navigation }) => {
       setSlotError('');
 
       try {
+        let userBookings = [];
+        try {
+          userBookings = await getMyBookings();
+        } catch (err) {
+          console.warn('[MembershipBookingScreen] getMyBookings error:', err);
+        }
+
+        const activeUserBookings = (userBookings || []).filter(b => {
+          const status = String(b.bookingStatus || b.status || '').toUpperCase();
+          return status !== 'CANCELLED' && status !== 'CANCELED' && status !== 'REJECTED';
+        });
+
+        const userBookedKeys = new Set(bookedSlotKeys);
+        activeUserBookings.forEach(b => {
+          if (b.slotId) userBookedKeys.add(b.slotId);
+          if (b.startTime) {
+            const bStartIso = new Date(b.startTime).toISOString();
+            userBookedKeys.add(bStartIso);
+            const bDateStr = bStartIso.split('T')[0];
+            userBookedKeys.add(`${bDateStr}-${bStartIso}`);
+            userBookedKeys.add(`${bDateStr}-${b.startTime}`);
+          }
+        });
+
         let mappedSlots = [];
         if (isTrainer) {
           const res = await apiClient.get(`/trainers/${providerId}/available-slots`, {
@@ -273,14 +304,23 @@ const MembershipBookingScreen = ({ route, navigation }) => {
               const now = new Date();
               const isPast = slotStart <= now;
 
+              const slotKey = s.id || s.slotId || `${activeDateKey}-${startTime}`;
+              const isUserBooked =
+                userBookedKeys.has(slotKey) ||
+                userBookedKeys.has(s.id) ||
+                userBookedKeys.has(s.slotId) ||
+                userBookedKeys.has(startTime) ||
+                userBookedKeys.has(`${activeDateKey}-${startTime}`) ||
+                s.isBooked;
+
               return {
                 ...s,
                 id: s.id || s.slotId,
                 slotId: s.slotId || s.id,
                 startTime,
                 endTime,
-                isAvailable: !isPast && !s.isBooked,
-                availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
+                isAvailable: !isPast && !isUserBooked,
+                availabilityState: isUserBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
               };
             });
         } else {
@@ -293,10 +333,23 @@ const MembershipBookingScreen = ({ route, navigation }) => {
             const slotStart = new Date(s.startTime);
             const now = new Date();
             const isPast = slotStart <= now;
+            const sStartIso = slotStart.toISOString();
+            const slotKey = s.slotId || s.id || `${activeDateKey}-${s.startTime}`;
+
+            const isUserBooked =
+              userBookedKeys.has(slotKey) ||
+              userBookedKeys.has(s.id) ||
+              userBookedKeys.has(s.slotId) ||
+              userBookedKeys.has(s.startTime) ||
+              userBookedKeys.has(sStartIso) ||
+              userBookedKeys.has(`${activeDateKey}-${s.startTime}`) ||
+              userBookedKeys.has(`${activeDateKey}-${sStartIso}`) ||
+              s.isBooked;
+
             return {
               ...s,
-              isAvailable: !isPast && s.isAvailable,
-              availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : (s.availabilityState || 'AVAILABLE'),
+              isAvailable: !isPast && !isUserBooked && s.isAvailable,
+              availabilityState: isUserBooked ? 'BOOKED' : isPast ? 'PAST' : (s.availabilityState || 'AVAILABLE'),
             };
           });
         }
@@ -319,7 +372,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     return () => {
       isActive = false;
     };
-  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isOpenAccess, isUpgradeOnlyPackage, providerId, slotRefreshTick]);
+  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isOpenAccess, isUpgradeOnlyPackage, providerId, slotRefreshTick, isFocused]);
 
   if (isOpenAccess) {
     return null;

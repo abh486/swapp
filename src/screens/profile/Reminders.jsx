@@ -76,9 +76,11 @@ const RemindersScreen = ({ navigation }) => {
         if (isDataChanged) {
           try {
             await AsyncStorage.setItem('user_reminders', JSON.stringify(mergedReminders));
-            await apiClient.put('/users/reminders', mergedReminders);
+            apiClient.put('/users/reminders', mergedReminders).catch(e => 
+              console.warn('Offline: failed to sync reminders to backend', e.message)
+            );
           } catch (err) {
-            console.error('Failed to update merged reminders in storage/backend:', err);
+            console.error('Failed to update merged reminders in storage:', err);
           }
         }
       } else {
@@ -86,8 +88,11 @@ const RemindersScreen = ({ navigation }) => {
         try {
           await AsyncStorage.setItem('user_reminders', JSON.stringify(defaultReminders));
           await syncLocalNotifications(defaultReminders);
-          await apiClient.put('/users/reminders', defaultReminders);
           setReminders(defaultReminders);
+          // API call executed as a background catch-all so network errors do not break offline flow
+          apiClient.put('/users/reminders', defaultReminders).catch(e => 
+            console.warn('Offline: failed to save default reminders to backend', e.message)
+          );
         } catch (err) {
           console.error('Failed to sync and save default reminders:', err);
         }

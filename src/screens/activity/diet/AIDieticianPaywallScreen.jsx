@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
-import { getPlans, createCheckout, activateTrial, getSubscriptionDetails, getAccessStatus } from '../services/aiDieticianService';
-import { useAuth } from '../context/AuthContext';
+import { getPlans, createCheckout, activateTrial, getSubscriptionDetails, getAccessStatus } from '../../../services/aiDieticianService';
+import { useAuth } from '../../../context/AuthContext';
 import Chargebee from '@chargebee/react-native-chargebee';
 
 const { width } = Dimensions.get('window');
@@ -78,7 +78,17 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
         backAction
       );
 
-      return () => backHandler.remove();
+      const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', (e) => {
+        if (e.data.action.type === 'GO_BACK' || e.data.action.type === 'POP') {
+          e.preventDefault();
+          navigation.navigate('MainTabs', { screen: 'Home' });
+        }
+      });
+
+      return () => {
+        backHandler.remove();
+        unsubscribeBeforeRemove();
+      };
     }
   }, [route.params, navigation]);
 
@@ -103,19 +113,25 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
       } catch (refreshErr) {
         console.warn('Failed to refresh auth status after trial activation:', refreshErr);
       }
-      Alert.alert('Success', 'Your 7-day free trial has been activated!');
-      if (onUnlock) {
-        onUnlock();
-      } else {
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        } else {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
-          });
-        }
-      }
+      Alert.alert(
+        'Success',
+        'Your 7-day free trial has been activated!',
+        [
+          {
+            text: 'Get Started',
+            onPress: () => {
+              if (onUnlock) {
+                onUnlock();
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
+                });
+              }
+            },
+          },
+        ]
+      );
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Could not activate trial.';
       Alert.alert('Trial Activation Failed', msg);
@@ -281,7 +297,6 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
           </LinearGradient>
         )}
 
-        <Text style={styles.sectionTitle}>Choose Subscription Plan</Text>
 
         {/* Plans List */}
         {plans.map((plan) => {
@@ -294,11 +309,13 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
               activeOpacity={0.9}
             >
               <LinearGradient
-                colors={isSelected ? ['#18052a', '#05000a'] : ['#1a1a1a', '#050505']}
+                colors={isSelected ? ['#EE822A', '#8F5D98', '#2E4D9F'] : ['#1a1a1a', '#050505']}
                 style={styles.planGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0.5 }}
               >
                 <View style={styles.planHeader}>
-                  <Text style={[styles.planName, isSelected && { color: '#b873f0' }]}>
+                  <Text style={[styles.planName, isSelected && { color: '#EE822A' }]}>
                     {plan.name.toUpperCase()}
                   </Text>
                   <Text style={styles.planPrice}>
@@ -324,7 +341,7 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Sticky Subscribe Button at Bottom */}
+      {/* Sticky Bottom Container */}
       <View style={styles.bottomButtonContainer}>
         {subscriptionDetails?.accessSource === 'SUBSCRIPTION' ? (
           <View style={styles.activeSubInfo}>
@@ -334,27 +351,15 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
             </Text>
           </View>
         ) : (
-          <>
+          Platform.OS === 'ios' && (
             <TouchableOpacity
-              style={[styles.subscribeButton, !selectedPlan && { opacity: 0.5 }]}
-              onPress={handleSubscribe}
-              disabled={!selectedPlan || isSubmitting}
+              style={styles.restoreLink}
+              onPress={handleRestorePurchases}
+              disabled={isSubmitting}
             >
-              <Text style={styles.subscribeButtonText}>
-                {isSubmitting ? 'Processing...' : 'Subscribe Now'}
-              </Text>
+              <Text style={styles.restoreLinkText}>Restore Purchases</Text>
             </TouchableOpacity>
-
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity
-                style={styles.restoreLink}
-                onPress={handleRestorePurchases}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.restoreLinkText}>Restore Purchases</Text>
-              </TouchableOpacity>
-            )}
-          </>
+          )
         )}
       </View>
     </SafeAreaView>
@@ -468,7 +473,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   selectedPlanCard: {
-    borderColor: '#b873f0',
+    borderColor: '#2E4D9F',
     borderWidth: 2,
   },
   planGradient: {
@@ -581,7 +586,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   restoreLink: {
-    marginTop: 12,
+    marginTop: 4,
     alignItems: 'center',
     paddingVertical: 4,
   },

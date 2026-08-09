@@ -18,11 +18,11 @@ import apiClient from '../../../api/apiClient';
 
 const { width } = Dimensions.get('window');
 
-const DietPreferences = ({ navigation }) => {
+const DietPreferences = ({ navigation, route }) => {
   const [preference, setPreference] = useState('Selective Non-Veg');
   const [skipDays, setSkipDays] = useState(['Monday']);
   const [nonVegDays, setNonVegDays] = useState(['Wednesday', 'Sunday']);
-  const [selectedMeals, setSelectedMeals] = useState(['Lunch', 'Dinner']);
+  const [selectedMeals, setSelectedMeals] = useState(['Breakfast', 'Lunch', 'Snack', 'Dinner']);
   const [selectedAllergies, setSelectedAllergies] = useState(['No Known Allergies']);
   const [selectedCuisines, setSelectedCuisines] = useState(['USA Food']);
   const [avoidedFoods, setAvoidedFoods] = useState([]);
@@ -61,9 +61,21 @@ const DietPreferences = ({ navigation }) => {
         if (savedNonVegDays) setNonVegDays(JSON.parse(savedNonVegDays));
         if (savedMeals) {
           try {
-            setSelectedMeals(JSON.parse(savedMeals));
+            const parsed = JSON.parse(savedMeals);
+            if (Array.isArray(parsed) && parsed.length === 2 && parsed.includes('Lunch') && parsed.includes('Dinner')) {
+              setSelectedMeals(['Breakfast', 'Lunch', 'Snack', 'Dinner']);
+              await AsyncStorage.setItem('diet_meals', JSON.stringify(['Breakfast', 'Lunch', 'Snack', 'Dinner']));
+            } else {
+              setSelectedMeals(parsed);
+            }
           } catch (e) {
-            setSelectedMeals(savedMeals.split(', ').filter(Boolean));
+            const splitMeals = savedMeals.split(', ').filter(Boolean);
+            if (splitMeals.length === 2 && splitMeals.includes('Lunch') && splitMeals.includes('Dinner')) {
+              setSelectedMeals(['Breakfast', 'Lunch', 'Snack', 'Dinner']);
+              await AsyncStorage.setItem('diet_meals', JSON.stringify(['Breakfast', 'Lunch', 'Snack', 'Dinner']));
+            } else {
+              setSelectedMeals(splitMeals);
+            }
           }
         }
         if (savedAllergies) {
@@ -96,7 +108,8 @@ const DietPreferences = ({ navigation }) => {
         }
         if (savedOtherInfo) setOtherInfo(savedOtherInfo);
 
-        if (savedFlowCompleted !== 'true') {
+        const startFlow = route.params?.startFlow;
+        if (savedFlowCompleted !== 'true' || startFlow) {
           setIsFlowMode(true);
           setShowPreferenceSelect(true);
         }
@@ -436,8 +449,12 @@ const DietPreferences = ({ navigation }) => {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
-              setShowPreferenceSelect(false);
-              setIsFlowMode(false);
+              if (isFlowMode) {
+                navigation.navigate('MainTabs', { screen: 'Home' });
+              } else {
+                setShowPreferenceSelect(false);
+                setIsFlowMode(false);
+              }
             }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
@@ -842,7 +859,7 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button and Next/Skip */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowCuisineFrequencySelect(false);
               if (isFlowMode) {
@@ -850,7 +867,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -868,7 +885,7 @@ const DietPreferences = ({ navigation }) => {
           ) : (
             <View style={styles.headerSpacer} />
           )}
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowCuisineFrequencySelect(false);
               if (isFlowMode) {
@@ -894,7 +911,7 @@ const DietPreferences = ({ navigation }) => {
               <TouchableOpacity
                 key={opt.title}
                 style={[
-                  styles.dayCard, 
+                  styles.dayCard,
                   (isSometimes || isOften) && styles.dayCardSelected,
                   { height: 80 }
                 ]}
@@ -950,7 +967,7 @@ const DietPreferences = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         {/* Transparent header with back button and Next/Skip */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowOtherInfoSelect(false);
               if (isFlowMode) {
@@ -958,7 +975,7 @@ const DietPreferences = ({ navigation }) => {
               } else {
                 setIsFlowMode(false);
               }
-            }} 
+            }}
             style={isFlowMode ? styles.backBtnRound : styles.backBtn}
           >
             <Icon name="chevron-back" size={20} color="#FFF" />
@@ -976,7 +993,7 @@ const DietPreferences = ({ navigation }) => {
           ) : (
             <View style={styles.headerSpacer} />
           )}
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               setShowOtherInfoSelect(false);
               if (isFlowMode) {
@@ -1018,8 +1035,8 @@ const DietPreferences = ({ navigation }) => {
 
         {/* Bottom Looks Good/Next Button */}
         <View style={styles.otherBottomWrapper}>
-          <TouchableOpacity 
-            style={styles.nextBtnContainer} 
+          <TouchableOpacity
+            style={styles.nextBtnContainer}
             onPress={() => {
               setShowOtherInfoSelect(false);
               if (isFlowMode) {
@@ -1292,9 +1309,9 @@ const DietPreferences = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* Cuisine Frequency Card */}
-        <TouchableOpacity 
-          style={styles.cardContainer} 
-          onPress={() => { setIsFlowMode(false); setShowCuisineFrequencySelect(true); }} 
+        <TouchableOpacity
+          style={styles.cardContainer}
+          onPress={() => { setIsFlowMode(false); setShowCuisineFrequencySelect(true); }}
           activeOpacity={0.9}
         >
           <View style={styles.avatarOverlap}>
@@ -1306,8 +1323,8 @@ const DietPreferences = ({ navigation }) => {
             <View style={styles.textWrapper}>
               <Text style={styles.cardLabel}>Cuisine Frequency</Text>
               <Text style={styles.cardValue}>
-                {Object.keys(cuisineFrequency).length > 0 
-                  ? Object.entries(cuisineFrequency).map(([c, f]) => `${c} (${f})`).join(', ') 
+                {Object.keys(cuisineFrequency).length > 0
+                  ? Object.entries(cuisineFrequency).map(([c, f]) => `${c} (${f})`).join(', ')
                   : 'None Set'}
               </Text>
             </View>

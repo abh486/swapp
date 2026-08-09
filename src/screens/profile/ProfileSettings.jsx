@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../api/apiClient';
 
@@ -21,6 +22,57 @@ const ProfileSettingsScreen = ({ navigation }) => {
 
   const toggleNotifications = () => {
     setNotificationsEnabled(previousState => !previousState);
+  };
+
+  const handleManageBlockedAccounts = async () => {
+    try {
+      const savedBlocked = await AsyncStorage.getItem('blocked_user_ids');
+      const blockedUsers = savedBlocked ? JSON.parse(savedBlocked) : [];
+
+      if (blockedUsers.length === 0) {
+        Alert.alert('Blocked Accounts', 'You have not blocked any accounts yet.');
+        return;
+      }
+
+      const showUnblockPrompt = (index) => {
+        if (index >= blockedUsers.length) return;
+        const user = blockedUsers[index];
+        const userId = typeof user === 'string' ? user : user.id;
+        const userName = typeof user === 'string' ? 'Legacy Account' : user.name;
+
+        Alert.alert(
+          'Blocked Account',
+          `Account: ${userName}\n(${index + 1} of ${blockedUsers.length})`,
+          [
+            {
+              text: 'Unblock Account',
+              style: 'destructive',
+              onPress: async () => {
+                const updatedList = blockedUsers.filter(item => {
+                  const itemId = typeof item === 'string' ? item : item.id;
+                  return itemId !== userId;
+                });
+                await AsyncStorage.setItem('blocked_user_ids', JSON.stringify(updatedList));
+                Alert.alert('Success', `Unblocked ${userName}.`);
+              }
+            },
+            blockedUsers.length > 1 && index < blockedUsers.length - 1 ? {
+              text: 'Next User ➡️',
+              onPress: () => showUnblockPrompt(index + 1)
+            } : null,
+            {
+              text: 'Close',
+              style: 'cancel'
+            }
+          ].filter(Boolean)
+        );
+      };
+
+      showUnblockPrompt(0);
+    } catch (err) {
+      console.warn('Failed to load blocked accounts:', err);
+      Alert.alert('Error', 'Failed to retrieve blocked accounts list.');
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -177,7 +229,7 @@ const ProfileSettingsScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('WeightBodyMetrics')}>
             <View style={styles.rowLeft}>
               <Icon name="pulse-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Weight & Body Metrics</Text>
+              <Text style={styles.rowText}>Weight and Body Metrics</Text>
             </View>
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
@@ -228,7 +280,15 @@ const ProfileSettingsScreen = ({ navigation }) => {
         {/* SECTION: Account Deletion (Destructive Actions) */}
         <Text style={styles.sectionHeader}>Safety & Account Control</Text>
         
-        <View style={styles.destructiveCard}>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={handleManageBlockedAccounts}>
+            <View style={styles.rowLeft}>
+              <Icon name="ban-outline" size={22} color="#FFF" style={styles.rowIcon} />
+              <Text style={styles.rowText}>Blocked Accounts</Text>
+            </View>
+            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.rowNoBorder} onPress={handleDeleteAccount}>
             <View style={styles.rowLeft}>
               <Icon name="trash-outline" size={22} color="#e74c3c" style={styles.rowIcon} />

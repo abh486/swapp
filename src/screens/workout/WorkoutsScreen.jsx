@@ -5,14 +5,28 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchExercises, clearSelectedFilters } from '../../redux/actions/workoutActions';
-import exercisesData from '../../assets/exercises.json';
+import { PRESET_ROUTINES } from './presetRoutinesData';
 
 const { width } = Dimensions.get('window');
+
+const FAST_WORKOUT_IMG = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=300&auto=format&fit=crop';
+const CUSTOM_WORKOUT_IMG = 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=300&auto=format&fit=crop';
+const AI_WORKOUT_IMG = 'https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?q=80&w=300&auto=format&fit=crop';
+
+[FAST_WORKOUT_IMG, CUSTOM_WORKOUT_IMG, AI_WORKOUT_IMG].forEach(uri => {
+  Image.prefetch(uri).catch(() => {});
+});
 
 const ClockIcon = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={9} stroke="#8E8E9A" strokeWidth={1.8} />
     <Path d="M12 7V12L15 15" stroke="#8E8E9A" strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+const BackIcon = () => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+    <Path d="M19 12H5M12 19L5 12L12 5" stroke="#FFFFFF" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -87,12 +101,168 @@ const LEVEL_BODY_PARTS_MAP = {
   'ADVANCED': ['waist', 'lower arms', 'lower legs'],
 };
 
+const PlayIcon = () => (
+  <Svg width="14" height="14" viewBox="0 0 24 24" fill="#FFFFFF">
+    <Path d="M8 5v14l11-7z" />
+  </Svg>
+);
+
+const AtHomeIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Path d="M6 22L24 6L42 22" stroke="#4F46E5" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M10 20V42C10 43.1046 10.8954 44 12 44H36C37.1046 44 38 43.1046 38 42V20" stroke="#4F46E5" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M20 44V32H28V44" stroke="#4F46E5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <Rect x="15" y="12" width="18" height="10" rx="2" fill="#3B82F6" opacity="0.8" />
+    <Rect x="16" y="24" width="6" height="6" rx="1" fill="#EAB308" />
+    <Rect x="26" y="24" width="6" height="6" rx="1" fill="#EAB308" />
+  </Svg>
+);
+
+const TravelIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Rect x="8" y="16" width="32" height="22" rx="6" fill="#4B5563" />
+    <Path d="M14 16V10C14 8.89543 14.8954 8 16 8H32C33.1046 8 34 8.89543 34 10V16" stroke="#3B82F6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 24H36" stroke="#1F2937" strokeWidth="4" strokeLinecap="round" />
+    <Circle cx="14" cy="38" r="3" fill="#111827" />
+    <Circle cx="34" cy="38" r="3" fill="#111827" />
+  </Svg>
+);
+
+const DumbbellCategoryIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Rect x="8" y="18" width="6" height="12" rx="3" fill="#6B7280" />
+    <Rect x="34" y="18" width="6" height="12" rx="3" fill="#6B7280" />
+    <Rect x="12" y="16" width="4" height="16" rx="2" fill="#4B5563" />
+    <Rect x="32" y="16" width="4" height="16" rx="2" fill="#4B5563" />
+    <Rect x="14" y="22" width="20" height="4" rx="1" fill="#9CA3AF" />
+  </Svg>
+);
+
+const BandIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Path d="M8 24C8 15.1634 15.1634 8 24 8C32.8366 8 40 15.1634 40 24" stroke="#3B82F6" strokeWidth="4.5" strokeLinecap="round" />
+    <Path d="M12 28C12 21.3726 17.3726 16 24 16C30.6274 16 36 21.3726 36 28" stroke="#60A5FA" strokeWidth="3.5" strokeLinecap="round" />
+    <Rect x="4" y="24" width="8" height="8" rx="2" fill="#1E40AF" />
+    <Rect x="36" y="24" width="8" height="8" rx="2" fill="#1E40AF" />
+  </Svg>
+);
+
+const CardioIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Rect x="16" y="14" width="16" height="20" rx="3" fill="#374151" />
+    <Path d="M20 14V6H28V14" stroke="#9CA3AF" strokeWidth="3" />
+    <Path d="M20 34V42H28V34" stroke="#9CA3AF" strokeWidth="3" />
+    <Circle cx="24" cy="24" r="6" fill="#EF4444" />
+    <Path d="M24 21V24H27" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
+  </Svg>
+);
+
+const GymCategoryIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Rect x="8" y="16" width="32" height="24" rx="4" fill="#374151" stroke="#4B5563" strokeWidth="2.5" />
+    <Path d="M6 16H42" stroke="#4B5563" strokeWidth="4.5" strokeLinecap="round" />
+    <Rect x="18" y="28" width="12" height="12" fill="#111827" />
+    <Path d="M12 20H16V24H12V20Z" fill="#EAB308" />
+    <Path d="M32 20H36V24H32V20Z" fill="#EAB308" />
+    <Rect x="14" y="8" width="20" height="8" rx="2" fill="#EE822A" />
+    <Path d="M18 12H30" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const BodyweightIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Rect x="8" y="14" width="32" height="20" rx="10" fill="#10B981" />
+    <Circle cx="16" cy="24" r="6" fill="#047857" />
+    <Circle cx="16" cy="24" r="2" fill="#10B981" />
+    <Path d="M30 14V34" stroke="#059669" strokeWidth="2" strokeDasharray="4 4" />
+  </Svg>
+);
+
+const SuspensionIcon = () => (
+  <Svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <Path d="M24 6V18" stroke="#4B5563" strokeWidth="4" strokeLinecap="round" />
+    <Path d="M24 18L14 36" stroke="#374151" strokeWidth="3" />
+    <Path d="M24 18L34 36" stroke="#374151" strokeWidth="3" />
+    <Rect x="10" y="34" width="8" height="6" rx="2" fill="#1F2937" stroke="#EE822A" strokeWidth="2" />
+    <Rect x="30" y="34" width="8" height="6" rx="2" fill="#1F2937" stroke="#EE822A" strokeWidth="2" />
+  </Svg>
+);
+
+
+
 const WorkoutsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const levels = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
   const [selectedLevel, setSelectedLevel] = useState('');
   const [selectedGoal, setSelectedGoal] = useState('');
   const [selectedEquipmentLocal, setSelectedEquipmentLocal] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [showAllRoutines, setShowAllRoutines] = useState(false);
+
+  useEffect(() => {
+    if (selectedEquipmentLocal === 'GYM') {
+      setSelectedCategory('Gym');
+    } else if (selectedEquipmentLocal === 'DUMBBELLS') {
+      setSelectedCategory('Dumbbells Only');
+    } else if (selectedEquipmentLocal === 'NONE') {
+      setSelectedCategory('Bodyweight');
+    } else if (selectedGoal === 'LOSE_WEIGHT') {
+      setSelectedCategory('Cardio & HIIT');
+    } else if (!selectedEquipmentLocal && !selectedGoal) {
+      setSelectedCategory('');
+    }
+  }, [selectedEquipmentLocal, selectedGoal]);
+
+  useEffect(() => {
+    setShowAllRoutines(false);
+  }, [selectedLevel, selectedGoal, selectedEquipmentLocal]);
+
+  const handleCategoryPress = (category) => {
+    navigation.navigate('CategoryWorkoutsScreen', { category });
+  };
+
+  const filteredRoutines = useMemo(() => {
+    let list = PRESET_ROUTINES;
+    if (selectedLevel) {
+      list = list.filter(r => r.level === selectedLevel);
+    }
+    if (selectedGoal) {
+      list = list.filter(r => r.goal === selectedGoal);
+    }
+    if (selectedEquipmentLocal) {
+      list = list.filter(r => r.equipment === selectedEquipmentLocal);
+    }
+    return list;
+  }, [selectedLevel, selectedGoal, selectedEquipmentLocal]);
+
+  const renderRoutineItem = ({ item: routine }) => {
+    return (
+      <TouchableOpacity
+        style={styles.routineCard}
+        activeOpacity={0.85}
+        onPress={() => {
+          navigation.navigate('RoutineDetailScreen', { program: routine });
+        }}
+      >
+        <View style={styles.routineCardBody}>
+          <Text style={styles.routineTitle} numberOfLines={2}>
+            {routine.name}
+          </Text>
+          <Text style={styles.routineSubtitle}>
+            {routine.routinesCount} routines
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => {
+            navigation.navigate('RoutineDetailScreen', { program: routine });
+          }}
+        >
+          <PlayIcon />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
 
   const getLevelLabel = (level) => {
     if (level === 'BEGINNER') return 'Beginner';
@@ -128,7 +298,7 @@ const WorkoutsScreen = ({ navigation }) => {
 
   const hasActiveFilters = selectedGoal !== '' || selectedEquipmentLocal !== '';
 
-  const activeFiltersCount = 
+  const activeFiltersCount =
     (selectedLevel !== '' ? 1 : 0) +
     (selectedGoal !== '' ? 1 : 0) +
     (selectedEquipmentLocal !== '' ? 1 : 0);
@@ -139,111 +309,18 @@ const WorkoutsScreen = ({ navigation }) => {
 
   // Dynamic matching results count for bottom sheet "Show X results" button
   const resultsCount = useMemo(() => {
-    let list = exercisesData.exercises || [];
-
-    // 1. Filter by Level
+    let list = PRESET_ROUTINES;
     if (tempLevel) {
-      const bodyParts = LEVEL_BODY_PARTS_MAP[tempLevel] || [];
-      const filterMuscles = [];
-      bodyParts.forEach(bp => {
-        const cleaned = bp.trim().toLowerCase();
-        if (cleaned === 'chest') filterMuscles.push('chest', 'pectorals');
-        else if (cleaned === 'back') filterMuscles.push('lats', 'back', 'middle back', 'lower back', 'traps');
-        else if (cleaned === 'shoulders') filterMuscles.push('shoulders', 'delts', 'deltoids');
-        else if (cleaned === 'upper arms') filterMuscles.push('biceps', 'triceps');
-        else if (cleaned === 'lower arms') filterMuscles.push('forearms');
-        else if (cleaned === 'upper legs') filterMuscles.push('quads', 'hamstrings', 'glutes', 'adductors', 'abductors');
-        else if (cleaned === 'lower legs') filterMuscles.push('calves');
-        else if (cleaned === 'waist') filterMuscles.push('abs', 'abdominals');
-        else filterMuscles.push(cleaned);
-      });
-
-      if (filterMuscles.length > 0) {
-        list = list.filter(ex => {
-          const prims = (ex.primaryMuscles || []).map(m => m.toLowerCase());
-          return prims.some(m => filterMuscles.some(filterM => m.includes(filterM) || filterM.includes(m)));
-        });
-      }
+      list = list.filter(r => r.level === tempLevel);
     }
-
-    // 2. Filter by Equipment
-    if (tempEquipment === 'GYM') {
-      const gymEquips = ['barbell', 'cable', 'machine', 'plate', 'leverage machine', 'bench'];
-      list = list.filter(ex => ex.equipment && gymEquips.some(eq => ex.equipment.toLowerCase().includes(eq)));
-    } else if (tempEquipment === 'DUMBBELLS') {
-      list = list.filter(ex => ex.equipment && ex.equipment.toLowerCase().includes('dumbbell'));
-    } else if (tempEquipment === 'NONE') {
-      list = list.filter(ex => ex.equipment && ex.equipment.toLowerCase().includes('body only'));
+    if (tempGoal) {
+      list = list.filter(r => r.goal === tempGoal);
     }
-
-    // 3. Filter by Goal
-    if (tempGoal === 'GAIN_MUSCLE') {
-      const cats = ['strength', 'powerlifting', 'strongman'];
-      list = list.filter(ex => ex.category && cats.includes(ex.category.toLowerCase()));
-    } else if (tempGoal === 'STRENGTH') {
-      const cats = ['strength', 'powerlifting'];
-      list = list.filter(ex => ex.category && cats.includes(ex.category.toLowerCase()));
-    } else if (tempGoal === 'LOSE_WEIGHT') {
-      const cats = ['cardio', 'plyometrics'];
-      list = list.filter(ex => ex.category && cats.includes(ex.category.toLowerCase()));
+    if (tempEquipment) {
+      list = list.filter(r => r.equipment === tempEquipment);
     }
-
     return list.length;
   }, [tempLevel, tempGoal, tempEquipment]);
-
-  const mapFiltersToApi = (level, goal, eq) => {
-    const apiFilters = {};
-
-    // 1. Level body parts mapping
-    if (level) {
-      const bodyPartsForLevel = LEVEL_BODY_PARTS_MAP[level];
-      if (bodyPartsForLevel) {
-        apiFilters.bodyParts = bodyPartsForLevel;
-      }
-    }
-
-    // 2. Equipment filter mapping
-    if (eq === 'GYM') {
-      apiFilters.equipments = 'barbell,cable,machine,plate,leverage machine,bench';
-    } else if (eq === 'DUMBBELLS') {
-      apiFilters.equipments = 'dumbbell';
-    } else if (eq === 'NONE') {
-      apiFilters.equipments = 'body weight';
-    }
-
-    // 3. Goal filter mapping
-    if (goal === 'GAIN_MUSCLE') {
-      apiFilters.categories = 'strength,powerlifting,strongman';
-    } else if (goal === 'STRENGTH') {
-      apiFilters.categories = 'strength,powerlifting';
-    } else if (goal === 'LOSE_WEIGHT') {
-      apiFilters.categories = 'cardio,plyometrics';
-    }
-
-    return apiFilters;
-  };
-
-  useEffect(() => {
-    const apiFilters = mapFiltersToApi(selectedLevel, selectedGoal, selectedEquipmentLocal);
-    dispatch(fetchExercises({
-      limit: 50,
-      ...apiFilters
-    }));
-  }, [selectedLevel, selectedGoal, selectedEquipmentLocal, dispatch]);
-
-  const loadMoreExercises = async () => {
-    if (hasNextPage && !isLoadingMore && !loading) {
-      setIsLoadingMore(true);
-      const apiFilters = mapFiltersToApi(selectedLevel, selectedGoal, selectedEquipmentLocal);
-      await dispatch(fetchExercises({
-        limit: 50,
-        after: nextCursor,
-        ...apiFilters,
-        isLoadMore: true
-      }));
-      setIsLoadingMore(false);
-    }
-  };
 
   const handleApplyFilters = () => {
     setSelectedLevel(tempLevel);
@@ -262,10 +339,28 @@ const WorkoutsScreen = ({ navigation }) => {
     setFilterModalVisible(false);
   };
 
+  const handleBack = () => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+    } else {
+      navigation?.navigate?.('Home');
+    }
+  };
+
   const renderHeader = () => (
     <View>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Workouts</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <BackIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Workouts</Text>
+        </View>
         <TouchableOpacity style={styles.headerIcon}>
           <ClockIcon />
         </TouchableOpacity>
@@ -275,10 +370,16 @@ const WorkoutsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.actionCard}
           activeOpacity={0.75}
-          onPress={() => navigation?.navigate?.('FastWorkoutActive')}
+          onPress={() => navigation?.navigate?.('FastWorkoutActive', { source: 'fast_workout', isCustomWorkout: false })}
         >
-          <LinearGradient colors={['#EE822A', '#8F5D98', '#2E4D9F']} style={styles.actionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-          <Text style={styles.actionLabel}>Create a New{'\n'}Fast Workout</Text>
+          <ImageBackground
+            source={{ uri: FAST_WORKOUT_IMG }}
+            style={styles.actionGradient}
+            imageStyle={{ borderRadius: 16 }}
+          >
+            <View style={styles.actionOverlay} />
+            <Text style={styles.actionLabel}>Create a New{'\n'}Fast Workout</Text>
+          </ImageBackground>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -286,8 +387,14 @@ const WorkoutsScreen = ({ navigation }) => {
           activeOpacity={0.75}
           onPress={() => navigation?.navigate?.('CreateCustomWorkoutScreen')}
         >
-          <LinearGradient colors={['#EE822A', '#8F5D98', '#2E4D9F']} style={styles.actionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-          <Text style={styles.actionLabel}>Create a Custom{'\n'}Workout</Text>
+          <ImageBackground
+            source={{ uri: CUSTOM_WORKOUT_IMG }}
+            style={styles.actionGradient}
+            imageStyle={{ borderRadius: 16 }}
+          >
+            <View style={styles.actionOverlay} />
+            <Text style={styles.actionLabel}>Create a Custom{'\n'}Workout</Text>
+          </ImageBackground>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -295,11 +402,16 @@ const WorkoutsScreen = ({ navigation }) => {
           activeOpacity={0.75}
           onPress={() => navigation?.navigate?.('CurrentWorkoutPlanScreen')}
         >
-          <LinearGradient colors={['#EE822A', '#8F5D98', '#2E4D9F']} style={styles.actionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-          <Text style={styles.actionLabel}>AI{'\n'}Workout</Text>
+          <ImageBackground
+            source={{ uri: AI_WORKOUT_IMG }}
+            style={styles.actionGradient}
+            imageStyle={{ borderRadius: 16 }}
+          >
+            <View style={styles.actionOverlay} />
+            <Text style={styles.actionLabel}>AI{'\n'}Workout</Text>
+          </ImageBackground>
         </TouchableOpacity>
       </View>
-
       {/* Horizontal Filter Bar */}
       <ScrollView
         horizontal
@@ -433,12 +545,11 @@ const WorkoutsScreen = ({ navigation }) => {
     const eqLower = (exercise.equipment || (exercise.equipments && exercise.equipments[0]) || '').toLowerCase();
     const isGym = !(nameLower.includes('cardio') || nameLower.includes('run') || nameLower.includes('jump') || nameLower.includes('yoga') || nameLower.includes('stretch') || eqLower.includes('body only') || eqLower.includes('none') || eqLower.includes('free') || nameLower.includes('free'));
 
-    const folder = getFolderFromName(exercise.name);
-    const gifUrl = `https://raw.githubusercontent.com/wrkout/exercises.json/master/exercises/${folder}/images/0.jpg`;
+    const mediaUrl = exercise.imageUrl || exercise.gifUrl || exercise.videoUrl;
 
-    const imageSource = failedImages[exercise.id]
-      ? (isGym ? require('../../assets/image/gym_machine.png') : require('../../assets/image/yoga_mat.png'))
-      : { uri: gifUrl };
+    const imageSource = (mediaUrl && !failedImages[exercise.id])
+      ? { uri: mediaUrl }
+      : require('../../assets/image/gym_machine.png');
 
     let formattedLevel = 'Beginner';
     if (selectedLevel) {
@@ -459,7 +570,9 @@ const WorkoutsScreen = ({ navigation }) => {
         activeOpacity={0.8}
         onPress={() => navigation.navigate('FastWorkoutActive', {
           exercises: [{ ...exercise, sets: [] }],
-          level: selectedLevel
+          level: selectedLevel,
+          source: 'fast_workout',
+          isCustomWorkout: false
         })}
       >
         <View style={styles.cardLeft}>
@@ -598,26 +711,115 @@ const WorkoutsScreen = ({ navigation }) => {
 
       <FlatList
         contentContainerStyle={styles.scrollContent}
-        data={exercises}
-        keyExtractor={(item, index) => item.id || item.exerciseId || index.toString()}
-        renderItem={renderItem}
+        data={showAllRoutines ? filteredRoutines : filteredRoutines.slice(0, 5)}
+        keyExtractor={(item) => item.id}
+        renderItem={renderRoutineItem}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
-          loading ? (
-            <GlobalLoader size={60} style={{ marginTop: 50 }} />
-          ) : (
-            <Text style={styles.emptyText}>No exercises found for {hasActiveFilters ? 'selected filters' : selectedLevel}.</Text>
-          )
+          <Text style={styles.emptyText}>No routines found for selected filters.</Text>
         }
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={5}
-        onEndReached={loadMoreExercises}
-        onEndReachedThreshold={0.5}
         ListFooterComponent={
-          <View style={{ height: 80, justifyContent: 'center', alignItems: 'center' }}>
-            {isLoadingMore && <GlobalLoader size={30} />}
+          <View style={{ marginTop: filteredRoutines.length > 5 ? 4 : 24 }}>
+            {filteredRoutines.length > 5 && (
+              <TouchableOpacity
+                style={styles.showMoreBtn}
+                activeOpacity={0.8}
+                onPress={() => setShowAllRoutines(!showAllRoutines)}
+              >
+                <Text style={styles.showMoreBtnText}>
+                  {showAllRoutines ? 'Show Less' : 'Show More'}
+                </Text>
+                <ChevronDownIcon open={showAllRoutines} />
+              </TouchableOpacity>
+            )}
+
+            {/* Categories Grid */}
+            <View style={styles.categoriesGrid}>
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'At home' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('At home')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>At home</Text>
+                  <AtHomeIcon />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Travel' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Travel')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Travel</Text>
+                  <TravelIcon />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Dumbbells Only' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Dumbbells Only')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Dumbbells{'\n'}Only</Text>
+                  <DumbbellCategoryIcon />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Band' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Band')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Band</Text>
+                  <BandIcon />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Cardio & HIIT' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Cardio & HIIT')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Cardio &{'\n'}HIIT</Text>
+                  <CardioIcon />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Gym' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Gym')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Gym</Text>
+                  <GymCategoryIcon />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Bodyweight' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Bodyweight')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Bodyweight</Text>
+                  <BodyweightIcon />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.categoryCard, selectedCategory === 'Suspension Band' && styles.categoryCardSelected]}
+                  onPress={() => handleCategoryPress('Suspension Band')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.categoryCardText}>Suspension{'\n'}Band</Text>
+                  <SuspensionIcon />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={{ height: 100 }} />
           </View>
         }
       />
@@ -629,6 +831,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A12' },
   scrollContent: { paddingHorizontal: 20, paddingTop: 60 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backButton: { padding: 4, marginRight: 2 },
   headerTitle: { fontSize: 30, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.5 },
   headerIcon: { padding: 4 },
   actionRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
@@ -834,7 +1038,120 @@ const styles = StyleSheet.create({
     color: '#8E8E9A',
     fontSize: 12,
     fontWeight: '500',
-  }
+  },
+  actionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderRadius: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#121216',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: '#1E1E26',
+  },
+  tabText: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  routineCard: {
+    width: '100%',
+    padding: 18,
+    backgroundColor: '#1E1E26',
+    borderRadius: 16,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  routineCardBody: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  routineTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  routineSubtitle: {
+    color: '#8E8E9A',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  playButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EE822A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  showMoreBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#1E1E26',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  showMoreBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categoriesGrid: {
+    marginBottom: 24,
+    gap: 12,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  categoryCard: {
+    flex: 1,
+    height: 84,
+    backgroundColor: '#1E1E26',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoryCardSelected: {
+    borderColor: '#EE822A',
+    backgroundColor: 'rgba(238, 130, 42, 0.08)',
+  },
+  categoryCardText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
+    flex: 1,
+    paddingRight: 8,
+  },
 });
 
 export default WorkoutsScreen;

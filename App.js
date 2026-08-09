@@ -75,7 +75,7 @@ const App = () => {
 
   return (
     <Provider store={store}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: '#000000' }}>
         <LocationProvider>
           <ImageSelectionProvider>
             <Auth0Provider

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   StatusBar,
   StyleSheet,
@@ -30,7 +30,7 @@ import LocationSelectorModal from './components/LocationSelectorModal';
 const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { activeCategory, activeVertical } = useSelector(state => state.home);
-  const [searchQuery, setSearchQuery] = useState(route.params?.query || '');
+  const [searchQuery, setSearchQuery] = useState((route.params && route.params.query) || '');
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
   const SNAP_TOP = insets.top + metrics.sp(104);
@@ -46,30 +46,61 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
   const { feed } = useSelector(state => state.home);
   const mapRef = React.useRef(null);
 
+  const targetLoc = useMemo(() => {
+    if (route.params && route.params.selectedLocation && route.params.selectedLocation.latitude && route.params.selectedLocation.longitude) {
+      return route.params.selectedLocation;
+    }
+    return userLocation;
+  }, [route.params && route.params.selectedLocation, userLocation]);
+
   React.useEffect(() => {
-    const targetLoc = route.params?.selectedLocation || userLocation;
-    if (targetLoc?.latitude && targetLoc?.longitude && mapRef.current) {
+    if (providers && providers.length > 0 && mapRef.current) {
+      const validCoords = providers
+        .map(p => {
+          const lat = parseFloat((p.coordinates && p.coordinates.latitude) || p.latitude || p.lat);
+          const lng = parseFloat((p.coordinates && p.coordinates.longitude) || p.longitude || p.lng);
+          return (lat && lng) ? { latitude: lat, longitude: lng } : null;
+        })
+        .filter(Boolean);
+
+      if (targetLoc && targetLoc.latitude && targetLoc.longitude) {
+        validCoords.push({
+          latitude: parseFloat(targetLoc.latitude),
+          longitude: parseFloat(targetLoc.longitude)
+        });
+      }
+
+      if (validCoords.length > 0) {
+        mapRef.current.fitToCoordinates(validCoords, {
+          edgePadding: { top: 120, right: 60, bottom: 280, left: 60 },
+          animated: true,
+        });
+        return;
+      }
+    }
+
+    if (targetLoc && targetLoc.latitude && targetLoc.longitude && mapRef.current) {
       mapRef.current.animateToRegion({
         latitude: parseFloat(targetLoc.latitude),
         longitude: parseFloat(targetLoc.longitude),
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitudeDelta: 0.35,
+        longitudeDelta: 0.35,
       }, 1000);
     }
-  }, [route.params?.selectedLocation, userLocation]);
+  }, [providers, targetLoc]);
 
   React.useEffect(() => {
-    if (route.params?.categoryId || route.params?.vertical) {
+    if (route.params && (route.params.categoryId || route.params.vertical)) {
       dispatch(setGlobalCategory(route.params.categoryId || 'all', route.params.vertical || null));
     }
-    if (route.params?.query) {
+    if (route.params && route.params.query) {
       setSearchQuery(route.params.query);
     }
   }, [route.params]);
 
   const categories = [
     { id: 'all', label: 'All', icon: 'apps' },
-    ...(feed?.categories || []).map(c => {
+    ...((feed && feed.categories) || []).map(c => {
       const isCompatSport = c.label && (
         c.label.toLowerCase() === 'combat sports' ||
         c.label.toLowerCase() === 'combat sport' ||
@@ -122,7 +153,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     ...(searchQuery ? { search: searchQuery } : {})
   }), [activeCategory, activeVertical, searchQuery]);
 
-  const { providers, isLoading, actions: providerActions } = useProviderData(userLocation, permissionGranted, activeFilters);
+  const { providers, isLoading, actions: providerActions } = useProviderData(targetLoc, permissionGranted, activeFilters);
 
   const translateY = useRef(new Animated.Value(SNAP_MID)).current;
   const lastOffsetY = useRef(SNAP_MID);
@@ -141,10 +172,43 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     lastOffsetY.current = SNAP_MID;
   }, [SNAP_BOTTOM, SNAP_MID, SNAP_TOP, translateY]);
 
+  const collapseSheet = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: SNAP_MID,
+      duration: 320,
+      useNativeDriver: false,
+    }).start(() => {
+      lastOffsetY.current = SNAP_MID;
+    });
+  }, [SNAP_MID, translateY]);
+
+  const expandSheet = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: SNAP_TOP,
+      duration: 320,
+      useNativeDriver: false,
+    }).start(() => {
+      lastOffsetY.current = SNAP_TOP;
+    });
+  }, [SNAP_TOP, translateY]);
+
+  const toggleSheet = useCallback(() => {
+    const isExpanded = Math.abs(lastOffsetY.current - SNAP_TOP) < 40;
+    const target = isExpanded ? SNAP_MID : SNAP_TOP;
+
+    Animated.timing(translateY, {
+      toValue: target,
+      duration: 320,
+      useNativeDriver: false,
+    }).start(() => {
+      lastOffsetY.current = target;
+    });
+  }, [SNAP_MID, SNAP_TOP, translateY]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 5,
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 2,
       onPanResponderGrant: () => {
         translateY.stopAnimation();
         translateY.setOffset(lastOffsetY.current);
@@ -156,21 +220,46 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
       ),
       onPanResponderRelease: (_, gs) => {
         translateY.flattenOffset();
-        const { top, bottom } = snapPointsRef.current;
-        if (lastOffsetY.current < top) {
-          Animated.spring(translateY, {
-            toValue: top,
-            useNativeDriver: false,
-            bounciness: 0,
-          }).start();
-        } 
-        else if (lastOffsetY.current > bottom) {
-          Animated.spring(translateY, {
-            toValue: bottom,
-            useNativeDriver: false,
-            bounciness: 0,
-          }).start();
+        if (Math.abs(gs.dy) < 8) {
+          toggleSheet();
+          return;
         }
+
+        const dy = gs.dy;
+        const vy = gs.vy;
+        const currentPos = lastOffsetY.current;
+
+        let target = SNAP_MID;
+
+        if (dy > 30 || vy > 0.2) {
+          if (currentPos > (SNAP_MID + SNAP_BOTTOM) / 2) {
+            target = SNAP_BOTTOM;
+          } else {
+            target = SNAP_MID;
+          }
+        } else if (dy < -30 || vy < -0.2) {
+          target = SNAP_TOP;
+        } else {
+          const distToTop = Math.abs(currentPos - SNAP_TOP);
+          const distToMid = Math.abs(currentPos - SNAP_MID);
+          const distToBottom = Math.abs(currentPos - SNAP_BOTTOM);
+
+          if (distToTop < distToMid && distToTop < distToBottom) {
+            target = SNAP_TOP;
+          } else if (distToBottom < distToMid && distToBottom < distToTop) {
+            target = SNAP_BOTTOM;
+          } else {
+            target = SNAP_MID;
+          }
+        }
+
+        Animated.timing(translateY, {
+          toValue: target,
+          duration: 280,
+          useNativeDriver: false,
+        }).start(() => {
+          lastOffsetY.current = target;
+        });
       },
     })
   ).current;
@@ -193,7 +282,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         <Icon
           name={item.icon || 'apps'}
           size={14}
-          color={isActive ? '#e74c3c' : '#888'}
+          color={isActive ? '#3498db' : '#888'}
           style={styles.categoryIcon}
         />
         <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>
@@ -217,7 +306,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         }}
         style={styles.providerCard}
       >
-      <Image source={{ uri: item.photos?.[0] || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} style={styles.providerImage} />
+      <Image source={{ uri: (item.photos && item.photos[0]) || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} style={styles.providerImage} />
 
       <View style={styles.providerContent}>
         <View style={styles.providerHeader}>
@@ -233,7 +322,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
         <Text style={styles.providerMeta}>
           {(() => {
-            const v = item.vertical?.[0] || 'Fitness';
+            const v = (item.vertical && item.vertical[0]) || 'Fitness';
             const vLower = v.toLowerCase();
             if (
               vLower === 'wellness' ||
@@ -281,11 +370,21 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
       </View>
 
       <View style={styles.providerRightActions}>
-        <TouchableOpacity style={styles.bookmarkBtn}>
-          <Icon name="bookmark-outline" size={24} color="#aaa" />
+        <TouchableOpacity
+          style={{ marginRight: 6 }}
+          onPress={(e) => {
+            e.stopPropagation();
+            navigation.navigate('LiveGymNavigationScreen', {
+              gym: item,
+              origin: targetLoc,
+              destination: item.coordinates || { latitude: item.latitude || item.lat, longitude: item.longitude || item.lng }
+            });
+          }}
+        >
+          <Icon name="navigate-circle" size={34} color="#00E5FF" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.arrowBtn}>
-          <Icon name="arrow-forward-circle" size={32} color="#aaa" />
+          <Icon name="arrow-forward-circle" size={28} color="#aaa" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -301,24 +400,28 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           ref={mapRef}
           style={styles.map}
           initialRegion={{
-            latitude: userLocation?.latitude || 12.9716,
-            longitude: userLocation?.longitude || 77.5946,
-            latitudeDelta: 0.1,
-            longitudeDelta: 0.1,
+            latitude: (targetLoc && targetLoc.latitude) || (userLocation && userLocation.latitude) || 12.9716,
+            longitude: (targetLoc && targetLoc.longitude) || (userLocation && userLocation.longitude) || 77.5946,
+            latitudeDelta: 0.35,
+            longitudeDelta: 0.35,
           }}
         >
           {providers
-            .filter(provider => provider.coordinates?.latitude && provider.coordinates?.longitude)
             .map(provider => {
+              const lat = parseFloat((provider.coordinates && provider.coordinates.latitude) || provider.latitude || provider.lat);
+              const lng = parseFloat((provider.coordinates && provider.coordinates.longitude) || provider.longitude || provider.lng);
+              if (!lat || !lng) return null;
+
               const isTrainer = provider.vertical === 'TRAINER' || (Array.isArray(provider.vertical) && provider.vertical.includes('TRAINER'));
               return (
                 <Marker
                   key={provider.id}
-                  coordinate={provider.coordinates}
+                  coordinate={{ latitude: lat, longitude: lng }}
+                  tracksViewChanges={false}
                   title={provider.name}
                   description={`${(() => {
-                    const v = provider.vertical?.[0] || 'Fitness';
-                    const vLower = v.toLowerCase();
+                    const v = (provider.vertical && provider.vertical[0]) || 'Fitness';
+                    const vLower = typeof v === 'string' ? v.toLowerCase() : '';
                     if (
                       vLower === 'wellness' ||
                       vLower === 'wellness and spa' ||
@@ -346,9 +449,10 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
                       return 'Gym';
                     }
                     return v;
-                  })()} • ${provider.address}`}
-                  pinColor={provider.isPremium ? '#e74c3c' : '#00bcd4'}
+                  })()} • ${provider.address || 'Fitness Partner'}`}
+                  pinColor="red"
                   onPress={() => {
+                    expandSheet();
                     if (isTrainer) {
                       navigation.navigate('TrainerDetailScreen', { id: provider.ownerId || provider.id });
                     } else {
@@ -357,13 +461,16 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
                   }}
                 />
               );
-            })}
-          {userLocation?.latitude && userLocation?.longitude && (
+            })
+            .filter(Boolean)}
+          {userLocation && userLocation.latitude && userLocation.longitude && (
             <Marker
               key="user-location"
               coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }}
-              title="You"
-              pinColor="#1e90ff"
+              tracksViewChanges={false}
+              title="Me"
+              description="Your location"
+              pinColor="blue"
             />
           )}
         </MapView>
@@ -464,8 +571,11 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           { transform: [{ translateY: clampedTranslateY }] },
         ]}
       >
-        <View {...panResponder.panHandlers} style={styles.draggableHeader}>
-          <View style={styles.topRightGradientContainer}>
+        <View
+          {...panResponder.panHandlers}
+          style={styles.draggableHeader}
+        >
+          <View style={styles.topRightGradientContainer} pointerEvents="none">
             <LinearGradient
               colors={['rgba(255,100,80,0.5)', 'rgba(0,0,0,0)']}
               start={{ x: 1, y: 0 }}
@@ -474,8 +584,10 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
             />
           </View>
 
-          <View style={styles.topLine} />
-          <Text style={styles.listTitle}>{providers.length}+ Providers Nearby</Text>
+          <View style={styles.topLine} pointerEvents="none" />
+          <Text style={styles.listTitle} pointerEvents="none">
+            {providers.length}+ Providers Nearby
+          </Text>
         </View>
 
         <FlatList
@@ -485,6 +597,17 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           scrollEnabled={true}
+          onScroll={e => {
+            const y = e.nativeEvent.contentOffset.y;
+            if (y < -15 && Math.abs(lastOffsetY.current - SNAP_TOP) < 40) {
+              collapseSheet();
+            }
+          }}
+          onScrollBeginDrag={() => {
+            if (Math.abs(lastOffsetY.current - SNAP_TOP) > 30) {
+              expandSheet();
+            }
+          }}
           contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
           ListEmptyComponent={!isLoading && <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No providers found nearby</Text>}
         />
@@ -538,12 +661,12 @@ const createStyles = ({ fs, sp, ms, wp, height, isTablet }, insets, SNAP_TOP) =>
   categoriesWrapper: { backgroundColor: '#000' },
   categoriesList: { paddingHorizontal: sp(15), alignItems: 'center' },
   categoryPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: sp(16), paddingVertical: sp(6), borderRadius: ms(20), backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginRight: sp(10), minHeight: ms(32) },
-  categoryPillActive: { borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)' },
+  categoryPillActive: { borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.1)' },
   categoryIcon: { marginRight: sp(6) },
   categoryText: { color: '#888', fontSize: fs(12), fontWeight: '600' },
   categoryTextActive: { color: '#fff' },
   map: { ...StyleSheet.absoluteFillObject },
-  sheetContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: height - SNAP_TOP, backgroundColor: '#000', borderTopLeftRadius: ms(20), borderTopRightRadius: ms(20), zIndex: 20, overflow: 'hidden' },
+  sheetContainer: { position: 'absolute', top: 0, left: 0, right: 0, height: height, backgroundColor: '#000', borderTopLeftRadius: ms(20), borderTopRightRadius: ms(20), zIndex: 20, overflow: 'hidden' },
   draggableHeader: { alignItems: 'center', paddingTop: sp(14), paddingBottom: sp(20), backgroundColor: '#000' },
   topRightGradientContainer: { position: 'absolute', top: 0, right: 0, width: '60%', height: ms(120) },
   topRightGradient: { flex: 1, borderBottomLeftRadius: ms(100) },

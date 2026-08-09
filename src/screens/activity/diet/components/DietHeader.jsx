@@ -31,9 +31,12 @@ const DietHeader = ({
   setSelectedPlanDay,
   fetchNutritionData,
   buildCalendarDays,
-  handleGoToPreferences,
   handleGoToReminders,
   navigation,
+  recommendation,
+  stepsToday,
+  sleepHoursToday,
+  workoutCaloriesToday,
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -54,11 +57,12 @@ const DietHeader = ({
   const targets = dailySummary?.targets || {};
 
   const targetCals = targets.calories || 1800;
-  const consumedCals = summary.calories || 1200;
+  const consumedCals = summary.calories !== undefined && summary.calories !== null ? summary.calories : 0;
   const targetBurn = 800;
-  const burnedCals = summary.burned || 420;
+  const walkBurn = Math.round((stepsToday || 0) * 0.045);
+  const burnedCals = walkBurn + (workoutCaloriesToday || 0);
   const targetSleep = 8;
-  const sleptHours = summary.sleep || 2.0;
+  const sleptHours = sleepHoursToday !== undefined && sleepHoursToday !== null ? sleepHoursToday : 0;
 
   const burnProgress = Math.min(1, burnedCals / targetBurn);
   const sleepProgress = Math.min(1, sleptHours / targetSleep);
@@ -145,11 +149,13 @@ const DietHeader = ({
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.settingsBtn} onPress={handleGoToReminders}>
-            <Icon name="notifications-outline" size={20} color="#FFF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.settingsBtn, { marginLeft: 10 }]} onPress={handleGoToPreferences}>
-            <Icon name="options-outline" size={20} color="#FFF" />
+          <TouchableOpacity 
+            style={styles.aiBtn} 
+            onPress={() => navigation.navigate('WeeklyDietPlan', { recommendation })}
+            activeOpacity={0.8}
+          >
+            <Icon name="sparkles" size={14} color="#7C4DFF" style={{ marginRight: 6 }} />
+            <Text style={styles.aiBtnText}>AI Diet</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -336,7 +342,13 @@ const DietHeader = ({
             </View>
             <View style={styles.legendValueCol}>
               <Text style={styles.legendValText}>
-                <Text style={{ color: '#BD93F9', fontWeight: 'bold' }}>{sleptHours}</Text>
+                <Text style={{ color: '#BD93F9', fontWeight: 'bold' }}>
+                  {(() => {
+                    const num = Number(sleptHours);
+                    if (isNaN(num)) return sleptHours;
+                    return num % 1 === 0 ? num : num.toFixed(1);
+                  })()}
+                </Text>
                 <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetSleep}</Text>
               </Text>
               <Text style={styles.legendUnit}>hours</Text>
@@ -432,19 +444,24 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   streakText: {
-    color: '#FF7A00',
+    color: '#FF9500',
     fontSize: 12,
     fontWeight: 'bold',
   },
-  settingsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
+  aiBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(124, 77, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 77, 255, 0.3)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  aiBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   monthNavRow: {
     flexDirection: 'row',

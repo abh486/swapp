@@ -1,0 +1,46 @@
+diff --git a/node_modules/react-native-tracking-transparency/ios/TrackingTransparency.m b/node_modules/react-native-tracking-transparency/ios/TrackingTransparency.m
+index 7424568..97eeed4 100644
+--- a/node_modules/react-native-tracking-transparency/ios/TrackingTransparency.m
++++ b/node_modules/react-native-tracking-transparency/ios/TrackingTransparency.m
+@@ -22,21 +22,33 @@ @implementation TrackingTransparency
+ {
+     dispatch_async(dispatch_get_main_queue(), ^{
+         if (@available(iOS 14, *)) {
++            __block BOOL hasResolved = NO;
++            void (^safeResolve)(NSString *) = ^(NSString *statusStr) {
++                if (!hasResolved) {
++                    hasResolved = YES;
++                    resolve(statusStr);
++                }
++            };
++
+             if (UIApplication.sharedApplication.applicationState == UIApplicationStateActive) {
+                 [ATTrackingManager requestTrackingAuthorizationWithCompletionHandler:^(ATTrackingManagerAuthorizationStatus status) {
+-                    resolve([TrackingTransparency convertTrackingStatusToString:status]);
++                    dispatch_async(dispatch_get_main_queue(), ^{
++                        safeResolve([TrackingTransparency convertTrackingStatusToString:status]);
++                    });
+                 }];
+             }
+             else {
+-                __weak TrackingTransparency *weakSelf = self;
+-                
+-                self._observer = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue: [NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+-                    
++                __block id observer = nil;
++                observer = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
++                    if (observer) {
++                        [[NSNotificationCenter defaultCenter] removeObserver:observer];
++                        observer = nil;
++                    }
+                     [ATTrackingManager requestTrackingAuthorizationWithCompletionHandler:^(ATTrackingManagerAuthorizationStatus status) {
+-                        resolve([TrackingTransparency convertTrackingStatusToString:status]);
++                        dispatch_async(dispatch_get_main_queue(), ^{
++                            safeResolve([TrackingTransparency convertTrackingStatusToString:status]);
++                        });
+                     }];
+-                    
+-                    [[NSNotificationCenter defaultCenter] removeObserver:weakSelf._observer];
+                 }];
+             }
+         } else {

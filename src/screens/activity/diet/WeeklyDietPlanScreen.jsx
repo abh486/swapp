@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import apiClient from '../../../api/apiClient';
 import { saveDietEntry } from '../../../redux/actions/dietActions';
+import { buildDietParams } from '../../../api/dietAiApi';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ const getMonthDates = (baseDate) => {
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const numDays = new Date(year, month + 1, 0).getDate();
-  
+
   const dates = [];
   for (let i = 1; i <= numDays; i++) {
     dates.push(new Date(year, month, i));
@@ -80,11 +81,38 @@ const MEAL_TIMES = {
   default: '12:00 PM'
 };
 
+const getInitialSelectedDate = (rec) => {
+  const weeklyPlan = rec?.weeklyPlan || {};
+  if (Object.keys(weeklyPlan).length === 0) return new Date();
+
+  const today = new Date();
+  const todayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+  const todayMealsKey = Object.keys(weeklyPlan).find(
+    key => key.toLowerCase() === todayName.toLowerCase()
+  );
+  if (todayMealsKey && weeklyPlan[todayMealsKey] && weeklyPlan[todayMealsKey].length > 0) {
+    return today;
+  }
+
+  for (let i = 1; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+    const foundKey = Object.keys(weeklyPlan).find(
+      key => key.toLowerCase() === dayName.toLowerCase()
+    );
+    if (foundKey && weeklyPlan[foundKey] && weeklyPlan[foundKey].length > 0) {
+      return d;
+    }
+  }
+  return today;
+};
+
 const WeeklyDietPlanScreen = ({ navigation, route }) => {
   const { recommendation } = route.params || {};
   const dispatch = useDispatch();
-  
-  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [selectedDate, setSelectedDate] = useState(() => getInitialSelectedDate(recommendation));
   const [currentRecommendation, setCurrentRecommendation] = useState(recommendation || null);
   const [isLoading, setIsLoading] = useState(false);
   const [likedMeals, setLikedMeals] = useState({});
@@ -121,36 +149,16 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   const fetchRecommendation = async (generate = false) => {
     setIsLoading(true);
     try {
-      const [
-        savedPreference,
-        savedSkipDays,
-        savedMeals,
-        savedAllergies,
-        savedCuisines,
-        savedOtherInfo
-      ] = await Promise.all([
-        AsyncStorage.getItem('diet_preference'),
-        AsyncStorage.getItem('diet_skip_days'),
-        AsyncStorage.getItem('diet_meals'),
-        AsyncStorage.getItem('diet_allergies'),
-        AsyncStorage.getItem('diet_cuisines'),
-        AsyncStorage.getItem('diet_other_info')
-      ]);
-
-      const recommendationsParams = {
-        dietPreference: savedPreference || 'Selective Non-Veg',
-        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-        meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
-        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
-        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
-        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
+      const recommendationsParams = await buildDietParams({
         generate: generate ? 'true' : 'false'
-      };
+      });
 
       console.log('[WeeklyDietPlanScreen] Fetching weekly plan, generate =', generate);
       const response = await apiClient.get('/recommendations', { params: recommendationsParams });
       if (response.data?.success) {
-        setCurrentRecommendation(response.data.data);
+        const data = response.data.data;
+        setCurrentRecommendation(data);
+        setSelectedDate(getInitialSelectedDate(data));
         if (generate) {
           Alert.alert('Success', 'Weekly diet plan regenerated successfully!');
         }
@@ -181,7 +189,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
         fiber: parseInt(meal.fibre || meal.fiber) || 0,
         notes: 'Tracked from AI Diet Plan',
       };
-      
+
       const res = await dispatch(saveDietEntry(payload));
       if (res && res.success) {
         Alert.alert('Success', 'Meal tracked successfully!');
@@ -235,6 +243,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   // Get active day meals based on selectedDate
   const dayOfWeekName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
   const weeklyPlan = currentRecommendation?.weeklyPlan || {};
+  const hasGeneratedPlan = Object.keys(weeklyPlan).length > 0;
   const dayDataKey = Object.keys(weeklyPlan).find(
     key => key.toLowerCase() === dayOfWeekName.toLowerCase()
   );
@@ -260,7 +269,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
             const isActive = date.toDateString() === selectedDate.toDateString();
             const dayNum = date.getDate();
             const dayLabel = getDayLabel(date);
-            
+
             return (
               <TouchableOpacity
                 key={idx}
@@ -291,7 +300,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
-      
+
       {/* Top Header Row */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
@@ -328,14 +337,14 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          
+
           {/* Today's Plan Title & Sync Row */}
           <View style={styles.titleRow}>
             <Text style={styles.titleText}>
               {selectedDate.toDateString() === new Date().toDateString() ? "Today's Plan" : `${dayOfWeekName}'s Plan`}
             </Text>
-            <TouchableOpacity 
-              style={styles.refreshBtn} 
+            <TouchableOpacity
+              style={styles.refreshBtn}
               onPress={() => fetchRecommendation(true)}
               activeOpacity={0.7}
             >
@@ -461,30 +470,30 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
                     {images.map((img, idx) => {
                       const imgStyle = idx === 0 ? styles.foodImage1 : idx === 1 ? styles.foodImage2 : styles.foodImage3;
                       const isUrl = img && typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder');
-                      
+
                       if (isUrl) {
                         return <Image key={idx} source={{ uri: img }} style={imgStyle} />;
                       }
 
                       // Render beautiful vector icon matching meal slot
-                      const iconName = mealTypeKey.includes('breakfast') 
-                        ? 'cafe-outline' 
-                        : mealTypeKey.includes('lunch') 
-                          ? 'restaurant-outline' 
-                          : mealTypeKey.includes('snack') 
-                            ? 'nutrition-outline' 
+                      const iconName = mealTypeKey.includes('breakfast')
+                        ? 'cafe-outline'
+                        : mealTypeKey.includes('lunch')
+                          ? 'restaurant-outline'
+                          : mealTypeKey.includes('snack')
+                            ? 'nutrition-outline'
                             : 'sunny-outline';
                       return (
-                        <View 
-                          key={idx} 
+                        <View
+                          key={idx}
                           style={[
-                            imgStyle, 
-                            { 
-                              justifyContent: 'center', 
-                              alignItems: 'center', 
-                              backgroundColor: '#1E1E20', 
-                              borderColor: 'rgba(255,255,255,0.08)', 
-                              borderWidth: 1 
+                            imgStyle,
+                            {
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              backgroundColor: '#1E1E20',
+                              borderColor: 'rgba(255,255,255,0.08)',
+                              borderWidth: 1
                             }
                           ]}
                         >
@@ -545,8 +554,8 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
 
                   {/* Card Actions Row */}
                   <View style={styles.cardActionsRow}>
-                    <TouchableOpacity 
-                      style={styles.trackBtn} 
+                    <TouchableOpacity
+                      style={styles.trackBtn}
                       onPress={() => handleTrackMeal(meal)}
                       activeOpacity={0.8}
                     >
@@ -554,48 +563,55 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
                       <Text style={styles.trackBtnText}>Track</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                      style={styles.detailsBtn} 
+                    <TouchableOpacity
+                      style={styles.detailsBtn}
                       onPress={() => handleViewDetails(meal)}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.detailsBtnText}>View Details</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                      style={[styles.heartBtn, isLiked && { backgroundColor: '#1A2421', borderColor: '#1F524C' }]} 
+                    <TouchableOpacity
+                      style={[styles.heartBtn, isLiked && { backgroundColor: '#1A2421', borderColor: '#1F524C' }]}
                       onPress={() => toggleLikeMeal(mealKey)}
                       activeOpacity={0.8}
                     >
-                      <Icon 
-                        name={isLiked ? "heart" : "heart-outline"} 
-                        size={18} 
-                        color={isLiked ? "#e74c3c" : "#A3D9C9"} 
+                      <Icon
+                        name={isLiked ? "heart" : "heart-outline"}
+                        size={18}
+                        color={isLiked ? "#e74c3c" : "#A3D9C9"}
                       />
                     </TouchableOpacity>
                   </View>
                 </View>
               );
             })
+          ) : hasGeneratedPlan ? (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="calendar-clock" size={48} color="#A3D9C9" style={{ opacity: 0.6 }} />
+              <Text style={styles.emptyTitle}>Rest Day / Skipped Day</Text>
+              <Text style={styles.emptyText}>No meals scheduled for this day in your weekly plan.</Text>
+            </View>
           ) : (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="brain" size={48} color="#A3D9C9" style={{ opacity: 0.6 }} />
-              <Text style={styles.emptyTitle}>No plan for this day</Text>
+              <Text style={styles.emptyTitle}>No weekly plan generated yet</Text>
               <Text style={styles.emptyText}>Generate a personalised AI diet plan tailored to your goals and preferences.</Text>
-              <TouchableOpacity 
-                style={styles.generateBtn} 
-                onPress={() => navigation.navigate('AIDietConfig')}
+              <TouchableOpacity
+                style={styles.generateBtn}
+                onPress={() => navigation.navigate('DietPreferences', { startFlow: true })}
                 activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={['#1E8B72', '#0F5C4A']}
-                  style={styles.generateBtnGradient}
+                  style={StyleSheet.absoluteFillObject}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                >
+                />
+                <View style={styles.generateBtnContent}>
                   <MaterialCommunityIcons name="brain" size={16} color="#FFF" style={{ marginRight: 6 }} />
                   <Text style={styles.generateBtnText}>Generate AI Plan</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
           )}
@@ -605,7 +621,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
             <View style={styles.didYouKnowCard}>
               <Text style={styles.didYouKnowTitle}>Did you know?</Text>
               <Text style={styles.didYouKnowText}>{dayTip}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.didYouKnowHeartBtn}
                 onPress={() => Alert.alert('Liked', 'You liked this diet tip!')}
                 activeOpacity={0.8}
@@ -1026,13 +1042,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
-  generateBtnGradient: {
+  generateBtnContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
   },
   generateBtnText: {
     color: '#FFF',

@@ -64,7 +64,7 @@ export const MapViewComponent = ({ userLocation, gyms }) => {
         onMapReady={() => setMapReady(true)}
       >
         {userLocation && (
-          <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }}>
+          <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
             <View style={styles.userLocationMarker}>
               <Animated.View
                 style={[
@@ -85,6 +85,7 @@ export const MapViewComponent = ({ userLocation, gyms }) => {
               <Marker
                 key={gym.id}
                 coordinate={gym.coordinates}
+                tracksViewChanges={false}
                 title={gym.name}
                 pinColor="#27ae60"
                 onPress={() =>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,10 @@ import { requestHealthKitPermission } from '../../utils/healthKit';
 
 const AppsAndDevicesScreen = ({ navigation }) => {
   const { wp, hp, ms, fs, sp } = useResponsiveMetrics();
-  const styles = createStyles({ wp, hp, ms, fs, sp });
+  const styles = useMemo(
+    () => createStyles({ wp, hp, ms, fs, sp }),
+    [wp, hp, ms, fs, sp]
+  );
 
   const [healthKitConnected, setHealthKitConnected] = useState(false);
 

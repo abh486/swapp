@@ -1,5 +1,5 @@
 import { GlobalLoader } from '../components/GlobalLoader';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, Image, SafeAreaView, Alert, Animated, PanResponder, Easing } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -164,7 +164,10 @@ const OnboardingScreen = () => {
   const { isLoggingIn: loading } = useAuth();
   const { width: screenWidth, height: screenHeight, wp, hp, ms, fs, sp } = useResponsiveMetrics();
   const isSmallScreen = screenHeight < 720;
-  const styles = createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp });
+  const styles = useMemo(
+    () => createStyles({ screenWidth, screenHeight, wp, hp, ms, fs, sp }),
+    [screenWidth, screenHeight, wp, hp, ms, fs, sp]
+  );
 
   useEffect(() => {
     if (currentIndex < slides.length - 1) {

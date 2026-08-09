@@ -52,7 +52,7 @@ export const registerFcmToken = async () => {
     const token = await messaging().getToken();
     if (token) {
       console.log('[FCM] Token retrieved successfully');
-      await apiClient.post('/notifications/register-fcm', { token });
+      await apiClient.post('/v1/notifications/register-fcm', { token });
       console.log('[FCM] Token registered with backend successfully.');
     }
   } catch (err) {
@@ -65,6 +65,17 @@ export const initNotificationListeners = () => {
   if (!messaging) {
     console.log('[FCM] Firebase Messaging is not initialized/available. Skipping listener initialization.');
     return () => {};
+  }
+
+  // Set foreground presentation options for iOS to display alert/sound when app is open
+  try {
+    messaging().setForegroundNotificationPresentationOptions({
+      alert: true,
+      badge: true,
+      sound: true,
+    });
+  } catch (err) {
+    console.warn('[FCM] Failed to set foreground presentation options:', err.message);
   }
 
   // Foreground message handler
@@ -103,7 +114,7 @@ export const initNotificationListeners = () => {
   const unsubscribeTokenRefresh = messaging().onTokenRefresh(async token => {
     console.log('[FCM] Token refreshed:', token);
     try {
-      await apiClient.post('/notifications/register-fcm', { token });
+      await apiClient.post('/v1/notifications/register-fcm', { token });
     } catch (err) {
       console.error('[FCM] Failed to update refreshed token with backend:', err);
     }

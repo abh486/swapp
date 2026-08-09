@@ -5,6 +5,23 @@
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const migrateMeals = (mealsStr) => {
+  if (!mealsStr) return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+  try {
+    const parsed = JSON.parse(mealsStr);
+    if (Array.isArray(parsed) && parsed.length === 2 && parsed.includes('Lunch') && parsed.includes('Dinner')) {
+      return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+    }
+    return parsed;
+  } catch (e) {
+    const splitMeals = mealsStr.split(', ').filter(Boolean);
+    if (splitMeals.length === 2 && splitMeals.includes('Lunch') && splitMeals.includes('Dinner')) {
+      return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+    }
+    return splitMeals;
+  }
+};
+
 /**
  * Reads all saved diet preference keys from AsyncStorage and returns a params object
  * ready to send to the /recommendations endpoint.
@@ -29,7 +46,7 @@ export const buildDietParams = async (overrides = {}) => {
   return {
     dietPreference: savedPreference || 'Selective Non-Veg',
     skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-    meals: savedMeals ? JSON.parse(savedMeals) : ['Lunch', 'Dinner'],
+    meals: migrateMeals(savedMeals),
     allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
     cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
     otherInfo: savedOtherInfo || 'Love extra protein, low calorie',

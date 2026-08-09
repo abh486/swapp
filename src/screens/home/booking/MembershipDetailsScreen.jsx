@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
@@ -157,7 +158,8 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   const { user, refreshAuthStatus } = useAuth();
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
-  const styles = createStyles(metrics, insets);
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
+  const isFocused = useIsFocused();
   const [scannerVisible, setScannerVisible] = useState(false);
   const [isScanLocked, setIsScanLocked] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -502,16 +504,16 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       .filter(booking => {
         const status = booking.bookingStatus || booking.status;
         const matchesEntity = isTrainerSub
-          ? (booking.trainerId === subscription.trainerId || booking.trainerId === subscription.trainer?.id || booking.trainerId === providerId)
-          : (!providerId || booking.providerId === providerId);
+          ? (booking.trainerId === subscription.trainerId || booking.trainerId === subscription.trainer?.id || booking.trainerId === providerId || booking.targetId === providerId)
+          : (!providerId || booking.providerId === providerId || booking.gymId === providerId || booking.partnerId === providerId || booking.targetId === providerId);
         return (
           matchesEntity &&
-          ['CONFIRMED', 'PENDING_CONFIRMATION', 'CHECKED_IN'].includes(status) &&
-          new Date(booking.endTime || booking.startTime) >= now
+          ['CONFIRMED', 'PENDING_CONFIRMATION', 'CHECKED_IN', 'RESERVED'].includes(status) &&
+          new Date(booking.endTime || booking.startTime || booking.date) >= new Date(now.getTime() - 60 * 60 * 1000)
         );
       })
-      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-      .slice(0, 3);
+      .sort((a, b) => new Date(a.startTime || a.date) - new Date(b.startTime || b.date))
+      .slice(0, 5);
   }, [bookings, providerId, subscription, packageType, providerDetails, provider]);
 
   const latestCheckIn = checkInHistory[0];
@@ -550,8 +552,10 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   }, [providerId, refreshAuthStatus]);
 
   useEffect(() => {
-    fetchLifecycleData();
-  }, [fetchLifecycleData]);
+    if (isFocused) {
+      fetchLifecycleData();
+    }
+  }, [isFocused, fetchLifecycleData]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -577,10 +581,6 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
-    if (isGlobalBundlePackage && !selectedCategoryId && packageCategories.length > 0) {
-      Alert.alert('Select Category', 'Choose a category before continuing.');
-      return;
-    }
 
     if (isOpenAccess) {
       if (currentCheckedInBooking) {
@@ -894,13 +894,15 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <View style={styles.heroArc} />
           <Image source={{ uri: image }} style={styles.gymImage} resizeMode="cover" />
-          <TouchableOpacity
-            style={styles.qrMark}
-            onPress={openBooking}
-            activeOpacity={0.85}
-          >
-            <Icon name="qr-code-outline" size={30} color="#FFF" />
-          </TouchableOpacity>
+          {isOpenAccess && (
+            <TouchableOpacity
+              style={styles.qrMark}
+              onPress={openBooking}
+              activeOpacity={0.85}
+            >
+              <Icon name="qr-code-outline" size={30} color="#FFF" />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.titleBlock}>
@@ -911,20 +913,6 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             <View style={styles.activeDot} />
             <Text style={styles.activeText}>ACTIVE</Text>
           </View>
-        </View>
-
-        <View style={styles.curveLayer}>
-          <Svg height="90" width="100%" viewBox="0 0 360 90">
-            <Path
-              d="M0 22 C90 110 270 110 360 22"
-              stroke="#FFFFFF"
-              strokeWidth="2"
-              fill="none"
-            />
-          </Svg>
-          <View style={[styles.orbitDot, styles.orbitLeft]} />
-          <View style={[styles.orbitDot, styles.orbitCenter]} />
-          <View style={[styles.orbitDot, styles.orbitRight]} />
         </View>
 
         <View style={styles.dateRow}>
@@ -1017,32 +1005,6 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           </LinearGradient>
         </View>
 
-        {isGlobalBundlePackage && packageCategories.length > 0 && (
-          <View style={styles.categoryPickerBlock}>
-            <Text style={styles.sectionKicker}>CHOOSE ACCESS</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.membershipChoicesRow}
-            >
-              {packageCategories.map(category => {
-                const isSelected = selectedCategoryId === category.id;
-                return (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[styles.membershipChoicePill, isSelected && styles.membershipChoicePillActive]}
-                    onPress={() => setSelectedCategoryId(category.id)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.membershipChoiceText, isSelected && styles.membershipChoiceTextActive]}>
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
 
         {console.log('[DEBUG_CTA] Values:', {
           isAccessModeLoading,
@@ -1130,19 +1092,26 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
                   </View>
                   <View style={styles.sessionActions}>
                     <TouchableOpacity
+                      style={[
+                        styles.bigQrButton,
+                        (!canGenerateQr || isGeneratingQr) && styles.sessionPillDisabled,
+                      ]}
+                      onPress={() => handleGenerateBookingQr(booking)}
+                      disabled={!canGenerateQr || isGeneratingQr}
+                      activeOpacity={0.8}
+                    >
+                      {isGeneratingQr ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <Icon name="qr-code" size={22} color="#FFF" />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
                       style={[styles.sessionPill, styles.sessionPillCancel]}
                       onPress={() => handleCancelBooking(booking)}
                       activeOpacity={0.85}
                     >
                       <Text style={styles.sessionPillText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.sessionPill, (!canGenerateQr || isGeneratingQr) && styles.sessionPillDisabled]}
-                      onPress={() => handleGenerateBookingQr(booking)}
-                      disabled={!canGenerateQr || isGeneratingQr}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.sessionPillText}>{isGeneratingQr ? '...' : 'QR'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1364,7 +1333,7 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#158028',
+    backgroundColor: '#FF6B00',
     borderRadius: ms(10),
     paddingHorizontal: sp(8),
     paddingVertical: sp(3),
@@ -1523,22 +1492,43 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
     marginBottom: sp(28),
     gap: sp(12),
   },
-  sessionTime: { width: ms(78) },
-  sessionHour: { color: '#FFF', fontSize: fs(20), fontWeight: '900' },
-  sessionDay: { color: '#777183', fontSize: fs(10), fontWeight: '800' },
+  sessionTime: { width: ms(95) },
+  sessionHour: { color: '#FFF', fontSize: fs(14), fontWeight: '900' },
+  sessionDay: { color: '#777183', fontSize: fs(10), fontWeight: '800', marginTop: sp(2) },
   sessionCopy: { flex: 1, minWidth: 0 },
   sessionTitle: { color: '#FFF', fontSize: fs(16), fontWeight: '900' },
   sessionSub: { color: '#8F8797', fontSize: fs(10), marginTop: sp(4) },
-  sessionPill: {
-    backgroundColor: '#24112F',
-    paddingHorizontal: sp(13),
-    paddingVertical: sp(6),
-    borderRadius: ms(14),
+  sessionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: sp(8),
+  },
+  sessionPillCancel: {
+    backgroundColor: '#E53935',
+    paddingHorizontal: sp(14),
+    height: ms(40),
+    borderRadius: ms(20),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sessionPillDisabled: {
     opacity: 0.45,
   },
-  sessionPillText: { color: '#FFF', fontSize: 8, fontWeight: '900' },
+  bigQrButton: {
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(20),
+    backgroundColor: '#744194',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#744194',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sessionPillText: { color: '#FFF', fontSize: fs(11), fontWeight: '800' },
   historyLoadingRow: {
     minHeight: 76,
     alignItems: 'center',

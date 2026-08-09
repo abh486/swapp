@@ -1,6 +1,6 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, PanResponder, Animated, Image, ScrollView, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, PanResponder, Animated, Image, ScrollView, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,11 @@ import {
   fetchMuscles,
   setSelectedFilters,
 } from '../../redux/actions/workoutActions';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { getEquipmentImageUrl, getMuscleImageUrl } from '../../utils/workoutIcons';
+import InteractiveMuscleMap from '../../components/workout/InteractiveMuscleMap';
+import { EquipmentModal } from '../../components/EquipmentModal';
+import { MuscleModal } from '../../components/MuscleModal';
 
 const LIGHTNING_ICON = require('../../assets/image/tender.png');
 
@@ -58,13 +63,17 @@ const CreateFastWorkoutScreen = () => {
   };
 
   const handleAddSelectedExercises = () => {
-    navigation.navigate('FastWorkoutActive', { addedExercises: selectedExercises });
+    navigation.navigate('FastWorkoutActive', { addedExercises: selectedExercises, source: 'fast_workout', isCustomWorkout: false });
   };
 
   useEffect(() => {
     const apiFilters = {};
     if (selectedEquipment && selectedEquipment !== 'All Equipment' && selectedEquipment !== 'All Equipement') {
-      apiFilters.equipments = selectedEquipment.toLowerCase();
+      if (selectedEquipment === 'None') {
+        apiFilters.equipments = 'body weight';
+      } else {
+        apiFilters.equipments = selectedEquipment.toLowerCase();
+      }
     }
     const cleanedMuscles = selectedMuscles.filter(m => m !== 'All Muscles');
     if (cleanedMuscles.length > 0) {
@@ -72,9 +81,10 @@ const CreateFastWorkoutScreen = () => {
     }
     dispatch(fetchExercises({
       limit: 100,
+      search: searchQuery,
       ...apiFilters
     }));
-  }, [selectedEquipment, selectedMuscles, dispatch]);
+  }, [selectedEquipment, selectedMuscles, searchQuery, dispatch]);
 
   const selectEquipmentAndClose = (equipment) => {
     setSelectedEquipment(equipment === 'All Equipment' || equipment === 'All Equipement' ? '' : equipment);
@@ -86,24 +96,61 @@ const CreateFastWorkoutScreen = () => {
     setIsMuscleModalVisible(false);
   };
 
-  const equipmentList = equipments?.length
-    ? ['All Equipement', ...equipments.map(e => e.name || e)]
-    : ['All Equipement', 'None', 'Barbell', 'Dumbbell', 'Kettlebell', 'Machine', 'Plate', 'Resistance Band', 'Suspension Band', 'Other'];
+  const equipmentList = [
+    'All Equipment',
+    'None',
+    'Barbell',
+    'Dumbbell',
+    'Kettlebell',
+    'Machine',
+    'Plate',
+    'Resistance Band',
+    'Suspension Band',
+    'Other',
+  ];
 
-  const musclesList = muscles?.length
-    ? ['All Muscles', ...muscles.map(m => m.name || m)]
-    : ['All Muscles', 'Abdominals', 'Abductors', 'Adductors', 'Biceps', 'Calves', 'Cardio', 'Chest', 'Forearms', 'Full Body', 'Glutes', 'Hamstrings', 'Lats', 'Lower back', 'Neck', 'Quadriceps', 'Shoulders', 'Traps', 'Triceps', 'Upper Back', 'Other'];
+  const musclesList = [
+    'All Muscles',
+    'Abdominals',
+    'Abductors',
+    'Adductors',
+    'Biceps',
+    'Calves',
+    'Cardio',
+    'Chest',
+    'Forearms',
+    'Full Body',
+    'Glutes',
+    'Hamstrings',
+    'Lats',
+    'Lower Back',
+    'Neck',
+    'Quadriceps',
+    'Shoulders',
+    'Traps',
+    'Triceps',
+    'Upper Back',
+    'Other',
+  ];
 
   const toggleMuscle = muscle => {
     if (muscle === 'All Muscles') {
       setSelectedMuscles(prev => prev.includes(muscle) ? [] : [muscle]);
       return;
     }
-    setSelectedMuscles(prev =>
-      prev.includes(muscle)
-        ? prev.filter(m => m !== muscle)
-        : [...prev.filter(m => m !== 'All Muscles'), muscle],
-    );
+    setSelectedMuscles(prev => {
+      const cleanPrev = prev.filter(m => m !== 'All Muscles');
+      const exists = cleanPrev.some(
+        m => m.toLowerCase() === muscle.toLowerCase()
+      );
+      if (exists) {
+        return cleanPrev.filter(
+          m => m.toLowerCase() !== muscle.toLowerCase()
+        );
+      } else {
+        return [...cleanPrev, muscle];
+      }
+    });
   };
 
   const pan = React.useRef(new Animated.ValueXY()).current;
@@ -115,7 +162,8 @@ const CreateFastWorkoutScreen = () => {
       const cleanedMuscles = selectedMuscles.filter(m => m !== 'All Muscles');
 
       const UI_TO_API_MUSCLE_MAP = {
-        abdominals: { type: 'target', value: 'abs' },
+        abdominals: { type: 'target', value: 'abdominals' },
+        abs: { type: 'target', value: 'abdominals' },
         abductors: { type: 'target', value: 'abductors' },
         adductors: { type: 'target', value: 'adductors' },
         biceps: { type: 'target', value: 'biceps' },
@@ -206,8 +254,8 @@ const CreateFastWorkoutScreen = () => {
         id: ex.id || ex._id,
         gifUrl: ex.gifUrl,
         sets: 3,
-        reps: 12,
-        weight: '4.00',
+        reps: 0,
+        weight: '0',
       }));
 
       navigation.replace('FastWorkoutActive', {
@@ -217,6 +265,8 @@ const CreateFastWorkoutScreen = () => {
         equipment: selectedEquipment || 'All Equipement',
         muscles: cleanedMuscles,
         exercises: formattedExercises,
+        source: 'fast_workout',
+        isCustomWorkout: false,
       });
     } catch (error) {
       console.error('Failed to create fast workout:', error);
@@ -239,7 +289,7 @@ const CreateFastWorkoutScreen = () => {
             useNativeDriver: false,
           }).start();
           setTimeout(() => {
-            handleCreateWorkoutRef.current?.();
+            if (handleCreateWorkoutRef.current) handleCreateWorkoutRef.current();
             Animated.timing(pan, {
               toValue: { x: 0, y: 0 },
               duration: 0,
@@ -259,40 +309,74 @@ const CreateFastWorkoutScreen = () => {
     (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderExerciseItem = ({ item }) => {
-    const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
-    const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
+  const formatDisplayName = (str) => {
+    if (!str) return '';
+    const s = String(str).trim().toLowerCase();
+    if (s === 'body weight' || s === 'bodyweight' || s === 'none') return 'Body Weight';
+    return s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
 
-    const imageSource = item.gifUrl
-      ? { uri: item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
+  const renderExerciseItem = ({ item }) => {
+    const rawTarget = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
+    const rawEquipment = item.equipment || (item.equipments && item.equipments[0]) || '';
+    const target = formatDisplayName(rawTarget);
+    const equipment = formatDisplayName(rawEquipment);
+
+    const imageSource = (item.imageUrl || item.gifUrl)
+      ? { uri: item.imageUrl || item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
       : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' };
 
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
 
     return (
-      <TouchableOpacity
+      <View
         style={[styles.exerciseCard, isSelected && styles.exerciseCardSelected]}
-        activeOpacity={0.75}
-        onPress={() => toggleExerciseSelection(item)}
       >
         <View style={styles.exerciseRow}>
-          <Image source={imageSource} style={styles.exerciseThumbnail} resizeMode="cover" />
-          <View style={styles.exerciseInfo}>
-            <Text style={styles.exerciseName}>{item.name}</Text>
-            <View style={styles.badgeRow}>
-              {target ? (
-                <View style={styles.muscleBadge}>
-                  <Text style={styles.badgeText}>{target}</Text>
-                </View>
-              ) : null}
-              {equipment ? (
-                <View style={styles.equipmentBadge}>
-                  <Text style={styles.badgeText}>{equipment}</Text>
-                </View>
-              ) : null}
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+            activeOpacity={0.75}
+            onPress={() => toggleExerciseSelection(item)}
+          >
+            <Image source={imageSource} style={styles.exerciseThumbnail} resizeMode="cover" />
+            <View style={[styles.exerciseInfo, { flex: 1, marginLeft: 12 }]}>
+              <Text style={styles.exerciseName}>{item.name}</Text>
+              <View style={styles.badgeRow}>
+                {target ? (
+                  <View style={styles.muscleBadge}>
+                    <Text style={styles.badgeText}>{target}</Text>
+                  </View>
+                ) : null}
+                {equipment ? (
+                  <View style={styles.equipmentBadge}>
+                    <Text style={styles.badgeText}>{equipment}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </View>
-          <View style={styles.checkboxContainer}>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              console.log('[CreateFastWorkout] Navigating to ExerciseDetail with item:', item.name);
+              try {
+                navigation.navigate('ExerciseDetail', { exercise: item });
+              } catch (err) {
+                console.error('[CreateFastWorkout] Navigation failed:', err);
+                Alert.alert('Navigation Error', err.message);
+              }
+            }}
+            style={{ padding: 10, justifyContent: 'center', alignItems: 'center', marginRight: 4 }}
+            activeOpacity={0.7}
+          >
+            <Icon name="play-circle-outline" size={24} color="#EE822A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => toggleExerciseSelection(item)}
+            style={styles.checkboxContainer}
+            activeOpacity={0.75}
+          >
             {isSelected ? (
               <View style={styles.checkboxSelected}>
                 <Svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -302,9 +386,9 @@ const CreateFastWorkoutScreen = () => {
             ) : (
               <View style={styles.checkboxUnselected} />
             )}
-          </View>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -380,11 +464,19 @@ const CreateFastWorkoutScreen = () => {
 
         <TouchableOpacity
           style={styles.filterButton}
-          onPress={() => setIsMuscleModalVisible(true)}
+          onPress={() =>
+            navigation.navigate('MuscleSelection', {
+              initialSelected: selectedMuscles,
+              onSelectMuscles: (muscleIds, details) => {
+                const names = details.map((d) => d.name);
+                setSelectedMuscles(names);
+              },
+            })
+          }
         >
           <Text style={styles.filterLabel}>Muscle Group</Text>
           <Text style={styles.filterValue} numberOfLines={1}>
-            {selectedMuscles.length > 0 ? selectedMuscles.join(', ') : 'All Muscles'}
+            {selectedMuscles.length > 0 ? selectedMuscles.join(', ') : 'Interactive Body Map'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -399,6 +491,17 @@ const CreateFastWorkoutScreen = () => {
         ) : displayedExercises.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No exercises found matching your filters.</Text>
+            {(selectedEquipment !== '' || selectedMuscles.length > 0) && (
+              <TouchableOpacity
+                style={styles.clearFiltersBtn}
+                onPress={() => {
+                  setSelectedEquipment('');
+                  setSelectedMuscles([]);
+                }}
+              >
+                <Text style={styles.clearFiltersBtnText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <FlatList
@@ -463,76 +566,20 @@ const CreateFastWorkoutScreen = () => {
       </View>
 
       {/* Equipment Modal */}
-      <Modal visible={isEquipmentModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Equipment</Text>
-              <TouchableOpacity onPress={() => setIsEquipmentModalVisible(false)} style={styles.closeButton}>
-                <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalDivider} />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
-              {equipmentList.map((item, index) => {
-                const isSelected = selectedEquipment === item || (item === 'All Equipment' && !selectedEquipment);
-                return (
-                  <View key={index}>
-                    <TouchableOpacity style={styles.listItem} onPress={() => selectEquipmentAndClose(item)}>
-                      <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
-                      {isSelected && (
-                        <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                          <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </Svg>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.itemDivider} />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <EquipmentModal
+        visible={isEquipmentModalVisible}
+        onClose={() => setIsEquipmentModalVisible(false)}
+        selectedEquipment={selectedEquipment}
+        onSelectEquipment={(eq) => setSelectedEquipment(eq)}
+      />
 
       {/* Muscle Modal */}
-      <Modal visible={isMuscleModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentContainer}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Muscle Group</Text>
-              <TouchableOpacity onPress={() => setIsMuscleModalVisible(false)} style={styles.closeButton}>
-                <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <Path d="M18 6L6 18M6 6l12 12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalDivider} />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
-              {musclesList.map((item, index) => {
-                const isSelected = selectedMuscles.includes(item) || (item === 'All Muscles' && selectedMuscles.length === 0);
-                return (
-                  <View key={index}>
-                    <TouchableOpacity style={styles.listItem} onPress={() => selectMuscleAndClose(item)}>
-                      <Text style={[styles.listItemText, isSelected && styles.listItemTextSelected]}>{item}</Text>
-                      {isSelected && (
-                        <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                          <Path d="M5 13L9 17L19 7" stroke="#007AFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </Svg>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.itemDivider} />
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <MuscleModal
+        visible={isMuscleModalVisible}
+        onClose={() => setIsMuscleModalVisible(false)}
+        selectedMuscles={selectedMuscles}
+        onSelectMuscle={(muscle) => toggleMuscle(muscle)}
+      />
     </SafeAreaView>
   );
 };
@@ -592,7 +639,7 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     selectedExercisePill: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#007AFF', // Solid blue brand color
+      backgroundColor: '#EE822A', // Solid orange brand color
       borderRadius: 14,
       paddingHorizontal: 12,
       paddingVertical: 6,
@@ -657,6 +704,18 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     loadingText: { color: '#AEB4C0', fontSize: 12, fontWeight: '600' },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
     emptyText: { color: '#AEB4C0', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    clearFiltersBtn: {
+      marginTop: 15,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      backgroundColor: '#7C3AED',
+      borderRadius: 8,
+    },
+    clearFiltersBtnText: {
+      color: '#FFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
 
     // Swipe Slider
     floatingButtonContainer: { alignItems: 'center', paddingVertical: 16 },
@@ -712,7 +771,7 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
       width: 22,
       height: 22,
       borderRadius: 11,
-      backgroundColor: '#007AFF',
+      backgroundColor: '#EE822A',
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -727,7 +786,7 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     addSelectedButton: {
       width: '85%',
       height: 50,
-      backgroundColor: '#007AFF',
+      backgroundColor: '#EE822A',
       borderRadius: 25,
       justifyContent: 'center',
       alignItems: 'center',
@@ -764,9 +823,22 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     },
     modalDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
     modalList: { paddingHorizontal: 24, paddingTop: 12 },
-    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, minHeight: 52 },
-    listItemText: { color: '#AEB4C0', fontSize: 14, flex: 1, fontWeight: '600' },
+    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, minHeight: 64 },
+    listItemText: { color: '#AEB4C0', fontSize: 14, flex: 1, fontWeight: '600', marginLeft: 10 },
     listItemTextSelected: { color: '#FFFFFF', fontWeight: '800' },
+    iconCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'transparent',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    circleImage: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+    },
     itemDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
   });
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert as RNAlert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Alert as RNAlert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 let alertRegister = null;
 
@@ -40,68 +39,89 @@ const GlobalAlert = () => {
 
   if (!alertState.visible) return null;
 
+  const handleDismiss = (onPress) => {
+    setAlertState(prev => ({ ...prev, visible: false }));
+    if (onPress) onPress();
+  };
+
+  const handleBackdropPress = () => {
+    const cancelBtn = alertState.buttons.find(
+      btn => btn.style === 'cancel' || (btn.text && btn.text.toLowerCase() === 'cancel')
+    );
+    if (cancelBtn) {
+      handleDismiss(cancelBtn.onPress);
+    } else {
+      setAlertState(prev => ({ ...prev, visible: false }));
+    }
+  };
+
+  // Sort buttons so action buttons (e.g. Log Out, Delete) appear first, and Cancel appears last
+  const sortedButtons = [...alertState.buttons].sort((a, b) => {
+    const isACancel = a.style === 'cancel' || (a.text && a.text.toLowerCase() === 'cancel');
+    const isBCancel = b.style === 'cancel' || (b.text && b.text.toLowerCase() === 'cancel');
+    if (isACancel && !isBCancel) return 1;
+    if (!isACancel && isBCancel) return -1;
+    return 0;
+  });
+
   return (
     <Modal
       visible={alertState.visible}
       transparent
       animationType="fade"
-      onRequestClose={() => setAlertState(prev => ({ ...prev, visible: false }))}
+      onRequestClose={handleBackdropPress}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <View style={styles.iconContainer}>
-            <Icon
-              name={
-                alertState.title.toLowerCase().includes('success')
-                  ? 'checkmark-circle-outline'
-                  : alertState.title.toLowerCase().includes('fail') || alertState.title.toLowerCase().includes('error') || alertState.title.toLowerCase().includes('required')
-                  ? 'alert-circle-outline'
-                  : 'information-circle-outline'
-              }
-              size={44}
-              color={
-                alertState.title.toLowerCase().includes('success')
-                  ? '#4CAF50'
-                  : alertState.title.toLowerCase().includes('fail') || alertState.title.toLowerCase().includes('error') || alertState.title.toLowerCase().includes('required')
-                  ? '#F44336'
-                  : '#A066CB'
-              }
-            />
-          </View>
-          <Text style={styles.title}>{alertState.title}</Text>
-          {alertState.message ? <Text style={styles.message}>{alertState.message}</Text> : null}
-          <View style={styles.buttonsRow}>
-            {alertState.buttons.map((btn, idx) => {
-              const isCancel = btn.style === 'cancel';
-              const isDestructive = btn.style === 'destructive';
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  style={[
-                    styles.button,
-                    isCancel ? styles.buttonCancel : isDestructive ? styles.buttonDestructive : styles.buttonConfirm,
-                    alertState.buttons.length > 2 && { width: '100%', marginBottom: 8 }
-                  ]}
-                  onPress={() => {
-                    setAlertState(prev => ({ ...prev, visible: false }));
-                    if (btn.onPress) btn.onPress();
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.buttonText,
-                      isCancel ? styles.buttonTextCancel : isDestructive ? styles.buttonTextDestructive : styles.buttonTextConfirm
-                    ]}
-                  >
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+      <TouchableWithoutFeedback onPress={handleBackdropPress}>
+        <View style={styles.backdrop}>
+          <TouchableWithoutFeedback>
+            <View style={styles.card}>
+              <View style={styles.headerContent}>
+                {!!alertState.title && (
+                  <Text style={styles.title}>{alertState.title}</Text>
+                )}
+                {!!alertState.message && (
+                  <Text style={styles.message}>{alertState.message}</Text>
+                )}
+              </View>
+
+              <View style={styles.buttonsContainer}>
+                {sortedButtons.map((btn, idx) => {
+                  const textLower = (btn.text || '').toLowerCase();
+                  const isDestructive = btn.style === 'destructive' || 
+                    textLower.includes('log out') || 
+                    textLower.includes('delete') || 
+                    textLower.includes('remove') ||
+                    textLower.includes('discard');
+                  const isCancel = btn.style === 'cancel' || textLower === 'cancel';
+
+                  let textStyle = styles.buttonTextPrimary;
+                  if (isDestructive) {
+                    textStyle = styles.buttonTextDestructive;
+                  } else if (isCancel) {
+                    textStyle = styles.buttonTextCancel;
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.button,
+                        idx > 0 && styles.buttonBorderTop
+                      ]}
+                      onPress={() => handleDismiss(btn.onPress)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[styles.buttonText, textStyle]}>
+                        {btn.text}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
@@ -109,81 +129,74 @@ const GlobalAlert = () => {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.68)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   card: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#170B20',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#6A3C91',
-    shadowOffset: { width: 0, height: 8 },
+    width: '85%',
+    maxWidth: 320,
+    backgroundColor: '#262626',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  iconContainer: {
-    marginBottom: 14,
+  headerContent: {
+    paddingTop: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    alignItems: 'center',
   },
   title: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 8,
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
     textAlign: 'center',
   },
   message: {
-    color: '#BDB6C4',
-    fontSize: 13,
+    color: '#A8A8A8',
+    fontSize: 13.5,
+    fontWeight: '400',
     lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 24,
+    marginTop: 6,
   },
-  buttonsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
+  buttonsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#363636',
     width: '100%',
   },
   button: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
+    height: 48,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
   },
-  buttonConfirm: {
-    backgroundColor: '#6A3C91',
-  },
-  buttonCancel: {
-    backgroundColor: '#281E31',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  buttonDestructive: {
-    backgroundColor: '#F44336',
+  buttonBorderTop: {
+    borderTopWidth: 1,
+    borderTopColor: '#363636',
   },
   buttonText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  buttonTextConfirm: {
-    color: '#FFF',
-  },
-  buttonTextCancel: {
-    color: '#AFA7B8',
+    fontSize: 15,
+    textAlign: 'center',
   },
   buttonTextDestructive: {
-    color: '#FFF',
+    color: '#ED4956', // Instagram Red
+    fontWeight: '700',
+  },
+  buttonTextCancel: {
+    color: '#FFFFFF',
+    fontWeight: '400',
+  },
+  buttonTextPrimary: {
+    color: '#0095F6', // Instagram Blue
+    fontWeight: '600',
   },
 });
 

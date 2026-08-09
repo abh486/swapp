@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { createBooking, createReservation } from '../../../api/bookingApi';
+import { useIsFocused } from '@react-navigation/native';
+import { createBooking, createReservation, getMyBookings } from '../../../api/bookingApi';
 import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { parseApiFailure } from '../../../api/apiUtils';
@@ -71,7 +72,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
   const dispatch = useDispatch();
   const metrics = useResponsiveMetrics();
   const insets = useSafeAreaInsets();
-  const styles = createStyles(metrics, insets);
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
 
   const targetId = useMemo(() => {
     return trainerId || subscription.trainerId || subscription.trainer?.id || subscription.providerId;
@@ -204,7 +205,9 @@ const TrainerBookingScreen = ({ route, navigation }) => {
     }
   }, [isUpgradeOnlyPackage, navigation, subscription]);
 
-  // Load Trainer Slots with Past Slot Lockout Check
+  const isFocused = useIsFocused();
+
+  // Load Trainer Slots with Past Slot Lockout Check & User Bookings Check
   useEffect(() => {
     if (isUpgradeOnlyPackage) return;
     if (isGlobalBundlePackage && !activeCategoryId) {
@@ -224,6 +227,30 @@ const TrainerBookingScreen = ({ route, navigation }) => {
       setSlotError('');
 
       try {
+        let userBookings = [];
+        try {
+          userBookings = await getMyBookings();
+        } catch (err) {
+          console.warn('[TrainerBookingScreen] getMyBookings error:', err);
+        }
+
+        const activeUserBookings = (userBookings || []).filter(b => {
+          const status = String(b.bookingStatus || b.status || '').toUpperCase();
+          return status !== 'CANCELLED' && status !== 'CANCELED' && status !== 'REJECTED';
+        });
+
+        const userBookedKeys = new Set(bookedSlotKeys);
+        activeUserBookings.forEach(b => {
+          if (b.slotId) userBookedKeys.add(b.slotId);
+          if (b.startTime) {
+            const bStartIso = new Date(b.startTime).toISOString();
+            userBookedKeys.add(bStartIso);
+            const bDateStr = bStartIso.split('T')[0];
+            userBookedKeys.add(`${bDateStr}-${bStartIso}`);
+            userBookedKeys.add(`${bDateStr}-${b.startTime}`);
+          }
+        });
+
         const res = await apiClient.get(`/trainers/${targetId}/available-slots`, {
           params: {
             date: activeDateKey,
@@ -257,14 +284,23 @@ const TrainerBookingScreen = ({ route, navigation }) => {
             const now = new Date();
             const isPast = slotStart <= now;
 
+            const slotKey = s.id || s.slotId || `${activeDateKey}-${startTime}`;
+            const isUserBooked =
+              userBookedKeys.has(slotKey) ||
+              userBookedKeys.has(s.id) ||
+              userBookedKeys.has(s.slotId) ||
+              userBookedKeys.has(startTime) ||
+              userBookedKeys.has(`${activeDateKey}-${startTime}`) ||
+              s.isBooked;
+
             return {
               ...s,
               id: s.id || s.slotId,
               slotId: s.slotId || s.id,
               startTime,
               endTime,
-              isAvailable: !isPast && !s.isBooked,
-              availabilityState: s.isBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
+              isAvailable: !isPast && !isUserBooked,
+              availabilityState: isUserBooked ? 'BOOKED' : isPast ? 'PAST' : 'AVAILABLE',
             };
           });
 
@@ -284,7 +320,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
     return () => {
       isActive = false;
     };
-  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isUpgradeOnlyPackage, targetId, slotRefreshTick]);
+  }, [activeCategoryId, activeDateKey, isGlobalBundlePackage, isUpgradeOnlyPackage, targetId, slotRefreshTick, isFocused]);
 
   const buildSlotTimes = slot => ({
     startTime: new Date(slot.startTime).toISOString(),

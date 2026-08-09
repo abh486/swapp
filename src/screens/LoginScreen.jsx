@@ -1,5 +1,5 @@
 import { GlobalLoader } from '../components/GlobalLoader';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -45,13 +45,16 @@ const LoginScreen = () => {
   } = useAuth();
   const navigation = useNavigation();
   const { wp, ms, fs, sp } = useResponsiveMetrics();
-  const styles = createStyles({ wp, ms, fs, sp });
+  const styles = useMemo(
+    () => createStyles({ wp, ms, fs, sp }),
+    [wp, ms, fs, sp]
+  );
 
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   // Visibility toggles
   const [securePassword, setSecurePassword] = useState(true);
   const [secureConfirmPassword, setSecureConfirmPassword] = useState(true);
@@ -211,7 +214,7 @@ const LoginScreen = () => {
   const handleSignUpSubmit = async () => {
     if (operationInProgress.current) return;
     const emailTrimmed = email.trim();
-    
+
     if (!emailTrimmed) {
       setEmailError('Email cannot be empty.');
       return;
@@ -237,7 +240,6 @@ const LoginScreen = () => {
     try {
       console.log('Initiating native Auth0 signup...');
       await createAccount(emailTrimmed, password);
-      Alert.alert('Account Created!', 'Welcome to Swappfit! You have been successfully registered and logged in.');
     } catch (err) {
       console.error('Sign Up failed:', err);
       let friendlyError = 'Could not create account at this time.';
@@ -272,13 +274,13 @@ const LoginScreen = () => {
         if (!GoogleCredentialManager) {
           throw new Error('GoogleCredentialManager native module is not registered.');
         }
-        
+
         await GoogleCredentialManager.configure(AUTH_CONFIG.googleWebClientId);
         const userInfo = await GoogleCredentialManager.signIn(hashedNonce);
         idToken = userInfo.idToken;
       } else {
         await GoogleSignin.hasPlayServices();
-        
+
         try {
           await GoogleSignin.signOut();
         } catch (signOutError) {
@@ -348,7 +350,7 @@ const LoginScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
+
       {/* Decorative Glowing Rings Overlay */}
       <Image
         source={require('../assets/image/rings.png')}
@@ -378,7 +380,7 @@ const LoginScreen = () => {
 
             {/* Inputs & Form Wrapper */}
             <View style={styles.formContainer}>
-              
+
               {/* Email Address */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Email Address</Text>

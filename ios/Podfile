@@ -37,6 +37,19 @@ target 'SwappIos' do
       :mac_catalyst_enabled => false
     )
 
+    # Inject imports into RNFBMessaging prefix header to fix modular import compilation errors
+    rnfb_messaging_pch = File.join(installer.sandbox.root.to_s, 'Target Support Files/RNFBMessaging/RNFBMessaging-prefix.pch')
+    if File.exist?(rnfb_messaging_pch)
+      pch_content = File.read(rnfb_messaging_pch)
+      unless pch_content.include?('RCTConvert+FIRApp.h')
+        pch_content.gsub!(
+          '#import <UIKit/UIKit.h>',
+          "#import <UIKit/UIKit.h>\n#import <React/RCTBridgeModule.h>\n#import <RNFBApp/RNFBAppModule.h>\n#import <RNFBApp/RCTConvert+FIRApp.h>"
+        )
+        File.write(rnfb_messaging_pch, pch_content)
+      end
+    end
+
     # Clear the modulemap file for ReactCodegen to prevent modular duplicate definition conflicts
     react_codegen_map = 'Pods/Target Support Files/ReactCodegen/ReactCodegen.modulemap'
     File.write(react_codegen_map, '') if File.exist?(react_codegen_map)
@@ -52,9 +65,18 @@ target 'SwappIos' do
         build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-        # GCC PREPROCESSOR DEFINITIONS: Define RCT_DEPRECATED globally
+        # GCC PREPROCESSOR DEFINITIONS: Define RCT_DEPRECATED globally & disable Folly coroutines
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'RCT_DEPRECATED='
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_CFG_NO_COROUTINES=1'
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FOLLY_HAS_COROUTINES=0'
+
+        if target.name == 'RNReanimated'
+          defs = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+          defs = defs.reject { |d| d.to_s.include?('HERMES_ENABLE_DEBUGGER') }
+          defs << 'HERMES_ENABLE_DEBUGGER=0'
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs
+        end
 
         # Turn off modules for ReactCodegen only to avoid duplicate declaration issues
         if target.name == 'ReactCodegen'
@@ -73,7 +95,7 @@ target 'SwappIos' do
         end
 
         if target.name == 'Auth0' || target.name == 'A0Auth0'
-          build_config.build_settings['SWIFT_VERSION'] = '5'
+          build_config.build_settings['SWIFT_VERSION'] = '5.0'
           build_config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
         end
 

@@ -5,9 +5,9 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const DietWaterWidget = ({ selectedDate }) => {
-  const [waterVolume, setWaterVolume] = useState(0.9);
+  const [waterVolume, setWaterVolume] = useState(0.0);
   const [selectedIncrement, setSelectedIncrement] = useState(0.2);
-  const targetVolume = 1.2; // 0.9L is 75% of 1.2L
+  const [targetVolume, setTargetVolume] = useState(4.0); // Default 4.0L (16 glasses)
 
   const dateKey = selectedDate 
     ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
@@ -21,11 +21,19 @@ const DietWaterWidget = ({ selectedDate }) => {
         if (savedVal !== null) {
           setWaterVolume(parseFloat(savedVal));
         } else {
-          setWaterVolume(0.9); // default to mockup value
+          setWaterVolume(0.0);
+        }
+
+        const savedGoal = await AsyncStorage.getItem('water_glasses_goal');
+        if (savedGoal) {
+          const glasses = parseInt(savedGoal, 10);
+          setTargetVolume(glasses * 0.25);
+        } else {
+          setTargetVolume(4.0);
         }
       } catch (err) {
         console.error('Failed to load water volume:', err);
-        setWaterVolume(0.9);
+        setWaterVolume(0.0);
       }
     };
     loadWaterVolume();
@@ -51,7 +59,7 @@ const DietWaterWidget = ({ selectedDate }) => {
     }
   };
 
-  const percent = Math.round((waterVolume / targetVolume) * 100);
+  const percent = Math.min(100, Math.round((waterVolume / targetVolume) * 100));
   const totalDrops = 7;
   const activeDropsCount = Math.min(totalDrops, Math.round((waterVolume / targetVolume) * totalDrops));
 
@@ -64,7 +72,7 @@ const DietWaterWidget = ({ selectedDate }) => {
           <Text style={styles.waterWhiteValue}>{waterVolume.toFixed(1)}L </Text>
           <Text style={styles.waterWhitePercent}>({percent}%)</Text>
         </View>
-        <Text style={styles.subtext}>Recomended until now 1.4L</Text>
+        <Text style={styles.subtext}>Daily Target {targetVolume.toFixed(1)}L</Text>
 
         {/* Drops row */}
         <View style={styles.dropsRow}>
@@ -73,7 +81,7 @@ const DietWaterWidget = ({ selectedDate }) => {
               key={idx} 
               name="water" 
               size={18} 
-              color={idx < activeDropsCount ? '#3B72FF' : '#FFFFFF'} 
+              color={idx < activeDropsCount ? '#FF9500' : '#FFFFFF'} 
               style={{ marginRight: 6 }}
             />
           ))}
@@ -131,7 +139,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   waterBlueTitle: {
-    color: '#3B72FF',
+    color: '#FFF',
     fontSize: 22,
     fontWeight: 'bold',
   },
@@ -164,7 +172,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#3B72FF',
+    backgroundColor: '#FF9500',
     alignItems: 'center',
     justifyContent: 'center',
   },

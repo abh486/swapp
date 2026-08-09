@@ -4,9 +4,12 @@ import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import GoogleMaps
 import Auth0
+import FirebaseCore
+import UserNotifications
+import FirebaseMessaging
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
@@ -16,6 +19,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+
+    // Initialize Firebase if GoogleService-Info.plist is present
+    if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+      FirebaseApp.configure()
+      print("[Firebase] Configured successfully.")
+    } else {
+      print("[Firebase] GoogleService-Info.plist not found in bundle. Skipping initialization.")
+    }
+
+    // Set notification delegates & register for remote notifications
+    UNUserNotificationCenter.current().delegate = self
+    Messaging.messaging().delegate = self
+    application.registerForRemoteNotifications()
 
     // Initialize Google Maps
     GMSServices.provideAPIKey("AIzaSyDbCCPsto9OSDAYX7D9vm1ibB1VKVOoTeI")
@@ -36,6 +52,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     )
 
     return true
+  }
+
+  // APNs device token registration callback
+  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    Messaging.messaging().apnsToken = deviceToken
+    print("[Firebase] APNs token registered with Firebase successfully.")
+  }
+
+  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    print("[Firebase] Failed to register for remote notifications: \(error.localizedDescription)")
+  }
+
+  // MessagingDelegate
+  func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    print("[Firebase] FCM registration token: \(fcmToken ?? "")")
+  }
+
+  // UNUserNotificationCenterDelegate for foreground notifications
+  func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .list, .sound, .badge])
+    } else {
+      completionHandler([.alert, .sound, .badge])
+    }
   }
 
   // Handle Auth0 Redirect

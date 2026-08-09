@@ -171,8 +171,16 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
       if (isUserCancel) {
         console.log('[Checkout] User explicitly cancelled native App Store payment sheet. Navigating back.');
         navigation.goBack();
+      } else if (Platform.OS === 'ios') {
+        // Do not fallback to web checkout on iOS for purely digital items (Guideline 3.1.1)
+        console.log('[Checkout] Native purchase failed on iOS. Fallback to web checkout is blocked for App Store guidelines.');
+        Alert.alert(
+          'Purchase Failed',
+          'We were unable to complete your purchase through the App Store. Please verify your App Store account and payment details, and try again.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
       } else {
-        // Otherwise, fallback gracefully to the web checkout URL
+        // Otherwise, fallback gracefully to the web checkout URL (e.g. on Android)
         await startInAppBrowserCheckout(`Native purchase error: ${error.message || error}`);
       }
     }

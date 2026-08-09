@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Clarity from '../utils/clarity';
 import { useAuth } from '../context/AuthContext';
 import { View, Text, Linking } from 'react-native';
+import { requestTracking } from '../utils/tracking';
 
 // Screens
 import MemberProfile from '../screens/MemberProfile'; // 👈 Profile creation/edit screen
@@ -16,12 +17,13 @@ import WeeklyDietPlanScreen from '../screens/activity/diet/WeeklyDietPlanScreen'
 import MacronutrientDetailsScreen from '../screens/activity/diet/MacronutrientDetailsScreen';
 import HealthKitDataScreen from '../screens/profile/HealthKitDataScreen';
 import WalkDetailsScreen from '../screens/profile/WalkDetailsScreen';
-import SleepDetailsScreen from '../screens/profile/SleepDetailsScreen';
+import SleepDetailsScreen from '../screens/activity/diet/SleepDetailsScreen';
 
 import BottomTabNavigator from './BottomTabNavigator';
 import Community from '../screens/community/Community';
 import CommentsScreen from '../screens/community/CommentsScreen';
 import DiscoverProvidersMapScreen from '../screens/home/dashboard/DiscoverProvidersMapScreen';
+import LiveGymNavigationScreen from '../screens/home/location/LiveGymNavigationScreen';
 import ProviderDetailScreen from '../screens/home/provider/ProviderDetailScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import Dietplan from '../screens/activity/diet/Dietplan';
@@ -35,6 +37,9 @@ import FastWorkoutActiveScreen from '../screens/workout/FastWorkoutActiveScreen'
 import WorkoutSummaryScreen from '../screens/workout/WorkoutSummaryScreen';
 import CurrentWorkoutPlanScreen from '../screens/workout/CurrentWorkoutPlanScreen';
 import ExerciseDetailScreen from '../screens/workout/ExerciseDetailScreen';
+import RoutineDetailScreen from '../screens/workout/RoutineDetailScreen';
+import CategoryWorkoutsScreen from '../screens/workout/CategoryWorkoutsScreen';
+import MuscleSelectionScreen from '../screens/workout/MuscleSelectionScreen';
 import CheckoutBrowserScreen from '../screens/home/booking/CheckoutBrowserScreen';
 import SubscriptionSuccessScreen from '../screens/home/booking/SubscriptionSuccessScreen';
 import PaymentProcessingScreen from '../screens/home/booking/PaymentProcessingScreen';
@@ -51,7 +56,6 @@ import LoginScreen from '../screens/LoginScreen';
 import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
 import AIDieticianPaywallScreen from '../screens/activity/diet/AIDieticianPaywallScreen';
 import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianSubscriptionScreen';
-import AIDietConfigScreen from '../screens/activity/diet/AIDietConfigScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
@@ -61,6 +65,7 @@ import LikesListScreen from '../screens/community/LikesListScreen';
 import PostDetailsScreen from '../screens/community/PostDetailsScreen';
 import ComparisonScreen from '../screens/profile/ComparisonScreen';
 import NotificationScreen from '../screens/community/NotificationScreen';
+import ProfileDashboard from '../screens/profile/ProfileDashboard';
 
 const Stack = createNativeStackNavigator();
 
@@ -71,14 +76,19 @@ const AppNavigator = () => {
   const navigationRef = React.useRef();
 
   React.useEffect(() => {
+    // Request App Tracking Transparency permission on iOS startup
+    requestTracking().catch(err => console.log('[AppNavigator] requestTracking error:', err));
+
     const handleDeepLink = ({ url }) => {
       if (url && url.includes('subscription=success')) {
         console.log('[DeepLink] Success callback matched:', url);
-        refreshAuthStatus?.();
-        if (url.includes('ai-dietician')) {
-          navigationRef.current?.navigate('MainTabs', { screen: 'Diet' });
-        } else {
-          navigationRef.current?.navigate('MainTabs', { screen: 'Home' });
+        if (refreshAuthStatus) refreshAuthStatus();
+        if (navigationRef.current) {
+          if (url.includes('ai-dietician')) {
+            navigationRef.current.navigate('MainTabs', { screen: 'Diet' });
+          } else {
+            navigationRef.current.navigate('MainTabs', { screen: 'Home' });
+          }
         }
       }
     };
@@ -107,8 +117,8 @@ const AppNavigator = () => {
         ref={navigationRef}
         theme={DarkTheme}
         onStateChange={() => {
-          const currentRouteName =
-            navigationRef.current?.getCurrentRoute()?.name;
+          const currentRoute = navigationRef.current && navigationRef.current.getCurrentRoute();
+          const currentRouteName = currentRoute && currentRoute.name;
           if (currentRouteName) {
             console.log('[Clarity] Screen viewed:', currentRouteName);
             try {
@@ -124,7 +134,7 @@ const AppNavigator = () => {
           {isAuthenticated ? (
             hasProfile ? (
               // ✅ User authenticated + has profile → go to main app
-              <>
+              <React.Fragment>
                 <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
                 <Stack.Screen name="Community" component={Community} />
                 <Stack.Screen name="CommentsScreen" component={CommentsScreen} />
@@ -140,6 +150,10 @@ const AppNavigator = () => {
                   component={DiscoverProvidersMapScreen}
                 />
                 <Stack.Screen
+                  name="LiveGymNavigationScreen"
+                  component={LiveGymNavigationScreen}
+                />
+                <Stack.Screen
                   name="ProviderDetails"
                   component={ProviderDetailScreen}
                 />
@@ -151,7 +165,6 @@ const AppNavigator = () => {
                 <Stack.Screen name="Diet" component={Dietplan} />
                 <Stack.Screen name="Store" component={StoreComingSoon} />
                 <Stack.Screen name="WeeklyDietPlan" component={WeeklyDietPlanScreen} />
-                <Stack.Screen name="AIDietConfig" component={AIDietConfigScreen} />
                 <Stack.Screen name="HealthKitData" component={HealthKitDataScreen} />
                 <Stack.Screen name="WalkDetails" component={WalkDetailsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="SleepDetails" component={SleepDetailsScreen} options={{ headerShown: false }} />
@@ -183,8 +196,21 @@ const AppNavigator = () => {
                   component={CurrentWorkoutPlanScreen}
                 />
                 <Stack.Screen
+                  name="RoutineDetailScreen"
+                  component={RoutineDetailScreen}
+                />
+                <Stack.Screen
+                  name="CategoryWorkoutsScreen"
+                  component={CategoryWorkoutsScreen}
+                />
+                <Stack.Screen
                   name="ExerciseDetail"
                   component={ExerciseDetailScreen}
+                />
+                <Stack.Screen
+                  name="MuscleSelection"
+                  component={MuscleSelectionScreen}
+                  options={{ headerShown: false }}
                 />
                 <Stack.Screen
                   name="CheckoutBrowser"
@@ -252,25 +278,26 @@ const AppNavigator = () => {
                 />
                 <Stack.Screen name="FollowList" component={FollowListScreen} />
                 <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Profile" component={ProfileDashboard} options={{ headerShown: false }} />
                 <Stack.Screen name="Comparison" component={ComparisonScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="LikesList" component={LikesListScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PostDetails" component={PostDetailsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="NotificationScreen" component={NotificationScreen} options={{ headerShown: false }} />
                 {/* <Stack.Screen name="WorkoutPlanDetail" component={WorkoutPlanDetail} /> */}
-              </>
+              </React.Fragment>
             ) : (
               // ✅ User authenticated but no profile → go to profile setup
               <Stack.Screen name="MemberProfile" component={MemberProfile} />
             )
           ) : (
             // ✅ User not logged in → onboarding then login flow
-            <>
+            <React.Fragment>
               <Stack.Screen
                 name="OnboardingScreen"
                 component={OnboardingScreen}
               />
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
-            </>
+            </React.Fragment>
           )}
         </Stack.Navigator>
       </NavigationContainer>

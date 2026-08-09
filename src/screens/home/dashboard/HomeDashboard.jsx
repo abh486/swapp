@@ -34,6 +34,48 @@ import LocationSelectorModal from './components/LocationSelectorModal';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './components/TrainerDetailsModal';
 
+// ── Memoized CategoryItem — rendered outside component so it never re-creates ──
+const CATEGORY_ITEM_WIDTH = 85;
+const CategoryItem = React.memo(({ item, isActive, onPress }) => {
+  if (isActive) {
+    return (
+      <TouchableOpacity
+        style={styles.categoryItemActive}
+        activeOpacity={0.9}
+        onPress={onPress}
+      >
+        <View style={styles.svgWrapper}>
+          <Svg width={85} height={46} viewBox="0 0 110 60">
+            <Path
+              d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.4)"
+              strokeWidth={1.5}
+            />
+          </Svg>
+        </View>
+        <View style={styles.activeCircleIcon}>
+          <Icon name={item.icon || 'apps'} size={24} color="#3498db" />
+        </View>
+        <Text style={styles.activeCategoryText}>{item.label}</Text>
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <TouchableOpacity
+      style={styles.categoryItemInactive}
+      activeOpacity={0.8}
+      onPress={onPress}
+    >
+      <View style={styles.inactiveCircleIcon}>
+        <Icon name={item.icon || 'apps'} size={24} color="#A5A5A5" />
+      </View>
+      <Text style={styles.inactiveCategoryText}>{item.label}</Text>
+      <View style={styles.inactiveBottomLine} />
+    </TouchableOpacity>
+  );
+});
+
 const PROMOS = [
   {
     id: '1',
@@ -133,12 +175,6 @@ export const HomeDashboard = ({ navigation }) => {
       }
     });
 
-    const upcoming = (user?.upcomingBookings || []).map(b => ({
-      ...b,
-      type: 'UPCOMING_BOOKING',
-      isBooking: true
-    }));
-
     const pkgs = (user?.activePackages || [])
       .map(p => {
         const pPkgId = p.packageId || p.package?.id;
@@ -158,19 +194,16 @@ export const HomeDashboard = ({ navigation }) => {
         };
       })
       .filter(p => {
-        // If it has session limits, hide only if all available sessions are used/booked
         if (p.totalSessions > 0) {
           const upcomingCount = upcomingByPackage[p.id] || 0;
           const available = p.totalSessions - (p.usedSessions || 0) - upcomingCount;
           return available > 0;
         }
-        // Unlimited or non-session packages never hide
         return true;
       });
 
     const ents = (user?.activeEntitlements || [])
       .filter(e => {
-        // Front-end deduplication: if this entitlement matches an activePackage, skip it
         const ePkgId = e.packageId || e.package?.id;
         if (!ePkgId) return true;
 
@@ -195,7 +228,7 @@ export const HomeDashboard = ({ navigation }) => {
         package: e.package
       }));
 
-    const list = [...fromUser, ...pkgs, ...ents, ...upcoming];
+    const list = [...fromUser, ...pkgs, ...ents];
     
     // Deduplicate the final list by type and ID/packageId to be absolutely safe
     const seen = new Set();
@@ -203,9 +236,7 @@ export const HomeDashboard = ({ navigation }) => {
     list.forEach(item => {
       // Create a unique key for each item
       let key = '';
-      if (item.isBooking) {
-        key = `booking_${item.id}`;
-      } else if (item.type === 'GYM_PACKAGE') {
+      if (item.type === 'GYM_PACKAGE') {
         key = `pkg_${item.id}`;
       } else if (item.type === 'ENTITLEMENT') {
         key = `ent_${item.id}`;
@@ -296,9 +327,15 @@ export const HomeDashboard = ({ navigation }) => {
     }
   }, [serverActiveSubscription, pendingSubscription]);
 
+  const lastAuthCheckRef = useRef(0);
+
   useFocusEffect(
     useCallback(() => {
-      refreshAuthStatus?.();
+      const now = Date.now();
+      if (now - lastAuthCheckRef.current > 60000) {
+        lastAuthCheckRef.current = now;
+        refreshAuthStatus?.();
+      }
       loadPendingSubscription();
 
       let isMounted = true;
@@ -377,64 +414,15 @@ export const HomeDashboard = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const renderCategory = ({ item }) => {
-    const isActive = activeCategory === item.id;
+  const renderCategory = useCallback(({ item }) => (
+    <CategoryItem
+      item={item}
+      isActive={activeCategory === item.id}
+      onPress={() => dispatch(setGlobalCategory(item.id, item.vertical))}
+    />
+  ), [activeCategory, dispatch]);
 
-    if (isActive) {
-      return (
-        <TouchableOpacity
-          style={styles.categoryItemActive}
-          activeOpacity={0.9}
-          onPress={() => {
-            dispatch(setGlobalCategory(item.id, item.vertical));
-          }}
-        >
-          <View style={styles.svgWrapper}>
-            <Svg width={85} height={46} viewBox="0 0 110 60">
-              <Path
-                d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.4)"
-                strokeWidth={1.5}
-              />
-            </Svg>
-          </View>
-
-          <View style={styles.activeCircleIcon}>
-            <Icon
-              name={item.icon || 'apps'}
-              size={24}
-              color="#3498db"
-            />
-          </View>
-
-          <Text style={styles.activeCategoryText}>{item.label}</Text>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        style={styles.categoryItemInactive}
-        activeOpacity={0.8}
-        onPress={() => {
-          dispatch(setGlobalCategory(item.id, item.vertical));
-        }}
-      >
-        <View style={styles.inactiveCircleIcon}>
-          <Icon
-            name={item.icon || 'apps'}
-            size={24}
-            color="#A5A5A5"
-          />
-        </View>
-        <Text style={styles.inactiveCategoryText}>{item.label}</Text>
-        <View style={styles.inactiveBottomLine} />
-      </TouchableOpacity>
-    );
-  };
-
-  const renderOffering = ({ item }) => (
+  const renderOffering = useCallback(({ item }) => (
     <TouchableOpacity
       style={styles.offeringCard}
       onPress={() =>
@@ -476,9 +464,9 @@ export const HomeDashboard = ({ navigation }) => {
         </View>
       </View>
     </TouchableOpacity>
-  );
+  ), [navigation]);
 
-  const renderProvider = ({ item: provider }) => {
+  const renderProvider = useCallback(({ item: provider }) => {
     if (!provider) return null;
     const distanceValue =
       typeof provider.distance === 'number'
@@ -576,9 +564,9 @@ export const HomeDashboard = ({ navigation }) => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [navigation]);
 
-  const renderTrainerCard = ({ item: trainer }) => {
+  const renderTrainerCard = useCallback(({ item: trainer }) => {
     if (!trainer) return null;
     const distanceValue =
       typeof trainer.distance === 'number'
@@ -635,9 +623,9 @@ export const HomeDashboard = ({ navigation }) => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [handleViewTrainerProfile]);
 
-  const dashboardCategories = [
+  const dashboardCategories = useMemo(() => [
     { id: 'all', label: 'All', icon: 'apps', vertical: null },
     ...(feed?.categories || []).map(c => {
       const isCompatSport = c.label && (
@@ -684,7 +672,7 @@ export const HomeDashboard = ({ navigation }) => {
       icon: 'barbell-outline',
       vertical: 'TRAINER',
     },
-  ];
+  ], [feed?.categories]);
 
   const renderActiveSubscriptionCard = (sub, index) => {
     const isBooking = sub.isBooking;
@@ -770,7 +758,7 @@ export const HomeDashboard = ({ navigation }) => {
         }}
       >
         <LinearGradient
-          colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+          colors={['#FF6B00', '#F97316', '#EA580C']}
           style={styles.membershipGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -892,14 +880,7 @@ export const HomeDashboard = ({ navigation }) => {
     </View>
   );
 
-  if (!feed && !error) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#050505" />
-        <FullScreenLoader />
-      </SafeAreaView>
-    );
-  }
+  // Render dashboard immediately with cached/default data without full screen block
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -952,7 +933,7 @@ export const HomeDashboard = ({ navigation }) => {
           <Text style={styles.greeting}>Welcome {userName} !</Text>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('EditPersonalInfo')}
+            onPress={() => navigation.navigate('Profile')}
           >
             {userAvatar ? (
               <Image source={{ uri: userAvatar }} style={styles.profilePic} />
@@ -981,6 +962,7 @@ export const HomeDashboard = ({ navigation }) => {
             onSubmitEditing={() =>
               navigation.navigate('DiscoverProvidersMap', {
                 query: searchQuery,
+                selectedLocation: userLocation,
               })
             }
           />
@@ -1042,6 +1024,15 @@ export const HomeDashboard = ({ navigation }) => {
           renderItem={renderCategory}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.categoriesList}
+          getItemLayout={(_, index) => ({
+            length: CATEGORY_ITEM_WIDTH,
+            offset: CATEGORY_ITEM_WIDTH * index,
+            index,
+          })}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={false}
         />
 
         {feed && feed.top_offerings?.length > 0 && (
@@ -1057,6 +1048,10 @@ export const HomeDashboard = ({ navigation }) => {
               renderItem={renderOffering}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.offeringsList}
+              removeClippedSubviews={Platform.OS === 'android'}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={3}
             />
           </>
         )}
@@ -1093,7 +1088,7 @@ export const HomeDashboard = ({ navigation }) => {
             </Text>
           </Text>
           <TouchableOpacity
-            onPress={() => navigation.navigate('DiscoverProvidersMap')}
+            onPress={() => navigation.navigate('DiscoverProvidersMap', { selectedLocation: userLocation })}
           >
             <Icon name="arrow-forward-circle" size={28} color="#555" />
           </TouchableOpacity>
@@ -1106,6 +1101,10 @@ export const HomeDashboard = ({ navigation }) => {
           renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.providersList}
+          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={3}
           ListEmptyComponent={
             (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
               <Text style={{ color: '#888', marginLeft: 16 }}>
@@ -1129,6 +1128,10 @@ export const HomeDashboard = ({ navigation }) => {
           renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.providersList}
+          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={3}
           ListEmptyComponent={
             (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
               <Text style={{ color: '#888', marginLeft: 16 }}>
@@ -1168,7 +1171,7 @@ export const HomeDashboard = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#050505' },
+  safeArea: { flex: 1, backgroundColor: '#050505', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   container: { flex: 1 },
   paginationContainer: {
     flexDirection: 'row',
@@ -1365,7 +1368,7 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F7D1F',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -1375,7 +1378,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#FFF',
+    backgroundColor: '#4ADE80',
     marginRight: 5,
   },
   activeText: {

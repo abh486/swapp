@@ -13,12 +13,24 @@ const notificationReducer = (state = initialState, action) => {
     case types.NOTIFICATION_DELETE_REQUEST:
       return { ...state, loading: true, error: null };
     
-    case types.NOTIFICATION_GET_USER_SUCCESS:
+    case types.NOTIFICATION_GET_USER_SUCCESS: {
+      let resolved = [];
+      const payload = action.payload;
+      if (Array.isArray(payload)) {
+        resolved = payload;
+      } else if (payload && Array.isArray(payload.notifications)) {
+        resolved = payload.notifications;
+      } else if (payload && Array.isArray(payload.data)) {
+        resolved = payload.data;
+      } else if (payload && payload.data && Array.isArray(payload.data.notifications)) {
+        resolved = payload.data.notifications;
+      }
       return {
         ...state,
         loading: false,
-        notifications: action.payload,
+        notifications: resolved,
       };
+    }
     
     case types.NOTIFICATION_MARK_READ_SUCCESS:
       return {
@@ -39,6 +51,17 @@ const notificationReducer = (state = initialState, action) => {
           notif => notif.id !== action.payload
         ),
       };
+    
+    case 'NOTIFICATION_RECEIVED': {
+      const newNotif = action.payload;
+      if (state.notifications.some(n => n.id === newNotif.id)) {
+        return state;
+      }
+      return {
+        ...state,
+        notifications: [newNotif, ...state.notifications],
+      };
+    }
     
     case types.NOTIFICATION_GET_USER_FAILURE:
     case types.NOTIFICATION_MARK_READ_FAILURE:

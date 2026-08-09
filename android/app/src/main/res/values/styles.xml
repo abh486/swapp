@@ -5,6 +5,8 @@
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
         <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
     </style>
 
 </resources>

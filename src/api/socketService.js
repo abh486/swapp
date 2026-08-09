@@ -38,8 +38,23 @@ class SocketService {
 
         this.socket = io(socketUrl, {
           auth: {
-            token
+            token, // raw token
+            token_bearer: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
+            authorization: `Bearer ${token}`,
+            accessToken: token
           },
+          query: {
+            token, // raw token
+            access_token: token,
+            authToken: token,
+            Authorization: `Bearer ${token}`,
+            authorization: `Bearer ${token}`
+          },
+          extraHeaders: {
+            Authorization: `Bearer ${token}`
+          },
+          transports: ['polling', 'websocket'],
           timeout: 5000,
           forceNew: true,
           reconnection: true, // Let socket.io handle reconnections natively
@@ -60,7 +75,6 @@ class SocketService {
         });
 
         this.socket.on('connect_error', (error) => {
-          console.error('Socket connection error:', error);
           this.connected = false;
           // Clear promise so future calls can retry
           this.connectionPromise = null; 
@@ -68,14 +82,12 @@ class SocketService {
         });
 
         this.socket.on('error', (error) => {
-          console.error('Socket error:', error);
           this.connected = false;
         });
       });
 
       return this.connectionPromise;
     } catch (error) {
-      console.error('Socket connection error:', error);
       this.connectionPromise = null; // Clear the promise
       throw error;
     }
@@ -144,23 +156,6 @@ class SocketService {
     if (this.socket) {
       this.socket.off('newMessage', callback);
       console.log('Stopped listening for newMessage events');
-    }
-  }
-
-  onNotification(callback) {
-    if (this.socket) {
-      this.socket.on('notification', (data) => {
-        console.log('Received notification event over Socket.IO:', data);
-        callback(data);
-      });
-      console.log('Listening for notification events');
-    }
-  }
-
-  offNotification(callback) {
-    if (this.socket) {
-      this.socket.off('notification', callback);
-      console.log('Stopped listening for notification events');
     }
   }
 }

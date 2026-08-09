@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -8,25 +8,124 @@ import {
   View,
   Image,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../../../api/apiClient';
+import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
 const AlmostDoneClocheScreen = ({ navigation }) => {
-  const handleDone = async () => {
+  const [loading, setLoading] = useState(false);
+
+  const migrateMeals = (mealsStr) => {
+    if (!mealsStr) return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
     try {
-      await AsyncStorage.setItem('diet_flow_completed', 'true');
-    } catch (err) {
-      console.error('[AlmostDoneClocheScreen] Failed to save flow completion flag:', err);
+      const parsed = JSON.parse(mealsStr);
+      if (Array.isArray(parsed) && parsed.length === 2 && parsed.includes('Lunch') && parsed.includes('Dinner')) {
+        return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+      }
+      return parsed;
+    } catch (e) {
+      const splitMeals = mealsStr.split(', ').filter(Boolean);
+      if (splitMeals.length === 2 && splitMeals.includes('Lunch') && splitMeals.includes('Dinner')) {
+        return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
+      }
+      return splitMeals;
     }
-    // Reset navigation stack to main Diet screen
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
-    });
   };
+
+  const handleDone = async () => {
+    setLoading(true);
+    try {
+      const [
+        savedPreference,
+        savedSkipDays,
+        savedMeals,
+        savedAllergies,
+        savedCuisines,
+        savedOtherInfo
+      ] = await Promise.all([
+        AsyncStorage.getItem('diet_preference'),
+        AsyncStorage.getItem('diet_skip_days'),
+        AsyncStorage.getItem('diet_meals'),
+        AsyncStorage.getItem('diet_allergies'),
+        AsyncStorage.getItem('diet_cuisines'),
+        AsyncStorage.getItem('diet_other_info')
+      ]);
+
+      const recommendationsParams = {
+        dietPreference: savedPreference || 'Selective Non-Veg',
+        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : [],
+        meals: migrateMeals(savedMeals),
+        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
+        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
+        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
+        generate: 'true'
+      };
+
+      console.log('[AlmostDoneClocheScreen] Triggering AI diet plan generation...');
+      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
+      
+      await AsyncStorage.setItem('diet_flow_completed', 'true');
+
+      if (response.data?.success) {
+        const dietPlan = response.data.data;
+        // Reset navigation and go directly to the full weekly plan screen
+        navigation.reset({
+          index: 0,
+          routes: [
+            { name: 'MainTabs', params: { screen: 'Diet' } },
+            { name: 'WeeklyDietPlan', params: { recommendation: dietPlan } }
+          ],
+        });
+      } else {
+        throw new Error('Response unsuccessful');
+      }
+    } catch (err) {
+      console.warn('[AlmostDoneClocheScreen] Failed to generate AI diet plan:', err.message);
+      Alert.alert(
+        'Generation Failed',
+        'We saved your preferences, but the AI service is currently busy or took too long to respond. You can try regenerating again from the plan screen.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
+              });
+            }
+          }
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LinearGradient
+            colors={['#0D2B26', '#050D0C']}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <ActivityIndicator size="large" color="#A3D9C9" />
+          <Text style={styles.loadingTitle}>Creating your AI Diet Plan...</Text>
+          <Text style={styles.loadingSubtitle}>
+            Our AI is designing a customized 7-day nutritional program starting from today. This usually takes around 30-45 seconds.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -146,6 +245,26 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 14,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '600',
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  loadingSubtitle: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
 

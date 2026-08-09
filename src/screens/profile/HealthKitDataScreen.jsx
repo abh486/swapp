@@ -35,10 +35,24 @@ const HealthKitDataScreen = ({ navigation }) => {
   const fetchRealHealthData = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Check today's date for manual sleep duration
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
+      const manualSleepStr = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
+      let sleepVal = 0;
+      if (manualSleepStr) {
+        sleepVal = parseFloat(manualSleepStr);
+      }
+
       const connected = await AsyncStorage.getItem('healthkit_connected');
       if (connected === 'true') {
         setIsConnected(true);
-        const [steps, burned, distance, sleep] = await Promise.all([
+        const [steps, burned, distance, hkSleep] = await Promise.all([
           getStepCountToday(),
           getActiveEnergyBurnedToday(),
           getDistanceWalkingRunningToday(),
@@ -49,10 +63,15 @@ const HealthKitDataScreen = ({ navigation }) => {
           steps: steps || 0,
           calories: burned || 0,
           distance: distance || 0,
-          sleep: sleep || 0,
+          sleep: manualSleepStr ? sleepVal : (hkSleep || 0),
         });
       } else {
         setIsConnected(false);
+        // If not connected to HealthKit, but we have manual sleep logged, show it
+        setData(prev => ({
+          ...prev,
+          sleep: manualSleepStr ? sleepVal : prev.sleep,
+        }));
       }
     } catch (err) {
       console.warn('[HealthKitDataScreen] Error fetching real health data:', err);
@@ -101,33 +120,35 @@ const HealthKitDataScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#050505" />
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#FFF" />
+          <Icon name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>HEALTHKIT TELEMETRY</Text>
+          <Text style={styles.headerTitle}>Health Sync</Text>
           <Text style={styles.headerSubtitle}>Real-time sensor logs from Apple Health</Text>
         </View>
         <TouchableOpacity style={styles.refreshButton} onPress={fetchRealHealthData} disabled={loading}>
-          <Icon name="refresh-outline" size={20} color="#FFF" style={loading && { opacity: 0.5 }} />
+          <Icon name="refresh" size={20} color="#FFF" style={loading && { opacity: 0.5 }} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#e74c3c" />
-          <Text style={styles.loadingText}>Polling native database...</Text>
+          <ActivityIndicator size="large" color="#7C4DFF" />
+          <Text style={styles.loadingText}>Fetching native health database...</Text>
         </View>
       ) : !isConnected ? (
         <View style={styles.centerContainer}>
-          <Icon name="heart-dislike-outline" size={60} color="#e74c3c" style={{ marginBottom: 16 }} />
+          <View style={styles.warningIconBg}>
+            <Icon name="heart-dislike" size={40} color="#ff4757" />
+          </View>
           <Text style={styles.warningTitle}>Apple Health Disconnected</Text>
           <Text style={styles.warningDesc}>
-            To view steps, calories, sleep, and active distance, please connect Apple Health in settings first.
+            To sync and display steps, active calories, sleep duration, and distance, please enable connection in Settings.
           </Text>
           <TouchableOpacity
             style={styles.connectBtn}
@@ -144,184 +165,169 @@ const HealthKitDataScreen = ({ navigation }) => {
         >
           
           {/* Active Status Banner */}
-          <View style={styles.statusBannerContainer}>
-            <LinearGradient
-              colors={['#1a1c23', '#0f1013']}
-              style={styles.statusBanner}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={{ width: '100%' }}>
-                <View style={styles.statusDotRow}>
-                  <View style={styles.greenPulseDot} />
-                  <Text style={styles.statusTitle}>INTEGRATION ACTIVE & SYNCED</Text>
-                </View>
-                <Text style={styles.statusDesc}>
-                  Sensors are connected. Tapping refresh fetches new steps, active calories, and sleep records from your iPhone.
-                </Text>
+          <View style={styles.statusBanner}>
+            <View style={styles.statusDotRow}>
+              <View style={styles.pulseContainer}>
+                <View style={styles.greenPulseDot} />
               </View>
-            </LinearGradient>
+              <Text style={styles.statusTitle}>INTEGRATION ACTIVE & SYNCED</Text>
+            </View>
+            <Text style={styles.statusDesc}>
+              Sensors are connected. Tapping refresh fetches new activity metrics directly from your device.
+            </Text>
           </View>
 
-          {/* ADVANCED DETAIL CARDS */}
+          {/* TELEMETRY CARDS */}
           
           {/* Steps Card */}
-          <View style={styles.detailCardContainer}>
-            <LinearGradient colors={['#131a24', '#0a0d14']} style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <View style={styles.iconBackground}>
-                  <Icon name="footsteps" size={20} color="#3498db" />
-                </View>
-                <View style={styles.cardHeaderTitleBlock}>
-                  <Text style={styles.cardTitle}>STEPS TRACKER</Text>
-                  <Text style={styles.cardSubtitle}>Total cadence-based steps count today</Text>
-                </View>
+          <View style={[styles.detailCard, { borderColor: 'rgba(52, 152, 219, 0.15)' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconBackground, { backgroundColor: 'rgba(52, 152, 219, 0.12)' }]}>
+                <Icon name="footsteps" size={20} color="#3498db" />
               </View>
+              <View style={styles.cardHeaderTitleBlock}>
+                <Text style={[styles.cardTitle, { color: '#3498db' }]}>STEPS TRACKER</Text>
+                <Text style={styles.cardSubtitle}>Total cadence-based steps count today</Text>
+              </View>
+            </View>
 
-              <View style={styles.valueDisplayRow}>
-                <Text style={styles.largeValue}>{data.steps.toLocaleString()}</Text>
-                <Text style={styles.targetSubText}>{`of ${targets.steps.toLocaleString()} goal`}</Text>
-              </View>
+            <View style={styles.valueDisplayRow}>
+              <Text style={styles.largeValue}>{data.steps.toLocaleString()}</Text>
+              <Text style={styles.targetSubText}>{`of ${targets.steps.toLocaleString()} goal`}</Text>
+            </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground} />
-                <LinearGradient
-                  colors={['#3498db', '#8e44ad']}
-                  style={[styles.progressBarFill, { width: `${progress.steps * 100}%` }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
-              <Text style={styles.progressPercent}>{`${Math.round(progress.steps * 100)}% completed`}</Text>
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <LinearGradient
+                colors={['#3498db', '#2980b9']}
+                style={[styles.progressBarFill, { width: `${progress.steps * 100}%` }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+            <Text style={styles.progressPercent}>{`${Math.round(progress.steps * 100)}% completed`}</Text>
 
-              {/* Cadence analytics */}
-              <View style={styles.analyticsSubPanel}>
-                <Icon name="analytics-outline" size={14} color="#3498db" style={{ marginRight: 6, marginTop: 2 }} />
-                <Text style={styles.analyticsText}>
-                  {data.steps > 0
-                    ? `Estimated stride length calculated at approx. 0.74 meters.`
-                    : 'Walk to populate today\'s stride cadence estimations.'}
-                </Text>
-              </View>
-            </LinearGradient>
+            {/* Cadence analytics */}
+            <View style={styles.analyticsSubPanel}>
+              <Icon name="analytics" size={15} color="#3498db" style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={styles.analyticsText}>
+                {data.steps > 0
+                  ? `Estimated stride length calculated at approx. 0.74 meters.`
+                  : 'Walk to populate today\'s stride cadence estimations.'}
+              </Text>
+            </View>
           </View>
 
           {/* Energy Burned Card */}
-          <View style={styles.detailCardContainer}>
-            <LinearGradient colors={['#241515', '#140a0a']} style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <View style={[styles.iconBackground, { backgroundColor: 'rgba(231, 76, 60, 0.15)' }]}>
-                  <Icon name="flame" size={20} color="#e74c3c" />
-                </View>
-                <View style={styles.cardHeaderTitleBlock}>
-                  <Text style={[styles.cardTitle, { color: '#e74c3c' }]}>ACTIVE CALORIES</Text>
-                  <Text style={styles.cardSubtitle}>Active energy burned from workouts & activity</Text>
-                </View>
+          <View style={[styles.detailCard, { borderColor: 'rgba(255, 71, 87, 0.15)' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconBackground, { backgroundColor: 'rgba(255, 71, 87, 0.12)' }]}>
+                <Icon name="flame" size={20} color="#ff4757" />
               </View>
+              <View style={styles.cardHeaderTitleBlock}>
+                <Text style={[styles.cardTitle, { color: '#ff4757' }]}>ACTIVE CALORIES</Text>
+                <Text style={styles.cardSubtitle}>Active energy burned from workouts & activity</Text>
+              </View>
+            </View>
 
-              <View style={styles.valueDisplayRow}>
-                <Text style={styles.largeValue}>{data.calories}</Text>
-                <Text style={styles.targetSubText}>{`of ${targets.calories} kcal goal`}</Text>
-              </View>
+            <View style={styles.valueDisplayRow}>
+              <Text style={styles.largeValue}>{data.calories}</Text>
+              <Text style={styles.targetSubText}>{`of ${targets.calories} kcal goal`}</Text>
+            </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground} />
-                <LinearGradient
-                  colors={['#e74c3c', '#e67e22']}
-                  style={[styles.progressBarFill, { width: `${progress.calories * 100}%` }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
-              <Text style={styles.progressPercent}>{`${Math.round(progress.calories * 100)}% completed`}</Text>
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <LinearGradient
+                colors={['#ff4757', '#ff6b81']}
+                style={[styles.progressBarFill, { width: `${progress.calories * 100}%` }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+            <Text style={styles.progressPercent}>{`${Math.round(progress.calories * 100)}% completed`}</Text>
 
-              <View style={styles.analyticsSubPanel}>
-                <Icon name="walk-outline" size={14} color="#e74c3c" style={{ marginRight: 6, marginTop: 2 }} />
-                <Text style={styles.analyticsText}>{activityEquivText}</Text>
-              </View>
-            </LinearGradient>
+            <View style={styles.analyticsSubPanel}>
+              <Icon name="fitness" size={15} color="#ff4757" style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={styles.analyticsText}>{activityEquivText}</Text>
+            </View>
           </View>
 
           {/* Distance Card */}
-          <View style={styles.detailCardContainer}>
-            <LinearGradient colors={['#122415', '#0a140b']} style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <View style={[styles.iconBackground, { backgroundColor: 'rgba(46, 204, 113, 0.15)' }]}>
-                  <Icon name="navigate-circle" size={20} color="#2ecc71" />
-                </View>
-                <View style={styles.cardHeaderTitleBlock}>
-                  <Text style={[styles.cardTitle, { color: '#2ecc71' }]}>TOTAL DISTANCE</Text>
-                  <Text style={styles.cardSubtitle}>Combined walking & running distance today</Text>
-                </View>
+          <View style={[styles.detailCard, { borderColor: 'rgba(46, 204, 113, 0.15)' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconBackground, { backgroundColor: 'rgba(46, 204, 113, 0.12)' }]}>
+                <Icon name="navigate" size={20} color="#2ecc71" />
               </View>
+              <View style={styles.cardHeaderTitleBlock}>
+                <Text style={[styles.cardTitle, { color: '#2ecc71' }]}>TOTAL DISTANCE</Text>
+                <Text style={styles.cardSubtitle}>Combined walking & running distance today</Text>
+              </View>
+            </View>
 
-              <View style={styles.valueDisplayRow}>
-                <Text style={styles.largeValue}>{data.distance}</Text>
-                <Text style={styles.targetSubText}>{`of ${targets.distance} KM goal`}</Text>
-              </View>
+            <View style={styles.valueDisplayRow}>
+              <Text style={styles.largeValue}>{data.distance}</Text>
+              <Text style={styles.targetSubText}>{`of ${targets.distance} KM goal`}</Text>
+            </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground} />
-                <LinearGradient
-                  colors={['#2ecc71', '#1abc9c']}
-                  style={[styles.progressBarFill, { width: `${progress.distance * 100}%` }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
-              <Text style={styles.progressPercent}>{`${Math.round(progress.distance * 100)}% completed`}</Text>
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <LinearGradient
+                colors={['#2ecc71', '#27ae60']}
+                style={[styles.progressBarFill, { width: `${progress.distance * 100}%` }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+            <Text style={styles.progressPercent}>{`${Math.round(progress.distance * 100)}% completed`}</Text>
 
-              <View style={styles.analyticsSubPanel}>
-                <Icon name="speedometer-outline" size={14} color="#2ecc71" style={{ marginRight: 6, marginTop: 2 }} />
-                <Text style={styles.analyticsText}>
-                  {averageCadence > 0
-                    ? `Running average step density is ${averageCadence.toLocaleString()} steps per kilometer.`
-                    : 'Move around to calculate step density analytics.'}
-                </Text>
-              </View>
-            </LinearGradient>
+            <View style={styles.analyticsSubPanel}>
+              <Icon name="speedometer" size={15} color="#2ecc71" style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={styles.analyticsText}>
+                {averageCadence > 0
+                  ? `Running average step density is ${averageCadence.toLocaleString()} steps per kilometer.`
+                  : 'Move around to calculate step density analytics.'}
+              </Text>
+            </View>
           </View>
 
           {/* Sleep Analysis Card */}
-          <View style={styles.detailCardContainer}>
-            <LinearGradient colors={['#1f1324', '#110a14']} style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <View style={[styles.iconBackground, { backgroundColor: 'rgba(155, 89, 182, 0.15)' }]}>
-                  <Icon name="moon" size={20} color="#9b59b6" />
-                </View>
-                <View style={styles.cardHeaderTitleBlock}>
-                  <Text style={[styles.cardTitle, { color: '#9b59b6' }]}>SLEEP ANALYSIS</Text>
-                  <Text style={styles.cardSubtitle}>Sleep samples & duration logged over 24h</Text>
-                </View>
+          <View style={[styles.detailCard, { borderColor: 'rgba(155, 89, 182, 0.15)' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconBackground, { backgroundColor: 'rgba(155, 89, 182, 0.12)' }]}>
+                <Icon name="moon" size={20} color="#9b59b6" />
               </View>
+              <View style={styles.cardHeaderTitleBlock}>
+                <Text style={[styles.cardTitle, { color: '#9b59b6' }]}>SLEEP ANALYSIS</Text>
+                <Text style={styles.cardSubtitle}>Sleep samples & duration logged over 24h</Text>
+              </View>
+            </View>
 
-              <View style={styles.valueDisplayRow}>
-                <Text style={styles.largeValue}>{data.sleep}</Text>
-                <Text style={styles.targetSubText}>{`of ${targets.sleep} hours goal`}</Text>
-              </View>
+            <View style={styles.valueDisplayRow}>
+              <Text style={styles.largeValue}>{data.sleep}</Text>
+              <Text style={styles.targetSubText}>{`of ${targets.sleep} hours goal`}</Text>
+            </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground} />
-                <LinearGradient
-                  colors={['#9b59b6', '#34495e']}
-                  style={[styles.progressBarFill, { width: `${progress.sleep * 100}%` }]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                />
-              </View>
-              <Text style={styles.progressPercent}>{`${Math.round(progress.sleep * 100)}% completed`}</Text>
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground} />
+              <LinearGradient
+                colors={['#9b59b6', '#8e44ad']}
+                style={[styles.progressBarFill, { width: `${progress.sleep * 100}%` }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+            <Text style={styles.progressPercent}>{`${Math.round(progress.sleep * 100)}% completed`}</Text>
 
-              <View style={styles.analyticsSubPanel}>
-                <Icon name={sleepStatus.icon} size={14} color={sleepStatus.color} style={{ marginRight: 6, marginTop: 2 }} />
-                <Text style={[styles.analyticsText, { color: sleepStatus.color, fontWeight: '600' }]}>
-                  {`Status: ${sleepStatus.text}`}
-                </Text>
-              </View>
-            </LinearGradient>
+            <View style={styles.analyticsSubPanel}>
+              <Icon name={sleepStatus.icon === 'checkmark-circle-outline' ? 'checkmark-circle' : sleepStatus.icon === 'alert-circle-outline' ? 'alert-circle' : 'warning'} size={15} color={sleepStatus.color} style={{ marginRight: 8, marginTop: 2 }} />
+              <Text style={[styles.analyticsText, { color: sleepStatus.color, fontWeight: '600' }]}>
+                {`Status: ${sleepStatus.text}`}
+              </Text>
+            </View>
           </View>
 
         </ScrollView>
@@ -333,19 +339,19 @@ const HealthKitDataScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#050505',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   backButton: {
-    padding: 6,
+    padding: 4,
     marginRight: 12,
   },
   headerTitleContainer: {
@@ -353,13 +359,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
     marginTop: 2,
   },
   refreshButton: {
@@ -367,91 +373,108 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    width: '100%',
   },
   scrollContainer: {
     paddingHorizontal: 16,
-    paddingTop: 15,
-    paddingBottom: 30,
+    paddingTop: 16,
+    paddingBottom: 36,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 32,
   },
   loadingText: {
     color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 12,
+    marginTop: 14,
     fontSize: 13,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+  },
+  warningIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 71, 87, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   warningTitle: {
     color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   warningDesc: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 28,
   },
   connectBtn: {
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
+    backgroundColor: '#7C4DFF',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 28,
+    shadowColor: '#7C4DFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   connectBtnText: {
     color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  statusBannerContainer: {
-    marginBottom: 20,
+    fontWeight: '700',
+    fontSize: 15,
   },
   statusBanner: {
     width: '100%',
     padding: 16,
     borderRadius: 16,
+    backgroundColor: '#0A0A0C',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 20,
   },
   statusDotRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
   },
+  pulseContainer: {
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
   greenPulseDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#2ecc71',
-    marginRight: 8,
   },
   statusTitle: {
     color: '#FFF',
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   statusDesc: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 12,
     lineHeight: 18,
   },
-  detailCardContainer: {
-    marginBottom: 16,
-    width: '100%',
-  },
   detailCard: {
     padding: 20,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 16,
+    width: '100%',
+    backgroundColor: '#0A0A0C',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -461,8 +484,7 @@ const styles = StyleSheet.create({
   iconBackground: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(52, 152, 219, 0.15)',
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -471,15 +493,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    color: '#3498db',
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.8,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   cardSubtitle: {
     color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 11,
-    marginTop: 1,
+    marginTop: 2,
   },
   valueDisplayRow: {
     flexDirection: 'row',
@@ -489,12 +510,12 @@ const styles = StyleSheet.create({
   largeValue: {
     color: '#FFF',
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginRight: 10,
   },
   targetSubText: {
     color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12,
+    fontSize: 13,
   },
   progressBarContainer: {
     height: 6,
@@ -509,7 +530,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 3,
   },
   progressBarFill: {

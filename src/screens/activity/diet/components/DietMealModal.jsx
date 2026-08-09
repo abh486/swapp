@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, SafeAreaView, TouchableOpacity, ScrollView, Image, TextInput, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, SafeAreaView, TouchableOpacity, ScrollView, Image, TextInput, ActivityIndicator, Alert, Dimensions, Platform } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { analyzeMealWithAI, saveDietEntry } from '../../../../redux/actions/dietActions';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -26,9 +28,67 @@ const DietMealModal = ({
   setSelectedMealType,
   mealDescription,
   setMealDescription,
-  setTrackedMealImage
+  setTrackedMealImage,
+  selectedDate,
+  setSelectedImage
 }) => {
   const dispatch = useDispatch();
+  const [mealTime, setMealTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const handleSelectPhoto = () => {
+    console.log('[DietMealModal] handleSelectPhoto pressed');
+    Alert.alert(
+      "Add Food Photo",
+      "Choose an option to add a photo of your food:",
+      [
+        {
+          text: "Take Photo 📸",
+          onPress: () => {
+            console.log('[DietMealModal] Launching camera...');
+            launchCamera(
+              { mediaType: 'photo', quality: 0.8 },
+              (response) => {
+                console.log('[DietMealModal] Camera response:', response);
+                if (response.didCancel) {
+                  console.log('[DietMealModal] User cancelled camera selection');
+                } else if (response.errorCode) {
+                  console.error('[DietMealModal] Camera error:', response.errorCode, response.errorMessage);
+                  Alert.alert(
+                    "Camera Error",
+                    response.errorMessage || `Error code: ${response.errorCode}. Note that camera is not available on simulators.`
+                  );
+                } else if (response.assets?.[0]?.uri) {
+                  setSelectedImage(response.assets[0].uri);
+                }
+              }
+            );
+          }
+        },
+        {
+          text: "Choose from Library 🖼️",
+          onPress: () => {
+            console.log('[DietMealModal] Launching library...');
+            launchImageLibrary(
+              { mediaType: 'photo', quality: 0.8 },
+              (response) => {
+                console.log('[DietMealModal] Image library response:', response);
+                if (response.didCancel) {
+                  console.log('[DietMealModal] User cancelled library selection');
+                } else if (response.errorCode) {
+                  console.error('[DietMealModal] Library error:', response.errorCode, response.errorMessage);
+                  Alert.alert("Library Error", response.errorMessage || `Error code: ${response.errorCode}`);
+                } else if (response.assets?.[0]?.uri) {
+                  setSelectedImage(response.assets[0].uri);
+                }
+              }
+            );
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
 
   const handleTextAnalysis = async () => {
     if (!mealDescription.trim()) {
@@ -41,7 +101,14 @@ const DietMealModal = ({
       console.log('[DietMealModal] Requesting AI analysis for description:', mealDescription, 'with image:', uploadedImageUrl);
       const response = await dispatch(analyzeMealWithAI(uploadedImageUrl, mealDescription));
       if (response.success && response.data) {
-        setNutritionData(response.data);
+        const analysis = response.data.analysis || {};
+        setNutritionData({
+          mealName: analysis.cleanMealName || analysis.mealName || 'Unnamed Meal',
+          calories: analysis.calories || 0,
+          protein: analysis.protein || 0,
+          carbs: analysis.carbs || 0,
+          fats: analysis.fats || 0
+        });
         setMealStep(2);
       } else {
         Alert.alert("Analysis Error", response.message || "Failed to analyze meal description.");
@@ -83,22 +150,9 @@ const DietMealModal = ({
                 showsVerticalScrollIndicator={false}
                 bounces={false}
               >
-                {/* Image Overlap */}
-                <View style={styles.modalImageWrapper}>
-                  {selectedImage ? (
-                    <Image source={{ uri: selectedImage }} style={styles.modalImage} />
-                  ) : (
-                    <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
-                      <Icon name="restaurant-outline" size={60} color="#888" />
-                    </View>
-                  )}
-                  {mealStep === 1 && !aiLoading && (
-                    <View style={styles.checkBadge}>
-                      <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
-                    </View>
-                  )}
-                </View>
- 
+                {/* Spacer at the top of ScrollView so content is not covered by absolute image */}
+                <View style={{ height: SCREEN_HEIGHT < 680 ? 100 : 130 }} />
+
                 {aiLoading ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
@@ -107,29 +161,50 @@ const DietMealModal = ({
                   </View>
                 ) : (
                   <>
-                    {/* Controls Row */}
-                    <View style={styles.modalControlsRow}>
-                      <TouchableOpacity 
-                        style={styles.lunchDropdown}
-                        onPress={() => {
-                          Alert.alert(
-                            "Select Meal Type",
-                            "Choose when you had this meal:",
-                            [
-                              { text: "Breakfast", onPress: () => setSelectedMealType("Breakfast") },
-                              { text: "Morning Snack", onPress: () => setSelectedMealType("Morning Snack") },
-                              { text: "Lunch", onPress: () => setSelectedMealType("Lunch") },
-                              { text: "Evening Snack", onPress: () => setSelectedMealType("Evening Snack") },
-                              { text: "Dinner", onPress: () => setSelectedMealType("Dinner") },
-                              { text: "Cancel", style: "cancel" }
-                            ]
-                          );
-                        }}
-                      >
-                        <Text style={styles.lunchDropdownText}>{selectedMealType}</Text>
-                        <Icon name="chevron-down" size={16} color="#FFF" />
-                      </TouchableOpacity>
- 
+                    {/* Segmented control for selecting meal type */}
+                    {selectedMealType !== 'Custom Meal' ? (
+                      <View style={styles.segmentedOuterContainer}>
+                        <ScrollView 
+                          horizontal 
+                          showsHorizontalScrollIndicator={false} 
+                          contentContainerStyle={styles.segmentedContent}
+                        >
+                          {['Breakfast', 'Morning Snack', 'Lunch', 'Evening Snack', 'Dinner'].map((type) => {
+                            const isSelected = selectedMealType === type;
+                            return (
+                              <TouchableOpacity
+                                key={type}
+                                style={[styles.segmentedButton, isSelected && styles.segmentedButtonActive]}
+                                onPress={() => setSelectedMealType(type)}
+                              >
+                                <Text style={[styles.segmentedText, isSelected && styles.segmentedTextActive]}>
+                                  {type}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    ) : (
+                      <View style={styles.customMealContainer}>
+                        <View style={[styles.lunchDropdown, { flex: 1, marginRight: 10, minWidth: 120 }]}>
+                          <Text style={styles.lunchDropdownText}>Custom Meal</Text>
+                        </View>
+                        <TouchableOpacity 
+                          style={[styles.lunchDropdown, { flex: 1, minWidth: 120 }]}
+                          onPress={() => setShowTimePicker(true)}
+                        >
+                          <Text style={styles.lunchDropdownText}>
+                            {mealTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                          <Icon name="time-outline" size={16} color="#FFF" style={{ marginLeft: 6 }} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Quantity Selector Row */}
+                    <View style={styles.quantityRow}>
+                      <Text style={styles.quantityLabel}>Quantity</Text>
                       <View style={styles.quantitySelector}>
                         <TouchableOpacity 
                           onPress={() => setMealQuantity(Math.max(1, mealQuantity - 1))}
@@ -146,6 +221,43 @@ const DietMealModal = ({
                         </TouchableOpacity>
                       </View>
                     </View>
+
+                    {showTimePicker && Platform.OS === 'ios' && (
+                      <Modal visible={showTimePicker} transparent={true} animationType="fade">
+                        <View style={styles.modalOverlayCentered}>
+                          <View style={styles.datePickerContainer}>
+                            <DateTimePicker
+                              value={mealTime}
+                              mode="time"
+                              display="spinner"
+                              onChange={(event, date) => {
+                                if (date) setMealTime(date);
+                              }}
+                              textColor="#000"
+                            />
+                            <TouchableOpacity 
+                              style={styles.datePickerButton} 
+                              onPress={() => setShowTimePicker(false)}
+                            >
+                              <Text style={styles.datePickerButtonText}>Done</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </Modal>
+                    )}
+                    {showTimePicker && Platform.OS === 'android' && (
+                      <DateTimePicker
+                        value={mealTime}
+                        mode="time"
+                        display="default"
+                        onChange={(event, date) => {
+                          setShowTimePicker(false);
+                          if (date) {
+                            setMealTime(date);
+                          }
+                        }}
+                      />
+                    )}
  
                     {/* Meal Info */}
                     <Text style={styles.mealName}>{nutritionData?.mealName || 'Unnamed Meal'}</Text>
@@ -171,23 +283,13 @@ const DietMealModal = ({
                           </TouchableOpacity>
                         </View>
  
-                        {/* Move Meal Options */}
-                        <View style={styles.moveMealCard}>
-                          <Text style={styles.moveMealTitle}>Where do you want to move this meal?</Text>
-                          
-                          {['Breakfast', 'Morning Snack', 'Lunch', 'Evening Snack', 'Dinner'].map((option, index) => (
-                            <TouchableOpacity 
-                              key={index} 
-                              style={styles.moveMealOption} 
-                              onPress={() => {
-                                setSelectedMealType(option);
-                                setMealStep(2);
-                              }}
-                            >
-                              <Text style={styles.moveMealOptionText}>{option}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
+                        {/* Manual entry / skip AI button */}
+                        <TouchableOpacity 
+                          style={styles.manualEntryBtn} 
+                          onPress={() => setMealStep(2)}
+                        >
+                          <Text style={styles.manualEntryBtnText}>Log Manually (Skip AI) ➔</Text>
+                        </TouchableOpacity>
  
                         {/* Cancel Button */}
                         <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setShowMealModal(false); setMealStep(1); setMealDescription(''); }}>
@@ -240,18 +342,29 @@ const DietMealModal = ({
                           style={[styles.modalDoneBtn, { marginTop: 10, marginBottom: 20 }]} 
                           onPress={async () => {
                             setAiLoading(true);
-                            try {
-                              const payload = {
-                                mealName: nutritionData.mealName,
-                                mealType: selectedMealType.toLowerCase(),
-                                calories: Math.round((nutritionData.calories || 0) * mealQuantity),
-                                protein: Math.round((nutritionData.protein || 0) * mealQuantity),
-                                carbs: Math.round((nutritionData.carbs || 0) * mealQuantity),
-                                fats: Math.round((nutritionData.fats || 0) * mealQuantity),
-                                notes: mealDescription || '',
-                                photoUrl: uploadedImageUrl,
-                                photo: selectedImage ? { uri: selectedImage } : null,
-                              };
+                             try {
+                               let customCreatedAt = null;
+                               if (selectedMealType === 'Custom Meal' && selectedDate) {
+                                 const newDate = new Date(selectedDate);
+                                 newDate.setHours(mealTime.getHours());
+                                 newDate.setMinutes(mealTime.getMinutes());
+                                 newDate.setSeconds(0);
+                                 newDate.setMilliseconds(0);
+                                 customCreatedAt = newDate.toISOString();
+                               }
+
+                               const payload = {
+                                 mealName: nutritionData.mealName,
+                                 mealType: selectedMealType.toLowerCase(),
+                                 calories: Math.round((nutritionData.calories || 0) * mealQuantity),
+                                 protein: Math.round((nutritionData.protein || 0) * mealQuantity),
+                                 carbs: Math.round((nutritionData.carbs || 0) * mealQuantity),
+                                 fats: Math.round((nutritionData.fats || 0) * mealQuantity),
+                                 notes: mealDescription || '',
+                                 photoUrl: uploadedImageUrl,
+                                 photo: selectedImage ? { uri: selectedImage } : null,
+                                 ...(customCreatedAt ? { createdAt: customCreatedAt } : {}),
+                               };
                               
                               console.log('[DietMealModal] Dispatching saveDietEntry:', payload);
                               const saveResponse = await dispatch(saveDietEntry(payload));
@@ -279,6 +392,31 @@ const DietMealModal = ({
                   </>
                 )}
               </ScrollView>
+
+              {/* Image Overlap (Absolute Positioned as direct child of Sheet to handle touch events perfectly) */}
+              <View style={styles.modalImageWrapper}>
+                {selectedImage ? (
+                  <Image source={{ uri: selectedImage }} style={styles.modalImage} />
+                ) : (
+                  <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
+                    <Icon name="restaurant-outline" size={60} color="#888" />
+                  </View>
+                )}
+                {!aiLoading && (
+                  <TouchableOpacity 
+                    style={styles.modalCameraBtn} 
+                    onPress={handleSelectPhoto}
+                    activeOpacity={0.8}
+                  >
+                    <Icon name="camera" size={16} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+                {selectedImage && mealStep === 1 && !aiLoading && (
+                  <View style={styles.checkBadge}>
+                    <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         </SafeAreaView>
@@ -335,7 +473,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 35,
     paddingHorizontal: 20,
     paddingTop: 0,
-    maxHeight: SCREEN_HEIGHT - 100,
+    maxHeight: SCREEN_HEIGHT - 240,
   },
   modalBottomSheetExpanded: {},
   sheetScrollView: {
@@ -347,10 +485,9 @@ const styles = StyleSheet.create({
   },
   modalImageWrapper: {
     alignSelf: 'center',
-    marginTop: SCREEN_HEIGHT < 680 ? -90 : -115,
-    marginBottom: 0,
-    position: 'relative',
-    zIndex: 2,
+    top: SCREEN_HEIGHT < 680 ? -90 : -115,
+    position: 'absolute',
+    zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -613,6 +750,115 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginVertical: 10,
+  },
+  modalOverlayCentered: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    alignItems: 'center',
+  },
+  datePickerButton: {
+    marginTop: 15,
+    backgroundColor: '#FF5722',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 20,
+  },
+  datePickerButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalCameraBtn: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#7C4DFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  segmentedOuterContainer: {
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  segmentedContent: {
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    gap: 8,
+  },
+  segmentedButton: {
+    backgroundColor: '#222',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  segmentedButtonActive: {
+    backgroundColor: '#FF6F00',
+    borderColor: '#FF6F00',
+  },
+  segmentedText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  segmentedTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  customMealContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#000',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  quantityLabel: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  manualEntryBtn: {
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  manualEntryBtnText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
