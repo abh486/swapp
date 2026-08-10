@@ -276,10 +276,14 @@ export const AuthProvider = ({ children }) => {
       } catch (e) {
         console.error('🔴 ERROR in checkAuthStatus:', e.message);
 
-        const isNetworkError = !e.response || e.message === 'Network Error' || e.code === 'ECONNABORTED';
+        const isNetworkError =
+          !e.response ||
+          e.message === 'Network Error' ||
+          e.code === 'ECONNABORTED' ||
+          (e.response && e.response.status >= 500);
 
         if (isNetworkError) {
-          console.log('[AuthContext] Network connection error during silent check. Preserving authentication state.');
+          console.log('[AuthContext] Network connection or server error (5xx) during check. Preserving authentication state.');
         } else {
           const savedToken = await AsyncStorage.getItem('accessToken');
           if (savedToken) {

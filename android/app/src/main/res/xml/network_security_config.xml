@@ -5,7 +5,7 @@
         <domain includeSubdomains="false">test-api.swapp.fit</domain>
         <pin-set>
             <!-- Leaf pin (CN=swapp.fit) -->
-            <pin digest="SHA-256">Sih6iM9xhm0EFt5/lv9XK7UGFMkd9YkHs8W8E3+Kxlo=</pin>
+            <pin digest="SHA-256">li99NRRj8pe0j/o0URlEp3+HfyoHZ9Lxo6s/ADNA+R0=</pin>
             <!-- Intermediate CA pin (CN=WE1) -->
             <pin digest="SHA-256">kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</pin>
             <!-- Root CA pin (CN=GTS Root R4) -->
