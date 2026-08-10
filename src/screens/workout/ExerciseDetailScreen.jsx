@@ -15,7 +15,7 @@ import Video from 'react-native-video';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useResponsiveMetrics } from '../../utils/responsive';
-import exerciseApi from '../../api/exerciseApi';
+import exerciseApi from '../../redux/actions/exerciseActions';
 
 const { width } = Dimensions.get('window');
 
@@ -106,7 +106,7 @@ const ExerciseDetailScreen = () => {
     exercise?.imageUrl ||
     exercise?.gif ||
     exercise?.image ||
-    'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500';
+    (exercise?.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${exercise.exerciseId}` : null);
 
   return (
     <SafeAreaView style={styles.safeArea}>

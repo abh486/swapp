@@ -50,7 +50,10 @@ const DietAllLogs = ({ navigation, route }) => {
         : Array.isArray(payload.logs)
           ? payload.logs
           : [];
-      setLogs(normalized);
+      const foodLogsOnly = normalized.filter(
+        (item) => item.mealType !== 'water' && item.mealName !== 'Water'
+      );
+      setLogs(foodLogsOnly);
     } catch (err) {
       setError('Unable to load diet logs. Please try again.');
     } finally {
@@ -59,16 +62,8 @@ const DietAllLogs = ({ navigation, route }) => {
   }, []);
 
   const fetchDailySummary = useCallback(async () => {
-    try {
-      const formattedDate = selectedDate.toISOString().split('T')[0];
-      const res = await apiClient.get(`/summary/daily?date=${formattedDate}`);
-      if (res.data?.success) {
-        setDailySummary(res.data.data);
-      }
-    } catch (err) {
-      console.warn('[DietAllLogs] Failed to fetch daily summary:', err.message);
-    }
-  }, [selectedDate]);
+    // No-op: /summary/daily route removed
+  }, []);
 
   useEffect(() => {
     fetchAllDietLogs();

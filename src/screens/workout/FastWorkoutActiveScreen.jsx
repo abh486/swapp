@@ -20,19 +20,21 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path, Circle, Rect, Polyline } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import apiClient from '../../api/apiClient';
 import { useDispatch, useSelector } from 'react-redux';
 import { EquipmentModal } from '../../components/EquipmentModal';
 import { MuscleModal } from '../../components/MuscleModal';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { getMuscleImageUrl } from '../../utils/workoutIcons';
 import * as Clarity from '../../utils/clarity';
 import {
   useCameraDevice,
   useCameraPermission,
   usePhotoOutput,
 } from 'react-native-vision-camera';
-import { logWorkoutSession, updateCustomWorkoutTemplate, fetchExercises, fetchEquipments, fetchMuscles } from '../../redux/actions/workoutActions'; // Adjust path if needed
+import { logWorkoutSession, updateCustomWorkoutTemplate, fetchExercises, fetchEquipments, fetchMuscles, resolveExerciseImageUri } from '../../redux/actions/workoutActions';
 import WorkoutCameraModal from './components/WorkoutCameraModal';
 import InteractiveMuscleMap from '../../components/workout/InteractiveMuscleMap';
 
@@ -327,6 +329,7 @@ const FastWorkoutActiveScreen = () => {
       return {
         ...ex,
         id: ex.id || ex._id || ex.exerciseId || `ex-${Date.now()}-${index}`,
+        imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
         sets: prePopulatedSets.length > 0 ? prePopulatedSets : [],
       };
     });
@@ -364,6 +367,7 @@ const FastWorkoutActiveScreen = () => {
             newExercises.push({
               ...ex,
               id: ex.id || ex._id || ex.exerciseId || `ex-${Date.now()}-${Math.random()}`,
+              imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
               sets: prePopulatedSets.length > 0 ? prePopulatedSets : [],
             });
           }
@@ -527,9 +531,10 @@ const FastWorkoutActiveScreen = () => {
   const renderExerciseItem = ({ item }) => {
     const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
     const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
-    const imageSource = item.gifUrl
-      ? { uri: item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
-      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' };
+    const rawImg = item.imageUrl || item.gifUrl || (item.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${item.exerciseId}` : null);
+    const imageSource = rawImg
+      ? { uri: rawImg, headers: { 'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com', 'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d' } }
+      : null;
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
 
     return (
@@ -1558,21 +1563,32 @@ const FastWorkoutActiveScreen = () => {
             >
               <View style={styles.exerciseHeader}>
                 <View style={styles.exerciseImagePlaceholder}>
-                  <Image
-                    source={(exercise.gifUrl && !failedImages[exercise.id])
-                      ? {
-                        uri: exercise.gifUrl,
-                        headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' }
-                      }
-                      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' }
+                  {(() => {
+                    const target = (exercise.targetMuscles && exercise.targetMuscles[0]) || (exercise.bodyParts && exercise.bodyParts[0]) || 'triceps';
+                    const rawImg = resolveExerciseImageUri(exercise);
+                    if (rawImg && !failedImages[exercise.id]) {
+                      return (
+                        <Image
+                          source={{
+                            uri: rawImg,
+                            headers: rawImg.includes('rapidapi') ? {
+                              'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
+                              'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
+                            } : undefined,
+                          }}
+                          style={{ width: 60, height: 60, borderRadius: 30 }}
+                          resizeMode="cover"
+                          onError={() => setFailedImages((prev) => ({ ...prev, [exercise.id]: true }))}
+                        />
+                      );
                     }
-                    style={{ width: 60, height: 60, borderRadius: 30 }}
-                    resizeMode="cover"
-                    onError={(e) => {
-                      console.log(`[FastWorkout] Active image error fallback triggered for ${exercise.name}:`, e.nativeEvent.error);
-                      setFailedImages(prev => ({ ...prev, [exercise.id]: true }));
-                    }}
-                  />
+                    const muscleAvatar = getMuscleImageUrl(target);
+                    return (
+                      <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#1C2430', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <Image source={{ uri: muscleAvatar }} style={{ width: 44, height: 44 }} resizeMode="contain" />
+                      </View>
+                    );
+                  })()}
                 </View>
                 <View style={styles.exerciseHeaderTextContainer}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>

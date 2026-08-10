@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as types from '../actionTypes/actionTypes';
 
 const RAPIDAPI_BASE_URL = 'https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1';
 
@@ -12,23 +13,17 @@ const exerciseApiClient = axios.create({
   },
 });
 
-/**
- * Check API Server Liveness
- */
+// ── Raw Direct API Call Helpers ──
 export const checkLiveness = async () => {
   try {
     const res = await exerciseApiClient.get('/liveness');
     return res.data;
   } catch (error) {
-    console.warn('[exerciseApi] checkLiveness failed:', error?.message);
+    console.warn('[exerciseActions] checkLiveness failed:', error?.message);
     return null;
   }
 };
 
-/**
- * Get exercises list with filters & pagination
- * @param {Object} params - { limit, after, search, name, keywords, bodyParts, equipments, targetMuscles }
- */
 export const getExercises = async (params = {}) => {
   try {
     const queryParams = {};
@@ -40,15 +35,11 @@ export const getExercises = async (params = {}) => {
     const res = await exerciseApiClient.get('/exercises', { params: queryParams });
     return res.data;
   } catch (error) {
-    console.error('[exerciseApi] getExercises error:', error?.response?.data || error?.message);
+    console.error('[exerciseActions] getExercises error:', error?.response?.data || error?.message);
     throw error;
   }
 };
 
-/**
- * Search exercises by query string
- * @param {string} query
- */
 export const searchExercises = async (query) => {
   try {
     if (!query) return { success: true, data: [] };
@@ -57,81 +48,62 @@ export const searchExercises = async (query) => {
     });
     return res.data;
   } catch (error) {
-    console.error('[exerciseApi] searchExercises error:', error?.response?.data || error?.message);
+    console.error('[exerciseActions] searchExercises error:', error?.response?.data || error?.message);
     throw error;
   }
 };
 
-/**
- * Get single exercise details by exerciseId
- * @param {string} exerciseId
- */
 export const getExerciseById = async (exerciseId) => {
   try {
     if (!exerciseId) return null;
     const res = await exerciseApiClient.get(`/exercises/${encodeURIComponent(exerciseId)}`);
     return res.data;
   } catch (error) {
-    console.error(`[exerciseApi] getExerciseById (${exerciseId}) error:`, error?.response?.data || error?.message);
+    console.error(`[exerciseActions] getExerciseById (${exerciseId}) error:`, error?.response?.data || error?.message);
     throw error;
   }
 };
 
-/**
- * Get all available muscle groups
- */
 export const getMuscles = async () => {
   try {
     const res = await exerciseApiClient.get('/muscles');
     return res.data;
   } catch (error) {
-    console.warn('[exerciseApi] getMuscles error:', error?.message);
+    console.warn('[exerciseActions] getMuscles error:', error?.message);
     return { success: false, data: [] };
   }
 };
 
-/**
- * Get all available body parts
- */
 export const getBodyParts = async () => {
   try {
     const res = await exerciseApiClient.get('/bodyparts');
     return res.data;
   } catch (error) {
-    console.warn('[exerciseApi] getBodyParts error:', error?.message);
+    console.warn('[exerciseActions] getBodyParts error:', error?.message);
     return { success: false, data: [] };
   }
 };
 
-/**
- * Get all available equipments
- */
 export const getEquipments = async () => {
   try {
     const res = await exerciseApiClient.get('/equipments');
     return res.data;
   } catch (error) {
-    console.warn('[exerciseApi] getEquipments error:', error?.message);
+    console.warn('[exerciseActions] getEquipments error:', error?.message);
     return { success: false, data: [] };
   }
 };
 
-/**
- * Get all exercise types
- */
 export const getExerciseTypes = async () => {
   try {
     const res = await exerciseApiClient.get('/exercisetypes');
     return res.data;
   } catch (error) {
-    console.warn('[exerciseApi] getExerciseTypes error:', error?.message);
+    console.warn('[exerciseActions] getExerciseTypes error:', error?.message);
     return { success: false, data: [] };
   }
 };
 
-/**
- * Get warmup & stretching exercises from API
- */
 export const getWarmupExercises = async () => {
   try {
     const res = await exerciseApiClient.get('/exercises/search', {
@@ -152,14 +124,11 @@ export const getWarmupExercises = async () => {
     }
     return [];
   } catch (error) {
-    console.warn('[exerciseApi] getWarmupExercises error:', error?.message);
+    console.warn('[exerciseActions] getWarmupExercises error:', error?.message);
     return [];
   }
 };
 
-/**
- * Fetch complete structured workout routines dynamically assembled with API video/image media
- */
 export const getCompleteWorkouts = async () => {
   try {
     const [warmupRes, strengthRes] = await Promise.all([
@@ -227,11 +196,119 @@ export const getCompleteWorkouts = async () => {
       routines: completeRoutines,
     };
   } catch (error) {
-    console.error('[exerciseApi] getCompleteWorkouts error:', error?.message);
+    console.error('[exerciseActions] getCompleteWorkouts error:', error?.message);
     return { success: false, warmups: [], routines: [] };
   }
 };
 
+// ── Redux Async Thunk Actions ──
+export const fetchExercisesRedux = (params = {}) => async (dispatch) => {
+  dispatch({ type: types.EXERCISE_FETCH_LIST_REQUEST });
+  try {
+    const data = await getExercises(params);
+    dispatch({
+      type: types.EXERCISE_FETCH_LIST_SUCCESS,
+      payload: data?.data || [],
+    });
+    return data;
+  } catch (error) {
+    dispatch({
+      type: types.EXERCISE_FETCH_LIST_FAILURE,
+      payload: error.message,
+    });
+    return [];
+  }
+};
+
+export const searchExercisesRedux = (query) => async (dispatch) => {
+  dispatch({ type: types.EXERCISE_SEARCH_REQUEST });
+  try {
+    const data = await searchExercises(query);
+    dispatch({
+      type: types.EXERCISE_SEARCH_SUCCESS,
+      payload: data?.data || [],
+    });
+    return data;
+  } catch (error) {
+    dispatch({
+      type: types.EXERCISE_SEARCH_FAILURE,
+      payload: error.message,
+    });
+    return [];
+  }
+};
+
+export const fetchExerciseByIdRedux = (exerciseId) => async (dispatch) => {
+  dispatch({ type: types.EXERCISE_FETCH_BY_ID_REQUEST });
+  try {
+    const data = await getExerciseById(exerciseId);
+    dispatch({
+      type: types.EXERCISE_FETCH_BY_ID_SUCCESS,
+      payload: data?.data || data,
+    });
+    return data;
+  } catch (error) {
+    dispatch({
+      type: types.EXERCISE_FETCH_BY_ID_FAILURE,
+      payload: error.message,
+    });
+    return null;
+  }
+};
+
+export const fetchExerciseMetadataRedux = () => async (dispatch) => {
+  dispatch({ type: types.EXERCISE_FETCH_METADATA_REQUEST });
+  try {
+    const [muscles, bodyParts, equipments, typesList] = await Promise.all([
+      getMuscles(),
+      getBodyParts(),
+      getEquipments(),
+      getExerciseTypes(),
+    ]);
+
+    const metadata = {
+      muscles: muscles?.data || [],
+      bodyParts: bodyParts?.data || [],
+      equipments: equipments?.data || [],
+      exerciseTypes: typesList?.data || [],
+    };
+
+    dispatch({
+      type: types.EXERCISE_FETCH_METADATA_SUCCESS,
+      payload: metadata,
+    });
+    return metadata;
+  } catch (error) {
+    dispatch({
+      type: types.EXERCISE_FETCH_METADATA_FAILURE,
+      payload: error.message,
+    });
+    return {};
+  }
+};
+
+export const fetchCompleteWorkoutsRedux = () => async (dispatch) => {
+  dispatch({ type: types.EXERCISE_FETCH_ROUTINES_REQUEST });
+  try {
+    const data = await getCompleteWorkouts();
+    dispatch({
+      type: types.EXERCISE_FETCH_ROUTINES_SUCCESS,
+      payload: {
+        warmups: data?.warmups || [],
+        routines: data?.routines || [],
+      },
+    });
+    return data;
+  } catch (error) {
+    dispatch({
+      type: types.EXERCISE_FETCH_ROUTINES_FAILURE,
+      payload: error.message,
+    });
+    return { warmups: [], routines: [] };
+  }
+};
+
+// Default export object for backwards compatibility
 export default {
   checkLiveness,
   getExercises,

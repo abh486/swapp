@@ -147,28 +147,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   }, [selectedDate]);
 
   const fetchRecommendation = async (generate = false) => {
-    setIsLoading(true);
-    try {
-      const recommendationsParams = await buildDietParams({
-        generate: generate ? 'true' : 'false'
-      });
-
-      console.log('[WeeklyDietPlanScreen] Fetching weekly plan, generate =', generate);
-      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
-      if (response.data?.success) {
-        const data = response.data.data;
-        setCurrentRecommendation(data);
-        setSelectedDate(getInitialSelectedDate(data));
-        if (generate) {
-          Alert.alert('Success', 'Weekly diet plan regenerated successfully!');
-        }
-      }
-    } catch (err) {
-      console.warn('[WeeklyDietPlanScreen] Fetch failed:', err);
-      Alert.alert('Error', 'Failed to retrieve diet plan.');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   };
 
   useEffect(() => {

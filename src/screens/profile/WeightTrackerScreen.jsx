@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { PanResponder } from 'react-native';
 import {
   View,
   Text,
@@ -14,1172 +15,1243 @@ import {
   Alert,
   Dimensions,
   Image,
+  UIManager,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Svg, { Path, Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { launchImageLibrary } from 'react-native-image-picker';
 import apiClient from '../../api/apiClient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  FadeInUp,
+  FadeInDown,
+  ZoomIn,
+} from 'react-native-reanimated';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchWeightLogs,
+  addWeightLog,
+  removeWeightLog,
+  fetchWeightTarget,
+  saveWeightTarget,
+} from '../../redux/actions/weightActions';
 
-const { width } = Dimensions.get('window');
-const CHART_WIDTH = width - 40;
-const CHART_HEIGHT = 180;
-const CHART_PADDING_LEFT = 35;
-const CHART_PADDING_RIGHT = 15;
-const CHART_PADDING_BOTTOM = 25;
-const CHART_PADDING_TOP = 15;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const PURPLE = '#7C4DFF';
-const LIGHT_PURPLE = '#311B92';
-const DARK_GRAY = '#121214';
-const LIGHT_GRAY = '#1A1A1E';
-const BORDER_COLOR = 'rgba(255, 255, 255, 0.08)';
+const GREEN = '#4CAF50';
+const GREEN_BRIGHT = '#66BB6A';
+const CARD_BG = '#161A17';
+const DARK_BG = '#0A0D0B';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
+const AnimatedKeypadKey = ({ label, icon, onPress, isUnit, isDone, onKeypadType }) => {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.88, { damping: 12, stiffness: 450 });
+  };
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 350 });
+  };
+
+  const handlePress = () => {
+    if (onKeypadType) onKeypadType();
+    onPress();
+  };
+
+  return (
+    <AnimatedTouchableOpacity
+      style={[
+        isDone ? styles.keypadDoneBtn : isUnit ? styles.keypadUnitBtn : styles.keypadKey,
+        animStyle,
+      ]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      activeOpacity={0.85}
+    >
+      {icon ? (
+        <Icon name={icon} size={24} color="#FFF" />
+      ) : (
+        <Text style={isDone ? styles.keypadDoneBtnText : isUnit ? styles.keypadUnitBtnText : styles.keypadKeyText}>
+          {label}
+        </Text>
+      )}
+    </AnimatedTouchableOpacity>
+  );
+};
 
 const WeightTrackerScreen = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState('Weight'); // 'Weight' | 'Body Fat'
-
-  // Goal State
-  const [goalType, setGoalType] = useState('Gained'); // 'Gained' | 'Lost'
-  const [goalAmount, setGoalAmount] = useState('5.0');
-  const [goalWeeks, setGoalWeeks] = useState('2');
-  const [startingValue, setStartingValue] = useState('75.0');
-  const [currentGoalVal, setCurrentGoalVal] = useState('80.0');
-
-  // Log lists
+  const dispatch = useDispatch();
+  const reduxWeight = useSelector(state => state.weight);
+  const [goalType, setGoalType] = useState('Gained');
+  const [startingValue, setStartingValue] = useState(() => reduxWeight?.startingValue ? String(Number(reduxWeight.startingValue).toFixed(1)) : '');
+  const [currentGoalVal, setCurrentGoalVal] = useState(() => reduxWeight?.targetWeight ? String(Number(reduxWeight.targetWeight).toFixed(1)) : '');
+  const [heightVal, setHeightVal] = useState(() => reduxWeight?.height ? String(Math.round(Number(reduxWeight.height))) : '');
   const [weightLogs, setWeightLogs] = useState([]);
   const [bodyFatLogs, setBodyFatLogs] = useState([]);
-
-  // Selected chart data point
-  const [selectedPointIndex, setSelectedPointIndex] = useState(1);
-
-  // Modals Visibility
-  const [goalModalVisible, setGoalModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('Weight');
   const [logModalVisible, setLogModalVisible] = useState(false);
-
-  // Input states
+  const [goalModalVisible, setGoalModalVisible] = useState(false);
+  const [editCardModal, setEditCardModal] = useState(null);
   const [logValue, setLogValue] = useState('');
   const [logDateText, setLogDateText] = useState('');
-  const [logPhoto, setLogPhoto] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [goalAmount, setGoalAmount] = useState('11.0');
+  const [goalWeeks, setGoalWeeks] = useState('4');
+  const [weightUnit, setWeightUnit] = useState('kg');
+  const [targetBMI, setTargetBMI] = useState(22.0);
+  const [bmiModalVisible, setBmiModalVisible] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [isFirstKey, setIsFirstKey] = useState(true);
+  const sliderRef = useRef(null);
+
+  // ── Reanimated values for typing feedback (Up to Down slide drop) ─────
+  const keypadY = useSharedValue(0);
+  const keypadScale = useSharedValue(1);
+  const keypadOpacity = useSharedValue(1);
+
+  const triggerKeypadAnim = () => {
+    keypadY.value = -24;
+    keypadOpacity.value = 0.3;
+    keypadScale.value = 1.18;
+
+    keypadY.value = withSpring(0, { damping: 11, stiffness: 320 });
+    keypadScale.value = withSpring(1.0, { damping: 12, stiffness: 250 });
+    keypadOpacity.value = withTiming(1.0, { duration: 160 });
+  };
+
+  const animatedKeypadValueStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: keypadY.value },
+      { scale: keypadScale.value },
+    ],
+    opacity: keypadOpacity.value,
+  }));
 
   const WEIGHT_GOAL_KEY = 'weight_tracker_goal';
   const WEIGHT_LOGS_KEY = 'weight_tracker_logs';
   const BODY_FAT_LOGS_KEY = 'body_fat_tracker_logs';
+  const METRICS_KEY = 'weight_body_metrics';
 
-  // Load Saved Goals and Logs
-  useEffect(() => {
-    const loadSavedData = async () => {
-      let currentWeights = [];
-      let currentFats = [];
-      try {
-        const savedWeightLogs = await AsyncStorage.getItem(WEIGHT_LOGS_KEY);
-        if (savedWeightLogs) {
-          currentWeights = JSON.parse(savedWeightLogs);
-          setWeightLogs(currentWeights);
-        }
+  // Helper: apply a profile object to state (called from cache and fresh API response)
+  const applyProfile = async (profile, existingWeightLogs, savedGoal) => {
+    if (!profile) return;
 
-        const savedFatLogs = await AsyncStorage.getItem(BODY_FAT_LOGS_KEY);
-        if (savedFatLogs) {
-          currentFats = JSON.parse(savedFatLogs);
-          setBodyFatLogs(currentFats);
-        }
-
-        const savedGoal = await AsyncStorage.getItem(WEIGHT_GOAL_KEY);
-        if (savedGoal) {
-          const parsedGoal = JSON.parse(savedGoal);
-          setGoalType(parsedGoal.goalType || 'Gained');
-          setGoalAmount(parsedGoal.goalAmount || '5.0');
-          setGoalWeeks(parsedGoal.goalWeeks || '2');
-          setStartingValue(parsedGoal.startingValue || '75.0');
-          setCurrentGoalVal(parsedGoal.currentGoalVal || '80.0');
-        }
-
-        // Fetch actual profile data from backend if locally saved lists are empty
-        // Fetch actual profile data from cached user session or backend verify-member endpoint
-        try {
-          let profile = null;
-          const cachedUser = await AsyncStorage.getItem('userProfile');
-          if (cachedUser) {
-            const userObj = JSON.parse(cachedUser);
-            profile = userObj?.userProfile || userObj?.memberProfile || userObj;
-          }
-
-          if (!profile) {
-            const response = await apiClient.post('/v1/auth/verify-member');
-            if (response.data?.success && response.data.data?.user) {
-              const userObj = response.data.data.user;
-              profile = userObj?.userProfile || userObj?.memberProfile || userObj;
-              await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
-            }
-          }
-
-          if (profile) {
-            // Handle initial Weight Log
-            if (currentWeights.length === 0) {
-              const weightVal = profile.weight?.value || profile.weight;
-              if (weightVal) {
-                const initialWLog = {
-                  id: 'initial_profile_weight',
-                  value: Number(weightVal),
-                  date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-                  timestamp: Date.now(),
-                  source: 'Profile',
-                  photo: null
-                };
-                setWeightLogs([initialWLog]);
-                currentWeights = [initialWLog];
-                await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify([initialWLog]));
-              }
-            }
-
-            // Handle initial Body Fat Log
-            if (currentFats.length === 0) {
-              const fatVal = profile.fatPercentage || profile.bodyFatPercentage || profile.bodyFat || profile.bodyFat;
-              if (fatVal) {
-                const initialFLog = {
-                  id: 'initial_profile_fat',
-                  value: Number(fatVal),
-                  date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-                  timestamp: Date.now(),
-                  source: 'Profile',
-                  photo: null
-                };
-                setBodyFatLogs([initialFLog]);
-                currentFats = [initialFLog];
-                await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify([initialFLog]));
-              }
-            }
-
-            // Sync starting and target weights from backend
-            if (!savedGoal) {
-              const startW = profile.weight?.value || profile.weight || (currentWeights[0]?.value) || 75.0;
-              const targetW = profile.targetWeight?.value || profile.targetWeight || 80.0;
-              setStartingValue(String(startW));
-              setCurrentGoalVal(String(targetW));
-              setGoalAmount(Math.abs(Number(targetW) - Number(startW)).toFixed(1));
-              setGoalType(Number(targetW) >= Number(startW) ? 'Gained' : 'Lost');
-            }
-          }
-        } catch (profileErr) {
-          console.warn('[WeightTracker] Failed to load profile weight data:', profileErr.message);
-        }
-
-        // Adjust selected point marker index to last item
-        setSelectedPointIndex(Math.max(0, Math.max(currentWeights.length, currentFats.length) - 1));
-      } catch (err) {
-        console.error('Failed to load weight tracker data:', err);
+    // Seed first weight log from profile if none logged yet
+    if (existingWeightLogs.length === 0) {
+      const w = profile.weight?.value || profile.weight;
+      if (w && Number(w) > 0) {
+        const log = {
+          id: 'initial_profile_weight',
+          value: Number(w),
+          date: new Date(0).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+          timestamp: 0,
+          source: 'Profile',
+          photo: null,
+        };
+        setWeightLogs([log]);
+        try { await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify([log])); } catch (_) { }
       }
-    };
-    loadSavedData();
-  }, []);
-
-  const handleSaveGoal = async () => {
-    const goalData = {
-      goalType,
-      goalAmount,
-      goalWeeks,
-      startingValue,
-      currentGoalVal,
-    };
-    try {
-      await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(goalData));
-      setGoalModalVisible(false);
-    } catch (err) {
-      console.error('Failed to save goal:', err);
-      Alert.alert('Error', 'Could not save target goals.');
     }
+
+    const startW = profile.weight?.value || profile.weight;
+    // Try multiple possible field names for target weight
+    const targetW =
+      profile.targetWeight?.value ??
+      profile.targetWeight ??
+      profile.target_weight?.value ??
+      profile.target_weight ??
+      profile.goalWeight?.value ??
+      profile.goalWeight ??
+      null;
+
+    console.log('[WeightTracker] applyProfile → startW:', startW, '| targetW:', targetW, '| full profile keys:', Object.keys(profile));
+
+    if (startW && Number(startW) > 0) setStartingValue(String(Number(startW).toFixed(1)));
+    if (targetW !== null && Number(targetW) > 0) {
+      setCurrentGoalVal(String(Number(targetW).toFixed(1)));
+      if (startW) {
+        setGoalAmount(String(Math.abs(Number(targetW) - Number(startW)).toFixed(1)));
+        if (!savedGoal) setGoalType(Number(targetW) >= Number(startW) ? 'Gained' : 'Lost');
+      }
+    }
+
+    const h = profile.height?.value || profile.height;
+    if (h && Number(h) > 0) setHeightVal(String(Math.round(Number(h))));
   };
 
-  const handlePickPhoto = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (response) => {
-      if (!response.didCancel && !response.errorCode && response.assets?.[0]?.uri) {
-        setLogPhoto(response.assets[0].uri);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // ── 1. Restore weight logs ──────────────────────────────────────────
+        let curWeights = [];
+        const savedW = await AsyncStorage.getItem(WEIGHT_LOGS_KEY);
+        if (savedW) { curWeights = JSON.parse(savedW); setWeightLogs(curWeights); }
+        const savedF = await AsyncStorage.getItem(BODY_FAT_LOGS_KEY);
+        if (savedF) setBodyFatLogs(JSON.parse(savedF));
+
+        // ── 2. Restore user-edited goal preferences (goalType, goalWeeks) ───
+        const savedGoal = await AsyncStorage.getItem(WEIGHT_GOAL_KEY);
+        if (savedGoal) {
+          const g = JSON.parse(savedGoal);
+          setGoalType(g.goalType || 'Gained');
+          setGoalWeeks(g.goalWeeks || '4');
+        }
+
+        // ── 2. Read onboarding metrics ONLY as fallback if state is empty ───
+        const onboardingRaw = await AsyncStorage.getItem('member_profile_metrics');
+        if (onboardingRaw) {
+          const m = JSON.parse(onboardingRaw);
+          setStartingValue(prev => prev || (m.weight ? String(Number(m.weight).toFixed(1)) : ''));
+          setCurrentGoalVal(prev => prev || (m.targetWeight ? String(Number(m.targetWeight).toFixed(1)) : ''));
+          setHeightVal(prev => prev || (m.height ? String(Math.round(Number(m.height))) : ''));
+
+          // Seed initial weight log if none exist yet
+          if (curWeights.length === 0 && m.weight && Number(m.weight) > 0) {
+            const log = {
+              id: 'initial_profile_weight',
+              value: Number(m.weight),
+              date: new Date(0).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+              timestamp: 0,
+              source: 'Profile',
+              photo: null,
+            };
+            setWeightLogs([log]);
+            await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify([log]));
+          }
+        }
+
+        // ── 3. Dispatch Redux Thunks to Sync Ground-Truth API Data ─────────
+        dispatch(fetchWeightLogs());
+        dispatch(fetchWeightTarget());
+      } catch (e) { console.error('[WeightTracker] Load failed:', e); }
+    };
+    load();
+  }, [dispatch]);
+
+  // Sync Redux store logs to local state when reduxWeight changes
+  useEffect(() => {
+    if (Array.isArray(reduxWeight.logs) && reduxWeight.logs.length > 0) {
+      const sorted = [...reduxWeight.logs].sort((a, b) => (a.timestamp || new Date(a.date).getTime()) - (b.timestamp || new Date(b.date).getTime()));
+      setWeightLogs(sorted);
+    }
+    if (reduxWeight.targetWeight) setCurrentGoalVal(String(Number(reduxWeight.targetWeight).toFixed(1)));
+    if (reduxWeight.startingValue) setStartingValue(String(Number(reduxWeight.startingValue).toFixed(1)));
+    if (reduxWeight.height) setHeightVal(String(Math.round(Number(reduxWeight.height))));
+  }, [reduxWeight.logs, reduxWeight.targetWeight, reduxWeight.startingValue, reduxWeight.height]);
+
+
+  const currentLogs = useMemo(() => activeTab === 'Weight' ? weightLogs : bodyFatLogs, [activeTab, weightLogs, bodyFatLogs]);
+  const currentWeightVal = useMemo(() => weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : parseFloat(startingValue) || 0, [weightLogs, startingValue]);
+  const displayUnit = activeTab === 'Weight' ? weightUnit.toUpperCase() : '%';
+  const unit = displayUnit;
+
+  const formatWeight = (kgValue) => {
+    const num = parseFloat(kgValue) || 0;
+    if (weightUnit === 'lbs') {
+      return (num * 2.20462262).toFixed(1);
+    }
+    return num.toFixed(1);
+  };
+
+  const displayDelta = useMemo(() => {
+    const rawDelta = parseFloat(currentGoalVal) - currentWeightVal;
+    if (weightUnit === 'lbs') return rawDelta * 2.20462262;
+    return rawDelta;
+  }, [currentGoalVal, currentWeightVal, weightUnit]);
+
+  const CHART_H = SCREEN_HEIGHT * 0.22;
+
+  const chartPoints = useMemo(() => {
+    if (currentLogs.length === 0) return [];
+    const vals = currentLogs.map(l => l.value);
+    const yMin = Math.min(...vals) - 5;
+    const yMax = Math.max(parseFloat(currentGoalVal) || 80, ...vals) + 5;
+    const yRange = yMax - yMin || 1;
+    const drawW = SCREEN_WIDTH;
+    const drawH = CHART_H - 10;
+    return currentLogs.map((log, i) => ({
+      x: currentLogs.length > 1 ? (i / (currentLogs.length - 1)) * drawW : drawW / 2,
+      y: 5 + (1 - (log.value - yMin) / yRange) * drawH,
+      value: log.value,
+      date: log.date,
+    }));
+  }, [currentLogs, currentGoalVal, CHART_H]);
+
+  const targetLineY = useMemo(() => {
+    if (currentLogs.length === 0) return 20;
+    const vals = currentLogs.map(l => l.value);
+    const yMin = Math.min(...vals) - 5;
+    const yMax = Math.max(parseFloat(currentGoalVal) || 80, ...vals) + 5;
+    const yRange = yMax - yMin || 1;
+    return 5 + (1 - (parseFloat(currentGoalVal) - yMin) / yRange) * (CHART_H - 10);
+  }, [currentLogs, currentGoalVal, CHART_H]);
+
+  const linePath = useMemo(() => {
+    if (chartPoints.length < 2) return '';
+    return chartPoints.reduce((p, pt, i) => p + `${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y} `, '');
+  }, [chartPoints]);
+
+  // ── Period selector for Weight Progress bar chart ────────────────────────
+  const [progressPeriod, setProgressPeriod] = useState('90D');
+
+  // ── Weight Changes: compute delta for each period ────────────────────────
+  const weightChanges = useMemo(() => {
+    const periods = [
+      { label: '3 day', days: 3 },
+      { label: '7 day', days: 7 },
+      { label: '14 day', days: 14 },
+      { label: '30 day', days: 30 },
+      { label: '90 day', days: 90 },
+      { label: 'All Time', days: null },
+    ];
+    const now = Date.now();
+    const latest = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : null;
+    return periods.map(({ label, days }) => {
+      if (!latest || weightLogs.length === 0) return { label, delta: 0, direction: 'none' };
+      let refLog = weightLogs[0];
+      if (days !== null) {
+        const cutoff = now - days * 24 * 60 * 60 * 1000;
+        const filtered = weightLogs.filter(l => l.timestamp >= cutoff);
+        refLog = filtered.length > 0 ? filtered[0] : weightLogs[0];
       }
+      const delta = latest - refLog.value;
+      return {
+        label,
+        delta: Math.abs(delta).toFixed(1),
+        rawDelta: delta,
+        direction: Math.abs(delta) < 0.05 ? 'none' : delta < 0 ? 'lost' : 'gained',
+      };
     });
+  }, [weightLogs]);
+
+  // ── Bar chart data for Weight Progress ───────────────────────────────────
+  const barChartData = useMemo(() => {
+    const periodDays = { '90D': 90, '6M': 180, '1Y': 365, 'ALL': null };
+    const days = periodDays[progressPeriod];
+    const now = Date.now();
+    const filtered = days
+      ? weightLogs.filter(l => l.timestamp >= now - days * 24 * 60 * 60 * 1000)
+      : [...weightLogs];
+    if (filtered.length === 0) return [];
+    const target = parseFloat(currentGoalVal) || 80;
+    const maxVal = Math.max(...filtered.map(l => l.value), target) + 5;
+    const minVal = Math.max(0, Math.min(...filtered.map(l => l.value)) - 5);
+    const range = maxVal - minVal || 1;
+    return filtered.map(l => ({
+      height: ((l.value - minVal) / range) * 100,
+      targetHeight: ((target - minVal) / range) * 100,
+      value: l.value,
+      date: l.date,
+    }));
+  }, [weightLogs, progressPeriod, currentGoalVal]);
+
+  // ── BMI Calculation ──────────────────────────────────────────────────────
+  const bmi = useMemo(() => {
+    const h = parseFloat(heightVal);
+    const w = currentWeightVal;
+    if (!h || !w || h <= 0 || w <= 0) return null;
+    const weightInKg = weightUnit === 'lbs' ? w * 0.45359237 : w;
+    const heightM = h > 10 ? h / 100 : h;
+    const val = weightInKg / (heightM * heightM);
+    const val2Str = val.toFixed(2);
+
+    const minHealthyKg = (18.5 * heightM * heightM).toFixed(1);
+    const maxHealthyKg = (24.9 * heightM * heightM).toFixed(1);
+
+    let status = 'Normal';
+    let color = GREEN;
+    let note = '';
+
+    if (val < 18.5) {
+      status = 'Underweight';
+      color = '#4FC3F7';
+      const diff = (18.5 * heightM * heightM - weightInKg).toFixed(1);
+      note = `Your BMI is ${val2Str}, which is below the healthy range (18.5–24.9). For your height of ${Math.round(h)} cm, your healthy weight range is ${minHealthyKg}–${maxHealthyKg} ${weightUnit}. You are about ${diff} ${weightUnit} below the recommended lower limit.`;
+    } else if (val < 25) {
+      status = 'Normal';
+      color = GREEN;
+      note = `Your BMI is ${val2Str}, which falls within the ideal healthy range (18.5–24.9). For your height of ${Math.round(h)} cm, your healthy weight range is ${minHealthyKg}–${maxHealthyKg} ${weightUnit}. Keep maintaining your balanced diet and lifestyle!`;
+    } else if (val < 30) {
+      status = 'Overweight';
+      color = '#FFB300';
+      const diff = (weightInKg - 24.9 * heightM * heightM).toFixed(1);
+      note = `Your BMI is ${val2Str}, which is above the healthy range (18.5–24.9). For your height of ${Math.round(h)} cm, your target healthy range is ${minHealthyKg}–${maxHealthyKg} ${weightUnit} (${diff} ${weightUnit} above upper limit).`;
+    } else {
+      status = 'Obese';
+      color = '#EF5350';
+      const diff = (weightInKg - 24.9 * heightM * heightM).toFixed(1);
+      note = `Your BMI is ${val2Str}, which indicates obesity (≥30.0). For your height of ${Math.round(h)} cm, your recommended healthy weight range is ${minHealthyKg}–${maxHealthyKg} ${weightUnit}. Consider consulting a healthcare professional for a tailored plan.`;
+    }
+
+    return {
+      val: val.toFixed(1),
+      val2Dec: val2Str,
+      raw: val,
+      status,
+      color,
+      note,
+      minHealthyKg,
+      maxHealthyKg,
+    };
+  }, [heightVal, currentWeightVal, weightUnit]);
+
+  const themeColor = bmi?.color || GREEN;
+
+  // ── Progress % toward goal ───────────────────────────────────────────────
+  const goalProgress = useMemo(() => {
+    const start = parseFloat(startingValue) || currentWeightVal;
+    const target = parseFloat(currentGoalVal);
+    const totalDiff = Math.abs(target - start);
+    if (totalDiff === 0) return 0;
+    const achieved = Math.abs(currentWeightVal - start);
+    return Math.min(100, Math.round((achieved / totalDiff) * 100));
+  }, [startingValue, currentGoalVal, currentWeightVal]);
+
+  const openAddLog = () => {
+    setEditValue(formatWeight(currentWeightVal));
+    setIsFirstKey(true);
+    setEditCardModal('current');
   };
 
   const handleAddLog = async () => {
     const val = parseFloat(logValue);
-    if (isNaN(val) || val <= 0) {
-      Alert.alert('Invalid Input', 'Please enter a valid numeric value.');
-      return;
-    }
-
-    const dateStr = logDateText.trim() || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-    const newLog = {
-      id: String(Date.now()),
-      value: val,
-      date: dateStr,
-      timestamp: Date.now(),
-      source: logPhoto ? 'Photo' : 'Manual',
-      photo: logPhoto,
-    };
-
-    let updatedLogs = [];
+    if (isNaN(val) || val <= 0) { Alert.alert('Invalid Input', 'Please enter a valid number.'); return; }
+    const valInKg = (activeTab === 'Weight' && weightUnit === 'lbs') ? val / 2.20462262 : val;
+    const newLog = { id: String(Date.now()), value: valInKg, date: logDateText.trim() || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }), timestamp: Date.now(), source: 'Manual', photo: null };
     if (activeTab === 'Weight') {
-      updatedLogs = [...weightLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
-      setWeightLogs(updatedLogs);
-      setSelectedPointIndex(updatedLogs.length - 1);
-      try {
-        await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updatedLogs));
-        await apiClient.post('/weight/update', { weight: val });
-      } catch (err) {
-        console.warn('Backend sync failed, saved locally:', err.message);
-      }
+      const updated = [...weightLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
+      setWeightLogs(updated);
+      await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
+      dispatch(addWeightLog({ value: valInKg, date: newLog.date, timestamp: newLog.timestamp }));
     } else {
-      updatedLogs = [...bodyFatLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
-      setBodyFatLogs(updatedLogs);
-      setSelectedPointIndex(updatedLogs.length - 1);
-      try {
-        await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify(updatedLogs));
-      } catch (err) {
-        console.error('Local body fat save failed:', err);
-      }
+      const updated = [...bodyFatLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
+      setBodyFatLogs(updated);
+      await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify(updated));
     }
-
-    setLogValue('');
-    setLogDateText('');
-    setLogPhoto(null);
     setLogModalVisible(false);
   };
 
-  const openAddLogModal = () => {
-    const todayStr = new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-    setLogDateText(todayStr);
-    setLogValue('');
-    setLogPhoto(null);
-    setLogModalVisible(true);
+  const handleSaveGoal = async () => {
+    const data = { goalType, goalAmount, goalWeeks, startingValue, currentGoalVal };
+    await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(data));
+    setGoalModalVisible(false);
+  };
+
+  const openEditCard = (type) => {
+    const map = {
+      starting: formatWeight(startingValue),
+      current: formatWeight(currentWeightVal),
+      goal: formatWeight(currentGoalVal),
+      height: heightVal,
+    };
+    setEditValue(map[type] || '');
+    setIsFirstKey(true);
+    setEditCardModal(type);
+  };
+
+  const handleSaveCard = async () => {
+    const v = editValue.trim();
+    if (!v || isNaN(parseFloat(v))) { setEditCardModal(null); return; }
+    const numV = parseFloat(v);
+    const numVInKg = (editCardModal !== 'height' && weightUnit === 'lbs')
+      ? numV / 2.20462262
+      : numV;
+
+    if (editCardModal === 'starting') {
+      const valStr = numVInKg.toFixed(1);
+      setStartingValue(valStr);
+      dispatch(saveWeightTarget({ startingValue: valStr }));
+      try {
+        const raw = await AsyncStorage.getItem('member_profile_metrics');
+        const m = raw ? JSON.parse(raw) : {};
+        m.weight = valStr;
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+      } catch (_) {}
+    } else if (editCardModal === 'goal') {
+      const valStr = numVInKg.toFixed(1);
+      setCurrentGoalVal(valStr);
+      dispatch(saveWeightTarget({ targetWeight: valStr }));
+      try {
+        const raw = await AsyncStorage.getItem('member_profile_metrics');
+        const m = raw ? JSON.parse(raw) : {};
+        m.targetWeight = valStr;
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+      } catch (_) {}
+    } else if (editCardModal === 'height') {
+      const valStr = String(Math.round(numV));
+      setHeightVal(valStr);
+      dispatch(saveWeightTarget({ height: valStr }));
+      try {
+        const raw = await AsyncStorage.getItem('member_profile_metrics');
+        const m = raw ? JSON.parse(raw) : {};
+        m.height = valStr;
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+      } catch (_) {}
+    } else if (editCardModal === 'current') {
+      const ts = Date.now();
+      const newLog = { id: String(ts), value: numVInKg, date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }), timestamp: ts, source: 'Manual', photo: null };
+      const updated = [...weightLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
+      setWeightLogs(updated);
+      await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
+      dispatch(addWeightLog({ value: numVInKg, date: newLog.date, timestamp: ts }));
+    }
+    setEditCardModal(null);
   };
 
   const handleDeleteLog = (id) => {
-    Alert.alert('Delete Log', 'Are you sure you want to delete this log entry?', [
+    Alert.alert('Delete Log', 'Delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
+        text: 'Delete', style: 'destructive', onPress: async () => {
           if (activeTab === 'Weight') {
-            const filtered = weightLogs.filter((l) => l.id !== id);
-            setWeightLogs(filtered);
-            setSelectedPointIndex(Math.max(0, filtered.length - 1));
-            await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(filtered));
-          } else {
-            const filtered = bodyFatLogs.filter((l) => l.id !== id);
-            setBodyFatLogs(filtered);
-            setSelectedPointIndex(Math.max(0, filtered.length - 1));
-            await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify(filtered));
+            const f = weightLogs.filter(l => l.id !== id);
+            setWeightLogs(f);
+            await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(f));
+            dispatch(removeWeightLog(id));
           }
-        },
+          else { const f = bodyFatLogs.filter(l => l.id !== id); setBodyFatLogs(f); await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify(f)); }
+        }
       },
     ]);
   };
 
-  const currentLogs = useMemo(() => {
-    return activeTab === 'Weight' ? weightLogs : bodyFatLogs;
-  }, [activeTab, weightLogs, bodyFatLogs]);
-
-  const progressProgress = useMemo(() => {
-    if (currentLogs.length === 0) return 0;
-    const startVal = parseFloat(startingValue) || currentLogs[0].value;
-    const currentVal = currentLogs[currentLogs.length - 1].value;
-    const targetVal = parseFloat(currentGoalVal) || (startVal + (goalType === 'Gained' ? 5 : -5));
-    
-    const totalDiff = Math.abs(targetVal - startVal);
-    if (totalDiff === 0) return 0;
-    
-    const achievedDiff = Math.abs(currentVal - startVal);
-    return Math.min(1, achievedDiff / totalDiff);
-  }, [currentLogs, startingValue, currentGoalVal, goalType]);
-
-  const gainedLostValue = useMemo(() => {
-    if (currentLogs.length === 0) return '0.0';
-    const startVal = parseFloat(startingValue) || currentLogs[0].value;
-    const currentVal = currentLogs[currentLogs.length - 1].value;
-    return Math.abs(currentVal - startVal).toFixed(1);
-  }, [currentLogs, startingValue]);
-
-  const unit = activeTab === 'Weight' ? 'kg' : '%';
-
-  const circleRadius = 26;
-  const strokeWidth = 4.5;
-  const circ = 2 * Math.PI * circleRadius;
-  const strokeDashoffset = circ * (1 - progressProgress);
-
-  const chartPoints = useMemo(() => {
-    if (currentLogs.length === 0) return [];
-    const yMin = 55;
-    const yMax = 90;
-    const yRange = yMax - yMin;
-
-    const drawableWidth = CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-    const drawableHeight = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
-
-    return currentLogs.map((log, index) => {
-      let x = CHART_PADDING_LEFT;
-      if (currentLogs.length > 1) {
-        x = CHART_PADDING_LEFT + (index / (currentLogs.length - 1)) * drawableWidth;
-      } else {
-        x = CHART_PADDING_LEFT + drawableWidth / 2;
-      }
-      const val = Math.max(yMin, Math.min(yMax, log.value));
-      const percentage = (val - yMin) / yRange;
-      const y = CHART_PADDING_TOP + (1 - percentage) * drawableHeight;
-
-      return { x, y, value: log.value, date: log.date, index };
-    });
-  }, [currentLogs]);
-
-  const activePoint = chartPoints[selectedPointIndex] || chartPoints[chartPoints.length - 1];
+  const metricCards = [
+    { key: 'starting', icon: 'weight-lifter', label: 'Starting Weight', value: `${formatWeight(startingValue)} ${displayUnit}` },
+    { key: 'current', icon: 'weight-lifter', label: 'Current Weight', value: `${formatWeight(currentWeightVal)} ${displayUnit}` },
+    { key: 'goal', icon: 'target', label: 'Goal Weight', value: `${formatWeight(currentGoalVal)} ${displayUnit}` },
+    { key: 'height', icon: 'ruler', label: 'Height', value: `${heightVal} cm` },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
 
-      {/* Screen Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Weight Tracker</Text>
-        <TouchableOpacity onPress={openAddLogModal} style={styles.addLogBtn}>
-          <Text style={styles.addLogBtnText}>+ Add log</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Progress Card Section */}
-        <View style={styles.progressCard}>
-          {/* Circular Progress Ring */}
-          <View style={styles.progressRingWrapper}>
-            <Svg width={64} height={64} viewBox="0 0 64 64">
-              <Circle
-                cx="32"
-                cy="32"
-                r={circleRadius}
-                stroke="rgba(255, 255, 255, 0.08)"
-                strokeWidth={strokeWidth}
-                fill="transparent"
-              />
-              <Circle
-                cx="32"
-                cy="32"
-                r={circleRadius}
-                stroke={PURPLE}
-                strokeWidth={strokeWidth}
-                fill="transparent"
-                strokeDasharray={circ}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform="rotate(-90 32 32)"
-              />
-            </Svg>
-            <View style={styles.progressIconContainer}>
-              <MaterialCommunityIcons name="scale-bathroom" size={20} color={PURPLE} />
-            </View>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: DARK_BG }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
+        {/* HERO — inside ScrollView so the full page scrolls */}
+        <View style={styles.hero}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Icon name="chevron-back" size={26} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Weight Tracker</Text>
+            <TouchableOpacity onPress={() => setGoalModalVisible(true)} style={styles.settingsBtn}>
+              <Icon name="settings-sharp" size={20} color="#FFF" />
+            </TouchableOpacity>
           </View>
 
-          {/* Progress Values & Info */}
-          <View style={styles.progressTextColumn}>
-            <Text style={styles.progressTitleText}>
-              {gainedLostValue} of {goalAmount} {unit} {goalType}
-            </Text>
-            <Text style={styles.progressSubtitleText}>{goalWeeks} weeks remaining</Text>
+          <View style={styles.heroContent}>
+            <Text style={[styles.targetLabel, { color: themeColor }]}>TARGET: {formatWeight(currentGoalVal)} {displayUnit}</Text>
+            <View style={styles.deltaRow}>
+              <Animated.Text key={displayDelta.toFixed(1)} entering={FadeInUp.springify()} style={styles.deltaValue}>
+                {displayDelta >= 0 ? '+' : ''}{displayDelta.toFixed(1)}
+              </Animated.Text>
+              <View style={styles.deltaRight}>
+                <Text style={styles.deltaUnit}>{displayUnit}</Text>
+                <Text style={[styles.deltaDirection, { color: themeColor }]}>
+                  {displayDelta >= 0 ? 'to gain' : 'to lose'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.motivationText}>Stay consistent towards your goal</Text>
           </View>
 
-          {/* Goal Edit Button */}
-          <TouchableOpacity onPress={() => setGoalModalVisible(true)} style={styles.editGoalBtn}>
-            <Icon name="pencil" size={20} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab Buttons Selection */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'Weight' && styles.tabButtonActive]}
-            onPress={() => {
-              setActiveTab('Weight');
-              setSelectedPointIndex(0);
-            }}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'Weight' && styles.tabButtonTextActive]}>
-              Weight
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'Body Fat' && styles.tabButtonActive]}
-            onPress={() => {
-              setActiveTab('Body Fat');
-              setSelectedPointIndex(0);
-            }}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'Body Fat' && styles.tabButtonTextActive]}>
-              Body Fat
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* SVG interactive chart area */}
-        <View style={styles.chartContainer}>
-          {currentLogs.length === 0 ? (
-            <View style={styles.chartPlaceholder}>
-              <Icon name="stats-chart" size={36} color="rgba(255, 255, 255, 0.15)" style={{ marginBottom: 8 }} />
-              <Text style={styles.placeholderText}>No weight records logged yet</Text>
-              <Text style={styles.placeholderSubtext}>Tap "+ Add log" at the top to record weight</Text>
-            </View>
-          ) : (
-            <>
-              <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-                {[90, 85, 80, 75, 70, 65, 60, 55].map((labelVal) => {
-                  const yMin = 55;
-                  const yMax = 90;
-                  const percentage = (labelVal - yMin) / (yMax - yMin);
-                  const drawableHeight = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
-                  const y = CHART_PADDING_TOP + (1 - percentage) * drawableHeight;
-
-                  return (
-                    <React.Fragment key={labelVal}>
-                      <Line
-                        x1={CHART_PADDING_LEFT}
-                        y1={y}
-                        x2={CHART_WIDTH - CHART_PADDING_RIGHT}
-                        y2={y}
-                        stroke="rgba(255, 255, 255, 0.08)"
-                        strokeWidth={1}
-                        strokeDasharray={labelVal === 80 ? "4 2" : "0"}
-                      />
-                      <SvgText
-                        x={CHART_PADDING_LEFT - 8}
-                        y={y + 4}
-                        fontSize="10"
-                        fill="rgba(255, 255, 255, 0.4)"
-                        textAnchor="end"
-                        fontWeight="500"
-                      >
-                        {labelVal}
-                      </SvgText>
-                    </React.Fragment>
-                  );
-                })}
-
-                {chartPoints.length > 1 && (
-                  <Path
-                    d={chartPoints.reduce((pathStr, p, idx) => {
-                      return pathStr + `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`;
-                    }, '')}
-                    fill="none"
-                    stroke={PURPLE}
-                    strokeWidth={2}
-                  />
-                )}
-
-                {chartPoints.map((pt, idx) => {
-                  const isSelected = idx === selectedPointIndex;
-                  return (
-                    <React.Fragment key={idx}>
-                      <Rect
-                        x={pt.x - 20}
-                        y={CHART_PADDING_TOP}
-                        width={40}
-                        height={CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM}
-                        fill="transparent"
-                        onPress={() => setSelectedPointIndex(idx)}
-                      />
-                      <Circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={isSelected ? 6 : 4}
-                        fill={isSelected ? '#000' : PURPLE}
-                        stroke={PURPLE}
-                        strokeWidth={isSelected ? 3.5 : 0}
-                        onPress={() => setSelectedPointIndex(idx)}
-                      />
-                    </React.Fragment>
-                  );
-                })}
-
-                {chartPoints.map((pt, idx) => {
-                  if (idx === 0 || idx === chartPoints.length - 1) {
-                    const dateParts = pt.date.split(',');
-                    const label = dateParts[0] || pt.date;
-
-                    return (
-                      <SvgText
-                        key={idx}
-                        x={pt.x}
-                        y={CHART_HEIGHT - 6}
-                        fontSize="10"
-                        fill="rgba(255, 255, 255, 0.4)"
-                        textAnchor="center"
-                        fontWeight="500"
-                      >
-                        {label}
-                      </SvgText>
-                    );
-                  }
-                  return null;
-                })}
+          <View style={{ height: CHART_H, width: SCREEN_WIDTH }} pointerEvents="none">
+            {chartPoints.length >= 2 ? (
+              <Svg width={SCREEN_WIDTH} height={CHART_H}>
+                <Defs>
+                  <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor={themeColor} stopOpacity="0.28" />
+                    <Stop offset="100%" stopColor={themeColor} stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
+                <Line x1={0} y1={targetLineY} x2={SCREEN_WIDTH} y2={targetLineY} stroke="rgba(255,255,255,0.22)" strokeWidth={1.5} strokeDasharray="6 4" />
+                <Path d={`${linePath} L ${chartPoints[chartPoints.length - 1].x} ${CHART_H} L ${chartPoints[0].x} ${CHART_H} Z`} fill="url(#grad)" />
+                <Path d={linePath} fill="none" stroke={themeColor} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+                {chartPoints.map((pt, i) => (
+                  <Circle key={i} cx={pt.x} cy={pt.y} r={5} fill={themeColor} stroke={DARK_BG} strokeWidth={2} />
+                ))}
               </Svg>
-
-              {activePoint && (
-                <View
-                  style={[
-                    styles.tooltipContainer,
-                    {
-                      left: Math.max(
-                        CHART_PADDING_LEFT,
-                        Math.min(
-                          CHART_WIDTH - 120,
-                          activePoint.x - 50
-                        )
-                      ),
-                      top: Math.max(5, activePoint.y - 65),
-                    },
-                  ]}
-                >
-                  <View style={styles.tooltipBox}>
-                    <Text style={styles.tooltipValText}>
-                      {activePoint.value.toFixed(1)} {unit}
-                    </Text>
-                    <Text style={styles.tooltipDateText}>{activePoint.date}</Text>
-                  </View>
-                  <View style={styles.tooltipArrow} />
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* Legend */}
-        <View style={styles.legendContainer}>
-          <View style={styles.legendItem}>
-            <View style={styles.idealWeightSquare} />
-            <Text style={styles.legendText}>Ideal Weight</Text>
-          </View>
-
-          <View style={styles.legendItem}>
-            <View style={styles.goalDashedLine} />
-            <Text style={styles.legendText}>Your Goal</Text>
+            ) : (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Log entries to see your chart</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.dividerBand} />
 
-        {/* Timeline Logs Section */}
-        <View style={styles.timelineSection}>
-          <Text style={styles.timelineTitle}>Timeline</Text>
 
-          <View style={styles.timelineListContainer}>
-            <View style={styles.timelineVerticalLine} />
+        {/* ACTION ROW */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.historyBtn} onPress={() => setHistoryModalVisible(true)} activeOpacity={0.8}>
+            <Icon name="menu" size={22} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logWeightBtn} onPress={openAddLog} activeOpacity={0.85}>
+            <Text style={styles.logWeightBtnText}>+ Log Weight</Text>
+          </TouchableOpacity>
+        </View>
 
-            {currentLogs.slice().reverse().map((log) => {
-              return (
-                <View key={log.id} style={styles.timelineRow}>
-                  <View style={styles.timelineDotOuter}>
-                    <View style={styles.timelineDotInner} />
-                  </View>
+        {/* METRIC CARDS */}
+        <View style={styles.cardsGrid}>
+          {metricCards.map((card) => (
+            <TouchableOpacity
+              key={card.key}
+              style={styles.card}
+              onPress={() => openEditCard(card.key)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardTop}>
+                <MaterialCommunityIcons name={card.icon} size={22} color="rgba(255,255,255,0.5)" />
+                <Icon name="pencil" size={15} color="rgba(255,255,255,0.3)" />
+              </View>
+              <Text style={styles.cardLabel}>{card.label}</Text>
+              <Text style={styles.cardValue}>{card.value}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-                  <TouchableOpacity
-                    style={styles.timelineCard}
-                    activeOpacity={0.9}
-                    onLongPress={() => handleDeleteLog(log.id)}
-                  >
-                    <View style={styles.timelineCardLeft}>
-                      <Text style={styles.timelineValueText}>
-                        {log.value.toFixed(1)} <Text style={styles.timelineUnitText}>{unit}</Text>
-                      </Text>
-                      <Text style={styles.timelineSubText}>
-                        {log.date} • {log.source}
-                      </Text>
+
+        {/* ── WEIGHT PROGRESS CARD ───────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <Text style={styles.sectionCardTitle}>Weight Progress</Text>
+            <View style={[styles.goalBadge, { backgroundColor: `${themeColor}22` }]}>
+              <Text style={[styles.goalBadgeText, { color: themeColor }]}>🏁 {goalProgress}% of goal</Text>
+            </View>
+          </View>
+
+          {/* Bar chart */}
+          <View style={styles.barChartArea}>
+            {barChartData.length === 0 ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>No logs recorded for this period</Text>
+              </View>
+            ) : (
+              <>
+                {/* Dashed target line at targetHeight% from bottom */}
+                <View style={[styles.barTargetLine, { bottom: `${barChartData[0]?.targetHeight ?? 60}%` }]} />
+                <View style={styles.barsRow}>
+                  {barChartData.map((b, i) => (
+                    <View key={i} style={styles.barWrapper}>
+                      <View style={[styles.bar, { height: `${Math.max(4, b.height)}%`, backgroundColor: themeColor }]} />
                     </View>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (log.photo) {
-                          Alert.alert('Log Image', 'View or change image?', [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'View Image', onPress: () => Alert.alert('Photo', 'Display photo preview modal placeholder') }
-                          ]);
-                        } else {
-                          launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, async (response) => {
-                            if (!response.didCancel && !response.errorCode && response.assets?.[0]?.uri) {
-                              const photoUri = response.assets[0].uri;
-                              const updated = currentLogs.map(item => item.id === log.id ? { ...item, photo: photoUri, source: 'Photo' } : item);
-                              if (activeTab === 'Weight') {
-                                setWeightLogs(updated);
-                                await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
-                              } else {
-                                setBodyFatLogs(updated);
-                                await AsyncStorage.setItem(BODY_FAT_LOGS_KEY, JSON.stringify(updated));
-                              }
-                            }
-                          });
-                        }
-                      }}
-                      style={styles.cameraIconContainer}
-                    >
-                      {log.photo ? (
-                        <Image source={{ uri: log.photo }} style={styles.logThumbImage} />
-                      ) : (
-                        <Icon name="camera" size={20} color={PURPLE} />
-                      )}
-                    </TouchableOpacity>
-                  </TouchableOpacity>
+                  ))}
                 </View>
-              );
-            })}
+              </>
+            )}
+          </View>
+
+          {/* Period tabs */}
+          <View style={styles.periodRow}>
+            {['90D', '6M', '1Y', 'ALL'].map(p => (
+              <TouchableOpacity
+                key={p}
+                onPress={() => setProgressPeriod(p)}
+                style={[styles.periodBtn, progressPeriod === p && styles.periodBtnActive]}
+              >
+                <Text style={[styles.periodBtnText, progressPeriod === p && styles.periodBtnTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
+
+        {/* ── WEIGHT CHANGES CARD ────────────────────────────────────────── */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionCardTitle}>Weight Changes</Text>
+          {weightChanges.map((row, i) => {
+            const isLost = row.direction === 'lost';
+            const isGained = row.direction === 'gained';
+            const barColor = isLost ? '#EF5350' : isGained ? themeColor : '#555';
+            const arrow = isLost ? '↓' : isGained ? '↑' : '→';
+            const dirLabel = isLost ? 'Lost' : isGained ? 'Gained' : 'No change';
+            const barW = isLost || isGained ? Math.min(1, parseFloat(row.delta) / 10) : 0.3;
+            return (
+              <View key={i} style={styles.changeRow}>
+                <Text style={styles.changePeriodText}>{row.label}</Text>
+                <View style={styles.changeBarTrack}>
+                  <View style={[styles.changeBar, { width: `${Math.round(barW * 100)}%`, backgroundColor: barColor }]} />
+                </View>
+                <Text style={styles.changeDeltaText}>
+                  {row.direction === 'none' ? '0.0' : `-${row.delta}`} KG
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, minWidth: 70 }}>
+                  <Text style={{ color: barColor, fontSize: 13, fontWeight: '700' }}>{arrow}</Text>
+                  <Text style={{ color: barColor, fontSize: 13, fontWeight: '600' }}>{dirLabel}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* ── BMI CARD ───────────────────────────────────────────────────── */}
+        {bmi && (
+          <View style={styles.bmiCard}>
+            <View style={styles.bmiTop}>
+              <MaterialCommunityIcons name="walk" size={26} color="rgba(255,255,255,0.6)" />
+              <TouchableOpacity onPress={() => setBmiModalVisible(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Icon name="eye-outline" size={22} color="rgba(255,255,255,0.35)" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.bmiLabel}>Body Mass Index</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
+              <Text style={styles.bmiValue}>{bmi.val}</Text>
+              <Text style={[styles.bmiStatus, { color: bmi.color }]}>{bmi.status}</Text>
+            </View>
+          </View>
+        )}
+
       </ScrollView>
 
-      {/* Goal Edit Settings Modal Overlay */}
-      <Modal visible={goalModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Goals</Text>
+      {/* CUSTOM KEYPAD EDIT CARD MODAL */}
+      <Modal visible={editCardModal !== null} transparent animationType="slide" onRequestClose={() => setEditCardModal(null)}>
+        <View style={styles.keypadModalOverlay}>
+          <View style={styles.keypadModalSheet}>
+            <View style={styles.keypadHandle} />
+            {/* Value display */}
+            <Animated.Text style={[styles.keypadDisplayValue, animatedKeypadValueStyle]}>
+              {editValue || '0'}
+            </Animated.Text>
 
-            <Text style={styles.label}>Goal Type</Text>
-            <View style={styles.typeSelectorRow}>
-              <TouchableOpacity
-                style={[styles.typeBtn, goalType === 'Gained' && styles.typeBtnActive]}
-                onPress={() => setGoalType('Gained')}
-              >
-                <Text style={[styles.typeBtnText, goalType === 'Gained' && styles.typeBtnTextActive]}>Gained</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.typeBtn, goalType === 'Lost' && styles.typeBtnActive]}
-                onPress={() => setGoalType('Lost')}
-              >
-                <Text style={[styles.typeBtnText, goalType === 'Lost' && styles.typeBtnTextActive]}>Lost</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Numpad grid */}
+            <View style={styles.keypadGrid}>
+              <View style={styles.keypadRow}>
+                {['1', '2', '3'].map((num) => (
+                  <AnimatedKeypadKey
+                    key={num}
+                    label={num}
+                    onKeypadType={triggerKeypadAnim}
+                    onPress={() => {
+                      if (isFirstKey) {
+                        setEditValue(num);
+                        setIsFirstKey(false);
+                      } else {
+                        if (editValue.length >= 6) return;
+                        setEditValue(prev => (prev === '0' ? num : prev + num));
+                      }
+                    }}
+                  />
+                ))}
+              </View>
 
-            <Text style={styles.label}>Goal Amount ({unit})</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 5.0"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              value={goalAmount}
-              onChangeText={setGoalAmount}
-            />
+              <View style={styles.keypadRow}>
+                {['4', '5', '6'].map((num) => (
+                  <AnimatedKeypadKey
+                    key={num}
+                    label={num}
+                    onKeypadType={triggerKeypadAnim}
+                    onPress={() => {
+                      if (isFirstKey) {
+                        setEditValue(num);
+                        setIsFirstKey(false);
+                      } else {
+                        if (editValue.length >= 6) return;
+                        setEditValue(prev => (prev === '0' ? num : prev + num));
+                      }
+                    }}
+                  />
+                ))}
+              </View>
 
-            <Text style={styles.label}>Weeks Remaining</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 2"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              value={goalWeeks}
-              onChangeText={setGoalWeeks}
-            />
+              <View style={styles.keypadRow}>
+                {['7', '8', '9'].map((num) => (
+                  <AnimatedKeypadKey
+                    key={num}
+                    label={num}
+                    onKeypadType={triggerKeypadAnim}
+                    onPress={() => {
+                      if (isFirstKey) {
+                        setEditValue(num);
+                        setIsFirstKey(false);
+                      } else {
+                        if (editValue.length >= 6) return;
+                        setEditValue(prev => (prev === '0' ? num : prev + num));
+                      }
+                    }}
+                  />
+                ))}
+              </View>
 
-            <Text style={styles.label}>Starting Weight ({unit})</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 75.0"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              value={startingValue}
-              onChangeText={setStartingValue}
-            />
+              <View style={styles.keypadRow}>
+                <AnimatedKeypadKey
+                  label="."
+                  onKeypadType={triggerKeypadAnim}
+                  onPress={() => {
+                    if (editCardModal === 'height') return;
+                    if (isFirstKey) {
+                      setEditValue('0.');
+                      setIsFirstKey(false);
+                    } else {
+                      if (!editValue.includes('.')) {
+                        setEditValue(prev => (prev ? prev + '.' : '0.'));
+                      }
+                    }
+                  }}
+                />
 
-            <Text style={styles.label}>Target Goal Weight ({unit})</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 80.0"
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              value={currentGoalVal}
-              onChangeText={setCurrentGoalVal}
-            />
+                <AnimatedKeypadKey
+                  label="0"
+                  onKeypadType={triggerKeypadAnim}
+                  onPress={() => {
+                    if (isFirstKey) {
+                      setEditValue('0');
+                      setIsFirstKey(false);
+                    } else {
+                      if (editValue.length >= 6) return;
+                      setEditValue(prev => (prev === '0' ? '0' : prev + '0'));
+                    }
+                  }}
+                />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setGoalModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveGoal} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
+                <AnimatedKeypadKey
+                  icon="backspace-outline"
+                  onKeypadType={triggerKeypadAnim}
+                  onPress={() => {
+                    setIsFirstKey(false);
+                    setEditValue(prev => (prev.length > 1 ? prev.slice(0, -1) : ''));
+                  }}
+                />
+              </View>
+
+              <View style={styles.keypadBottomRow}>
+                <AnimatedKeypadKey
+                  label={weightUnit.toUpperCase()}
+                  isUnit
+                  onPress={() => setWeightUnit(prev => (prev === 'kg' ? 'lbs' : 'kg'))}
+                />
+
+                <AnimatedKeypadKey
+                  label="Done"
+                  isDone
+                  onPress={handleSaveCard}
+                />
+              </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
-      {/* Add Log Modal Overlay */}
-      <Modal visible={logModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add {activeTab} Log</Text>
-
-            <Text style={styles.label}>Value ({unit})</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={`Enter current ${activeTab.toLowerCase()}`}
-              placeholderTextColor="#666"
-              keyboardType="numeric"
-              autoFocus
-              value={logValue}
-              onChangeText={setLogValue}
-            />
-
-            <Text style={styles.label}>Date Label</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 13 Jun, 2026"
-              placeholderTextColor="#666"
-              value={logDateText}
-              onChangeText={setLogDateText}
-            />
-
-            <TouchableOpacity onPress={handlePickPhoto} style={styles.photoPickerBtn}>
-              {logPhoto ? (
-                <View style={styles.photoContainer}>
-                  <Image source={{ uri: logPhoto }} style={styles.previewImage} />
-                  <Text style={styles.photoPickerText}>Change Photo</Text>
-                </View>
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Icon name="camera-outline" size={24} color="#888" />
-                  <Text style={styles.photoPickerText}>Attach Progress Image</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setLogModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddLog} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>Add</Text>
+      {/* WEIGHT LOGS HISTORY MODAL */}
+      <Modal visible={historyModalVisible} transparent animationType="slide" onRequestClose={() => setHistoryModalVisible(false)}>
+        <View style={styles.historyModalOverlay}>
+          <View style={styles.historyModalSheet}>
+            <View style={styles.historyHandle} />
+            <View style={styles.historyHeaderRow}>
+              <Text style={styles.historyHeaderTitle}>Weight Logs</Text>
+              <TouchableOpacity
+                onPress={() => setHistoryModalVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={styles.historyCloseBtn}
+              >
+                <Icon name="close" size={18} color="#FFF" />
               </TouchableOpacity>
             </View>
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {weightLogs.length === 0 ? (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>No weight logs recorded yet</Text>
+                </View>
+              ) : (
+                weightLogs.slice().reverse().map((log) => {
+                  let formattedDate = log.date;
+                  try {
+                    const d = new Date(log.date);
+                    if (!isNaN(d.getTime())) {
+                      formattedDate = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    }
+                  } catch (_) { }
+                  return (
+                    <View key={log.id} style={styles.historyLogRow}>
+                      <View style={{ gap: 4 }}>
+                        <Text style={styles.historyLogWeightText}>
+                          {formatWeight(log.value)} {displayUnit}
+                        </Text>
+                        <Text style={styles.historyLogDateText}>
+                          {formattedDate}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* BMI DETAIL MODAL */}
+      <Modal visible={bmiModalVisible} transparent animationType="slide">
+        <View style={styles.bmiModalOverlay}>
+          <View style={styles.bmiModalSheet}>
+            <Text style={styles.bmiModalSub}>Your BMI is</Text>
+            <Text style={styles.bmiModalBigVal}>{bmi?.val2Dec ?? bmi?.val ?? '--'}</Text>
+
+            {[
+              { label: 'Underweight', range: '<18.5', color: '#4FC3F7', active: bmi && bmi.raw < 18.5 },
+              { label: 'Normal', range: '18.5–24.9', color: GREEN, active: bmi && bmi.raw >= 18.5 && bmi.raw < 25 },
+              { label: 'Overweight', range: '25–29.9', color: '#FFB300', active: bmi && bmi.raw >= 25 && bmi.raw < 30 },
+              { label: 'Obese', range: '≥30', color: '#EF5350', active: bmi && bmi.raw >= 30 },
+            ].map(row => (
+              <View
+                key={row.label}
+                style={[
+                  styles.bmiCategoryRow,
+                  row.active && { borderColor: row.color, borderWidth: 1.5 },
+                ]}
+              >
+                <View style={[styles.bmiDot, { backgroundColor: row.color }]} />
+                <Text style={styles.bmiCategoryLabel}>{row.label}</Text>
+                <Text style={styles.bmiCategoryRange}>{row.range}</Text>
+              </View>
+            ))}
+
+            <View style={styles.bmiNoteCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Icon name="information-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
+                <Text style={styles.bmiNoteTitle}>Note</Text>
+              </View>
+              <Text style={styles.bmiNoteText}>
+                {bmi?.note || 'BMI is a general indicator based on height and weight.'}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.bmiCloseBtn} onPress={() => setBmiModalVisible(false)}>
+              <Text style={styles.bmiCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* SETTINGS MODAL */}
+      <Modal visible={goalModalVisible} transparent animationType="slide" onRequestClose={() => setGoalModalVisible(false)}>
+        <View style={styles.settingsModalOverlay}>
+          <View style={styles.settingsModalSheet}>
+            {/* Header */}
+            <View style={styles.settingsHeader}>
+              <Text style={styles.settingsTitle}>Settings</Text>
+              <TouchableOpacity
+                style={styles.settingsDoneBtn}
+                onPress={async () => {
+                  const data = { goalType, goalAmount, goalWeeks, startingValue, currentGoalVal, weightUnit, targetBMI };
+                  await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(data));
+                  setGoalModalVisible(false);
+                }}
+              >
+                <Text style={styles.settingsDoneBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+              {/* Unit toggle */}
+              <Text style={styles.settingsSectionLabel}>Unit</Text>
+              <View style={styles.unitToggleContainer}>
+                <View style={styles.unitToggle}>
+                  {['kg', 'lbs'].map(u => (
+                    <TouchableOpacity
+                      key={u}
+                      onPress={() => setWeightUnit(u)}
+                      style={[styles.unitToggleBtn, weightUnit === u && styles.unitToggleBtnActive]}
+                    >
+                      <Text style={[styles.unitToggleBtnText, weightUnit === u && styles.unitToggleBtnTextActive]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Ideal Weight section */}
+              <View style={styles.idealWeightBadge}>
+                <MaterialCommunityIcons name="walk" size={16} color="#FFF" />
+                <Text style={styles.idealWeightBadgeText}>Ideal Weight</Text>
+              </View>
+              <Text style={styles.idealWeightSubtitle}>Ideal weight based on height and target BMI</Text>
+
+              {/* Height card */}
+              <View style={styles.settingsCard}>
+                <Text style={styles.settingsCardLabel}>Height</Text>
+                <Text style={styles.settingsCardValue}>{heightVal} cm</Text>
+              </View>
+
+              {/* Healthy range */}
+              {(() => {
+                const hM = parseFloat(heightVal) > 10 ? parseFloat(heightVal) / 100 : parseFloat(heightVal);
+                const minW = (18.5 * hM * hM).toFixed(1);
+                const maxW = (25 * hM * hM).toFixed(1);
+                return (
+                  <View style={styles.healthyRangeRow}>
+                    <Icon name="person-outline" size={14} color="rgba(255,255,255,0.4)" />
+                    <Text style={styles.healthyRangeText}>Healthy range: {minW} – {maxW} {weightUnit}</Text>
+                  </View>
+                );
+              })()}
+
+              {/* Calculated ideal weight card */}
+              {(() => {
+                const hM = parseFloat(heightVal) > 10 ? parseFloat(heightVal) / 100 : parseFloat(heightVal);
+                const idealW = (targetBMI * hM * hM).toFixed(1);
+                return (
+                  <View style={styles.settingsCard}>
+                    <Text style={styles.settingsCardLabel}>Calculated ideal weight</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
+                      <Text style={styles.idealWeightValue}>{idealW}</Text>
+                      <Text style={styles.idealWeightValueUnit}>{weightUnit}</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* Target BMI slider */}
+              <View style={styles.settingsCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <Text style={styles.settingsCardLabel}>Target BMI</Text>
+                  <Text style={styles.bmiSliderValue}>{targetBMI.toFixed(1)}</Text>
+                </View>
+                {/* Custom slider */}
+                <View
+                  style={styles.sliderTrack}
+                  ref={sliderRef}
+                  onLayout={e => { sliderRef.current._width = e.nativeEvent.layout.width; }}
+                  {...PanResponder.create({
+                    onStartShouldSetPanResponder: () => true,
+                    onMoveShouldSetPanResponder: () => true,
+                    onPanResponderGrant: (e) => {
+                      const w = sliderRef.current?._width || (SCREEN_WIDTH - 80);
+                      const x = e.nativeEvent.locationX;
+                      const pct = Math.min(1, Math.max(0, x / w));
+                      const newBMI = Math.round((18.5 + pct * (25 - 18.5)) * 10) / 10;
+                      setTargetBMI(newBMI);
+                    },
+                    onPanResponderMove: (e) => {
+                      const w = sliderRef.current?._width || (SCREEN_WIDTH - 80);
+                      const x = e.nativeEvent.locationX;
+                      const pct = Math.min(1, Math.max(0, x / w));
+                      const newBMI = Math.round((18.5 + pct * (25 - 18.5)) * 10) / 10;
+                      setTargetBMI(newBMI);
+                    },
+                  }).panHandlers}
+                >
+                  <View style={[styles.sliderFill, { width: `${((targetBMI - 18.5) / (25 - 18.5)) * 100}%` }]} />
+                  <View style={[styles.sliderThumb, { left: `${((targetBMI - 18.5) / (25 - 18.5)) * 100}%` }]} />
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                  <Text style={styles.sliderEndLabel}>18.5</Text>
+                  <Text style={styles.sliderEndLabel}>25</Text>
+                </View>
+              </View>
+
+              {/* Big White Pill 'Use as goal' button */}
+              <TouchableOpacity
+                style={styles.useAsGoalPillBtn}
+                onPress={async () => {
+                  const hM = parseFloat(heightVal) > 10 ? parseFloat(heightVal) / 100 : parseFloat(heightVal);
+                  const idealW = (targetBMI * hM * hM).toFixed(1);
+                  const startW = parseFloat(startingValue) || currentWeightVal;
+                  const diff = Math.abs(parseFloat(idealW) - startW).toFixed(1);
+                  const gType = parseFloat(idealW) >= startW ? 'Gained' : 'Lost';
+
+                  // Update screen state immediately
+                  setCurrentGoalVal(idealW);
+                  setGoalAmount(diff);
+                  setGoalType(gType);
+
+                  // Dispatch Redux action to persist target weight to DB
+                  dispatch(saveWeightTarget({ targetWeight: idealW, height: heightVal, startingValue }));
+
+                  // Dismiss settings modal so user sees updated screen
+                  setGoalModalVisible(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <MaterialCommunityIcons name="target" size={22} color="#111" />
+                <Text style={styles.useAsGoalPillBtnText}>Use as goal</Text>
+              </TouchableOpacity>
+
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER_COLOR,
-    backgroundColor: '#000',
-  },
-  headerBtn: {
-    padding: 6,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  addLogBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  addLogBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: PURPLE,
-  },
-  scrollContent: {
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  progressCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    padding: 16,
-    backgroundColor: '#0A0A0C',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    marginBottom: 20,
-  },
-  progressRingWrapper: {
-    position: 'relative',
-    width: 64,
-    height: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressIconContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressTextColumn: {
-    flex: 1,
-    marginLeft: 16,
-    justifyContent: 'center',
-  },
-  progressTitleText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  progressSubtitleText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.4)',
-    marginTop: 2,
-  },
-  editGoalBtn: {
-    padding: 8,
-    backgroundColor: LIGHT_GRAY,
-    borderRadius: 20,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 24,
-    gap: 12,
-  },
-  tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-  },
-  tabButtonActive: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE,
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  tabButtonTextActive: {
-    color: '#FFF',
-  },
-  chartContainer: {
-    position: 'relative',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    height: CHART_HEIGHT,
-  },
-  tooltipContainer: {
-    position: 'absolute',
-    width: 100,
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  tooltipBox: {
-    backgroundColor: '#1E1E24',
-    borderRadius: 8,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-  },
-  tooltipValText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  tooltipDateText: {
-    fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.4)',
-    marginTop: 2,
-  },
-  tooltipArrow: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 6,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  legendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 24,
-    marginVertical: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  idealWeightSquare: {
-    width: 14,
-    height: 14,
-    borderWidth: 1.5,
-    borderColor: PURPLE,
-    borderRadius: 3,
-  },
-  goalDashedLine: {
-    width: 18,
-    height: 1.5,
-    borderWidth: 1,
-    borderColor: PURPLE,
-    borderStyle: 'dashed',
-  },
-  legendText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '500',
-  },
-  dividerBand: {
-    height: 8,
-    backgroundColor: '#0F0F12',
-    marginVertical: 16,
-  },
-  timelineSection: {
-    paddingHorizontal: 16,
-  },
-  timelineTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 16,
-  },
-  timelineListContainer: {
-    position: 'relative',
-  },
-  timelineVerticalLine: {
-    position: 'absolute',
-    left: 8,
-    top: 12,
-    bottom: 24,
-    width: 2,
-    backgroundColor: BORDER_COLOR,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  timelineDotOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  timelineDotInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: PURPLE,
-  },
-  timelineCard: {
-    flex: 1,
-    marginLeft: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0A0A0C',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-  },
-  timelineCardLeft: {
-    flex: 1,
-  },
-  timelineValueText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: PURPLE,
-  },
-  timelineUnitText: {
-    fontSize: 13,
-    fontWeight: 'normal',
-    color: 'rgba(255, 255, 255, 0.4)',
-  },
-  timelineSubText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.4)',
-    marginTop: 4,
-  },
-  cameraIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: LIGHT_GRAY,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  logThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#16161A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: BORDER_COLOR,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#FFF',
-    backgroundColor: '#0F0F12',
-  },
-  typeSelectorRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 4,
-  },
-  typeBtn: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  typeBtnActive: {
-    backgroundColor: PURPLE,
-    borderColor: PURPLE,
-  },
-  typeBtnText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '600',
-  },
-  typeBtnTextActive: {
-    color: '#FFF',
-  },
-  photoPickerBtn: {
-    marginTop: 16,
-    height: 100,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: BORDER_COLOR,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F0F12',
-  },
-  photoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  previewImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 6,
-  },
-  photoPlaceholder: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  photoPickerText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '600',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  cancelBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: LIGHT_GRAY,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  saveBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: PURPLE,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  chartPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0A0A0C',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    padding: 20,
-  },
-  placeholderText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  placeholderSubtext: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-  },
+  root: { flex: 1, backgroundColor: DARK_BG },
+  hero: { width: '100%', backgroundColor: '#0C1410', overflow: 'hidden' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 6, paddingBottom: 2 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: 0.2 },
+  settingsBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  heroContent: { paddingHorizontal: 20, paddingTop: 14 },
+  targetLabel: { fontSize: 13, fontWeight: '600', color: GREEN_BRIGHT, letterSpacing: 0.5, marginBottom: 4, opacity: 0.9 },
+  deltaRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  deltaValue: { fontSize: 68, fontWeight: '800', color: '#FFF', letterSpacing: -3, lineHeight: 72 },
+  deltaRight: { paddingBottom: 6, gap: 2 },
+  deltaUnit: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  deltaDirection: { fontSize: 15, fontWeight: '600' },
+  motivationText: { fontSize: 14, color: 'rgba(255,255,255,0.45)', marginTop: 6, marginBottom: 0 },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 16, gap: 10, marginBottom: 12 },
+  tabBtn: { paddingVertical: 7, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  tabBtnActive: { backgroundColor: GREEN, borderColor: GREEN },
+  tabBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  tabBtnTextActive: { color: '#FFF' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12, marginBottom: 16 },
+  historyBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#1E2220', justifyContent: 'center', alignItems: 'center' },
+  logWeightBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: '#2C2C2E', justifyContent: 'center', alignItems: 'center' },
+  logWeightBtnText: { fontSize: 16, fontWeight: '600', color: '#FFF', letterSpacing: 0.2 },
+  cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10, marginBottom: 20 },
+  card: { width: (SCREEN_WIDTH - 34) / 2, backgroundColor: CARD_BG, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  cardLabel: { fontSize: 13, color: 'rgba(255,255,255,0.45)', fontWeight: '500', marginBottom: 4 },
+  cardValue: { fontSize: 22, fontWeight: '700', color: '#FFF', letterSpacing: -0.5 },
+  timelineTitle: { fontSize: 17, fontWeight: '700', color: '#FFF', marginBottom: 12 },
+  timelineRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD_BG, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 14 },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: GREEN },
+  timelineValue: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  timelineUnit: { fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.4)' },
+  timelineMeta: { fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 },
+  timelineThumb: { width: 44, height: 44, borderRadius: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: '#161A18', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 28, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)', alignSelf: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: '#FFF', textAlign: 'center', marginBottom: 20 },
+  modalLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginBottom: 8, marginTop: 12 },
+  modalInput: { height: 50, backgroundColor: '#0F1310', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, fontSize: 16, color: '#FFF' },
+  typeSelectorRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  typeBtn: { flex: 1, height: 42, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+  typeBtnActive: { backgroundColor: GREEN, borderColor: GREEN },
+  typeBtnText: { fontSize: 14, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
+  typeBtnTextActive: { color: '#FFF' },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  cancelBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
+  cancelBtnText: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
+  confirmBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center' },
+  confirmBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+
+  // ── Weight Progress card ────────────────────────────────────────────────
+  sectionCard: { marginHorizontal: 12, marginBottom: 14, backgroundColor: CARD_BG, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  sectionCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  sectionCardTitle: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+  goalBadge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
+  goalBadgeText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  barChartArea: { height: 120, width: '100%', position: 'relative', marginBottom: 12, justifyContent: 'flex-end' },
+  barTargetLine: { position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(255,255,255,0.18)', borderStyle: 'dashed' },
+  barsRow: { flexDirection: 'row', alignItems: 'flex-end', height: '100%', gap: 5, paddingHorizontal: 2 },
+  barWrapper: { flex: 1, justifyContent: 'flex-end', height: '100%' },
+  bar: { width: '100%', backgroundColor: GREEN, borderRadius: 4, minHeight: 4 },
+  periodRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  periodBtn: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.07)' },
+  periodBtnActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  periodBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+  periodBtnTextActive: { color: '#FFF' },
+
+  // ── Weight Changes card ─────────────────────────────────────────────────
+  changeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.04)', gap: 10 },
+  changePeriodText: { fontSize: 13, color: 'rgba(255,255,255,0.55)', fontWeight: '500', width: 52 },
+  changeBarTrack: { flex: 1, height: 7, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden', maxWidth: 100 },
+  changeBar: { height: '100%', borderRadius: 4 },
+  changeDeltaText: { fontSize: 13, fontWeight: '700', color: '#FFF', width: 70, textAlign: 'right' },
+
+  // ── BMI card ────────────────────────────────────────────────────────────
+  bmiCard: { marginHorizontal: 12, marginBottom: 30, backgroundColor: CARD_BG, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  bmiTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  bmiLabel: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
+  bmiValue: { fontSize: 36, fontWeight: '800', color: '#FFF', letterSpacing: -1 },
+  bmiStatus: { fontSize: 18, fontWeight: '700' },
+
+  // ── Settings modal ────────────────────────────────────────────────────
+  settingsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  settingsModalSheet: { backgroundColor: '#1C1D1F', borderTopLeftRadius: 28, borderTopRightRadius: 28, height: '88%', width: '100%', paddingTop: 16 },
+  settingsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 14, position: 'relative' },
+  settingsTitle: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+  settingsDoneBtn: { position: 'absolute', right: 20, backgroundColor: '#FFF', borderRadius: 22, paddingVertical: 6, paddingHorizontal: 18 },
+  settingsDoneBtnText: { fontSize: 14, fontWeight: '700', color: '#111' },
+  settingsSectionLabel: { fontSize: 15, fontWeight: '600', color: '#FFF', marginBottom: 10 },
+  unitToggleContainer: { marginBottom: 24 },
+  unitToggle: { flexDirection: 'row', backgroundColor: '#2A2A2C', borderRadius: 30, padding: 4 },
+  unitToggleBtn: { flex: 1, height: 40, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+  unitToggleBtnActive: { backgroundColor: '#4A4A4C' },
+  unitToggleBtnText: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+  unitToggleBtnTextActive: { color: '#FFF' },
+  idealWeightBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#2C3830', borderRadius: 20, alignSelf: 'flex-start', paddingVertical: 7, paddingHorizontal: 14, marginBottom: 8 },
+  idealWeightBadgeText: { fontSize: 14, fontWeight: '600', color: '#FFF' },
+  idealWeightSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 14 },
+  settingsCard: { backgroundColor: '#27292C', borderRadius: 16, padding: 16, marginBottom: 10 },
+  settingsCardLabel: { fontSize: 14, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
+  settingsCardValue: { fontSize: 22, fontWeight: '700', color: '#FFF', marginTop: 4 },
+  healthyRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, paddingHorizontal: 4 },
+  healthyRangeText: { fontSize: 13, color: 'rgba(255,255,255,0.35)' },
+  idealWeightValue: { fontSize: 42, fontWeight: '800', color: '#FFF', letterSpacing: -1 },
+  idealWeightValueUnit: { fontSize: 18, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  useAsGoalPillBtn: { backgroundColor: '#FFFFFF', borderRadius: 30, height: 54, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 24 },
+  useAsGoalPillBtnText: { fontSize: 16, fontWeight: '700', color: '#111111' },
+  bmiSliderValue: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+  sliderTrack: { height: 6, backgroundColor: '#3A3A3C', borderRadius: 3, position: 'relative', justifyContent: 'center' },
+  sliderFill: { height: '100%', backgroundColor: '#777', borderRadius: 3 },
+  sliderThumb: { position: 'absolute', width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF', top: -11, marginLeft: -14, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  sliderEndLabel: { fontSize: 12, color: 'rgba(255,255,255,0.3)' },
+
+  // ── Weight logs history modal ───────────────────────────────────────────
+  historyModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  historyModalSheet: { backgroundColor: '#1C1D1F', borderTopLeftRadius: 28, borderTopRightRadius: 28, height: '80%', width: '100%', paddingTop: 12 },
+  historyHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 12 },
+  historyHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.06)', position: 'relative' },
+  historyHeaderTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  historyCloseBtn: { position: 'absolute', right: 20, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  historyLogRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  historyLogWeightText: { fontSize: 20, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
+  historyLogDateText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.5)' },
+
+  // ── BMI detail modal ────────────────────────────────────────────────────
+  bmiModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  bmiModalSheet: { backgroundColor: '#1A1A1C', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: Platform.OS === 'ios' ? 44 : 30 },
+  bmiModalSub: { fontSize: 15, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 6 },
+  bmiModalBigVal: { fontSize: 64, fontWeight: '800', color: '#FFF', textAlign: 'center', letterSpacing: -2, marginBottom: 24 },
+  bmiCategoryRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2A2A2C', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
+  bmiDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
+  bmiCategoryLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: '#FFF' },
+  bmiCategoryRange: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
+  bmiNoteCard: { backgroundColor: '#2A2A2C', borderRadius: 14, padding: 16, marginTop: 4, marginBottom: 20 },
+  bmiNoteTitle: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  bmiNoteText: { fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 20 },
+  bmiCloseBtn: { backgroundColor: '#FFF', borderRadius: 26, height: 54, justifyContent: 'center', alignItems: 'center' },
+  bmiCloseBtnText: { fontSize: 16, fontWeight: '700', color: '#111' },
+
+  // ── Custom keypad sheet modal ───────────────────────────────────────────
+  keypadModalOverlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
+  keypadModalSheet: { backgroundColor: '#1E2024', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 14, paddingBottom: Platform.OS === 'ios' ? 36 : 24 },
+  keypadHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 14 },
+  keypadDisplayValue: { fontSize: 44, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', marginBottom: 16, letterSpacing: -1 },
+  keypadGrid: { gap: 10 },
+  keypadRow: { flexDirection: 'row', gap: 10 },
+  keypadKey: { flex: 1, height: 50, backgroundColor: '#32353A', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  keypadKeyText: { fontSize: 22, fontWeight: '600', color: '#FFFFFF' },
+  keypadBottomRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  keypadUnitBtn: { flex: 1, height: 50, backgroundColor: '#32353A', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  keypadUnitBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  keypadDoneBtn: { flex: 1, height: 50, backgroundColor: '#D6D8DC', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  keypadDoneBtnText: { fontSize: 16, fontWeight: '700', color: '#111111' },
 });
 
 export default WeightTrackerScreen;

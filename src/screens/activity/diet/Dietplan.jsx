@@ -254,33 +254,11 @@ const Dietplan = ({ navigation, route }) => {
         AsyncStorage.getItem('diet_other_info')
       ]);
 
-      const recommendationsParams = {
-        dietPreference: savedPreference || 'Selective Non-Veg',
-        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-        meals: migrateMeals(savedMeals),
-        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
-        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
-        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
-        generate: 'false'
-      };
-
-      const [summaryResponse, recsResponse, analyticsResponse, logsResponse, workoutsResponse] = await Promise.all([
-        apiClient.get(`/summary/daily?date=${formattedDate}`),
-        apiClient.get('/recommendations', { params: recommendationsParams }),
-        apiClient.get('/analytics'),
-        apiClient.get('/diet/logs'),
-        apiClient.get('/workouts/sessions?limit=100')
+      const [logsResponse, workoutsResponse] = await Promise.all([
+        apiClient.get('/diet/logs').catch(() => ({ data: [] })),
+        apiClient.get('/workouts/sessions?limit=100').catch(() => ({ data: { success: false } }))
       ]);
 
-      if (summaryResponse.data?.success) {
-        setDailySummary(summaryResponse.data.data);
-      }
-      if (recsResponse.data?.success) {
-        setRecommendation(recsResponse.data.data);
-      }
-      if (analyticsResponse.data?.success) {
-        setAnalyticsData(analyticsResponse.data.data);
-      }
       if (logsResponse.data) {
         const payload = logsResponse.data?.data || logsResponse.data || [];
         const normalized = Array.isArray(payload)
@@ -288,7 +266,11 @@ const Dietplan = ({ navigation, route }) => {
           : Array.isArray(payload.logs)
             ? payload.logs
             : [];
-        setLogs(normalized);
+        // Filter out water logs so only food logs appear on the Diet screen
+        const foodLogsOnly = normalized.filter(
+          (item) => item.mealType !== 'water' && item.mealName !== 'Water'
+        );
+        setLogs(foodLogsOnly);
       }
 
       // Calculate workouts calories
@@ -437,32 +419,7 @@ const Dietplan = ({ navigation, route }) => {
         AsyncStorage.getItem('diet_other_info')
       ]);
 
-      const recommendationsParams = {
-        dietPreference: savedPreference || 'Selective Non-Veg',
-        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-        meals: migrateMeals(savedMeals),
-        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
-        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
-        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
-        generate: 'true'
-      };
-
-      console.log('[Dietplan] Generating weekly diet plan...');
-      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
-      if (response.data?.success) {
-        const dietPlan = response.data.data;
-        setRecommendation(dietPlan);
-        Alert.alert('Success', 'Weekly diet plan generated successfully!', [
-          {
-            text: 'View Plan',
-            onPress: () => navigation.navigate('WeeklyDietPlan', { recommendation: dietPlan })
-          },
-          { text: 'Close', style: 'cancel' }
-        ]);
-      }
-    } catch (error) {
-      console.warn('[Dietplan] Failed to generate weekly diet plan:', error.message);
-      Alert.alert('Error', 'Failed to generate weekly diet plan.');
+      Alert.alert('Success', 'Preferences saved successfully!');
     } finally {
       setIsGeneratingPlan(false);
     }

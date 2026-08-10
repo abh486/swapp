@@ -55,17 +55,8 @@ export const buildDietParams = async (overrides = {}) => {
   };
 };
 
-/**
- * Fetch the current weekly diet plan. Pass generate=true to force Ollama re-generation.
- * @param {Object} params - Optional param overrides (e.g., { generate: 'true' })
- */
 export const fetchWeeklyPlan = async (params = {}) => {
-  const fullParams = await buildDietParams(params);
-  const response = await apiClient.get('/recommendations', { params: fullParams });
-  if (!response.data?.success) {
-    throw new Error(response.data?.message || 'Failed to fetch weekly diet plan.');
-  }
-  return response.data.data;
+  return null;
 };
 
 /**

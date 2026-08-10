@@ -157,7 +157,7 @@ const DietMealModal = ({
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
                     <Text style={styles.loadingText}>AI is analyzing your food... 🤖</Text>
-                    <Text style={styles.loadingSubtext}>Connecting to AI service at ollama.swapp.fit</Text>
+                    <Text style={styles.loadingSubtext}>Connecting to AI service...</Text>
                   </View>
                 ) : (
                   <>

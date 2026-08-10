@@ -1,7 +1,6 @@
 import apiClient from '../../api/apiClient';
-import exerciseApi from '../../api/exerciseApi';
+import exerciseApi from './exerciseActions';
 import * as types from '../actionTypes/actionTypes';
-import exercisesData from '../../assets/exercises.json';
 
 const normalizeFilterList = value => {
   if (!value) return [];
@@ -49,20 +48,45 @@ const mapNameToMuscleAndEquipment = (name, displayName) => {
   return { target, equipment };
 };
 
+export const resolveExerciseImageUri = (exercise) => {
+  if (!exercise) return null;
+  if (exercise.imageUrl && typeof exercise.imageUrl === 'string' && exercise.imageUrl.startsWith('http')) return exercise.imageUrl;
+  if (exercise.gifUrl && typeof exercise.gifUrl === 'string' && exercise.gifUrl.startsWith('http')) return exercise.gifUrl;
+  if (exercise.imageUrls) {
+    const url = exercise.imageUrls['720p'] || exercise.imageUrls['480p'] || exercise.imageUrls['360p'];
+    if (url) return url;
+  }
+  const exId = exercise.exerciseId || exercise.id;
+  if (exId && typeof exId === 'string' && exId.startsWith('exr_')) {
+    return `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${exId}`;
+  }
+  if (exercise.name && typeof exercise.name === 'string') {
+    const formattedName = exercise.name
+      .trim()
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join('_');
+    return `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${formattedName}/0.jpg`;
+  }
+  return null;
+};
+
 export const normalizeApiExercise = (ex, index = 0) => {
   const exId = ex.exerciseId || ex.id || `ex_${index}`;
   const targetMuscles = (ex.targetMuscles || ex.primaryMuscles || []).map(m => String(m).toLowerCase());
   const bodyParts = (ex.bodyParts || []).map(b => String(b).toLowerCase());
   const equipments = (ex.equipments || (ex.equipment ? [ex.equipment] : [])).map(e => String(e).toLowerCase());
 
+  const resolvedImg = resolveExerciseImageUri(ex);
+
   return {
     id: exId,
     exerciseId: exId,
     name: ex.name || '',
-    imageUrl: ex.imageUrl || ex.imageUrls?.['720p'] || ex.imageUrls?.['480p'] || null,
+    imageUrl: resolvedImg,
     imageUrls: ex.imageUrls || null,
     videoUrl: ex.videoUrl || null,
-    gifUrl: ex.imageUrl || ex.videoUrl || null,
+    gifUrl: resolvedImg,
     targetMuscles: targetMuscles.length > 0 ? targetMuscles : bodyParts,
     secondaryMuscles: (ex.secondaryMuscles || []).map(m => String(m).toLowerCase()),
     equipments: equipments.length > 0 ? equipments : ['body weight'],
@@ -76,9 +100,68 @@ export const normalizeApiExercise = (ex, index = 0) => {
   };
 };
 
-const getLocalMappedExercises = () => {
-  const list = exercisesData?.exercises || [];
-  return list.map(normalizeApiExercise);
+const muscleSynonyms = {
+  abdominals: ['abdominals', 'abs', 'obliques', 'waist', 'core', 'rectus abdominis', 'stomach'],
+  abs: ['abdominals', 'abs', 'obliques', 'waist', 'core'],
+  biceps: ['biceps', 'bicep', 'brachialis', 'brachioradialis', 'arms'],
+  chest: ['chest', 'pectoral', 'pectorals', 'upper chest', 'lower chest', 'serratus', 'pecs'],
+  pectorals: ['chest', 'pectoral', 'pectorals', 'upper chest', 'lower chest'],
+  forearms: ['forearms', 'forearm', 'wrist flexors', 'wrist extensors', 'brachioradialis'],
+  lats: ['lats', 'latissimus', 'latissimus dorsi', 'back', 'mid back'],
+  'lower back': ['lower back', 'erector spinae', 'back', 'lumbar'],
+  neck: ['neck', 'sternocleidomastoid'],
+  shoulders: ['shoulders', 'shoulder', 'deltoids', 'delts', 'anterior deltoid', 'lateral deltoid', 'posterior deltoid'],
+  delts: ['shoulders', 'shoulder', 'deltoids', 'delts'],
+  traps: ['traps', 'trapezius', 'upper back'],
+  triceps: ['triceps', 'tricep', 'arms'],
+  'upper back': ['upper back', 'rhomboids', 'infraspinatus', 'teres major', 'back'],
+  abductors: ['abductors', 'abductor', 'hip abductors', 'gluteus medius', 'tensor fasciae latae'],
+  adductors: ['adductors', 'adductor', 'inner thigh', 'groin'],
+  calves: ['calves', 'calf', 'gastrocnemius', 'soleus', 'lower leg'],
+  glutes: ['glutes', 'glute', 'gluteus maximus', 'butt', 'hips'],
+  hamstrings: ['hamstrings', 'hamstring', 'biceps femoris', 'semitendinosus'],
+  quadriceps: ['quadriceps', 'quads', 'quad', 'rectus femoris', 'thighs'],
+  quads: ['quadriceps', 'quads', 'quad', 'rectus femoris', 'thighs'],
+  cardio: ['cardio', 'running', 'jogging', 'jump', 'aerobic'],
+  'full body': ['full body', 'compound', 'functional', 'bodyweight'],
+  back: ['back', 'lats', 'latissimus', 'traps', 'trapezius', 'rhomboids', 'lower back', 'upper back'],
+  legs: ['quads', 'quadriceps', 'hamstrings', 'calves', 'glutes', 'thighs'],
+};
+
+const isMuscleMatch = (exMuscle, filterM) => {
+  const m1 = String(exMuscle || '').toLowerCase().trim();
+  const m2 = String(filterM || '').toLowerCase().trim();
+  if (!m1 || !m2) return false;
+  if (m1.includes(m2) || m2.includes(m1)) return true;
+
+  const synonyms1 = muscleSynonyms[m2] || [];
+  if (synonyms1.some(syn => m1.includes(syn) || syn.includes(m1))) return true;
+
+  const synonyms2 = muscleSynonyms[m1] || [];
+  if (synonyms2.some(syn => m2.includes(syn) || syn.includes(m2))) return true;
+
+  return false;
+};
+
+const isEquipmentMatch = (exEquipment, filterEq) => {
+  const e1 = String(exEquipment || '').toLowerCase().trim();
+  const e2 = String(filterEq || '').toLowerCase().trim();
+  if (!e1 || !e2) return false;
+  if (e1 === 'all equipment' || e2 === 'all equipment' || e1 === 'all' || e2 === 'all') return true;
+
+  const clean1 = e1.replace(/s$/, '');
+  const clean2 = e2.replace(/s$/, '');
+
+  if (clean1.includes(clean2) || clean2.includes(clean1)) return true;
+  if ((clean1.includes('body') || clean1 === 'none') && (clean2.includes('body') || clean2 === 'none')) return true;
+  if (clean1.includes('band') && clean2.includes('band')) return true;
+  if (clean1.includes('cable') && clean2.includes('cable')) return true;
+  if (clean1.includes('barbell') && clean2.includes('barbell')) return true;
+  if (clean1.includes('dumbbell') && clean2.includes('dumbbell')) return true;
+  if (clean1.includes('kettlebell') && clean2.includes('kettlebell')) return true;
+  if (clean1.includes('machine') && clean2.includes('machine')) return true;
+
+  return false;
 };
 
 export const fetchExercises = (params = {}) => async (dispatch) => {
@@ -89,80 +172,88 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
     let nextCursor = null;
     let totalCount = 0;
 
-    const localList = getLocalMappedExercises();
-
-    try {
-      if (params.search || params.name) {
-        const searchQuery = (params.search || params.name).trim();
-        const apiRes = await exerciseApi.searchExercises(searchQuery);
-        if (apiRes && apiRes.data && apiRes.data.length > 0) {
-          rawExercises = apiRes.data.map(normalizeApiExercise);
-          totalCount = rawExercises.length;
-        }
-      } else {
-        const limit = Number(params.limit) || 200;
-        const apiRes = await exerciseApi.getExercises({
-          limit,
-          after: params.after || undefined,
-          keywords: params.keywords || undefined,
-        });
-        if (apiRes && apiRes.data && apiRes.data.length > 0) {
-          rawExercises = apiRes.data.map(normalizeApiExercise);
-          hasNextPage = Boolean(apiRes.meta?.hasNextPage);
-          nextCursor = apiRes.meta?.nextCursor || null;
-          totalCount = apiRes.meta?.total || rawExercises.length;
-        }
-      }
-    } catch (apiError) {
-      console.warn('[fetchExercises] RapidAPI call error, falling back to full local dataset:', apiError?.message);
-      rawExercises = [];
-    }
-
-    // Merge API exercises with local JSON exercises (avoiding duplicate IDs)
-    const exerciseMap = new Map();
-    localList.forEach(ex => exerciseMap.set(ex.id || ex.name.toLowerCase(), ex));
-    rawExercises.forEach(ex => exerciseMap.set(ex.id || ex.name.toLowerCase(), ex));
-
-    const combinedExercises = Array.from(exerciseMap.values());
-    totalCount = combinedExercises.length;
-
-    let filteredList = combinedExercises;
-
-    // Filter by equipment
-    if (params.equipments) {
-      const rawEquips = Array.isArray(params.equipments)
-        ? params.equipments
-        : String(params.equipments).split(',');
-      const cleanedEquips = rawEquips.map(e => e.trim().toLowerCase()).filter(Boolean);
-
-      if (cleanedEquips.length > 0 && !cleanedEquips.includes('all equipment')) {
-        filteredList = filteredList.filter(ex =>
-          ex.equipments.some(eq => cleanedEquips.some(filterEq => eq.includes(filterEq) || filterEq.includes(eq)))
-        );
-      }
-    }
-
     // Filter by muscles / body parts
     const filterMuscles = [];
-    if (params.targetMuscles) {
-      const list = Array.isArray(params.targetMuscles) ? params.targetMuscles : String(params.targetMuscles).split(',');
-      list.forEach(tm => {
-        const cleaned = tm.trim().toLowerCase();
-        if (cleaned && cleaned !== 'all muscles') filterMuscles.push(cleaned);
-      });
-    }
-    if (params.bodyParts) {
-      const list = Array.isArray(params.bodyParts) ? params.bodyParts : String(params.bodyParts).split(',');
-      list.forEach(bp => {
-        const cleaned = bp.trim().toLowerCase();
-        if (cleaned) filterMuscles.push(cleaned);
-      });
+    const rawMuscles = params.targetMuscles || params.muscles || params.bodyParts || params.muscle || [];
+    const muscleList = Array.isArray(rawMuscles) ? rawMuscles : String(rawMuscles).split(',');
+    muscleList.forEach(tm => {
+      const cleaned = tm.trim().toLowerCase();
+      if (cleaned && !cleaned.includes('all muscle')) filterMuscles.push(cleaned);
+    });
+
+    // Filter by equipment
+    const filterEquipments = [];
+    const rawEquips = params.equipments || params.equipment || [];
+    const equipList = Array.isArray(rawEquips) ? rawEquips : String(rawEquips).split(',');
+    equipList.forEach(eq => {
+      const cleaned = eq.trim().toLowerCase();
+      if (cleaned && !cleaned.includes('all equip')) filterEquipments.push(cleaned);
+    });
+
+    const searchQuery = (params.search || params.name || params.keywords || '').trim();
+
+    if (searchQuery) {
+      const apiRes = await exerciseApi.searchExercises(searchQuery);
+      if (apiRes && apiRes.data && apiRes.data.length > 0) {
+        rawExercises = apiRes.data.map(normalizeApiExercise);
+        totalCount = rawExercises.length;
+      }
+    } else if (filterMuscles.length > 0 && filterEquipments.length === 0) {
+      const apiRes = await exerciseApi.searchExercises(filterMuscles[0]);
+      if (apiRes && apiRes.data && apiRes.data.length > 0) {
+        rawExercises = apiRes.data.map(normalizeApiExercise);
+        totalCount = rawExercises.length;
+      }
     }
 
+    if (rawExercises.length === 0) {
+      let currentAfter = params.after || undefined;
+      let targetLimit = Number(params.limit) || 350;
+      let fetchedCount = 0;
+      let maxPages = 15;
+
+      while (fetchedCount < targetLimit && maxPages > 0) {
+        maxPages--;
+        try {
+          const apiRes = await exerciseApi.getExercises({
+            limit: 50,
+            after: currentAfter,
+          });
+
+          const pageData = apiRes?.data || [];
+          if (!pageData.length) break;
+
+          const normalizedPage = pageData.map(normalizeApiExercise);
+          rawExercises.push(...normalizedPage);
+          fetchedCount += normalizedPage.length;
+
+          hasNextPage = Boolean(apiRes?.meta?.hasNextPage);
+          currentAfter = apiRes?.meta?.nextCursor;
+
+          if (!hasNextPage || !currentAfter) break;
+        } catch (pageErr) {
+          console.warn('[fetchExercises] Page fetch warning:', pageErr?.message);
+          break;
+        }
+      }
+      totalCount = rawExercises.length;
+      nextCursor = currentAfter;
+    }
+
+    let filteredList = rawExercises;
+
+    // Apply equipment filtering
+    if (filterEquipments.length > 0) {
+      filteredList = filteredList.filter(ex =>
+        ex.equipments.some(eq => filterEquipments.some(filterEq => isEquipmentMatch(eq, filterEq)))
+      );
+    }
+
+    // Apply muscle filtering
     if (filterMuscles.length > 0) {
       filteredList = filteredList.filter(ex =>
-        ex.targetMuscles.some(m => filterMuscles.some(filterM => m.includes(filterM) || filterM.includes(m))) ||
-        ex.bodyParts.some(bp => filterMuscles.some(filterM => bp.includes(filterM) || filterM.includes(bp)))
+        ex.targetMuscles.some(m => filterMuscles.some(filterM => isMuscleMatch(m, filterM))) ||
+        ex.bodyParts.some(bp => filterMuscles.some(filterM => isMuscleMatch(bp, filterM)))
       );
     }
 
@@ -401,7 +492,11 @@ export const clearSelectedFilters = () => ({
 
 export const saveCustomWorkoutTemplate = (folderName, workouts) => async (dispatch) => {
   try {
-    const response = await apiClient.post('/workouts/sessions/custom-templates', { folderName, workouts });
+    const formattedWorkouts = (workouts || []).map(ex => ({
+      ...ex,
+      imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+    }));
+    const response = await apiClient.post('/workouts/sessions/custom-templates', { folderName, workouts: formattedWorkouts });
     return response.data.data;
   } catch (error) {
     console.error('API Error:', error);
@@ -412,7 +507,21 @@ export const saveCustomWorkoutTemplate = (folderName, workouts) => async (dispat
 export const getCustomWorkoutTemplates = () => async (dispatch) => {
   try {
     const response = await apiClient.get('/workouts/sessions/custom-templates');
-    return response.data.data;
+    const data = response.data.data;
+    if (Array.isArray(data)) {
+      return data.map(folder => ({
+        ...folder,
+        workouts: (folder.workouts || folder.exercises || []).map(ex => ({
+          ...ex,
+          imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+        })),
+        exercises: (folder.exercises || folder.workouts || []).map(ex => ({
+          ...ex,
+          imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+        })),
+      }));
+    }
+    return data;
   } catch (error) {
     console.error('API Error:', error);
     throw error.response?.data || new Error('Server error.');
@@ -421,7 +530,11 @@ export const getCustomWorkoutTemplates = () => async (dispatch) => {
 
 export const updateCustomWorkoutTemplate = (templateId, exercises) => async (dispatch) => {
   try {
-    const response = await apiClient.put(`/workouts/sessions/custom-templates/${templateId}`, { exercises });
+    const formattedExercises = (exercises || []).map(ex => ({
+      ...ex,
+      imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+    }));
+    const response = await apiClient.put(`/workouts/sessions/custom-templates/${templateId}`, { exercises: formattedExercises });
     return response.data.data;
   } catch (error) {
     console.error('API Error:', error);

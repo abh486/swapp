@@ -13,10 +13,16 @@ import subscriptionReducer from './subscriptionReducer';
 import shopReducer from './shopReducer';
 import homeReducer from './homeReducer';
 import supportReducer from './supportReducer';
+import hydrationReducer from './hydrationReducer';
+import exerciseReducer from './exerciseReducer';
+import weightReducer from './weightReducer';
 
 const rootReducer = combineReducers({
   workout: workoutReducer,
+  exercise: exerciseReducer,
   diet: dietReducer,
+  hydration: hydrationReducer,
+  weight: weightReducer,
   chat: chatReducer,
   cart: cartReducer,
   multiProvider: multiProviderReducer,

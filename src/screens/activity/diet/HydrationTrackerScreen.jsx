@@ -16,185 +16,350 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchHydrationLogs,
+  addWaterLog,
+  removeWaterLog,
+  getHydrationTarget,
+  setHydrationTarget,
+} from '../../../redux/actions/hydrationActions';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSpring,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
-const BLUE_BRAND = '#3B72FF';
-const LIGHT_BLUE = '#A2DFFF';
-const EXTRALIGHT_BLUE = '#1E293B';
-const LIGHT_GRAY = '#1A1A1E';
-const BORDER_COLOR = 'rgba(255, 255, 255, 0.08)';
-const DARK_GRAY = '#121214';
+// Custom color palette matching screenshot
+const BG_DARK = '#070C10';
+const CARD_BG = '#0F1A22';
+const CARD_BORDER = '#1B2C38';
+const CYAN_ACCENT = '#38B2AC';
+const CYAN_LIGHT = '#38BDF8';
+const CYAN_OTHER = '#114B5C';
+const TEXT_MUTED = '#94A3B8';
+const TEXT_MAIN = '#FFFFFF';
+
+// ── Animated Water Wave Background Component ──
+const AnimatedWaterWave = ({ percentage }) => {
+  const targetPercent = Math.min(100, Math.max(0, percentage));
+  const heightAnim = useSharedValue(targetPercent);
+  const wave1 = useSharedValue(0);
+  const wave2 = useSharedValue(0);
+
+  useEffect(() => {
+    heightAnim.value = withSpring(targetPercent, { damping: 14, stiffness: 75 });
+  }, [targetPercent]);
+
+  useEffect(() => {
+    wave1.value = withRepeat(
+      withTiming(25, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    wave2.value = withRepeat(
+      withTiming(-25, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const maxHeight = 270;
+    const currentH = (heightAnim.value / 100) * maxHeight;
+    return {
+      height: Math.max(0, currentH),
+      opacity: heightAnim.value > 0 ? 1 : 0,
+    };
+  });
+
+  const wave1Style = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: wave1.value },
+        { scaleY: 1 + wave1.value / 250 },
+      ],
+    };
+  });
+
+  const wave2Style = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: wave2.value },
+        { scaleY: 1 + wave2.value / 250 },
+      ],
+    };
+  });
+
+  const svgW = width + 80;
+
+  return (
+    <Animated.View style={[styles.waterWaveWrapper, animatedStyle]} pointerEvents="none">
+      {/* Wave 2 (Background soft liquid layer) */}
+      <Animated.View style={[{ position: 'absolute', top: 0, left: -40, right: -40 }, wave2Style]}>
+        <Svg width={svgW} height={280} viewBox={`0 0 ${svgW} 280`}>
+          <Defs>
+            <LinearGradient id="waterGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#0284C7" stopOpacity="0.55" />
+              <Stop offset="100%" stopColor="#072A38" stopOpacity="0.0" />
+            </LinearGradient>
+          </Defs>
+          <Path
+            d={`M 0 40 C ${svgW * 0.3} 10, ${svgW * 0.7} 60, ${svgW} 35 L ${svgW} 280 L 0 280 Z`}
+            fill="url(#waterGrad2)"
+          />
+        </Svg>
+      </Animated.View>
+
+      {/* Wave 1 (Foreground main liquid wave) */}
+      <Animated.View style={[{ position: 'absolute', top: 0, left: -40, right: -40 }, wave1Style]}>
+        <Svg width={svgW} height={280} viewBox={`0 0 ${svgW} 280`}>
+          <Defs>
+            <LinearGradient id="waterGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.90" />
+              <Stop offset="35%" stopColor="#0284C7" stopOpacity="0.82" />
+              <Stop offset="75%" stopColor="#0369A1" stopOpacity="0.65" />
+              <Stop offset="100%" stopColor="#072A38" stopOpacity="0.0" />
+            </LinearGradient>
+          </Defs>
+          <Path
+            d={`M 0 30 C ${svgW * 0.25} 5, ${svgW * 0.75} 50, ${svgW} 20 L ${svgW} 280 L 0 280 Z`}
+            fill="url(#waterGrad1)"
+          />
+        </Svg>
+      </Animated.View>
+    </Animated.View>
+  );
+};
+
+// ── Animated Automatic Left (1st Dot) to Right (Last Dot) Line (Stops at Last Dot) ──
+const AnimatedTimelineTrack = ({ percentage }) => {
+  const sweepProgress = useSharedValue(0);
+
+  useEffect(() => {
+    // Automatically move blue line from 1st dot (0%) to last dot (100%) and stop at the last dot (slower speed)
+    sweepProgress.value = 0;
+    sweepProgress.value = withTiming(100, {
+      duration: 3200,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, []);
+
+  const sweepStyle = useAnimatedStyle(() => {
+    return {
+      width: `${sweepProgress.value}%`,
+    };
+  });
+
+  return (
+    <View style={styles.timelineContainer}>
+      {/* Background Track Line */}
+      <View style={styles.timelineLineTrack} />
+
+      {/* Automatic Blue Line Moving from 1st Dot (Left) to Last Dot (Right) and Stopping */}
+      <Animated.View style={[styles.timelineLineActive, sweepStyle]} />
+
+      {/* Node Dots */}
+      <View style={styles.nodesRow}>
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+          const nodeThreshold = (i / 6) * 100;
+          const isAchieved = percentage >= nodeThreshold && percentage > 0;
+          return (
+            <AnimatedTimelineNode
+              key={i}
+              active={isAchieved}
+              index={i}
+              sweepProgress={sweepProgress}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+const AnimatedTimelineNode = ({ active, index, sweepProgress }) => {
+  const nodePercent = (index / 6) * 100;
+
+  const nodeAnimatedStyle = useAnimatedStyle(() => {
+    const isPassed = sweepProgress.value >= nodePercent;
+    const isNearSweep = Math.abs(sweepProgress.value - nodePercent) < 10;
+    return {
+      transform: [{ scale: isNearSweep ? 1.4 : 1.0 }],
+      backgroundColor: active || isPassed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.45)',
+      borderColor: active || isPassed ? '#38BDF8' : 'transparent',
+    };
+  });
+
+  return <Animated.View style={[styles.timelineNode, nodeAnimatedStyle]} />;
+};
 
 const HydrationTrackerScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
+  const reduxHydration = useSelector((state) => state.hydration || {});
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // States
-  const [waterVolume, setWaterVolume] = useState(0.0); // stored in Liters
-  const [targetGlasses, setTargetGlasses] = useState(16);
-  const [volumeUnit, setVolumeUnit] = useState('ml'); // 'ml' | 'oz'
-  const [reminderActive, setReminderActive] = useState(false);
-  const [rating, setRating] = useState(0);
+  // Core States
+  const [totalMl, setTotalMl] = useState(0); // stored in mL
+  const [targetMl, setTargetMl] = useState(2500); // default 2.50 L = 2500 mL
+  const [todayLogs, setTodayLogs] = useState([]); // array of { id, amount, timestamp }
 
-  // Weekly analysis data
-  const [weeklyAnalysis, setWeeklyAnalysis] = useState([]);
+  // Sync Redux state with component state
+  useEffect(() => {
+    if (reduxHydration.logs !== undefined) setTodayLogs(reduxHydration.logs);
+    if (reduxHydration.totalMl !== undefined) setTotalMl(reduxHydration.totalMl);
+    if (reduxHydration.targetMl !== undefined) setTargetMl(reduxHydration.targetMl);
+  }, [reduxHydration]);
 
-  // Modal Visibility
-  const [goalModalVisible, setGoalModalVisible] = useState(false);
-  const [goalInput, setGoalInput] = useState('16');
+  // Period Toggle for Progress Chart ('M' or 'Y')
+  const [progressPeriod, setProgressPeriod] = useState('M');
 
-  // Key configurations
-  const WATER_GOAL_KEY = 'water_glasses_goal';
-  const UNIT_SETTING_KEY = 'water_volume_unit';
-  const REMINDER_KEY = 'water_reminder_active';
+  // Stats States
+  const [thisWeekTotal, setThisWeekTotal] = useState(0);
+  const [dailyAvg, setDailyAvg] = useState(0);
+  const [hourlyAvg, setHourlyAvg] = useState(0);
+
+  // Modals
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [customModalVisible, setCustomModalVisible] = useState(false);
+  const [targetInput, setTargetInput] = useState('2500');
+  const [customInput, setCustomInput] = useState('');
+
+  // Storage Keys
+  const TARGET_KEY = 'water_target_ml';
 
   const dateKey = useMemo(() => {
     return selectedDate.toISOString().split('T')[0];
   }, [selectedDate]);
 
-  // Load configuration and daily volume
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const savedGoal = await AsyncStorage.getItem(WATER_GOAL_KEY);
-        if (savedGoal) {
-          setTargetGlasses(parseInt(savedGoal, 10));
-        } else {
-          setTargetGlasses(16);
-          await AsyncStorage.setItem(WATER_GOAL_KEY, '16');
-        }
-
-        const savedUnit = await AsyncStorage.getItem(UNIT_SETTING_KEY);
-        if (savedUnit) setVolumeUnit(savedUnit);
-
-        const savedReminder = await AsyncStorage.getItem(REMINDER_KEY);
-        if (savedReminder) setReminderActive(savedReminder === 'true');
-      } catch (err) {
-        console.error('Failed to load hydration settings:', err);
-      }
-    };
-    loadSettings();
-  }, []);
-
-  // Fetch volume whenever dateKey changes
-  useEffect(() => {
-    const loadDailyVolume = async () => {
-      try {
-        const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
-        if (savedVal !== null) {
-          setWaterVolume(parseFloat(savedVal));
-        } else {
-          setWaterVolume(0.0); // default to 0 for new days
-        }
-      } catch (err) {
-        console.error('Failed to load daily water volume:', err);
-        setWaterVolume(0.0);
-      }
-    };
-    loadDailyVolume();
+  const isToday = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return dateKey === todayStr;
   }, [dateKey]);
 
-  // Fetch Last 7 Days analysis (dynamic calculation from AsyncStorage)
+  // Load target configuration via Redux
   useEffect(() => {
-    const fetchWeeklyAnalysis = async () => {
+    dispatch(getHydrationTarget());
+  }, [dispatch]);
+
+  // Fetch daily data & logs via Redux whenever dateKey changes
+  useEffect(() => {
+    dispatch(fetchHydrationLogs(dateKey));
+  }, [dispatch, dateKey]);
+
+  // Fetch Weekly & Monthly Stats
+  useEffect(() => {
+    const calculateStats = async () => {
       try {
-        const analysis = [];
-        for (let i = 6; i >= 0; i--) {
+        let weekSum = 0;
+        for (let i = 0; i < 7; i++) {
           const d = new Date();
           d.setDate(d.getDate() - i);
           const key = d.toISOString().split('T')[0];
-          const weekday = d.toLocaleDateString('en-US', { weekday: 'narrow' }); // 'S', 'M', 'T', etc.
-          
-          const savedVal = await AsyncStorage.getItem(`water_intake_${key}`);
-          const liters = savedVal ? parseFloat(savedVal) : 0.0;
-          const glasses = liters / 0.25; // Convert Liters to glasses count
-          analysis.push({
-            day: weekday,
-            value: glasses,
-          });
+          const val = await AsyncStorage.getItem(`water_intake_${key}`);
+          if (val) {
+            weekSum += parseInt(val, 10);
+          }
         }
-        setWeeklyAnalysis(analysis);
+        setThisWeekTotal(weekSum);
+        setDailyAvg(Math.round(weekSum / 7));
       } catch (err) {
-        console.error('Failed to fetch weekly analysis:', err);
+        console.error('Failed to calculate stats:', err);
       }
     };
+    calculateStats();
+  }, [totalMl, dateKey]);
 
-    fetchWeeklyAnalysis();
-  }, [waterVolume, selectedDate]);
-
-  // Compute glasses logged (1 glass = 250ml = 0.25L)
-  const currentGlasses = useMemo(() => {
-    return Math.round(waterVolume / 0.25);
-  }, [waterVolume]);
-
-  const totalVolumeDisplay = useMemo(() => {
-    const totalMl = currentGlasses * 250;
-    if (volumeUnit === 'ml') {
-      return `${totalMl.toLocaleString('en-US')} ml`;
+  // Hourly Average calculation
+  useEffect(() => {
+    if (totalMl > 0) {
+      setHourlyAvg(Math.round(totalMl / 14));
     } else {
-      const totalOz = (currentGlasses * 8.4535).toFixed(1);
-      return `${parseFloat(totalOz)} oz`;
+      setHourlyAvg(0);
     }
-  }, [currentGlasses, volumeUnit]);
+  }, [totalMl]);
 
-  // Save changes
-  const saveWaterVolume = async (newVal) => {
-    const clamped = Math.max(0.0, Math.min(8.0, newVal));
-    setWaterVolume(clamped);
-    try {
-      await AsyncStorage.setItem(`water_intake_${dateKey}`, clamped.toFixed(2));
-    } catch (err) {
-      console.error('Failed to save water intake:', err);
-    }
+  // Calculations
+  const percentage = useMemo(() => {
+    if (!targetMl || targetMl <= 0) return 0;
+    return Math.min(100, Math.round((totalMl / targetMl) * 100));
+  }, [totalMl, targetMl]);
+
+  const remainingLiters = useMemo(() => {
+    const rem = Math.max(0, targetMl - totalMl);
+    return (rem / 1000).toFixed(2);
+  }, [totalMl, targetMl]);
+
+  const targetLiters = useMemo(() => {
+    return (targetMl / 1000).toFixed(2);
+  }, [targetMl]);
+
+  const formattedTotalNumber = useMemo(() => {
+    return totalMl.toLocaleString('en-US');
+  }, [totalMl]);
+
+  // Dynamic encourage message matching screenshot
+  const encourageMessage = useMemo(() => {
+    if (totalMl === 0) return 'Start your day with a drink!';
+    if (percentage < 30) return "Great start! Keep sipping water.";
+    if (percentage < 70) return "Halfway there! You're doing great.";
+    if (percentage < 100) return 'Almost at your goal! Keep it up!';
+    return '🎉 Congratulations! Daily goal achieved!';
+  }, [totalMl, percentage]);
+
+  // Save new drink log via Redux Action
+  const handleAddDrink = async (amountMl) => {
+    if (isNaN(amountMl) || amountMl <= 0) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    dispatch(addWaterLog({
+      amountMl,
+      dateKey,
+      timestamp: timeStr,
+      notes: `Quick add ${amountMl} mL`,
+    }));
   };
 
-  const handlePlus = () => {
-    saveWaterVolume(waterVolume + 0.25);
+  // Delete a drink log via Redux Action
+  const handleDeleteLog = async (idToDelete) => {
+    const targetEntry = todayLogs.find((item) => item.id === idToDelete);
+    if (!targetEntry) return;
+
+    dispatch(removeWaterLog(idToDelete, targetEntry.amount, dateKey));
   };
 
-  const handleMinus = () => {
-    if (currentGlasses > 0) {
-      saveWaterVolume(waterVolume - 0.25);
-    }
-  };
-
-  const handleSaveGoal = async () => {
-    const goalVal = parseInt(goalInput, 10);
-    if (isNaN(goalVal) || goalVal <= 0) {
-      Alert.alert('Invalid Goal', 'Please enter a valid number of glasses.');
+  // Save new target via Redux Action
+  const handleSaveTarget = async () => {
+    const val = parseInt(targetInput, 10);
+    if (isNaN(val) || val <= 0) {
+      Alert.alert('Invalid Target', 'Please enter a valid target in mL.');
       return;
     }
-    setTargetGlasses(goalVal);
-    setGoalModalVisible(false);
-    try {
-      await AsyncStorage.setItem(WATER_GOAL_KEY, String(goalVal));
-    } catch (err) {
-      console.error('Failed to save water goal:', err);
-    }
+    dispatch(setHydrationTarget(val));
+    setSettingsModalVisible(false);
   };
 
-  const toggleVolumeUnit = async () => {
-    const nextUnit = volumeUnit === 'ml' ? 'oz' : 'ml';
-    setVolumeUnit(nextUnit);
-    try {
-      await AsyncStorage.setItem(UNIT_SETTING_KEY, nextUnit);
-    } catch (err) {
-      console.error('Failed to save volume unit:', err);
+  // Submit custom amount
+  const handleCustomSubmit = () => {
+    const val = parseInt(customInput, 10);
+    if (isNaN(val) || val <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid water volume in mL.');
+      return;
     }
-  };
-
-  const toggleReminder = async () => {
-    const nextState = !reminderActive;
-    setReminderActive(nextState);
-    try {
-      await AsyncStorage.setItem(REMINDER_KEY, String(nextState));
-    } catch (err) {
-      console.error('Failed to save reminder setting:', err);
-    }
+    handleAddDrink(val);
+    setCustomInput('');
+    setCustomModalVisible(false);
   };
 
   // Date selection actions
@@ -213,35 +378,314 @@ const HydrationTrackerScreen = ({ navigation }) => {
     yesterday.setDate(today.getDate() - 1);
 
     if (dateKey === today.toISOString().split('T')[0]) {
-      return `Today, ${selectedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}`;
+      return 'Today';
     } else if (dateKey === yesterday.toISOString().split('T')[0]) {
-      return `Yesterday, ${selectedDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}`;
+      return 'Yesterday';
     } else {
       return selectedDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
     }
   }, [selectedDate, dateKey]);
 
+  // Dynamic progress chart date labels
+  const progressDateLabels = useMemo(() => {
+    if (progressPeriod === 'M') {
+      const today = new Date();
+      const d1 = new Date(today); d1.setDate(today.getDate() - 21);
+      const d2 = new Date(today); d2.setDate(today.getDate() - 14);
+      const d3 = new Date(today); d3.setDate(today.getDate() - 7);
+      const fmt = (d) => `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+      return [fmt(d1), fmt(d2), fmt(d3), fmt(today)];
+    } else {
+      return ['Q1', 'Q2', 'Q3', 'Q4'];
+    }
+  }, [progressPeriod]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="light-content" backgroundColor={BG_DARK} />
 
-      {/* Screen Header */}
+      {/* ── Top Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <Icon name="chevron-back" size={24} color={TEXT_MAIN} />
         </TouchableOpacity>
 
-        {/* Date Dropdown */}
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateSelector}>
-          <Text style={styles.dateText}>{formattedDateHeader}</Text>
-          <Icon name="caret-down" size={14} color="#FFF" style={styles.caret} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Water Minder</Text>
 
-        <TouchableOpacity style={styles.headerBtn}>
-          <Icon name="share-outline" size={22} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => {
+            setTargetInput(String(targetMl));
+            setSettingsModalVisible(true);
+          }}
+          style={styles.iconBtnTranslucent}
+        >
+          <Icon name="settings-sharp" size={20} color={TEXT_MAIN} />
         </TouchableOpacity>
       </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* ── Dashboard Card with Animated Water Wave Background ── */}
+        <View style={styles.dashboardSection}>
+          {/* Animated Water Wave Background Fill */}
+          <AnimatedWaterWave percentage={percentage} />
+
+          {/* Foreground Overlay Content */}
+          <View style={styles.dashboardForeground}>
+            {/* Target Tag */}
+            <View style={styles.targetRow}>
+              <MaterialCommunityIcons name="target" size={16} color={CYAN_ACCENT} />
+              <Text style={styles.targetTagText}>
+                TARGET: {targetLiters} L  ·  <Text style={styles.targetPercentText}>{percentage}%</Text>
+              </Text>
+            </View>
+
+            {/* Main Intake Large Display */}
+            <View style={styles.intakeDisplayRow}>
+              <Text style={styles.mainIntakeNumber}>{formattedTotalNumber}</Text>
+              <Text style={styles.mainIntakeUnit}>mL</Text>
+            </View>
+
+            {/* Remaining Subtitle */}
+            <Text style={styles.remainingText}>{remainingLiters} L remaining</Text>
+
+            {/* Horizontal Timeline Bar with Left-to-Right Animated Line & Popping Nodes */}
+            <AnimatedTimelineTrack percentage={percentage} />
+
+            {/* Dynamic Encourage Subtext */}
+            <Text style={styles.encourageText}>{encourageMessage}</Text>
+          </View>
+        </View>
+
+        {/* ── Quick Add Section ── */}
+        <View style={styles.sectionHeaderRow}>
+          <MaterialCommunityIcons name="wave" size={20} color={CYAN_ACCENT} />
+          <Text style={styles.sectionTitleText}>Quick Add</Text>
+        </View>
+
+        <View style={styles.quickAddGrid}>
+          {/* 250 mL */}
+          <TouchableOpacity
+            style={styles.quickAddCard}
+            activeOpacity={0.8}
+            onPress={() => handleAddDrink(250)}
+          >
+            <MaterialCommunityIcons name="water" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.quickAddText}>250 mL</Text>
+          </TouchableOpacity>
+
+          {/* 350 mL */}
+          <TouchableOpacity
+            style={styles.quickAddCard}
+            activeOpacity={0.8}
+            onPress={() => handleAddDrink(350)}
+          >
+            <MaterialCommunityIcons name="water" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.quickAddText}>350 mL</Text>
+          </TouchableOpacity>
+
+          {/* 500 mL */}
+          <TouchableOpacity
+            style={styles.quickAddCard}
+            activeOpacity={0.8}
+            onPress={() => handleAddDrink(500)}
+          >
+            <MaterialCommunityIcons name="water" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.quickAddText}>500 mL</Text>
+          </TouchableOpacity>
+
+          {/* 750 mL */}
+          <TouchableOpacity
+            style={styles.quickAddCard}
+            activeOpacity={0.8}
+            onPress={() => handleAddDrink(750)}
+          >
+            <MaterialCommunityIcons name="water" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.quickAddText}>750 mL</Text>
+          </TouchableOpacity>
+
+          {/* 1 L */}
+          <TouchableOpacity
+            style={styles.quickAddCard}
+            activeOpacity={0.8}
+            onPress={() => handleAddDrink(1000)}
+          >
+            <MaterialCommunityIcons name="water" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.quickAddText}>1 L</Text>
+          </TouchableOpacity>
+
+          {/* Other (Custom) */}
+          <TouchableOpacity
+            style={[styles.quickAddCard, styles.quickAddOtherCard]}
+            activeOpacity={0.8}
+            onPress={() => setCustomModalVisible(true)}
+          >
+            <View style={styles.otherIconBadge}>
+              <MaterialCommunityIcons name="view-grid" size={18} color={TEXT_MAIN} />
+            </View>
+            <Text style={styles.quickAddText}>Other</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Today's Added Drinks Section ── */}
+        <View style={styles.logsHeaderRow}>
+          <View style={styles.logsHeaderLeft}>
+            <MaterialCommunityIcons name="clipboard-text-outline" size={20} color={CYAN_LIGHT} />
+            <Text style={styles.sectionTitleText}>Today's added drinks</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.logsBtnPill}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <MaterialCommunityIcons name="calendar-month-outline" size={16} color={TEXT_MAIN} />
+            <Text style={styles.logsBtnText}>
+              {isToday ? 'Logs' : formattedDateHeader}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Horizontal Drink Cards List matching Screenshot 3 */}
+        {todayLogs.length === 0 ? (
+          <Text style={styles.emptyLogsText}>No drinks added today.</Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.drinkCardsHorizontalContainer}
+          >
+            {todayLogs.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.drinkCardItem}
+                activeOpacity={0.85}
+                onLongPress={() => {
+                  Alert.alert(
+                    'Delete Log',
+                    `Remove ${item.amount} mL logged at ${item.timestamp}?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => handleDeleteLog(item.id) },
+                    ]
+                  );
+                }}
+              >
+                <View style={styles.drinkCardBadge}>
+                  <MaterialCommunityIcons name="water" size={24} color={CYAN_LIGHT} />
+                </View>
+                <Text style={styles.drinkCardTitle}>Water</Text>
+                <Text style={styles.drinkCardAmount}>
+                  {item.amount >= 1000 ? `${(item.amount / 1000).toFixed(1)} L` : `${item.amount} mL`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* ── 📊 Stats Section ── */}
+        <View style={styles.statsHeaderRow}>
+          <MaterialCommunityIcons name="chart-bar" size={22} color={CYAN_LIGHT} />
+          <Text style={styles.sectionTitleText}>Stats</Text>
+        </View>
+
+        <View style={styles.statsGrid}>
+          {/* TOTAL */}
+          <View style={styles.statCard}>
+            <View style={styles.statHeaderRow}>
+              <MaterialCommunityIcons name="water" size={15} color={CYAN_LIGHT} />
+              <Text style={styles.statTagText}>TOTAL</Text>
+            </View>
+            <Text style={styles.statValueText}>{totalMl} mL</Text>
+          </View>
+
+          {/* HOURLY AVG. */}
+          <View style={styles.statCard}>
+            <View style={styles.statHeaderRow}>
+              <MaterialCommunityIcons name="clock-outline" size={15} color={CYAN_LIGHT} />
+              <Text style={styles.statTagText}>HOURLY AVG.</Text>
+            </View>
+            <Text style={styles.statValueText}>{hourlyAvg} mL</Text>
+          </View>
+
+          {/* DAILY AVG. */}
+          <View style={styles.statCard}>
+            <View style={styles.statHeaderRow}>
+              <MaterialCommunityIcons name="calendar-month-outline" size={15} color={CYAN_LIGHT} />
+              <Text style={styles.statTagText}>DAILY AVG.</Text>
+            </View>
+            <Text style={styles.statValueText}>{dailyAvg} mL</Text>
+          </View>
+
+          {/* THIS WEEK */}
+          <View style={styles.statCard}>
+            <View style={styles.statHeaderRow}>
+              <MaterialCommunityIcons name="book-open-outline" size={15} color={CYAN_LIGHT} />
+              <Text style={styles.statTagText}>THIS WEEK</Text>
+            </View>
+            <Text style={styles.statValueText}>{thisWeekTotal} mL</Text>
+          </View>
+        </View>
+
+        {/* ── 📈 Progress Section ── */}
+        <View style={styles.progressHeaderRow}>
+          <View style={styles.progressHeaderLeft}>
+            <MaterialCommunityIcons name="trending-up" size={22} color={CYAN_LIGHT} />
+            <Text style={styles.sectionTitleText}>Progress</Text>
+          </View>
+
+          {/* M / Y Segmented Toggle */}
+          <View style={styles.periodToggleOuter}>
+            <TouchableOpacity
+              style={[styles.periodPill, progressPeriod === 'M' && styles.periodPillActive]}
+              onPress={() => setProgressPeriod('M')}
+            >
+              <Text style={[styles.periodPillText, progressPeriod === 'M' && styles.periodPillTextActive]}>
+                M
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.periodPill, progressPeriod === 'Y' && styles.periodPillActive]}
+              onPress={() => setProgressPeriod('Y')}
+            >
+              <Text style={[styles.periodPillText, progressPeriod === 'Y' && styles.periodPillTextActive]}>
+                Y
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Progress Chart Container */}
+        <View style={styles.chartContainerCard}>
+          <View style={styles.chartDashedGrid}>
+            {[0, 1, 2, 3].map((idx) => (
+              <View key={idx} style={styles.dashedVerticalLine} />
+            ))}
+          </View>
+
+          {/* Trend Node Line */}
+          <View style={styles.chartTrendLineContainer}>
+            <View style={styles.chartTrendLine} />
+            <View style={styles.chartNodesRow}>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((nIdx) => (
+                <View key={nIdx} style={styles.chartNodePoint} />
+              ))}
+            </View>
+          </View>
+
+          {/* Date Axis Labels */}
+          <View style={styles.chartDateAxisRow}>
+            {progressDateLabels.map((lbl, idx) => (
+              <Text key={idx} style={styles.chartAxisLabel}>
+                {lbl}
+              </Text>
+            ))}
+          </View>
+        </View>
+
+      </ScrollView>
+
+      {/* ── Date Picker Modal ── */}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible={showDatePicker} transparent={true} animationType="fade">
           <View style={styles.modalOverlayCentered}>
@@ -254,8 +698,8 @@ const HydrationTrackerScreen = ({ navigation }) => {
                 maximumDate={new Date()}
                 themeVariant="dark"
               />
-              <TouchableOpacity 
-                style={styles.datePickerDoneBtn} 
+              <TouchableOpacity
+                style={styles.datePickerDoneBtn}
                 onPress={() => setShowDatePicker(false)}
               >
                 <Text style={styles.datePickerDoneBtnText}>Done</Text>
@@ -275,203 +719,74 @@ const HydrationTrackerScreen = ({ navigation }) => {
         />
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* Goal summary text and edit */}
-        <View style={styles.goalRowContainer}>
-          <View style={styles.goalTextContainer}>
-            <Text style={styles.goalTitleText}>
-              {currentGlasses} of {targetGlasses} Glasses
-            </Text>
-          </View>
-          <TouchableOpacity 
-            onPress={() => {
-              setGoalInput(String(targetGlasses));
-              setGoalModalVisible(true);
-            }} 
-            style={styles.editGoalBtn}
-          >
-            <Icon name="pencil" size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.lineDivider} />
-
-        {/* Circular glass illustration and adjustment */}
-        <View style={styles.waterControlSection}>
-          {/* Subtract Button */}
-          <TouchableOpacity 
-            onPress={handleMinus} 
-            disabled={currentGlasses === 0} 
-            style={[styles.stepCircleBtn, currentGlasses === 0 && styles.disabledBtn]}
-          >
-            <Icon name="remove" size={22} color={currentGlasses === 0 ? 'rgba(255, 255, 255, 0.3)' : '#FFF'} />
-          </TouchableOpacity>
-
-          {/* Central Blue circle containing custom SVG glass */}
-          <View style={styles.glassIndicatorCircle}>
-            <Svg width={70} height={90} viewBox="0 0 70 90">
-              {/* Main glass frame outline */}
-              <Path
-                d="M 15 15 L 55 15 L 48 80 L 22 80 Z"
-                fill="#121214"
-                stroke={BLUE_BRAND}
-                strokeWidth={4.5}
-                strokeLinejoin="round"
-              />
-              {/* Glass water content fill */}
-              {currentGlasses > 0 && (
-                <Path
-                  d={`M ${15 + (currentGlasses >= targetGlasses ? 0 : 2)} ${
-                    15 + Math.max(0, 60 - (currentGlasses / targetGlasses) * 60)
-                  } L ${55 - (currentGlasses >= targetGlasses ? 0 : 2)} ${
-                    15 + Math.max(0, 60 - (currentGlasses / targetGlasses) * 60)
-                  } L 48 80 L 22 80 Z`}
-                  fill={LIGHT_BLUE}
-                />
-              )}
-            </Svg>
-          </View>
-
-          {/* Add Button */}
-          <TouchableOpacity onPress={handlePlus} style={[styles.stepCircleBtn, styles.plusBtnActive]}>
-            <Icon name="add" size={22} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Current quantity display */}
-        <Text style={styles.glassLabelText}>
-          {currentGlasses} {currentGlasses === 1 ? 'Glass' : 'Glasses'} ({totalVolumeDisplay})
-        </Text>
-
-        <View style={styles.settingsSection}>
-          {/* Reminder option */}
-          <View style={styles.settingsRow}>
-            <Text style={styles.settingsLabel}>Reminder</Text>
-            <TouchableOpacity onPress={toggleReminder} style={styles.settingsActionBtn}>
-              <Text style={styles.settingsActionText}>
-                {reminderActive ? 'Change' : 'Add'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.horizontalDivider} />
-
-          {/* Volume unit settings */}
-          <View style={styles.settingsRow}>
-            <Text style={styles.settingsLabel}>Volume unit set to {volumeUnit}</Text>
-            <TouchableOpacity onPress={toggleVolumeUnit} style={styles.settingsActionBtn}>
-              <Text style={styles.settingsActionText}>Change</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Tips section matching screenshot bottom card */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.tipsHeaderTitle}>Today's Tip</Text>
-          
-          <View style={styles.tipCard}>
-            <View style={styles.tipIconWrapper}>
-              <Svg width={30} height={40} viewBox="0 0 30 40">
-                <Path
-                  d="M 6 6 L 24 6 L 21 34 L 9 34 Z"
-                  fill="transparent"
-                  stroke={BLUE_BRAND}
-                  strokeWidth={2}
-                />
-                <Path
-                  d="M 7 16 L 23 16 L 21 34 L 9 34 Z"
-                  fill={LIGHT_BLUE}
-                />
-              </Svg>
-            </View>
-            <View style={styles.tipTextContainer}>
-              <Text style={styles.tipBodyText}>
-                Stay hydrated! Your next glass of water is due in 60 minutes
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Analysis Chart Section */}
-        <View style={styles.analysisSection}>
-          <View style={styles.analysisHeaderRow}>
-            <Text style={styles.analysisTitle}>Analysis</Text>
-            <Text style={styles.analysisSubtitle}>Last 7 days</Text>
-          </View>
-
-          <View style={styles.chartWrapper}>
-            <View style={styles.barChartContainer}>
-              {weeklyAnalysis.map((item, index) => {
-                const maxVal = Math.max(...weeklyAnalysis.map(x => x.value), 10);
-                const percentHeight = Math.min(100, (item.value / maxVal) * 100);
-
-                return (
-                  <View key={index} style={styles.chartColumn}>
-                    <Text style={styles.barValueText}>{item.value.toFixed(2)}</Text>
-                    <View style={styles.barContainer}>
-                      <View style={[styles.chartBar, { height: `${percentHeight}%`, minHeight: item.value > 0 ? 4 : 0 }]} />
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.baseline} />
-            <View style={styles.dayLabelsRow}>
-              {weeklyAnalysis.map((item, index) => (
-                <View key={index} style={styles.chartColumn}>
-                  <Text style={styles.dayLabelText}>{item.day}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Feedback Card Section */}
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackTitle}>Your feedback is very important!</Text>
-          <Text style={styles.feedbackSubtitle}>Let us know what you think about this tracker.</Text>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((starVal) => {
-              const isFilled = starVal <= rating;
-              return (
-                <TouchableOpacity key={starVal} onPress={() => setRating(starVal)}>
-                  <Icon
-                    name={isFilled ? 'star' : 'star-outline'}
-                    size={28}
-                    color={isFilled ? '#FBBF24' : '#4B5563'}
-                  />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-      </ScrollView>
-
-      {/* Goal Edit Modal */}
-      <Modal visible={goalModalVisible} animationType="slide" transparent={true}>
+      {/* ── Settings / Target Modal ── */}
+      <Modal visible={settingsModalVisible} transparent={true} animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+          style={styles.modalOverlayCentered}
         >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Set Target Goal</Text>
-            <Text style={styles.modalLabel}>Number of glasses per day</Text>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Hydration Settings</Text>
+            <Text style={styles.modalSubtitle}>Set your daily water target in mL</Text>
+
             <TextInput
-              style={styles.input}
-              placeholder="e.g. 10"
-              placeholderTextColor="#666"
+              style={styles.modalInput}
               keyboardType="numeric"
-              autoFocus
-              value={goalInput}
-              onChangeText={setGoalInput}
+              value={targetInput}
+              onChangeText={setTargetInput}
+              placeholder="e.g. 2500"
+              placeholderTextColor="#64748B"
             />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setGoalModalVisible(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setSettingsModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveGoal} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>Save</Text>
+
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveTarget}>
+                <Text style={styles.modalSaveText}>Save Target</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Custom Amount (Other) Modal ── */}
+      <Modal visible={customModalVisible} transparent={true} animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlayCentered}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Custom Drink Volume</Text>
+            <Text style={styles.modalSubtitle}>Enter volume in mL (e.g. 600)</Text>
+
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="numeric"
+              value={customInput}
+              onChangeText={setCustomInput}
+              placeholder="e.g. 600"
+              placeholderTextColor="#64748B"
+              autoFocus={true}
+            />
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setCustomInput('');
+                  setCustomModalVisible(false);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleCustomSubmit}>
+                <Text style={styles.modalSaveText}>Add Drink</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -484,357 +799,529 @@ const HydrationTrackerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: BG_DARK,
   },
+
+  /* Top Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#000',
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER_COLOR,
   },
-  headerBtn: {
-    padding: 6,
-  },
-  dateSelector: {
-    flexDirection: 'row',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
   },
-  dateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TEXT_MAIN,
   },
-  caret: {
-    marginLeft: 6,
-    marginTop: 2,
+  iconBtnTranslucent: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+
   scrollContent: {
-    paddingTop: 16,
+    paddingHorizontal: 18,
     paddingBottom: 40,
   },
-  goalRowContainer: {
+
+  /* Main Dashboard Section with Animated Water Wave */
+  dashboardSection: {
+    marginTop: 10,
+    marginBottom: 28,
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    minHeight: 250,
+  },
+  waterWaveWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: width,
+    zIndex: 1,
+  },
+  dashboardForeground: {
+    padding: 16,
+    zIndex: 10,
+  },
+  targetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 10,
     marginBottom: 8,
   },
-  goalTextContainer: {
-    flex: 1,
+  targetTagText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: CYAN_ACCENT,
+    letterSpacing: 0.8,
+    marginLeft: 6,
   },
-  goalTitleText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFF',
+  targetPercentText: {
+    color: CYAN_LIGHT,
   },
-  editGoalBtn: {
-    padding: 8,
-  },
-  lineDivider: {
-    height: 1,
-    backgroundColor: BORDER_COLOR,
-    marginHorizontal: 20,
-    marginBottom: 40,
-  },
-  waterControlSection: {
+  intakeDisplayRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  mainIntakeNumber: {
+    fontSize: 58,
+    fontWeight: '800',
+    color: TEXT_MAIN,
+    letterSpacing: -1,
+  },
+  mainIntakeUnit: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: TEXT_MAIN,
+    marginLeft: 8,
+  },
+  remainingText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: TEXT_MUTED,
+    marginBottom: 20,
+  },
+
+  /* Timeline line & nodes */
+  timelineContainer: {
+    position: 'relative',
+    height: 24,
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 32,
-    marginVertical: 16,
+    marginBottom: 10,
   },
-  stepCircleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: LIGHT_GRAY,
-    justifyContent: 'center',
-    alignItems: 'center',
+  timelineLineTrack: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 2,
   },
-  disabledBtn: {
-    opacity: 0.3,
+  timelineLineBase: {
+    position: 'absolute',
+    left: 4,
+    height: 3,
+    backgroundColor: '#0284C7',
+    borderRadius: 2,
+    zIndex: 1,
   },
-  plusBtnActive: {
-    backgroundColor: BLUE_BRAND,
+  timelineLineActive: {
+    position: 'absolute',
+    left: 4,
+    height: 3,
+    backgroundColor: '#38BDF8',
+    borderRadius: 2,
+    zIndex: 2,
   },
-  glassIndicatorCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#0F1A2E',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1D3557',
-  },
-  glassLabelText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-    textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 40,
-  },
-  settingsSection: {
-    marginHorizontal: 20,
-    backgroundColor: '#0A0A0C',
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    borderRadius: 12,
+  sweepClipContainer: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    height: 6,
     overflow: 'hidden',
-    marginBottom: 40,
+    justifyContent: 'center',
+    zIndex: 3,
   },
-  settingsRow: {
+  timelineSweepLight: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  nodesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
+    zIndex: 5,
   },
-  settingsLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#FFF',
+  timelineNode: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
-  settingsActionBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+  timelineNodeActive: {
+    backgroundColor: '#FFFFFF',
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
   },
-  settingsActionText: {
-    fontSize: 15,
-    color: BLUE_BRAND,
-    fontWeight: '600',
+  encourageText: {
+    fontSize: 14,
+    color: TEXT_MUTED,
+    marginTop: 4,
   },
-  horizontalDivider: {
-    height: 1,
-    backgroundColor: BORDER_COLOR,
+
+  /* Quick Add Grid */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  tipsSection: {
-    paddingHorizontal: 20,
+  sectionTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TEXT_MAIN,
+    marginLeft: 8,
   },
-  tipsHeaderTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#FFF',
+  quickAddGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  quickAddCard: {
+    width: (width - 48) / 2,
+    height: 64,
+    backgroundColor: CARD_BG,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
-  tipCard: {
-    flexDirection: 'row',
+  quickAddOtherCard: {
+    backgroundColor: CYAN_OTHER,
+    borderColor: '#176B82',
+  },
+  otherIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    backgroundColor: '#0A0A0C',
+    marginRight: 6,
   },
-  tipIconWrapper: {
-    marginRight: 16,
-  },
-  tipTextContainer: {
-    flex: 1,
-  },
-  tipBodyText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    lineHeight: 20,
-  },
-  analysisSection: {
-    paddingHorizontal: 20,
-    marginTop: 36,
-  },
-  analysisHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  analysisTitle: {
+  quickAddText: {
     fontSize: 17,
-    fontWeight: 'bold',
-    color: '#FFF',
+    fontWeight: '700',
+    color: TEXT_MAIN,
+    marginLeft: 8,
   },
-  analysisSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.4)',
-  },
-  chartWrapper: {
-    alignItems: 'center',
-  },
-  barChartContainer: {
+
+  /* Today's Added Drinks Section */
+  logsHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    height: 100,
-    alignItems: 'flex-end',
+    marginBottom: 16,
   },
-  chartColumn: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  barValueText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.4)',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  barContainer: {
-    height: 70,
-    width: '100%',
-    justifyContent: 'flex-end',
+  logsHeaderLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  chartBar: {
-    width: 14,
-    backgroundColor: LIGHT_BLUE,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+  logsBtnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#12222B',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
   },
-  baseline: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    width: '100%',
-    marginTop: 4,
+  logsBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: TEXT_MAIN,
+    marginLeft: 6,
+  },
+  emptyLogsText: {
+    fontSize: 15,
+    color: TEXT_MUTED,
+    marginTop: 8,
+    marginBottom: 32,
+  },
+
+  /* Drink Cards Horizontal Container */
+  drinkCardsHorizontalContainer: {
+    gap: 12,
+    marginBottom: 32,
+    paddingRight: 10,
+  },
+  drinkCardItem: {
+    width: 95,
+    height: 115,
+    backgroundColor: CARD_BG,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  drinkCardBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#112933',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  dayLabelsRow: {
+  drinkCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+    marginBottom: 2,
+  },
+  drinkCardAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TEXT_MAIN,
+  },
+
+  /* ── 📊 Stats Section ── */
+  statsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 36,
+  },
+  statCard: {
+    width: (width - 48) / 2,
+    backgroundColor: CARD_BG,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    marginBottom: 12,
+  },
+  statHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: CYAN_LIGHT,
+    marginLeft: 6,
+    letterSpacing: 0.6,
+  },
+  statValueText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TEXT_MAIN,
+  },
+
+  /* ── 📈 Progress Section ── */
+  progressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  progressHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  periodToggleOuter: {
+    flexDirection: 'row',
+    backgroundColor: '#12222B',
+    borderRadius: 22,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+  },
+  periodPill: {
+    width: 44,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  periodPillActive: {
+    backgroundColor: '#3E4B56',
+  },
+  periodPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+  },
+  periodPillTextActive: {
+    color: TEXT_MAIN,
+  },
+
+  /* Progress Chart Card */
+  chartContainerCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+    height: 200,
+    justifyContent: 'space-between',
+    position: 'relative',
+    marginBottom: 20,
+  },
+  chartDashedGrid: {
+    position: 'absolute',
+    top: 20,
+    bottom: 45,
+    left: 24,
+    right: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
   },
-  dayLabelText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '600',
-  },
-  feedbackCard: {
-    marginHorizontal: 20,
-    marginTop: 36,
-    marginBottom: 24,
-    padding: 20,
+  dashedVerticalLine: {
+    width: 1,
+    height: '100%',
     borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    borderRadius: 16,
-    backgroundColor: '#0A0A0C',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderStyle: 'dashed',
   },
-  feedbackTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
+  chartTrendLineContainer: {
+    position: 'absolute',
+    top: 85,
+    left: 20,
+    right: 20,
+    justifyContent: 'center',
   },
-  feedbackSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 6,
-    marginBottom: 20,
-    lineHeight: 20,
+  chartTrendLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
-  starsRow: {
+  chartNodesRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  modalOverlay: {
+  chartNodePoint: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  chartDateAxisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    marginTop: 'auto',
+  },
+  chartAxisLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: TEXT_MUTED,
+  },
+
+  /* Modal Overlay */
+  modalOverlayCentered: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  modalContent: {
-    backgroundColor: '#16161A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#0F1820',
+    borderRadius: 24,
     padding: 24,
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: BORDER_COLOR,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 16,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: TEXT_MAIN,
+    marginBottom: 6,
   },
-  modalLabel: {
+  modalSubtitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
+    color: TEXT_MUTED,
+    marginBottom: 18,
   },
-  input: {
-    height: 48,
+  modalInput: {
+    backgroundColor: '#16242F',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: TEXT_MAIN,
+    fontSize: 16,
     borderWidth: 1,
-    borderColor: BORDER_COLOR,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#FFF',
-    backgroundColor: '#0F0F12',
-    marginBottom: 24,
+    borderColor: CARD_BORDER,
+    marginBottom: 20,
   },
-  modalActions: {
+  modalActionsRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 12,
   },
-  cancelBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: LIGHT_GRAY,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  cancelBtnText: {
+  modalCancelText: {
+    color: TEXT_MUTED,
     fontSize: 15,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.6)',
   },
-  saveBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: BLUE_BRAND,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalSaveBtn: {
+    backgroundColor: CYAN_ACCENT,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
   },
-  saveBtnText: {
+  modalSaveText: {
+    color: '#000000',
     fontSize: 15,
-    fontWeight: '600',
-    color: '#FFF',
+    fontWeight: '700',
   },
-  modalOverlayCentered: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
+  /* Date Picker iOS Modal */
   datePickerContainer: {
-    backgroundColor: '#1E1E24',
-    borderRadius: 16,
+    backgroundColor: '#16242F',
+    borderRadius: 20,
     padding: 16,
-    width: width * 0.9,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    width: '90%',
   },
   datePickerDoneBtn: {
-    marginTop: 16,
-    backgroundColor: BLUE_BRAND,
-    paddingVertical: 10,
-    paddingHorizontal: 40,
-    borderRadius: 20,
-    width: '100%',
+    backgroundColor: CYAN_ACCENT,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
+    marginTop: 10,
   },
   datePickerDoneBtnText: {
-    color: '#FFF',
+    color: '#000',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
 

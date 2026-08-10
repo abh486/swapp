@@ -34,47 +34,68 @@ import LocationSelectorModal from './components/LocationSelectorModal';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './components/TrainerDetailsModal';
 
-// ── Memoized CategoryItem — rendered outside component so it never re-creates ──
+// ── Ultra-Optimized CategoryItem — strict memoization to eliminate lag ──
 const CATEGORY_ITEM_WIDTH = 85;
-const CategoryItem = React.memo(({ item, isActive, onPress }) => {
-  if (isActive) {
+
+const ActiveSvgCurve = React.memo(() => (
+  <View style={styles.svgWrapper}>
+    <Svg width={85} height={46} viewBox="0 0 110 60">
+      <Path
+        d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.4)"
+        strokeWidth={1.5}
+      />
+    </Svg>
+  </View>
+));
+
+const CategoryItem = React.memo(
+  ({ item, isActive, onSelect }) => {
+    const handlePress = useCallback(() => {
+      onSelect(item.id, item.vertical);
+    }, [onSelect, item.id, item.vertical]);
+
+    if (isActive) {
+      return (
+        <TouchableOpacity
+          style={styles.categoryItemActive}
+          activeOpacity={0.8}
+          onPress={handlePress}
+        >
+          <ActiveSvgCurve />
+          <View style={styles.activeCircleIcon}>
+            <Icon name={item.icon || 'apps'} size={24} color="#3498db" />
+          </View>
+          <Text style={styles.activeCategoryText} numberOfLines={1}>
+            {item.label}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
     return (
       <TouchableOpacity
-        style={styles.categoryItemActive}
-        activeOpacity={0.9}
-        onPress={onPress}
+        style={styles.categoryItemInactive}
+        activeOpacity={0.7}
+        onPress={handlePress}
       >
-        <View style={styles.svgWrapper}>
-          <Svg width={85} height={46} viewBox="0 0 110 60">
-            <Path
-              d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
-              fill="none"
-              stroke="rgba(255, 255, 255, 0.4)"
-              strokeWidth={1.5}
-            />
-          </Svg>
+        <View style={styles.inactiveCircleIcon}>
+          <Icon name={item.icon || 'apps'} size={24} color="#A5A5A5" />
         </View>
-        <View style={styles.activeCircleIcon}>
-          <Icon name={item.icon || 'apps'} size={24} color="#3498db" />
-        </View>
-        <Text style={styles.activeCategoryText}>{item.label}</Text>
+        <Text style={styles.inactiveCategoryText} numberOfLines={1}>
+          {item.label}
+        </Text>
+        <View style={styles.inactiveBottomLine} />
       </TouchableOpacity>
     );
-  }
-  return (
-    <TouchableOpacity
-      style={styles.categoryItemInactive}
-      activeOpacity={0.8}
-      onPress={onPress}
-    >
-      <View style={styles.inactiveCircleIcon}>
-        <Icon name={item.icon || 'apps'} size={24} color="#A5A5A5" />
-      </View>
-      <Text style={styles.inactiveCategoryText}>{item.label}</Text>
-      <View style={styles.inactiveBottomLine} />
-    </TouchableOpacity>
-  );
-});
+  },
+  (prevProps, nextProps) =>
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.item.label === nextProps.item.label &&
+    prevProps.item.icon === nextProps.item.icon &&
+    prevProps.item.vertical === nextProps.item.vertical
+);
 
 const PROMOS = [
   {
@@ -414,13 +435,17 @@ export const HomeDashboard = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  const handleSelectCategory = useCallback((id, vertical) => {
+    dispatch(setGlobalCategory(id, vertical));
+  }, [dispatch]);
+
   const renderCategory = useCallback(({ item }) => (
     <CategoryItem
       item={item}
       isActive={activeCategory === item.id}
-      onPress={() => dispatch(setGlobalCategory(item.id, item.vertical))}
+      onSelect={handleSelectCategory}
     />
-  ), [activeCategory, dispatch]);
+  ), [activeCategory, handleSelectCategory]);
 
   const renderOffering = useCallback(({ item }) => (
     <TouchableOpacity
@@ -1023,14 +1048,15 @@ export const HomeDashboard = ({ navigation }) => {
           data={dashboardCategories}
           renderItem={renderCategory}
           keyExtractor={item => item.id}
+          extraData={activeCategory}
           contentContainerStyle={styles.categoriesList}
           getItemLayout={(_, index) => ({
             length: CATEGORY_ITEM_WIDTH,
             offset: CATEGORY_ITEM_WIDTH * index,
             index,
           })}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={false}
         />

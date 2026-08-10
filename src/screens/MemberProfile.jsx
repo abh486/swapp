@@ -790,12 +790,14 @@ const MemberProfile = () => {
     gender: 'Male',
     height: '176',
     weight: '70',
+    targetWeight: '65',
     fitnessGoal: [],
     interests: [],
     simpleGoals: [],
     activityLevel: '',
     focusAreas: [],
   });
+  const [activeWeightTab, setActiveWeightTab] = useState('current');
   const [healthConnected, setHealthConnected] = useState(false);
   const [healthLoading, setHealthLoading] = useState(false);
 
@@ -993,7 +995,7 @@ const MemberProfile = () => {
     return true;
   };
 
-  const isLastStep = currentStep === 11;
+  const isLastStep = currentStep === 13;
 
   const handleNext = () => {
     if (currentStep === 11) {
@@ -1063,12 +1065,26 @@ const MemberProfile = () => {
         age: Number(formData.age),
         gender: formData.gender,
         weight: { value: Number(formData.weight), unit: weightUnit },
+        targetWeight: { value: Number(formData.targetWeight || formData.weight), unit: weightUnit },
         height: { value: Number(formData.height), unit: heightUnit },
         fitnessGoal: formData.fitnessGoal.join(', '),
         healthConditions: formData.interests.join(', ') || 'None',
         profileImage: profileImage ? profileImage : undefined,
         profilePicture: profileImage ? profileImage : undefined,
       });
+
+      // Save onboarding metrics locally so WeightTrackerScreen can read them directly
+      try {
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify({
+          weight: Number(formData.weight),
+          targetWeight: Number(formData.targetWeight || formData.weight),
+          height: Number(formData.height),
+          weightUnit,
+          heightUnit,
+        }));
+      } catch (e) {
+        console.log('Error saving member_profile_metrics:', e);
+      }
 
       try {
         const reservedJSON = await AsyncStorage.getItem('reserved_usernames');
@@ -1123,15 +1139,15 @@ const MemberProfile = () => {
       case 0:
         return (
           <ScrollView
-            contentContainerStyle={{ alignItems: 'center', paddingTop: sp(60), paddingBottom: sp(20) }}
+            contentContainerStyle={{ alignItems: 'center', paddingTop: sp(55), paddingBottom: sp(20) }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(50) }}>
+            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(24) }}>
               <TouchableOpacity onPress={handlePickImage} activeOpacity={0.85}>
                 <View style={styles.avatarCircle}>
                   {uploadingImage ? (
-                    <GlobalLoader size={sp(60)} />
+                    <GlobalLoader size={sp(30)} />
                   ) : profileImage ? (
                     <Image
                       source={{ uri: profileImage }}
@@ -1147,7 +1163,7 @@ const MemberProfile = () => {
                 </View>
 
                 <Animated.View entering={ZoomIn.delay(200).springify()} style={styles.editBadge}>
-                  <Feather name="edit" size={sp(18)} color="#0055FF" />
+                  <Feather name="edit" size={sp(11)} color="#0055FF" />
                 </Animated.View>
               </TouchableOpacity>
 
@@ -1340,22 +1356,19 @@ const MemberProfile = () => {
         );
       }
 
-      // ── Step 5: Your weight ─────────────────────────────────────────────────
+      // ── Step 5: Current Weight ───────────────────────────────────────────────
       case 5: {
-        const weightNum = Number(formData.weight) || 70;
-        let displayWeightVal = String(weightNum);
+        const currentWeightNum = Number(formData.weight) || 70;
+        let displayWeightVal = String(currentWeightNum);
         let displayWeightUnit = 'kg';
-
         if (weightUnit === 'LBS') {
-          displayWeightVal = String(Math.round(weightNum * 2.20462));
+          displayWeightVal = String(Math.round(currentWeightNum * 2.20462));
           displayWeightUnit = 'lbs';
         }
-
         return (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: sp(10) }}>
             <Animated.View entering={FadeInDown.duration(300).springify()} style={{ width: '100%', alignItems: 'center' }}>
-              <Text style={styles.screenMainTitle}>Your weight</Text>
-
+              <Text style={styles.screenMainTitle}>Current weight</Text>
               <AnimatedSegmentedControl
                 options={['KG', 'LBS']}
                 selectedOption={weightUnit}
@@ -1363,9 +1376,7 @@ const MemberProfile = () => {
               />
             </Animated.View>
 
-            <View
-              style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' }}
-            >
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' }}>
               <Text style={styles.massiveValueText}>{displayWeightVal}</Text>
               <Text style={styles.massiveUnitText}>{displayWeightUnit}</Text>
             </View>
@@ -1495,7 +1506,7 @@ const MemberProfile = () => {
         );
       }
 
-      // ── Step 9: Activity Level ────────────────────────────────────────────────
+      // ── Step 9: Activity Level ───────────────────────────────────────────────
       case 9: {
         const activityOptions = [
           { key: 'sedentary', label: 'Sedentary', sub: 'Little or no exercise', icon: 'human-wheelchair' },
@@ -1631,7 +1642,7 @@ const MemberProfile = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={{ paddingHorizontal: sp(20), paddingVertical: sp(14) }}>
-          <SegmentedStepHeader currentStep={currentStep} totalSteps={12} sp={sp} />
+          <SegmentedStepHeader currentStep={currentStep} totalSteps={13} sp={sp} />
         </View>
 
         {/* Directional Slide & Fade Reanimated Step Transition */}
@@ -1789,10 +1800,10 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
 
     // Step 0 — Avatar
     avatarCircle: {
-      width: sp(140),
-      height: sp(140),
-      borderRadius: sp(70),
-      borderWidth: 3,
+      width: sp(64),
+      height: sp(64),
+      borderRadius: sp(32),
+      borderWidth: 2,
       borderColor: '#FFFFFF',
       justifyContent: 'center',
       alignItems: 'center',
@@ -1800,35 +1811,35 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       overflow: 'hidden',
     },
     avatarImage: {
-      width: sp(140),
-      height: sp(140),
-      borderRadius: sp(70),
+      width: sp(64),
+      height: sp(64),
+      borderRadius: sp(32),
     },
     avatarPlaceholder: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarHead: {
-      width: sp(46),
-      height: sp(46),
-      borderRadius: sp(23),
+      width: sp(22),
+      height: sp(22),
+      borderRadius: sp(11),
       backgroundColor: '#3A3A3A',
-      marginBottom: sp(6),
+      marginBottom: sp(3),
     },
     avatarBody: {
-      width: sp(70),
-      height: sp(38),
-      borderRadius: sp(35),
+      width: sp(36),
+      height: sp(18),
+      borderRadius: sp(18),
       backgroundColor: '#3A3A3A',
     },
     editBadge: {
       position: 'absolute',
-      bottom: sp(2),
-      right: sp(2),
+      bottom: -2,
+      right: -2,
       backgroundColor: '#FFF',
-      width: sp(36),
-      height: sp(36),
-      borderRadius: sp(18),
+      width: sp(24),
+      height: sp(24),
+      borderRadius: sp(12),
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
@@ -1838,8 +1849,8 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
     },
     addProfileLabel: {
       color: '#AAAAAA',
-      fontSize: fs(16),
-      marginTop: sp(18),
+      fontSize: fs(13),
+      marginTop: sp(6),
       letterSpacing: 0.3,
     },
     stepTitle: {

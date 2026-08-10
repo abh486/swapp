@@ -57,34 +57,13 @@ const AlmostDoneClocheScreen = ({ navigation }) => {
         AsyncStorage.getItem('diet_other_info')
       ]);
 
-      const recommendationsParams = {
-        dietPreference: savedPreference || 'Selective Non-Veg',
-        skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : [],
-        meals: migrateMeals(savedMeals),
-        allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
-        cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
-        otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
-        generate: 'true'
-      };
-
-      console.log('[AlmostDoneClocheScreen] Triggering AI diet plan generation...');
-      const response = await apiClient.get('/recommendations', { params: recommendationsParams });
-      
       await AsyncStorage.setItem('diet_flow_completed', 'true');
-
-      if (response.data?.success) {
-        const dietPlan = response.data.data;
-        // Reset navigation and go directly to the full weekly plan screen
-        navigation.reset({
-          index: 0,
-          routes: [
-            { name: 'MainTabs', params: { screen: 'Diet' } },
-            { name: 'WeeklyDietPlan', params: { recommendation: dietPlan } }
-          ],
-        });
-      } else {
-        throw new Error('Response unsuccessful');
-      }
+      navigation.reset({
+        index: 0,
+        routes: [
+          { name: 'MainTabs', params: { screen: 'Diet' } }
+        ],
+      });
     } catch (err) {
       console.warn('[AlmostDoneClocheScreen] Failed to generate AI diet plan:', err.message);
       Alert.alert(

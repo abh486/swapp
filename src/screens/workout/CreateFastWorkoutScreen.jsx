@@ -322,9 +322,10 @@ const CreateFastWorkoutScreen = () => {
     const target = formatDisplayName(rawTarget);
     const equipment = formatDisplayName(rawEquipment);
 
-    const imageSource = (item.imageUrl || item.gifUrl)
-      ? { uri: item.imageUrl || item.gifUrl, headers: { 'x-api-key': '327a86f1-6475-4c3c-9827-76a85cb04743' } }
-      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=120' };
+    const rawImg = item.imageUrl || item.gifUrl || (item.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${item.exerciseId}` : null);
+    const imageSource = rawImg
+      ? { uri: rawImg, headers: { 'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com', 'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d' } }
+      : null;
 
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
 
