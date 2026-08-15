@@ -37,9 +37,23 @@ import { TrainerDetailsModal } from './components/TrainerDetailsModal';
 // ── Ultra-Optimized CategoryItem — strict memoization to eliminate lag ──
 const CATEGORY_ITEM_WIDTH = 85;
 
+const getCategoryIcon = (iconName, label) => {
+  if (iconName && iconName !== 'apps' && iconName !== 'apps-outline') {
+    return iconName;
+  }
+  const l = (label || '').toLowerCase().trim();
+  if (l === 'all') return 'grid-outline';
+  if (l === 'gym') return 'barbell-outline';
+  if (l === 'arena') return 'trophy-outline';
+  if (l === 'wellnest' || l.includes('wellness') || l.includes('spa')) return 'sparkles-outline';
+  if (l === 'yoga' || l.includes('pilates')) return 'fitness-outline';
+  if (l === 'trainers' || l === 'trainer') return 'people-outline';
+  return 'apps-outline';
+};
+
 const ActiveSvgCurve = React.memo(() => (
   <View style={styles.svgWrapper}>
-    <Svg width={85} height={46} viewBox="0 0 110 60">
+    <Svg width={CATEGORY_ITEM_WIDTH} height={46} viewBox="0 0 110 60">
       <Path
         d="M 0 55 C 8 55, 12 15, 20 15 L 90 15 C 98 15, 102 55, 110 55"
         fill="none"
@@ -56,6 +70,8 @@ const CategoryItem = React.memo(
       onSelect(item.id, item.vertical);
     }, [onSelect, item.id, item.vertical]);
 
+    const iconName = getCategoryIcon(item.icon, item.label);
+
     if (isActive) {
       return (
         <TouchableOpacity
@@ -65,7 +81,7 @@ const CategoryItem = React.memo(
         >
           <ActiveSvgCurve />
           <View style={styles.activeCircleIcon}>
-            <Icon name={item.icon || 'apps'} size={24} color="#3498db" />
+            <Icon name={iconName} size={22} color="#FFFFFF" />
           </View>
           <Text style={styles.activeCategoryText} numberOfLines={1}>
             {item.label}
@@ -80,7 +96,7 @@ const CategoryItem = React.memo(
         onPress={handlePress}
       >
         <View style={styles.inactiveCircleIcon}>
-          <Icon name={item.icon || 'apps'} size={24} color="#A5A5A5" />
+          <Icon name={iconName} size={22} color="#8E8E93" />
         </View>
         <Text style={styles.inactiveCategoryText} numberOfLines={1}>
           {item.label}
@@ -650,54 +666,65 @@ export const HomeDashboard = ({ navigation }) => {
     );
   }, [handleViewTrainerProfile]);
 
-  const dashboardCategories = useMemo(() => [
-    { id: 'all', label: 'All', icon: 'apps', vertical: null },
-    ...(feed?.categories || []).map(c => {
-      const isCompatSport = c.label && (
-        c.label.toLowerCase() === 'combat sports' ||
-        c.label.toLowerCase() === 'combat sport' ||
-        c.label.toLowerCase() === 'combat' ||
-        c.label.toLowerCase() === 'compat sports' ||
-        c.label.toLowerCase() === 'compat sport' ||
-        c.label.toLowerCase() === 'compat'
-      );
-      const isWellnessSpa = c.label && (
-        c.label.toLowerCase() === 'wellness & spa' ||
-        c.label.toLowerCase() === 'wellness and spa' ||
-        c.label.toLowerCase() === 'wellness' ||
-        c.label.toLowerCase() === 'spa & wellness' ||
-        c.label.toLowerCase() === 'spa and wellness'
-      );
-      const isYoga = c.label && (
-        c.label.toLowerCase() === 'yoga' ||
-        c.label.toLowerCase() === 'yoya' ||
-        c.label.toLowerCase() === 'plaints' ||
-        c.label.toLowerCase() === 'yoga and plaints' ||
-        c.label.toLowerCase() === 'yoga & plaints' ||
-        c.label.toLowerCase() === 'yoga and pilates' ||
-        c.label.toLowerCase() === 'yoga & pilates'
-      );
-      const isGym = c.label && (
-        c.label.toLowerCase() === 'gym' ||
-        c.label.toLowerCase() === 'genaral gym' ||
-        c.label.toLowerCase() === 'general gym' ||
-        c.label.toLowerCase() === 'genaral' ||
-        c.label.toLowerCase() === 'general'
-      );
+  const dashboardCategories = useMemo(() => {
+    const rawCategories = (feed?.categories || []).map(c => {
+      const labelLower = (c.label || '').toLowerCase().trim();
+
+      const isGym = ['gym', 'genaral gym', 'general gym', 'genaral', 'general', 'fitness gym'].includes(labelLower);
+      const isCompatSport = ['combat sports', 'combat sport', 'combat', 'compat sports', 'compat sport', 'compat', 'arena'].includes(labelLower);
+      const isWellnessSpa = ['wellness & spa', 'wellness and spa', 'wellness', 'spa & wellness', 'spa and wellness', 'wellnest', 'spa'].includes(labelLower);
+      const isYoga = ['yoga', 'yoya', 'plaints', 'yoga and plaints', 'yoga & plaints', 'yoga and pilates', 'yoga & pilates', 'pilates'].includes(labelLower);
+
+      let normalizedLabel = c.label;
+      let defaultIcon = c.icon || 'apps-outline';
+
+      if (isGym) {
+        normalizedLabel = 'Gym';
+        defaultIcon = 'barbell-outline';
+      } else if (isCompatSport) {
+        normalizedLabel = 'Arena';
+        defaultIcon = 'trophy-outline';
+      } else if (isWellnessSpa) {
+        normalizedLabel = 'Wellnest';
+        defaultIcon = 'sparkles-outline';
+      } else if (isYoga) {
+        normalizedLabel = 'Yoga';
+        defaultIcon = 'fitness-outline';
+      }
+
       return {
         id: c.id,
-        label: isWellnessSpa ? 'Wellnest' : (isYoga ? 'Yoga' : (isGym ? 'Gym' : (isCompatSport ? 'Arena' : c.label))),
-        icon: c.icon,
+        label: normalizedLabel,
+        icon: defaultIcon,
         vertical: c.vertical,
+        isGym,
       };
-    }),
-    {
-      id: 'trainer',
-      label: 'Trainers',
+    });
+
+    // Find gym from feed or fallback to guaranteed Gym category as 2nd item
+    const gymFromFeed = rawCategories.find(c => c.isGym);
+    const gymCategoryItem = gymFromFeed || {
+      id: 'gym',
+      label: 'Gym',
       icon: 'barbell-outline',
-      vertical: 'TRAINER',
-    },
-  ], [feed?.categories]);
+      vertical: 'GYM',
+    };
+
+    // Filter remaining categories to prevent duplicate 'all' or 'gym' items
+    const otherCategories = rawCategories.filter(c => c.id !== 'all' && !c.isGym);
+
+    return [
+      { id: 'all', label: 'All', icon: 'grid-outline', vertical: null },
+      gymCategoryItem,
+      ...otherCategories,
+      {
+        id: 'trainer',
+        label: 'Trainers',
+        icon: 'people-outline',
+        vertical: 'TRAINER',
+      },
+    ];
+  }, [feed?.categories]);
 
   const renderActiveSubscriptionCard = (sub, index) => {
     const isBooking = sub.isBooking;
@@ -1539,7 +1566,7 @@ const styles = StyleSheet.create({
     height: 75,
   },
   categoryItemActive: {
-    width: 85,
+    width: CATEGORY_ITEM_WIDTH,
     height: 70,
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -1549,7 +1576,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    width: 85,
+    width: CATEGORY_ITEM_WIDTH,
     height: 46,
   },
   activeCircleIcon: {
@@ -1567,7 +1594,7 @@ const styles = StyleSheet.create({
   },
   activeCategoryText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
     position: 'absolute',
     bottom: 12,
@@ -1577,9 +1604,10 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   categoryItemInactive: {
-    width: 75,
+    width: CATEGORY_ITEM_WIDTH,
     height: 70,
     alignItems: 'center',
+    justifyContent: 'flex-end',
     position: 'relative',
   },
   inactiveCircleIcon: {
@@ -1595,8 +1623,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inactiveCategoryText: {
-    color: '#888888',
-    fontSize: 9,
+    color: '#8E8E93',
+    fontSize: 10,
     fontWeight: '500',
     position: 'absolute',
     bottom: 12,

@@ -71,6 +71,34 @@ export const resolveExerciseImageUri = (exercise) => {
   return null;
 };
 
+export const getExerciseMuscleFallback = (exercise) => {
+  if (!exercise) return require('../../assets/image/athletic-shirtless-young-male-fitness-model-holds-dumbbell-with-light-isolated-dark-background.png');
+  const name = (exercise.name || exercise.exerciseName || '').toLowerCase();
+  const target = (
+    (exercise.targetMuscles && exercise.targetMuscles[0]) ||
+    (exercise.bodyParts && exercise.bodyParts[0]) ||
+    exercise.target ||
+    exercise.bodyPart ||
+    ''
+  ).toLowerCase();
+
+  const search = `${name} ${target}`;
+
+  if (search.includes('pull') || search.includes('lat') || search.includes('back') || search.includes('row') || search.includes('chin')) {
+    return require('../../assets/image/pullup.jpg');
+  }
+  if (search.includes('lunge') || search.includes('squat') || search.includes('glute') || search.includes('leg') || search.includes('quad') || search.includes('hip') || search.includes('side')) {
+    return require('../../assets/image/pistol.jpg');
+  }
+  if (search.includes('chest') || search.includes('push') || search.includes('press') || search.includes('bench') || search.includes('pec')) {
+    return require('../../assets/image/chest.jpg');
+  }
+  if (search.includes('arm') || search.includes('bicep') || search.includes('tricep') || search.includes('curl')) {
+    return require('../../assets/image/arm.jpg');
+  }
+  return require('../../assets/image/athletic-shirtless-young-male-fitness-model-holds-dumbbell-with-light-isolated-dark-background.png');
+};
+
 export const normalizeApiExercise = (ex, index = 0) => {
   const exId = ex.exerciseId || ex.id || `ex_${index}`;
   const targetMuscles = (ex.targetMuscles || ex.primaryMuscles || []).map(m => String(m).toLowerCase());
@@ -492,9 +520,13 @@ export const clearSelectedFilters = () => ({
 
 export const saveCustomWorkoutTemplate = (folderName, workouts) => async (dispatch) => {
   try {
-    const formattedWorkouts = (workouts || []).map(ex => ({
-      ...ex,
-      imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+    const formattedWorkouts = (workouts || []).map(wk => ({
+      ...wk,
+      exercises: (wk.exercises || []).map(ex => ({
+        ...ex,
+        imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl || null,
+        gifUrl: ex.gifUrl || ex.imageUrl || resolveExerciseImageUri(ex) || null,
+      })),
     }));
     const response = await apiClient.post('/workouts/sessions/custom-templates', { folderName, workouts: formattedWorkouts });
     return response.data.data;
@@ -511,13 +543,13 @@ export const getCustomWorkoutTemplates = () => async (dispatch) => {
     if (Array.isArray(data)) {
       return data.map(folder => ({
         ...folder,
-        workouts: (folder.workouts || folder.exercises || []).map(ex => ({
-          ...ex,
-          imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
-        })),
-        exercises: (folder.exercises || folder.workouts || []).map(ex => ({
-          ...ex,
-          imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+        workouts: (folder.workouts || []).map(wk => ({
+          ...wk,
+          exercises: (wk.exercises || wk.workoutExercises || []).map(ex => ({
+            ...ex,
+            imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl || null,
+            gifUrl: ex.gifUrl || ex.imageUrl || resolveExerciseImageUri(ex) || null,
+          })),
         })),
       }));
     }
@@ -532,7 +564,8 @@ export const updateCustomWorkoutTemplate = (templateId, exercises) => async (dis
   try {
     const formattedExercises = (exercises || []).map(ex => ({
       ...ex,
-      imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
+      imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl || null,
+      gifUrl: ex.gifUrl || ex.imageUrl || resolveExerciseImageUri(ex) || null,
     }));
     const response = await apiClient.put(`/workouts/sessions/custom-templates/${templateId}`, { exercises: formattedExercises });
     return response.data.data;

@@ -22,6 +22,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
 
 const { width } = Dimensions.get('window');
 
@@ -108,9 +109,11 @@ const ProfileWorkoutPostItem = ({
   onPress,
 }) => {
   const [currentMediaSlide, setCurrentMediaSlide] = useState(0);
+  const [failedImages, setFailedImages] = useState({});
 
   const duration = item.stats?.duration || item.duration || 0;
   const volume = item.stats?.volume || 0;
+  const calories = item.stats?.calories || item.calories || 0;
   const likesCount = item.likesCount ?? item.likes ?? 0;
   const commentsCount = item.commentsCount ?? item.comments?.length ?? 0;
   const userName = getDisplayName(item.user);
@@ -191,6 +194,12 @@ const ProfileWorkoutPostItem = ({
             <Text style={styles.postStatLabel}>Volume</Text>
             <Text style={styles.postStatValue}>{formatVolume(volume)}</Text>
           </View>
+          {calories > 0 && (
+            <View style={styles.postStatItem}>
+              <Text style={styles.postStatLabel}>Calories</Text>
+              <Text style={styles.postStatValue}>{calories} kcal</Text>
+            </View>
+          )}
           {item.stats?.records > 0 && (
             <View style={styles.postStatItem}>
               <Text style={styles.postStatLabel}>Records</Text>
@@ -201,7 +210,7 @@ const ProfileWorkoutPostItem = ({
       </View>
 
       {/* 4. Media Content (Image Card Carousel) */}
-      {imagesList.length > 0 && (
+      {imagesList.length > 0 ? (
         <View style={styles.postMediaContainer}>
           <ScrollView
             horizontal
@@ -226,7 +235,13 @@ const ProfileWorkoutPostItem = ({
                 onPress={() => onPress && onPress(item)}
               >
                 <Image
-                  source={{ uri }}
+                  source={{
+                    uri,
+                    headers: uri.includes('rapidapi') ? {
+                      'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
+                      'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
+                    } : undefined,
+                  }}
                   style={[styles.postMediaImage, { width: cardWidth }]}
                   resizeMode="cover"
                 />
@@ -248,7 +263,87 @@ const ProfileWorkoutPostItem = ({
             </View>
           )}
         </View>
-      )}
+      ) : (() => {
+        const exercises = (item.logs && item.logs.length > 0)
+          ? item.logs
+          : (item.exercises && item.exercises.length > 0)
+            ? item.exercises
+            : (item.sessionData?.exercises || []);
+
+        if (exercises.length === 0) return null;
+
+        return (
+          <View style={[styles.postMediaContainer, { height: 260 }]}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(event) => {
+                const slide = Math.round(
+                  event.nativeEvent.contentOffset.x /
+                  event.nativeEvent.layoutMeasurement.width
+                );
+                if (slide !== currentMediaSlide) {
+                  setCurrentMediaSlide(slide);
+                }
+              }}
+              scrollEventThrottle={16}
+              style={{ flex: 1 }}
+            >
+              {exercises.map((log, index) => {
+                const exObj = log.exercise || log;
+                const exName = exObj.name || log.name || log.exerciseName || 'Exercise';
+                const primaryUri = resolveExerciseImageUri(exObj) || log.imageUrl || log.gifUrl || exObj.imageUrl || exObj.gifUrl;
+                const imageKey = `${item.id}-${index}-${primaryUri || 'none'}`;
+                const isFailed = primaryUri ? failedImages[imageKey] : true;
+
+                const imageSource = (primaryUri && !isFailed)
+                  ? {
+                      uri: primaryUri,
+                      headers: primaryUri.includes('rapidapi') ? {
+                        'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
+                        'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
+                      } : undefined,
+                    }
+                  : getExerciseMuscleFallback(exObj);
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    activeOpacity={0.95}
+                    onPress={() => onPress && onPress(item)}
+                    style={{ width: cardWidth, height: '100%' }}
+                  >
+                    <Image
+                      source={imageSource}
+                      onError={() => {
+                        if (primaryUri) {
+                          setFailedImages(prev => ({ ...prev, [imageKey]: true }));
+                        }
+                      }}
+                      style={[styles.postMediaImage, { width: cardWidth, height: '100%' }]}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            {exercises.length > 1 && (
+              <View style={styles.mediaDotsRow}>
+                {exercises.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.mediaDot,
+                      index === currentMediaSlide && styles.mediaDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })()}
 
       {/* 6. Action Footer & Inline Comments */}
       <View style={{ paddingHorizontal: 16 }}>

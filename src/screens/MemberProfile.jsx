@@ -594,6 +594,14 @@ const AnimatedChoiceCard = ({ children, isSelected, onPress, style, index = 0 })
     opacity: checkScale.value,
   }));
 
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, { damping: 12, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(isSelected ? 1.03 : 1, { damping: 14, stiffness: 220 });
+  };
+
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 60).duration(300).springify()}
@@ -601,12 +609,14 @@ const AnimatedChoiceCard = ({ children, isSelected, onPress, style, index = 0 })
     >
       <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.85}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
         style={{ width: '100%', height: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
       >
         {children}
         {isSelected && (
-          <Animated.View style={[{ position: 'absolute', top: 12, right: 12, zIndex: 10 }, checkStyle]}>
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 12, right: 12, zIndex: 10 }, checkStyle]}>
             <Feather name="check-circle" size={20} color="#FFFFFF" />
           </Animated.View>
         )}
@@ -1260,11 +1270,12 @@ const MemberProfile = () => {
                   formData.gender === 'Female' && styles.genderCardActive,
                 ]}
               >
-                <Text style={styles.genderLabel}>Female</Text>
+                <Text style={[styles.genderLabel, { marginLeft: sp(30), marginRight: 'auto' }]}>Female</Text>
                 <Image
                   source={require('../assets/image/girl 1.png')}
                   style={styles.genderImageRight}
                   resizeMode="contain"
+                  pointerEvents="none"
                 />
               </AnimatedChoiceCard>
 
@@ -1282,6 +1293,7 @@ const MemberProfile = () => {
                   source={require('../assets/image/male 1.png')}
                   style={styles.genderImageLeft}
                   resizeMode="contain"
+                  pointerEvents="none"
                 />
               </AnimatedChoiceCard>
             </View>
@@ -1951,7 +1963,6 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       fontWeight: '400',
       letterSpacing: 0.5,
       zIndex: 2,
-      paddingLeft: sp(30),
     },
     genderImageRight: {
       position: 'absolute',

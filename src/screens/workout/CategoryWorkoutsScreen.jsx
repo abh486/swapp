@@ -9,7 +9,7 @@ import {
   SafeAreaView
 } from 'react-native';
 import Svg, { Path, Polyline, Rect, Circle } from 'react-native-svg';
-import { PRESET_ROUTINES } from './presetRoutinesData';
+import { PRESET_ROUTINES } from '../../utils/presetRoutinesData';
 
 const BackIcon = () => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -195,10 +195,10 @@ const CategoryWorkoutsScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A12" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}

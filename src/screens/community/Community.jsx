@@ -7,6 +7,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -121,9 +122,10 @@ const PostItem = React.memo(({
   listHeight,
 }) => {
   const [currentMediaSlide, setCurrentMediaSlide] = useState(0);
-  const [bgImageFailed, setBgImageFailed] = useState(false);
+  const [failedImages, setFailedImages] = useState({});
   const duration = item.stats?.duration || item.duration || 0;
   const volume = item.stats?.volume || 0;
+  const calories = item.stats?.calories || item.calories || 0;
   const sets = item.stats?.sets || 0;
   const likesCount = item.likesCount ?? item.likes ?? 0;
   const commentsCount = item.commentsCount ?? item.comments ?? 0;
@@ -202,6 +204,12 @@ const PostItem = React.memo(({
               <Text style={styles.postStatLabel}>Volume</Text>
               <Text style={styles.postStatValue}>{formatVolume(volume)}</Text>
             </View>
+            {calories > 0 && (
+              <View style={styles.postStatItem}>
+                <Text style={styles.postStatLabel}>Calories</Text>
+                <Text style={styles.postStatValue}>{calories} kcal</Text>
+              </View>
+            )}
             {item.stats?.records > 0 && (
               <View style={styles.postStatItem}>
                 <Text style={styles.postStatLabel}>Records</Text>
@@ -232,7 +240,12 @@ const PostItem = React.memo(({
           imagesList = imagesList.filter(u => typeof u === 'string' && u.trim().length > 0);
 
           if (imagesList.length === 0) {
-            const exercises = item.logs || [];
+            const exercises = (item.logs && item.logs.length > 0)
+              ? item.logs
+              : (item.exercises && item.exercises.length > 0)
+                ? item.exercises
+                : (item.sessionData?.exercises || []);
+
             if (exercises.length === 0) return null;
 
             const cardWidth = Dimensions.get('window').width;
@@ -256,20 +269,32 @@ const PostItem = React.memo(({
                   style={{ flex: 1 }}
                 >
                   {exercises.map((log, index) => {
-                    let exName = log.exercise?.name || log.name || log.exerciseName;
-                    let exGif = log.exercise?.imageUrl || log.exercise?.gifUrl || log.exercise?.videoUrl;
+                    const exObj = log.exercise || log;
+                    const exName = exObj.name || log.name || log.exerciseName || 'Exercise';
+                    const primaryUri = resolveExerciseImageUri(exObj) || log.imageUrl || log.gifUrl || exObj.imageUrl || exObj.gifUrl;
+                    const imageKey = `${item.id}-${index}-${primaryUri || 'none'}`;
+                    const isFailed = primaryUri ? failedImages[imageKey] : true;
 
-                    const imageSource = (exGif && !bgImageFailed)
-                      ? { uri: exGif }
-                      : { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500' };
+                    const imageSource = (primaryUri && !isFailed)
+                      ? {
+                          uri: primaryUri,
+                          headers: primaryUri.includes('rapidapi') ? {
+                            'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
+                            'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
+                          } : undefined,
+                        }
+                      : getExerciseMuscleFallback(exObj);
+
+                    const totalSetsCount = Array.isArray(log.sets) ? log.sets.length : (log.sets || 1);
 
                     return (
                       <ImageBackground
                         key={index}
                         source={imageSource}
                         onError={() => {
-                          console.log('[Community] Background exercise image failed, falling back to Unsplash.');
-                          setBgImageFailed(true);
+                          if (primaryUri) {
+                            setFailedImages(prev => ({ ...prev, [imageKey]: true }));
+                          }
                         }}
                         style={{ width: cardWidth, height: '100%', justifyContent: 'flex-end', padding: 0 }}
                         imageStyle={{ borderRadius: 0 }}
@@ -297,15 +322,12 @@ const PostItem = React.memo(({
                           }}
                           pointerEvents="none"
                         >
-                          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700', flex: 1, marginRight: 10 }}>{exName || 'Exercise'}</Text>
-                          {(() => {
-                            const setsCount = Array.isArray(log.sets) ? log.sets.length : (log.sets ? 1 : 0);
-                            return setsCount > 0 && (
-                              <View style={{ backgroundColor: 'rgba(238, 130, 42, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(238, 130, 42, 0.4)' }}>
-                                <Text style={{ color: '#EE822A', fontSize: 13, fontWeight: '700' }}>{setsCount} {setsCount === 1 ? 'set' : 'sets'}</Text>
-                              </View>
-                            );
-                          })()}
+                          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700', flex: 1, marginRight: 10 }}>{exName}</Text>
+                          {totalSetsCount > 0 && (
+                            <View style={{ backgroundColor: 'rgba(238, 130, 42, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(238, 130, 42, 0.4)' }}>
+                              <Text style={{ color: '#EE822A', fontSize: 13, fontWeight: '700' }}>{totalSetsCount} {totalSetsCount === 1 ? 'set' : 'sets'}</Text>
+                            </View>
+                          )}
                         </View>
                       </ImageBackground>
                     );

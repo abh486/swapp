@@ -4,8 +4,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal,
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchExercises, clearSelectedFilters } from '../../redux/actions/workoutActions';
-import { PRESET_ROUTINES } from './presetRoutinesData';
+import { getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
+import { PRESET_ROUTINES } from '../../utils/presetRoutinesData';
 
 const { width } = Dimensions.get('window');
 
@@ -14,7 +14,7 @@ const CUSTOM_WORKOUT_IMG = 'https://images.unsplash.com/photo-1581009146145-b5ef
 const AI_WORKOUT_IMG = 'https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?q=80&w=300&auto=format&fit=crop';
 
 [FAST_WORKOUT_IMG, CUSTOM_WORKOUT_IMG, AI_WORKOUT_IMG].forEach(uri => {
-  Image.prefetch(uri).catch(() => {});
+  Image.prefetch(uri).catch(() => { });
 });
 
 const ClockIcon = () => (
@@ -549,7 +549,7 @@ const WorkoutsScreen = ({ navigation }) => {
 
     const imageSource = (mediaUrl && !failedImages[exercise.id])
       ? { uri: mediaUrl }
-      : require('../../assets/image/gym_machine.png');
+      : getExerciseMuscleFallback(exercise);
 
     let formattedLevel = 'Beginner';
     if (selectedLevel) {

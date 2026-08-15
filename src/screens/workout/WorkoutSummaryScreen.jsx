@@ -10,6 +10,8 @@ import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   logWorkoutSession,
   updateCustomWorkoutTemplate,
+  resolveExerciseImageUri,
+  getExerciseMuscleFallback,
 } from '../../redux/actions/workoutActions';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 
@@ -30,7 +32,16 @@ const WorkoutSummaryScreen = () => {
         : []
   );
 
+  const exerciseImages = (sessionData?.exercises || sessionData?.templateExercises || [])
+    .map(ex => resolveExerciseImageUri(ex?.exercise || ex))
+    .filter(Boolean);
+
+  const displayImages = selectedImages.length > 0
+    ? selectedImages
+    : (exerciseImages.length > 0 ? exerciseImages : ['https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500']);
+
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [failedImages, setFailedImages] = useState({});
   const [workoutTitle, setWorkoutTitle] = useState(
     sessionData?.workoutName || sessionData?.workoutType || 'Workout'
   );
@@ -146,7 +157,7 @@ const WorkoutSummaryScreen = () => {
           imageUrl: finalImageUrl || null,
         };
 
-        AsyncStorage.setItem('latestWorkoutData', JSON.stringify(finalData)).catch(() => {});
+        AsyncStorage.setItem('latestWorkoutData', JSON.stringify(finalData)).catch(() => { });
 
         dispatch(logWorkoutSession(finalData));
 
@@ -160,7 +171,13 @@ const WorkoutSummaryScreen = () => {
               sessionData.templateId,
               sessionData.templateExercises,
             ),
-          );
+          ).then(() => {
+            dispatch(getCustomWorkoutTemplates()).then(backendFolders => {
+              if (backendFolders) {
+                AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(backendFolders)).catch(() => { });
+              }
+            }).catch(() => { });
+          }).catch(() => { });
         }
       } catch (error) {
         console.error('Error saving background workout log:', error);
@@ -207,20 +224,38 @@ const WorkoutSummaryScreen = () => {
             }}
             scrollEventThrottle={16}
           >
-            {selectedImages.filter(uri => typeof uri === 'string' && uri.trim().length > 0).map((uri, index) => (
-              <Image
-                key={index}
-                source={{ uri }}
-                style={[styles.cardImage, { width: width - 40 }]}
-                resizeMode="cover"
-              />
-            ))}
+            {displayImages.filter(uri => typeof uri === 'string' && uri.trim().length > 0).map((uri, index) => {
+              const currentEx = (sessionData?.exercises || sessionData?.templateExercises || [])[index] || {};
+              const imageSource = !isFailed
+                ? {
+                    uri,
+                    headers: uri.includes('rapidapi') ? {
+                      'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
+                      'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
+                    } : undefined,
+                  }
+                : getExerciseMuscleFallback(currentEx);
+
+              return (
+                <Image
+                  key={index}
+                  source={imageSource}
+                  onError={() => {
+                    if (uri && uri.startsWith('http')) {
+                      setFailedImages(prev => ({ ...prev, [uri]: true }));
+                    }
+                  }}
+                  style={[styles.cardImage, { width: width - 40 }]}
+                  resizeMode="cover"
+                />
+              );
+            })}
           </ScrollView>
 
           {/* Dots Indicator inside the card */}
-          {selectedImages.length > 1 && (
+          {displayImages.length > 1 && (
             <View style={styles.dotsContainer}>
-              {selectedImages.map((_, index) => (
+              {displayImages.map((_, index) => (
                 <View
                   key={index}
                   style={[
@@ -277,6 +312,18 @@ const WorkoutSummaryScreen = () => {
                 <View>
                   <Text style={styles.statLabel}>SETS</Text>
                   <Text style={styles.statVal}>{totalSets || 3}</Text>
+                </View>
+              </View>
+
+              <View style={styles.statRow}>
+                <View style={styles.statIcon}>
+                  <Icon name="flame-outline" size={14} color="#111" />
+                </View>
+                <View>
+                  <Text style={styles.statLabel}>CALORIES</Text>
+                  <Text style={styles.statVal}>
+                    {sessionData?.calories || 0} kcal
+                  </Text>
                 </View>
               </View>
             </View>
