@@ -1133,15 +1133,15 @@ const MemberProfile = () => {
       case 0:
         return (
           <ScrollView
-            contentContainerStyle={{ alignItems: 'center', paddingTop: sp(60), paddingBottom: sp(20) }}
+            contentContainerStyle={{ alignItems: 'center', paddingTop: sp(85), paddingBottom: sp(20) }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(50) }}>
+            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(36) }}>
               <TouchableOpacity onPress={handlePickImage} activeOpacity={0.85}>
                 <View style={styles.avatarCircle}>
                   {uploadingImage ? (
-                    <GlobalLoader size={sp(60)} />
+                    <GlobalLoader size={sp(40)} />
                   ) : profileImage ? (
                     <Image
                       source={{ uri: profileImage }}
@@ -1157,7 +1157,7 @@ const MemberProfile = () => {
                 </View>
 
                 <Animated.View entering={ZoomIn.delay(200).springify()} style={styles.editBadge}>
-                  <Feather name="edit" size={sp(18)} color="#0055FF" />
+                  <Feather name="edit" size={sp(14)} color="#0055FF" />
                 </Animated.View>
               </TouchableOpacity>
 
@@ -1801,10 +1801,10 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
 
     // Step 0 — Avatar
     avatarCircle: {
-      width: sp(140),
-      height: sp(140),
-      borderRadius: sp(70),
-      borderWidth: 3,
+      width: sp(90),
+      height: sp(90),
+      borderRadius: sp(45),
+      borderWidth: 2.5,
       borderColor: '#FFFFFF',
       justifyContent: 'center',
       alignItems: 'center',
@@ -1812,35 +1812,35 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       overflow: 'hidden',
     },
     avatarImage: {
-      width: sp(140),
-      height: sp(140),
-      borderRadius: sp(70),
+      width: sp(90),
+      height: sp(90),
+      borderRadius: sp(45),
     },
     avatarPlaceholder: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarHead: {
-      width: sp(46),
-      height: sp(46),
-      borderRadius: sp(23),
+      width: sp(30),
+      height: sp(30),
+      borderRadius: sp(15),
       backgroundColor: '#3A3A3A',
-      marginBottom: sp(6),
+      marginBottom: sp(4),
     },
     avatarBody: {
-      width: sp(70),
-      height: sp(38),
-      borderRadius: sp(35),
+      width: sp(46),
+      height: sp(24),
+      borderRadius: sp(23),
       backgroundColor: '#3A3A3A',
     },
     editBadge: {
       position: 'absolute',
-      bottom: sp(2),
-      right: sp(2),
+      bottom: 0,
+      right: 0,
       backgroundColor: '#FFF',
-      width: sp(36),
-      height: sp(36),
-      borderRadius: sp(18),
+      width: sp(28),
+      height: sp(28),
+      borderRadius: sp(14),
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
@@ -1850,8 +1850,8 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
     },
     addProfileLabel: {
       color: '#AAAAAA',
-      fontSize: fs(16),
-      marginTop: sp(18),
+      fontSize: fs(14),
+      marginTop: sp(10),
       letterSpacing: 0.3,
     },
     stepTitle: {

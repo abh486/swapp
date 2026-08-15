@@ -1,5 +1,6 @@
 // App.js
 import React from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-gesture-handler';
 import { Auth0Provider } from 'react-native-auth0';
 import { Provider } from 'react-redux';
@@ -74,25 +75,27 @@ const App = () => {
   }, []);
 
   return (
-    <Provider store={store}>
-      <SafeAreaProvider style={{ flex: 1, backgroundColor: '#000000' }}>
-        <LocationProvider>
-          <ImageSelectionProvider>
-            <Auth0Provider
-              domain="login.swapp.fit"
-              clientId="6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0"
-              audience={AUTH0_API_AUDIENCE}
-              scope={AUTH0_LOGIN_SCOPE}
-            >
-              <AuthProvider>
-                <AppNavigator />
-                <GlobalAlert />
-              </AuthProvider>
-            </Auth0Provider>
-          </ImageSelectionProvider>
-        </LocationProvider>
-      </SafeAreaProvider>
-    </Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <SafeAreaProvider style={{ flex: 1, backgroundColor: '#000000' }}>
+          <LocationProvider>
+            <ImageSelectionProvider>
+              <Auth0Provider
+                domain="login.swapp.fit"
+                clientId="6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0"
+                audience={AUTH0_API_AUDIENCE}
+                scope={AUTH0_LOGIN_SCOPE}
+              >
+                <AuthProvider>
+                  <AppNavigator />
+                  <GlobalAlert />
+                </AuthProvider>
+              </Auth0Provider>
+            </ImageSelectionProvider>
+          </LocationProvider>
+        </SafeAreaProvider>
+      </Provider>
+    </GestureHandlerRootView>
   );
 };
 
