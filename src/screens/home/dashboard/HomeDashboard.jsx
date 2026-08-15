@@ -33,6 +33,8 @@ import { useResponsiveMetrics } from '../../../utils/responsive';
 import LocationSelectorModal from './components/LocationSelectorModal';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
 import { TrainerDetailsModal } from './components/TrainerDetailsModal';
+import JourneyActionCard from '../../../components/marketplace/JourneyActionCard';
+import apiClient from '../../../api/apiClient';
 
 // ── Ultra-Optimized CategoryItem — strict memoization to eliminate lag ──
 const CATEGORY_ITEM_WIDTH = 85;
@@ -136,6 +138,22 @@ export const HomeDashboard = ({ navigation }) => {
   const [selectedTrainerDetails, setSelectedTrainerDetails] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [hasDietAccess, setHasDietAccess] = useState(false);
+  const [activeJourneys, setActiveJourneys] = useState([]);
+
+  const fetchJourneys = async () => {
+    try {
+      const response = await apiClient.get('/v1/me/journeys');
+      setActiveJourneys(response.data?.data || response.data?.journeys || []);
+    } catch (err) {
+      console.warn('[HomeDashboard] Failed to fetch journeys:', err);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchJourneys();
+    }, [])
+  );
   const subscriptionCarouselRef = useRef(null);
 
   const {
@@ -876,32 +894,13 @@ export const HomeDashboard = ({ navigation }) => {
 
   const renderSubscribedTop = () => (
     <View style={styles.subscribedTop}>
-      <ScrollView
-        ref={subscriptionCarouselRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={subscriptionCardWidth + subscriptionCardSpacing}
-        snapToAlignment="start"
-        contentContainerStyle={[styles.subscriptionCarouselContent, { paddingHorizontal: subscriptionSidePadding }]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {activeAccessItems.map((sub, index) => renderActiveSubscriptionCard(sub, index))}
-      </ScrollView>
-      {activeAccessItems.length > 1 && (
-        <View style={styles.paginationContainer}>
-          {Array.from({ length: activeAccessItems.length }).map((_, i) => (
-            <View 
-              key={i} 
-              style={[
-                styles.paginationDot, 
-                activeCardIndex === i ? styles.paginationDotActive : null
-              ]} 
-            />
-          ))}
+      <View style={{ marginBottom: 16 }}>
+          {activeJourneys.length > 0 ? (
+            activeJourneys.map((journey) => (
+              <JourneyActionCard key={journey.id} journey={journey} />
+            ))
+          ) : null}
         </View>
-      )}
     </View>
   );
 

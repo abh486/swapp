@@ -276,14 +276,10 @@ export const AuthProvider = ({ children }) => {
       } catch (e) {
         console.error('🔴 ERROR in checkAuthStatus:', e.message);
 
-        const isNetworkError =
-          !e.response ||
-          e.message === 'Network Error' ||
-          e.code === 'ECONNABORTED' ||
-          (e.response && e.response.status >= 500);
+        const isNetworkError = !e.response || e.message === 'Network Error' || e.code === 'ECONNABORTED';
 
         if (isNetworkError) {
-          console.log('[AuthContext] Network connection or server error (5xx) during check. Preserving authentication state.');
+          console.log('[AuthContext] Network connection error during silent check. Preserving authentication state.');
         } else {
           const savedToken = await AsyncStorage.getItem('accessToken');
           if (savedToken) {
@@ -572,41 +568,32 @@ export const AuthProvider = ({ children }) => {
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.warn('[AuthContext] Auth0 native login failed, trying direct HTTP Auth0 fallback:', err.message);
+      console.warn('[AuthContext] Auth0 native login failed, trying direct backend login as fallback:', err.message);
       try {
-        const tokenResp = await fetch('https://login.swapp.fit/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            grant_type: 'http://auth0.com/oauth/grant-type/password-realm',
-            client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
-            username: email,
-            password: password,
-            audience: AUTH0_API_AUDIENCE,
-            scope: AUTH0_LOGIN_SCOPE,
-            realm: AUTH_CONFIG.databaseConnection,
-          }),
-        });
+        const response = await apiClient.post('/auth/login', { email, password });
+        if (response.data?.success && response.data.data?.token) {
+          const { token, user: userObj } = response.data.data;
 
-        const tokenData = await tokenResp.json();
-        if (tokenResp.ok && tokenData.access_token) {
-          const creds = {
-            accessToken: tokenData.access_token,
-            idToken: tokenData.id_token,
-            refreshToken: tokenData.refresh_token,
-            expiresAt: Date.now() + (tokenData.expires_in || 86400) * 1000,
-            scope: tokenData.scope || AUTH0_LOGIN_SCOPE,
-            tokenType: tokenData.token_type || 'Bearer',
-          };
-          await auth0.credentialsManager.saveCredentials(creds);
-          await AsyncStorage.setItem('accessToken', creds.accessToken);
-          await checkAuthStatus();
-          return creds;
-        } else {
-          throw new Error(tokenData.error_description || 'Auth0 HTTP login failed');
+          if (!userObj.email || userObj.email === '') {
+            userObj.email = email;
+          }
+          if (userObj.userProfile && (!userObj.userProfile.email || userObj.userProfile.email === '')) {
+            userObj.userProfile.email = email;
+          }
+          if (userObj.memberProfile && (!userObj.memberProfile.email || userObj.memberProfile.email === '')) {
+            userObj.memberProfile.email = email;
+          }
+
+          await AsyncStorage.setItem('accessToken', token);
+          await AsyncStorage.setItem('internalToken', token);
+          await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
+          setUserProfile(userObj);
+          setIsAuthenticated(true);
+          setHasProfile((userObj.userProfile && userObj.userProfile.name) ? true : false);
+          return { accessToken: token };
         }
       } catch (fallbackErr) {
-        console.error('[AuthContext] Fallback Auth0 login also failed:', fallbackErr.message);
+        console.error('[AuthContext] Fallback backend login also failed:', fallbackErr.message);
       }
       if (AUTH_CONFIG.enableLegacyWebviewLogin) {
         console.log('[AuthContext] Falling back to WebView login...');
@@ -938,4 +925,8 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+};
+const ctx = useContext(AuthContext);
+if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+return ctx;
 };
