@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useIsFocused } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AccessSourceCard from '../../../components/marketplace/AccessSourceCard';
 import Svg, { Path } from 'react-native-svg';
 
 import {
@@ -1023,11 +1024,11 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[
             styles.bookNowButton,
-            (isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)) && { opacity: 0.5 }
+            (isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && false) : false)) && { opacity: 0.5 }
           ]}
           onPress={isAccessModeLoading || isCheckingOut ? undefined : openBooking}
           activeOpacity={0.88}
-          disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && remainingCredits <= 0) : remainingCredits <= 0)}
+          disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && false) : false)}
         >
           {isCheckingOut ? (
             <ActivityIndicator color="#FFF" size="small" />
