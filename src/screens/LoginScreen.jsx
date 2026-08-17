@@ -14,6 +14,8 @@ import {
   ScrollView,
   NativeModules,
   StatusBar,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -40,6 +42,7 @@ const LoginScreen = () => {
     loginWithApple,
     loginWithWebView,
     createAccount,
+    resetPassword,
     loading,
     isAuthenticated,
   } = useAuth();
@@ -201,11 +204,40 @@ const LoginScreen = () => {
 
     operationInProgress.current = true;
     try {
-      console.log('Initiating native email/password login...');
+      console.log('🔑 [AUTH_LOGIN_ATTEMPT] Starting email/password login for:', emailTrimmed);
       await loginWithEmailPassword(emailTrimmed, password);
+      console.log('✅ [AUTH_LOGIN_SUCCESS] Successfully authenticated user:', emailTrimmed);
     } catch (err) {
-      console.error('Email/Password Login failed:', err);
-      askFallbackAfterFailure('Email Login', err.message || 'Invalid credentials or connection issue.');
+      console.error('🔴 [AUTH_LOGIN_FAILED]', {
+        email: emailTrimmed,
+        errorMessage: err.message,
+        details: err.json || err.response?.data || '',
+      });
+
+      const errStr = (err.message || '').toLowerCase();
+      const isCredentialError =
+        errStr.includes('wrong email or password') ||
+        errStr.includes('invalid_grant') ||
+        errStr.includes('invalid credentials') ||
+        errStr.includes('unauthorized') ||
+        errStr.includes('401') ||
+        errStr.includes('403');
+
+      if (isCredentialError) {
+        setPasswordError('Invalid email or password.');
+        Alert.alert(
+          'Invalid Password or Email',
+          'The password or email address you entered is incorrect.\n\n• Please double-check your password.\n• If you originally signed up with Google or Apple, please use that button below.\n• If you forgot your password, you can request a reset email.',
+          [{ text: 'OK' }]
+        );
+      } else if (errStr.includes('network') || errStr.includes('connection') || errStr.includes('timeout')) {
+        Alert.alert(
+          'Connection Error',
+          'Unable to reach the authentication service. Please check your internet connection and try again.'
+        );
+      } else {
+        askFallbackAfterFailure('Email Login', err.message || 'Invalid credentials or connection issue.');
+      }
     } finally {
       operationInProgress.current = false;
     }
@@ -238,24 +270,62 @@ const LoginScreen = () => {
 
     operationInProgress.current = true;
     try {
-      console.log('Initiating native Auth0 signup...');
+      console.log('📝 [AUTH_SIGNUP_ATTEMPT] Initiating signup for:', emailTrimmed);
       await createAccount(emailTrimmed, password);
+      console.log('✅ [AUTH_SIGNUP_SUCCESS] Account created and authenticated for:', emailTrimmed);
     } catch (err) {
-      console.error('Sign Up failed:', err);
-      let friendlyError = 'Could not create account at this time.';
-      if (err.message) {
-        if (err.message.includes('exists') || err.message.includes('user_exists') || err.message.includes('already exists')) {
-          friendlyError = 'This email address is already registered. Please log in instead.';
-        } else if (err.message.includes('password') || err.message.includes('weak') || err.message.includes('complexity') || err.message.includes('strength')) {
-          friendlyError = 'The password is too weak. Please ensure it contains at least 8 characters, a number, and a special character.';
-        } else {
-          friendlyError = err.message;
-        }
+      console.error('🔴 [AUTH_SIGNUP_FAILED]', {
+        email: emailTrimmed,
+        errorMessage: err.message,
+        details: err.json || err.response?.data || '',
+      });
+
+      const errStr = (err.message || '').toLowerCase();
+      const isEmailExists =
+        errStr.includes('exists') ||
+        errStr.includes('user_exists') ||
+        errStr.includes('already exists') ||
+        errStr.includes('invalid_signup') ||
+        errStr.includes('invalid sign up');
+
+      const isPasswordWeak =
+        errStr.includes('password') ||
+        errStr.includes('weak') ||
+        errStr.includes('complexity') ||
+        errStr.includes('strength') ||
+        errStr.includes('requirements');
+
+      if (isEmailExists) {
+        setEmailError('This email is already registered.');
+        Alert.alert(
+          'Email Already Registered',
+          'An account with this email address already exists.\n\nPlease switch to the Login tab to sign in, or reset your password if needed.',
+          [
+            { text: 'Switch to Login', onPress: () => setMode('login') },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+      } else if (isPasswordWeak) {
+        setPasswordError('Password does not meet security requirements.');
+        Alert.alert(
+          'Password Too Weak',
+          'Please ensure your password has at least 8 characters, a number, and a special character (e.g. !@#$%).'
+        );
+      } else if (errStr.includes('network') || errStr.includes('connection') || errStr.includes('timeout')) {
+        Alert.alert(
+          'Connection Error',
+          'Unable to connect to the server. Please check your internet connection and try again.'
+        );
+      } else {
+        Alert.alert('Sign Up Failed', err.message || 'Could not create account at this time.');
       }
-      Alert.alert('Sign Up Failed', friendlyError);
     } finally {
       operationInProgress.current = false;
     }
+  };
+
+  const handleOpenForgotPassword = () => {
+    navigation.navigate('ForgotPasswordScreen', { initialEmail: email.trim() });
   };
 
   const handleGoogleLogin = async () => {
@@ -551,10 +621,8 @@ const LoginScreen = () => {
 
               {/* Forgot Password */}
               {mode === 'login' && (
-                <TouchableOpacity
-                  onPress={() => Alert.alert('Reset Password', 'A password reset link will be sent to your email.')}
-                >
-                  <Text style={styles.forgotPasswordText}>Forgot Password</Text>
+                <TouchableOpacity onPress={handleOpenForgotPassword} activeOpacity={0.7}>
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                 </TouchableOpacity>
               )}
 
@@ -720,7 +788,7 @@ const createStyles = ({ wp, ms, fs, sp }) =>
       fontWeight: 'bold',
     },
     forgotPasswordText: {
-      color: 'rgba(255, 255, 255, 0.4)',
+      color: 'rgba(255, 255, 255, 0.5)',
       fontSize: fs(13),
       textAlign: 'center',
       marginTop: sp(16),

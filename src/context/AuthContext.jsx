@@ -553,7 +553,7 @@ export const AuthProvider = ({ children }) => {
   const loginWithEmailPassword = async (email, password) => {
     setIsLoggingIn(true);
     try {
-      console.log('[AuthContext] loginWithEmailPassword starting...');
+      console.log('[AuthContext] loginWithEmailPassword starting for:', email);
       const credentials = await auth0.auth.passwordRealm({
         username: email,
         password: password,
@@ -562,14 +562,15 @@ export const AuthProvider = ({ children }) => {
         scope: AUTH0_LOGIN_SCOPE,
       });
 
-      console.log('[AuthContext] loginWithEmailPassword credentials received!');
+      console.log('[AuthContext] loginWithEmailPassword credentials received successfully!');
       await auth0.credentialsManager.saveCredentials(credentials);
       await AsyncStorage.setItem('accessToken', credentials.accessToken);
       await checkAuthStatus();
       return credentials;
     } catch (err) {
-      console.warn('[AuthContext] Auth0 native login failed, trying direct backend login as fallback:', err.message);
+      console.warn('[AuthContext] Auth0 native login failed:', err.message, err.json || '');
       try {
+        console.log('[AuthContext] Trying direct backend login as fallback...');
         const response = await apiClient.post('/auth/login', { email, password });
         if (response.data?.success && response.data.data?.token) {
           const { token, user: userObj } = response.data.data;
@@ -694,7 +695,7 @@ export const AuthProvider = ({ children }) => {
   const createAccount = async (email, password) => {
     setIsLoggingIn(true);
     try {
-      console.log('[AuthContext] createAccount starting...');
+      console.log('[AuthContext] createAccount starting for:', email);
       let user = null;
       try {
         user = await auth0.auth.createUser({
@@ -703,7 +704,7 @@ export const AuthProvider = ({ children }) => {
           connection: AUTH_CONFIG.databaseConnection,
         });
       } catch (authErr) {
-        console.warn('[AuthContext] Auth0 SDK createUser warning/error:', authErr?.message, authErr?.json);
+        console.warn('[AuthContext] Auth0 SDK createUser response:', authErr?.message, authErr?.json);
         const detailedErr = authErr?.json?.description || authErr?.json?.error_description || authErr?.description || authErr?.json?.message;
 
         if (
@@ -728,17 +729,37 @@ export const AuthProvider = ({ children }) => {
           if (!resp.ok) {
             let parsedErr;
             try { parsedErr = JSON.parse(textData); } catch (e) { }
-            const signupErrMsg = parsedErr?.description || parsedErr?.error_description || parsedErr?.message || textData || 'Signup failed';
+            let signupErrMsg = parsedErr?.description || parsedErr?.error_description || parsedErr?.message || textData || 'Signup failed';
+            
+            // Normalize Auth0 error messages
+            if (
+              parsedErr?.code === 'invalid_signup' ||
+              parsedErr?.code === 'user_exists' ||
+              signupErrMsg === 'Invalid sign up' ||
+              signupErrMsg.toLowerCase().includes('already exists') ||
+              signupErrMsg.toLowerCase().includes('user_exists')
+            ) {
+              signupErrMsg = 'The user already exists.';
+            }
             throw new Error(signupErrMsg);
           }
           try { user = JSON.parse(textData); } catch (e) { user = { email }; }
         } else {
-          throw new Error(detailedErr || authErr.message);
+          let normalizedErrMsg = detailedErr || authErr.message;
+          if (
+            authErr?.json?.code === 'invalid_signup' ||
+            authErr?.json?.code === 'user_exists' ||
+            normalizedErrMsg === 'Invalid sign up' ||
+            normalizedErrMsg.toLowerCase().includes('already exists')
+          ) {
+            normalizedErrMsg = 'The user already exists.';
+          }
+          throw new Error(normalizedErrMsg);
         }
       }
 
-      console.log('[AuthContext] createAccount successful');
-      console.log('[AuthContext] Auto-logging in user...');
+      console.log('[AuthContext] createAccount successful for:', email);
+      console.log('[AuthContext] Auto-logging in newly created user...');
       const credentials = await loginWithEmailPassword(email, password);
       return { user, credentials };
     } catch (err) {
@@ -746,6 +767,45 @@ export const AuthProvider = ({ children }) => {
       throw err;
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const resetPassword = async (email) => {
+    const trimmedEmail = (email || '').trim();
+    if (!trimmedEmail) {
+      throw new Error('Please enter a valid email address.');
+    }
+    console.log('🔑 [AUTH_RESET_PASSWORD_ATTEMPT] Requesting password reset for:', trimmedEmail);
+    try {
+      try {
+        await auth0.auth.resetPassword({
+          email: trimmedEmail,
+          connection: AUTH_CONFIG.databaseConnection,
+        });
+      } catch (authErr) {
+        console.warn('[AuthContext] Auth0 SDK resetPassword fallback:', authErr?.message);
+        const resp = await fetch('https://login.swapp.fit/dbconnections/change_password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: '6ZkGuIXZXCih2ayYupzTaWQRc6hhWsz0',
+            email: trimmedEmail,
+            connection: AUTH_CONFIG.databaseConnection,
+          }),
+        });
+        const textData = await resp.text();
+        if (!resp.ok) {
+          let parsedErr;
+          try { parsedErr = JSON.parse(textData); } catch (e) { }
+          const errorMsg = parsedErr?.description || parsedErr?.error_description || parsedErr?.message || textData || 'Failed to send password reset email.';
+          throw new Error(errorMsg);
+        }
+      }
+      console.log('✅ [AUTH_RESET_PASSWORD_SENT] Password reset email dispatched for:', trimmedEmail);
+      return { success: true, email: trimmedEmail };
+    } catch (err) {
+      console.error('🔴 [AUTH_RESET_PASSWORD_FAILED]', { email: trimmedEmail, error: err.message });
+      throw err;
     }
   };
 
@@ -779,6 +839,7 @@ export const AuthProvider = ({ children }) => {
         loginWithApple,
         loginWithWebView,
         createAccount,
+        resetPassword,
         logout,
         refreshAuthStatus,
         debugStorage,
