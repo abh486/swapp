@@ -53,6 +53,7 @@ import HydrationTrackerScreen from '../screens/activity/diet/HydrationTrackerScr
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
 import LoginScreen from '../screens/LoginScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
 import AIDieticianPaywallScreen from '../screens/activity/diet/AIDieticianPaywallScreen';
 import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianSubscriptionScreen';
@@ -297,6 +298,7 @@ const AppNavigator = () => {
                 component={OnboardingScreen}
               />
               <Stack.Screen name="LoginScreen" component={LoginScreen} />
+              <Stack.Screen name="ForgotPasswordScreen" component={ForgotPasswordScreen} />
             </React.Fragment>
           )}
         </Stack.Navigator>
