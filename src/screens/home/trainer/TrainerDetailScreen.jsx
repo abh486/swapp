@@ -186,13 +186,34 @@ const TrainerDetailScreen = ({ route, navigation }) => {
   if (!trainer) return null;
 
   const isPlanActive = (planId) => {
+    if (!planId) return false;
     const activeSubs = user?.subscriptions || [];
     const activePkgs = user?.activePackages || [];
     const activeEnts = user?.activeEntitlements || [];
-    
-    return activeSubs.some(s => (s.packageId === planId || s.planId === planId) && !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(String(s.status).toUpperCase())) ||
-           activePkgs.some(p => p.packageId === planId && p.status === 'ACTIVE') ||
-           activeEnts.some(e => e.packageId === planId && e.status === 'ACTIVE' && (e.totalSessions - e.usedSessions > 0));
+
+    const isSubForPlan = s => {
+      if (!s) return false;
+      const sPkgId = s.packageId || s.planId || s.package?.id || s.packageSubscription?.packageId || s.packageSubscription?.package?.id;
+      const status = String(s.status || s.userPlanStatus || '').toUpperCase();
+      return sPkgId && String(sPkgId) === String(planId) && !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+    };
+
+    const isPkgForPlan = p => {
+      if (!p) return false;
+      const pPkgId = p.packageId || p.planId || p.package?.id;
+      const status = String(p.status || '').toUpperCase();
+      return pPkgId && String(pPkgId) === String(planId) && status === 'ACTIVE';
+    };
+
+    const isEntForPlan = e => {
+      if (!e) return false;
+      const ePkgId = e.packageId || e.package?.id;
+      const status = String(e.status || '').toUpperCase();
+      const hasRemaining = ((e.totalSessions || 0) - (e.usedSessions || 0)) > 0;
+      return ePkgId && String(ePkgId) === String(planId) && status === 'ACTIVE' && hasRemaining;
+    };
+
+    return activeSubs.some(isSubForPlan) || activePkgs.some(isPkgForPlan) || activeEnts.some(isEntForPlan);
   };
 
   const getPackageCTA = (plan, trainer) => {

@@ -234,12 +234,13 @@ const TrainerBookingScreen = ({ route, navigation }) => {
           console.warn('[TrainerBookingScreen] getMyBookings error:', err);
         }
 
+        const ACTIVE_BOOKING_STATUSES = ['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CHECKED_IN'];
         const activeUserBookings = (userBookings || []).filter(b => {
           const status = String(b.bookingStatus || b.status || '').toUpperCase();
-          return status !== 'CANCELLED' && status !== 'CANCELED' && status !== 'REJECTED';
+          return ACTIVE_BOOKING_STATUSES.includes(status);
         });
 
-        const userBookedKeys = new Set(bookedSlotKeys);
+        const userBookedKeys = new Set();
         activeUserBookings.forEach(b => {
           if (b.slotId) userBookedKeys.add(b.slotId);
           if (b.startTime) {
@@ -250,6 +251,10 @@ const TrainerBookingScreen = ({ route, navigation }) => {
             userBookedKeys.add(`${bDateStr}-${b.startTime}`);
           }
         });
+
+        if (isActive) {
+          setBookedSlotKeys(userBookedKeys);
+        }
 
         const res = await apiClient.get(`/trainers/${targetId}/available-slots`, {
           params: {

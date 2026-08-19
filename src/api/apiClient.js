@@ -14,7 +14,7 @@ export const AUTH0_LOGIN_SCOPE = 'openid profile email offline_access';
 // Update this URL to your current backend server URL
 // If using ngrok, get the new URL from: ngrok http <your-port>
 // If using production, use: https://api.swapp.fit/api
-export const API_BASE_URL = 'https://bleachable-maricruz-neglectingly.ngrok-free.dev/api';
+export const API_BASE_URL = 'https://32fe-2402-e280-2107-e0-f118-fa02-c9ae-b6d6.ngrok-free.app/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -180,7 +180,7 @@ apiClient.interceptors.response.use(
       );
       console.error('Full error:', error);
     } else if (error.response) {
-      console.error(
+      console.warn(
         'API Error Response:',
         error.response.status,
         error.response.data,

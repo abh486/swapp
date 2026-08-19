@@ -897,14 +897,31 @@ export const HomeDashboard = ({ navigation }) => {
               </Text>
             </View>
 
-            <View style={styles.membershipArrow}>
-              <Icon
-                name="arrow-up-outline"
-                size={20}
-                color="#FFF"
-                style={{ transform: [{ rotate: '45deg' }] }}
-              />
-            </View>
+            {!isBooking ? (
+              <TouchableOpacity 
+                style={styles.bookSlotBtn}
+                activeOpacity={0.8}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigation.navigate('MembershipDetails', {
+                    subscription: sub,
+                  });
+                }}
+              >
+                <Text style={styles.bookSlotBtnText}>
+                  {subscribedProvider?.accessConfig?.accessMode === 'OPEN_ACCESS' ? 'Scan Now' : 'Book Slot'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.membershipArrow}>
+                <Icon
+                  name="arrow-up-outline"
+                  size={20}
+                  color="#FFF"
+                  style={{ transform: [{ rotate: '45deg' }] }}
+                />
+              </View>
+            )}
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -921,6 +938,32 @@ export const HomeDashboard = ({ navigation }) => {
 
   const renderSubscribedTop = () => (
     <View style={styles.subscribedTop}>
+      <ScrollView
+        ref={subscriptionCarouselRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={subscriptionCardWidth + subscriptionCardSpacing}
+        snapToAlignment="start"
+        contentContainerStyle={[styles.subscriptionCarouselContent, { paddingHorizontal: subscriptionSidePadding }]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        {activeAccessItems.map((sub, index) => renderActiveSubscriptionCard(sub, index))}
+      </ScrollView>
+      {activeAccessItems.length > 1 && (
+        <View style={styles.paginationContainer}>
+          {Array.from({ length: activeAccessItems.length }).map((_, i) => (
+            <View 
+              key={i} 
+              style={[
+                styles.paginationDot, 
+                activeCardIndex === i ? styles.paginationDotActive : null
+              ]} 
+            />
+          ))}
+        </View>
+      )}
       <View style={{ marginBottom: 16 }}>
           {activeJourneys.length > 0 ? (
             activeJourneys.map((journey) => (
@@ -1495,6 +1538,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bookSlotBtn: {
+    position: 'absolute',
+    right: 20,
+    bottom: 28,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  bookSlotBtnText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
   },
   ribbonBadge: {
     position: 'absolute',

@@ -21,6 +21,7 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
     price = '2499',
     pendingSubscription,
     reservationId = null,
+    journeyId = null,
     hostedPageId = null,
   } = route.params || {};
   const { refreshAuthStatus } = useAuth();
@@ -83,12 +84,10 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
         console.log(`[PaymentProcessing] Polling verification attempt #${pollCountLocal}`);
 
         try {
-          if (reservationId && hostedPageId) {
-            // Under Reservation Checkout flow, verify and convert reservation
-            const resp = await apiClient.post(`/v1/reservations/${reservationId}/verify`, {
-              paymentSessionId: hostedPageId,
-            });
-            if (resp.data?.success) {
+          if (journeyId && hostedPageId) {
+            // Confirm the journey-based reservation
+            const resp = await apiClient.post(`/v1/marketplace/journeys/${journeyId}/confirm`);
+            if (resp.data) {
               // Found success! Stop polling.
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
@@ -127,6 +126,7 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
                     price,
                     pendingSubscription,
                     reservationId,
+                    journeyId,
                     hostedPageId,
                   });
                 }, 1000);

@@ -252,12 +252,13 @@ const MembershipBookingScreen = ({ route, navigation }) => {
           console.warn('[MembershipBookingScreen] getMyBookings error:', err);
         }
 
+        const ACTIVE_BOOKING_STATUSES = ['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CHECKED_IN'];
         const activeUserBookings = (userBookings || []).filter(b => {
           const status = String(b.bookingStatus || b.status || '').toUpperCase();
-          return status !== 'CANCELLED' && status !== 'CANCELED' && status !== 'REJECTED';
+          return ACTIVE_BOOKING_STATUSES.includes(status);
         });
 
-        const userBookedKeys = new Set(bookedSlotKeys);
+        const userBookedKeys = new Set();
         activeUserBookings.forEach(b => {
           if (b.slotId) userBookedKeys.add(b.slotId);
           if (b.startTime) {
@@ -268,6 +269,10 @@ const MembershipBookingScreen = ({ route, navigation }) => {
             userBookedKeys.add(`${bDateStr}-${b.startTime}`);
           }
         });
+
+        if (isActive) {
+          setBookedSlotKeys(userBookedKeys);
+        }
 
         let mappedSlots = [];
         if (isTrainer) {
@@ -406,79 +411,108 @@ const MembershipBookingScreen = ({ route, navigation }) => {
     try {
       const { startTime, endTime } = buildSlotTimes(slot);
 
-      if (isReservationCheckout) {
-        // Create reservation hold first
-        const result = await createReservation({
-          providerId: providerId,
-          targetType: isTrainer ? 'TRAINER' : 'PROVIDER',
-          startTime,
-          endTime,
-          selectedPackageId: selectedPlan?.id || subscription.package?.id,
-        });
-
-        const reservation = result.reservation;
-
-        if (!reservation || !reservation.id) {
-          throw new Error('Unable to create reservation hold.');
-        }
-
-        const pendingSubscription = {
-          status: 'ACTIVE',
-          provider: {
-            id: providerId,
-            name: gymName,
-            photos: [],
-          },
-          package: selectedPlan,
-          planName: selectedPlan?.name,
-          providerName: gymName,
-          gymName: gymName,
-          tier: selectedPlan?.tier || selectedPlan?.name,
-          image: selectedPlan?.imageUrl,
-          isActive: true,
-        };
-
-        const checkoutResponse = await dispatch(
-          createCheckoutSession(selectedPlan?.id || subscription.package?.id, 'PARTNER_PACKAGE', reservation.id, selectedPlan?.commerce_model || 'ONE_TIME'),
-        );
-
-        if (
-          checkoutResponse &&
-          checkoutResponse.success &&
-          checkoutResponse.data?.checkoutUrl
-        ) {
-          navigation.navigate('CheckoutBrowser', {
-            url: checkoutResponse.data.checkoutUrl,
-            planId: selectedPlan?.id || subscription.package?.id,
-            planName: selectedPlan?.name,
-            price: selectedPlan?.basePrice,
-            pendingSubscription,
-            reservationId: reservation.id,
-          });
-        } else {
-          Alert.alert(
-            'Error',
-            checkoutResponse?.message || 'Failed to initiate subscription checkout.',
-          );
-        }
-        return;
-      }
-
-            const journeyResponse = await apiClient.post('/v1/marketplace/journeys', {
+      const targetPackageId = userPlanId || subscription.package?.id;
+      const journeyResponse = await apiClient.post('/v1/marketplace/journeys', {
         providerId,
         intent: 'BOOK_SESSION',
         categoryId: activeCategoryId || undefined,
         requestedStart: startTime,
-        requestedEnd: endTime
+        requestedEnd: endTime,
+        targetPackageId
       });
-      const journey = journeyResponse.data;
+      let journey = journeyResponse.data;
       
-      const accessSourceId = userPlanId || subscription.package?.id;
-      if (accessSourceId) {
-        await apiClient.post(`/v1/marketplace/journeys/${journey.id}/access-selection`, { accessSourceId });
+      if (targetPackageId && journey?.state === 'AWAITING_ACCESS_SELECTION') {
+        const selRes = await apiClient.post(`/v1/marketplace/journeys/${journey.id}/access-selection`, { accessSourceId: targetPackageId });
+        if (selRes.data) {
+          journey = selRes.data;
+        }
       }
-      
-      const result = { booking: { status: 'CONFIRMED' } };
+
+      let result;
+      if (journey?.state === 'ACCESS_READY') {
+        try {
+          await apiClient.post(`/v1/marketplace/journeys/${journey.id}/reserve`, {
+            startTime,
+            endTime
+          });
+          const confirmRes = await apiClient.post(`/v1/marketplace/journeys/${journey.id}/confirm`);
+          result = confirmRes.data || { booking: { status: 'CONFIRMED' } };
+        } catch (reserveError) {
+          console.warn('[MembershipBookingScreen] Reserve/Confirm failed, using createBooking fallback:', reserveError);
+          result = await createBooking({
+            targetId: providerId,
+            targetType: isTrainer ? 'TRAINER' : 'PROVIDER',
+            startTime,
+            endTime,
+            userPlanId,
+            categoryId: activeCategoryId || undefined,
+            bookingMode: 'SLOT_BASED',
+          });
+        }
+      } else if (journey?.state === 'AWAITING_PAYMENT') {
+        const planId = selectedPlan?.id || subscription.package?.id;
+        if (planId) {
+          try {
+            const reserveRes = await apiClient.post(`/v1/marketplace/journeys/${journey.id}/reserve`, {
+              startTime,
+              endTime
+            });
+            journey = reserveRes.data;
+          } catch (reserveError) {
+            Alert.alert('Booking Failed', reserveError?.response?.data?.error || 'Unable to reserve this slot.');
+            setBookingSlotKey(null);
+            return;
+          }
+
+          const pendingSubscription = {
+            status: 'ACTIVE',
+            provider: {
+              id: providerId,
+              name: gymName,
+              photos: [],
+            },
+            package: selectedPlan,
+            planName: selectedPlan?.name,
+            providerName: gymName,
+            gymName: gymName,
+            tier: selectedPlan?.tier || selectedPlan?.name,
+            image: selectedPlan?.imageUrl,
+            isActive: true,
+          };
+
+          const checkoutResponse = await dispatch(
+            createCheckoutSession(planId, 'PARTNER_PACKAGE', journey.reservationId, selectedPlan?.commerce_model || 'ONE_TIME')
+          );
+          if (checkoutResponse && checkoutResponse.success && checkoutResponse.data?.checkoutUrl) {
+            navigation.navigate('CheckoutBrowser', {
+              url: checkoutResponse.data.checkoutUrl,
+              planId,
+              planName: selectedPlan?.name || 'Package',
+              price: selectedPlan?.basePrice,
+              pendingSubscription,
+              reservationId: journey.reservationId,
+              journeyId: journey.id,
+            });
+            return;
+          }
+        }
+        Alert.alert(
+          'Payment Required',
+          'You do not have an active pass or package for this service. Please purchase a pass to proceed.',
+        );
+        return;
+      } else {
+        result = await createBooking({
+          targetId: providerId,
+          targetType: isTrainer ? 'TRAINER' : 'PROVIDER',
+          startTime,
+          endTime,
+          userPlanId,
+          categoryId: activeCategoryId || undefined,
+          bookingMode: 'SLOT_BASED',
+        });
+      }
 
       const status = result.booking?.bookingStatus || result.booking?.status || 'CONFIRMED';
 
