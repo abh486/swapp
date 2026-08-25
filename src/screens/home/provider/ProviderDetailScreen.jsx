@@ -155,7 +155,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         provider: { id: provider.id, name: provider.name, photos: provider.photos },
         package: planToUse,
       };
-      
+
       navigation.navigate('MembershipDetails', {
         subscription: activeSub
       });
@@ -249,7 +249,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
 
   const getPackageCTA = (plan, provider) => {
     if (!plan) return 'Choose Plan';
-    
+
     const rawMode =
       plan.accessMode ||
       (provider.accessConfig && provider.accessConfig.accessMode) ||

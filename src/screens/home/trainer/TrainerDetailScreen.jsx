@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal} from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
@@ -80,8 +80,8 @@ const TrainerDetailScreen = ({ route, navigation }) => {
     return Array.isArray(v) ? v[0] : v;
   })();
   const isGymLike = ['GYM', 'BOXING', 'YOGA', 'MARTIAL_ARTS'].includes(primaryVertical) || !primaryVertical;
-  const isSports  = primaryVertical === 'SPORTS_FACILITY';
-  const isClinic  = ['WELLNESS', 'CLINIC'].includes(primaryVertical);
+  const isSports = primaryVertical === 'SPORTS_FACILITY';
+  const isClinic = ['WELLNESS', 'CLINIC'].includes(primaryVertical);
   const professionalLabel = isClinic ? 'Professionals' : 'Trainers';
   const resourceCount = trainer?.resources?.length || 0;
 
@@ -126,7 +126,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
   const handleChatPress = async () => {
     if (!isAuthenticated || !user || !user.id) {
       Alert.alert(
-        'Authentication Required', 
+        'Authentication Required',
         'You must be logged in to chat with trainers.',
         [
           { text: 'Cancel', style: 'cancel' },
@@ -141,7 +141,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
       let userToken = token || await getToken();
       if (!userToken) {
         Alert.alert(
-          'Session Expired', 
+          'Session Expired',
           'Authentication token not found. Please login again.',
           [
             { text: 'Cancel', style: 'cancel' },
@@ -164,7 +164,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
         await AsyncStorage.removeItem('accessToken');
         setToken(null);
         Alert.alert(
-          'Session Expired', 
+          'Session Expired',
           'Your session has expired. Please log in again.',
           [
             { text: 'Cancel', style: 'cancel' },
@@ -218,7 +218,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
 
   const getPackageCTA = (plan, trainer) => {
     if (!plan) return 'Choose Plan';
-    
+
     const accessMode = plan.accessMode || trainer.accessConfig?.accessMode || 'SLOT_BASED';
     const flow = plan.consumptionFlow || (() => {
       const totalSessions = (plan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
@@ -532,7 +532,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
               const sessionsLabel = totalSessions > 0 ? `${totalSessions} Sessions Included` : 'Unlimited Sessions';
               const flowLabel = flow === 'RESERVATION_CHECKOUT' ? 'Booking Required Immediately' : 'Book Sessions Later';
               const validityLabel = plan.validityDays ? `Valid for ${plan.validityDays} Days` : 'Monthly Cycle';
-              
+
               return (
                 <View style={{ marginVertical: 4 }}>
                   <Text style={{ color: '#A78BFA', fontSize: 11, fontWeight: 'bold' }}>
@@ -762,118 +762,118 @@ const TrainerDetailScreen = ({ route, navigation }) => {
                 )}
               </View>
 
-          {/* Right: action button — translucent lighter rectangle */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.footerBtn}
-            onPress={async () => {
-              if (isSubscribe) {
-                console.log('[Clarity] Subscription clicked');
-                try {
-                  Clarity.sendCustomEvent('subscription_clicked');
-                  Clarity.setCustomTag('clicked_plan', selectedPlan ? selectedPlan.name : 'Unknown');
-                } catch (e) {
-                  console.error('[Clarity] Failed to send subscription_clicked:', e);
-                }
-                try {
-                  const pendingSubscription = {
-                    status: 'ACTIVE',
-                    provider: {
-                      id: trainer.id,
-                      name: trainer.name,
-                      photos: trainer.photos,
-                    },
-                    package: selectedPlan,
-                    planName: selectedPlan.name,
-                    providerName: trainer.name,
-                    gymName: trainer.name,
-                    tier: selectedPlan.tier || selectedPlan.name,
-                    image: trainer.photos?.[0] || selectedPlan.imageUrl,
-                    isActive: true,
-                  };
-
-                  if (isPlanActive(selectedPlan.id)) {
-                    navigation.navigate('TrainerBooking', {
-                      gymName: trainer.name,
-                      subscription: {
-                        provider: {
-                          id: trainer.id,
-                          name: trainer.name,
-                          photos: trainer.photos,
-                        },
-                        package: selectedPlan,
-                      },
-                      isReservationCheckout: false,
-                      targetType: 'TRAINER',
-                      trainerId: trainer.id,
-                      selectedPlan,
-                      packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
-                    });
-                    return;
-                  }
-
-                  const flow = selectedPlan.consumptionFlow || (() => {
-                    const accessMode = trainer.accessConfig?.accessMode || 'SLOT_BASED';
-                    const totalSessions = (selectedPlan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
-                    if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
-                      return 'RESERVATION_CHECKOUT';
+              {/* Right: action button — translucent lighter rectangle */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.footerBtn}
+                onPress={async () => {
+                  if (isSubscribe) {
+                    console.log('[Clarity] Subscription clicked');
+                    try {
+                      Clarity.sendCustomEvent('subscription_clicked');
+                      Clarity.setCustomTag('clicked_plan', selectedPlan ? selectedPlan.name : 'Unknown');
+                    } catch (e) {
+                      console.error('[Clarity] Failed to send subscription_clicked:', e);
                     }
-                    return 'PURCHASE_FIRST';
-                  })();
-
-                  if (flow === 'RESERVATION_CHECKOUT') {
-                    navigation.navigate('TrainerBooking', {
-                      gymName: trainer.name,
-                      subscription: {
+                    try {
+                      const pendingSubscription = {
+                        status: 'ACTIVE',
                         provider: {
                           id: trainer.id,
                           name: trainer.name,
                           photos: trainer.photos,
                         },
                         package: selectedPlan,
-                      },
-                      isReservationCheckout: true,
-                      targetType: 'TRAINER',
-                      trainerId: trainer.id,
-                      selectedPlan,
-                      packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
-                    });
-                    return;
-                  }
+                        planName: selectedPlan.name,
+                        providerName: trainer.name,
+                        gymName: trainer.name,
+                        tier: selectedPlan.tier || selectedPlan.name,
+                        image: trainer.photos?.[0] || selectedPlan.imageUrl,
+                        isActive: true,
+                      };
 
-                  const response = await dispatch(
-                    createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE'),
-                  );
-                  if (
-                    response &&
-                    response.success &&
-                    response.data?.checkoutUrl
-                  ) {
-                    navigation.navigate('CheckoutBrowser', {
-                      url: response.data.checkoutUrl,
-                      planId: selectedPlan.id,
-                      planName: selectedPlan.name,
-                      price: selectedPlan.basePrice,
-                      pendingSubscription,
-                    });
+                      if (isPlanActive(selectedPlan.id)) {
+                        navigation.navigate('TrainerBooking', {
+                          gymName: trainer.name,
+                          subscription: {
+                            provider: {
+                              id: trainer.id,
+                              name: trainer.name,
+                              photos: trainer.photos,
+                            },
+                            package: selectedPlan,
+                          },
+                          isReservationCheckout: false,
+                          targetType: 'TRAINER',
+                          trainerId: trainer.id,
+                          selectedPlan,
+                          packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
+                        });
+                        return;
+                      }
+
+                      const flow = selectedPlan.consumptionFlow || (() => {
+                        const accessMode = trainer.accessConfig?.accessMode || 'SLOT_BASED';
+                        const totalSessions = (selectedPlan.items || []).reduce((sum, item) => sum + (item.softLimit || 0), 0);
+                        if ((accessMode === 'SLOT_BASED' || accessMode === 'APPOINTMENT') && totalSessions === 1) {
+                          return 'RESERVATION_CHECKOUT';
+                        }
+                        return 'PURCHASE_FIRST';
+                      })();
+
+                      if (flow === 'RESERVATION_CHECKOUT') {
+                        navigation.navigate('TrainerBooking', {
+                          gymName: trainer.name,
+                          subscription: {
+                            provider: {
+                              id: trainer.id,
+                              name: trainer.name,
+                              photos: trainer.photos,
+                            },
+                            package: selectedPlan,
+                          },
+                          isReservationCheckout: true,
+                          targetType: 'TRAINER',
+                          trainerId: trainer.id,
+                          selectedPlan,
+                          packageType: selectedPlan.package_type || selectedPlan.packageType || 'STANDALONE',
+                        });
+                        return;
+                      }
+
+                      const response = await dispatch(
+                        createCheckoutSession(selectedPlan.id, 'PARTNER_PACKAGE'),
+                      );
+                      if (
+                        response &&
+                        response.success &&
+                        response.data?.checkoutUrl
+                      ) {
+                        navigation.navigate('CheckoutBrowser', {
+                          url: response.data.checkoutUrl,
+                          planId: selectedPlan.id,
+                          planName: selectedPlan.name,
+                          price: selectedPlan.basePrice,
+                          pendingSubscription,
+                        });
+                      } else {
+                        Alert.alert(
+                          'Error',
+                          response?.message || 'Failed to initiate subscription.',
+                        );
+                      }
+                    } catch (err) {
+                      console.error('Subscription error:', err);
+                    }
                   } else {
-                    Alert.alert(
-                      'Error',
-                      response?.message || 'Failed to initiate subscription.',
-                    );
+                    setActiveTab('Plans');
                   }
-                } catch (err) {
-                  console.error('Subscription error:', err);
-                }
-              } else {
-                setActiveTab('Plans');
-              }
-            }}
-          >
-            <Text style={styles.footerBtnText} numberOfLines={1} adjustsFontSizeToFit={true}>
-              {selectedPlan ? getPackageCTA(selectedPlan, trainer) : 'Choose Plan'}
-            </Text>
-            </TouchableOpacity>
+                }}
+              >
+                <Text style={styles.footerBtnText} numberOfLines={1} adjustsFontSizeToFit={true}>
+                  {selectedPlan ? getPackageCTA(selectedPlan, trainer) : 'Choose Plan'}
+                </Text>
+              </TouchableOpacity>
             </>
           )}
         </LinearGradient>
@@ -904,7 +904,7 @@ const TrainerDetailScreen = ({ route, navigation }) => {
       <Modal visible={showChat} transparent animationType="slide" onRequestClose={() => setShowChat(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', alignItems: 'center' }}>
           <View style={{ width: '100%', height: '90%', backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
-            <ChatScreen 
+            <ChatScreen
               trainer={trainer}
               user={user}
               onBack={() => setShowChat(false)}
@@ -938,367 +938,367 @@ const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
       borderRadius: ms(20),
     },
     mainImage: { width: '100%', height: ms(isTablet ? 320 : 260), resizeMode: 'cover' },
-  thumbnailScroll: {
-    flexDirection: 'row',
-    marginTop: sp(5),
-    paddingHorizontal: sp(15),
-  },
-  thumbnailWrapper: {
-    marginRight: sp(10),
-    borderRadius: ms(8),
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  activeThumbnailWrapper: { borderColor: '#e74c3c' },
-  thumbnailImage: { width: ms(isTablet ? 90 : 70), height: ms(isTablet ? 90 : 70), resizeMode: 'cover' },
-  zoomIndicator: {
-    position: 'absolute',
-    bottom: sp(15),
-    right: sp(15),
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: sp(8),
-    borderRadius: ms(20),
-  },
+    thumbnailScroll: {
+      flexDirection: 'row',
+      marginTop: sp(5),
+      paddingHorizontal: sp(15),
+    },
+    thumbnailWrapper: {
+      marginRight: sp(10),
+      borderRadius: ms(8),
+      overflow: 'hidden',
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    activeThumbnailWrapper: { borderColor: '#e74c3c' },
+    thumbnailImage: { width: ms(isTablet ? 90 : 70), height: ms(isTablet ? 90 : 70), resizeMode: 'cover' },
+    zoomIndicator: {
+      position: 'absolute',
+      bottom: sp(15),
+      right: sp(15),
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: sp(8),
+      borderRadius: ms(20),
+    },
 
-  viewerOverlay: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeViewerBtn: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  viewerImage: { width: '100%', height: '80%' },
-  viewerFooter: {
-    position: 'absolute',
-    bottom: sp(50),
-    width: '100%',
-    alignItems: 'center',
-  },
-  viewerText: { color: '#fff', fontSize: fs(14), fontWeight: '500' },
+    viewerOverlay: {
+      flex: 1,
+      backgroundColor: '#000',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeViewerBtn: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 10,
+      padding: 10,
+    },
+    viewerImage: { width: '100%', height: '80%' },
+    viewerFooter: {
+      position: 'absolute',
+      bottom: sp(50),
+      width: '100%',
+      alignItems: 'center',
+    },
+    viewerText: { color: '#fff', fontSize: fs(14), fontWeight: '500' },
 
-  titleBlockContainer: { paddingHorizontal: sp(20), marginBottom: sp(20) },
-  premiumBadge: {
-    backgroundColor: '#FFD700',
-    alignSelf: 'flex-start',
-    paddingHorizontal: sp(10),
-    paddingVertical: sp(4),
-    borderRadius: ms(12),
-    marginBottom: sp(10),
-  },
-  premiumText: { color: '#000', fontSize: 10, fontWeight: 'bold' },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  gymTitle: { color: '#fff', fontSize: fs(24), fontWeight: 'bold', flex: 1 },
-  verifiedIcon: { marginLeft: sp(8), marginTop: sp(2) },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  ratingScore: {
-    color: '#FFD700',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
-  starIcon: { marginTop: -2 },
-  subtitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: sp(5),
-  },
-  gymSubtitle: { color: '#aaa', fontSize: fs(14) },
-  reviewsText: { color: '#666', fontSize: fs(12) },
-  hoursRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
-  openNowText: { color: '#2ecc71', fontSize: 14, fontWeight: '500' },
-  closesText: { color: '#aaa', fontSize: 14 },
-  chevronIcon: { marginLeft: 5, marginTop: 2 },
+    titleBlockContainer: { paddingHorizontal: sp(20), marginBottom: sp(20) },
+    premiumBadge: {
+      backgroundColor: '#FFD700',
+      alignSelf: 'flex-start',
+      paddingHorizontal: sp(10),
+      paddingVertical: sp(4),
+      borderRadius: ms(12),
+      marginBottom: sp(10),
+    },
+    premiumText: { color: '#000', fontSize: 10, fontWeight: 'bold' },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    gymTitle: { color: '#fff', fontSize: fs(24), fontWeight: 'bold', flex: 1 },
+    verifiedIcon: { marginLeft: sp(8), marginTop: sp(2) },
+    ratingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 10,
+    },
+    ratingScore: {
+      color: '#FFD700',
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginRight: 4,
+    },
+    starIcon: { marginTop: -2 },
+    subtitleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: sp(5),
+    },
+    gymSubtitle: { color: '#aaa', fontSize: fs(14) },
+    reviewsText: { color: '#666', fontSize: fs(12) },
+    hoursRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
+    openNowText: { color: '#2ecc71', fontSize: 14, fontWeight: '500' },
+    closesText: { color: '#aaa', fontSize: 14 },
+    chevronIcon: { marginLeft: 5, marginTop: 2 },
 
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: sp(20),
-    paddingVertical: sp(15),
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#222',
-    marginBottom: sp(20),
-  },
-  actionButton: { alignItems: 'center', flex: 1 },
-  actionText: { color: '#aaa', fontSize: 12, marginTop: 5 },
+    actionBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginHorizontal: sp(20),
+      paddingVertical: sp(15),
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: '#222',
+      marginBottom: sp(20),
+    },
+    actionButton: { alignItems: 'center', flex: 1 },
+    actionText: { color: '#aaa', fontSize: 12, marginTop: 5 },
 
-  tabsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: sp(20),
-    marginBottom: sp(20),
-  },
-  tabItem: { marginRight: 30 },
-  tabText: { color: '#666', fontSize: 16, fontWeight: '500' },
-  tabTextActive: { color: '#fff', fontWeight: 'bold' },
+    tabsContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: sp(20),
+      marginBottom: sp(20),
+    },
+    tabItem: { marginRight: 30 },
+    tabText: { color: '#666', fontSize: 16, fontWeight: '500' },
+    tabTextActive: { color: '#fff', fontWeight: 'bold' },
 
-  sectionContainer: { paddingHorizontal: sp(20), marginBottom: sp(35) },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: fs(18),
-    fontWeight: 'bold',
-    marginBottom: sp(15),
-  },
-  aboutText: { color: '#aaa', fontSize: fs(14), lineHeight: fs(22) },
+    sectionContainer: { paddingHorizontal: sp(20), marginBottom: sp(35) },
+    sectionTitle: {
+      color: '#fff',
+      fontSize: fs(18),
+      fontWeight: 'bold',
+      marginBottom: sp(15),
+    },
+    aboutText: { color: '#aaa', fontSize: fs(14), lineHeight: fs(22) },
 
-  amenitiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
-  amenityBox: {
-    width: '23%',
-    aspectRatio: 1,
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    marginRight: '2%',
-    padding: 5,
-  },
-  amenityLabel: {
-    color: '#666',
-    fontSize: 8,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+    amenitiesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'flex-start',
+    },
+    amenityBox: {
+      width: '23%',
+      aspectRatio: 1,
+      backgroundColor: '#0a0a0a',
+      borderWidth: 1,
+      borderColor: '#222',
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+      marginRight: '2%',
+      padding: 5,
+    },
+    amenityLabel: {
+      color: '#666',
+      fontSize: 8,
+      textAlign: 'center',
+      marginTop: 8,
+    },
 
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 15,
-  },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 20,
+      marginBottom: 15,
+    },
 
-  planCard: {
-    flexDirection: 'row',
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: ms(12),
-    padding: sp(15),
-    marginBottom: sp(15),
-  },
-  selectedPlanCard: {
-    borderColor: '#FF7369',
-    backgroundColor: 'rgba(255, 115, 105, 0.05)',
-  },
-  planCardLeft: { width: ms(50), marginRight: sp(15) },
-  planImagePlaceholder: {
-    width: ms(50),
-    height: ms(50),
-    backgroundColor: '#fff',
-    borderRadius: ms(8),
-  },
-  planCardRight: { flex: 1 },
-  planCardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  planTitle: { fontSize: 16, fontWeight: 'bold', flex: 1 },
-  planBadge: {
-    backgroundColor: '#4d94ff',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-  planBadgeText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
-  planPrice: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  planPriceMonth: { fontSize: 10, color: '#aaa', fontWeight: 'normal' },
-  planSubtitle: { color: '#fff', fontSize: 12, marginBottom: 10 },
-  planFeatures: { marginBottom: 15 },
-  planFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  planFeatureText: { color: '#ddd', fontSize: 12, marginLeft: 8 },
-  choosePlanBtn: {
-    backgroundColor: '#FF7369',
-    paddingVertical: sp(10),
-    borderRadius: ms(8),
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    paddingHorizontal: sp(20),
-  },
-  choosePlanText: { color: '#fff', fontWeight: 'bold', fontSize: fs(12) },
+    planCard: {
+      flexDirection: 'row',
+      backgroundColor: '#0a0a0a',
+      borderWidth: 1,
+      borderColor: '#222',
+      borderRadius: ms(12),
+      padding: sp(15),
+      marginBottom: sp(15),
+    },
+    selectedPlanCard: {
+      borderColor: '#FF7369',
+      backgroundColor: 'rgba(255, 115, 105, 0.05)',
+    },
+    planCardLeft: { width: ms(50), marginRight: sp(15) },
+    planImagePlaceholder: {
+      width: ms(50),
+      height: ms(50),
+      backgroundColor: '#fff',
+      borderRadius: ms(8),
+    },
+    planCardRight: { flex: 1 },
+    planCardHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 4,
+    },
+    planTitle: { fontSize: 16, fontWeight: 'bold', flex: 1 },
+    planBadge: {
+      backgroundColor: '#4d94ff',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 10,
+      marginLeft: 8,
+    },
+    planBadgeText: { color: '#fff', fontSize: 8, fontWeight: 'bold' },
+    planPrice: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginLeft: 10,
+    },
+    planPriceMonth: { fontSize: 10, color: '#aaa', fontWeight: 'normal' },
+    planSubtitle: { color: '#fff', fontSize: 12, marginBottom: 10 },
+    planFeatures: { marginBottom: 15 },
+    planFeatureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    planFeatureText: { color: '#ddd', fontSize: 12, marginLeft: 8 },
+    choosePlanBtn: {
+      backgroundColor: '#FF7369',
+      paddingVertical: sp(10),
+      borderRadius: ms(8),
+      alignItems: 'center',
+      alignSelf: 'flex-end',
+      paddingHorizontal: sp(20),
+    },
+    choosePlanText: { color: '#fff', fontWeight: 'bold', fontSize: fs(12) },
 
-  trainersScroll: { flexDirection: 'row' },
-  trainerCard: {
-    width: Math.min(ms(140), wp(42)),
-    backgroundColor: '#0a0a0a',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: ms(12),
-    padding: sp(15),
-    marginRight: sp(15),
-    alignItems: 'flex-start',
-  },
-  trainerImageContainer: {
-    width: ms(80),
-    height: ms(80),
-    borderRadius: ms(40),
-    borderWidth: 2,
-    borderColor: '#2ecc71',
-    marginBottom: sp(10),
-    alignSelf: 'center',
-    overflow: 'hidden',
-  },
-  trainerImage: { width: '100%', height: '100%' },
-  trainerName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  trainerExp: { color: '#4d94ff', fontSize: 10, marginBottom: 4 },
-  trainerCategory: { color: '#fff', fontSize: 10, marginBottom: 6 },
-  trainerRatingRow: { flexDirection: 'row', alignItems: 'center' },
-  trainerRating: { color: '#fff', fontSize: 10, marginLeft: 4 },
+    trainersScroll: { flexDirection: 'row' },
+    trainerCard: {
+      width: Math.min(ms(140), wp(42)),
+      backgroundColor: '#0a0a0a',
+      borderWidth: 1,
+      borderColor: '#222',
+      borderRadius: ms(12),
+      padding: sp(15),
+      marginRight: sp(15),
+      alignItems: 'flex-start',
+    },
+    trainerImageContainer: {
+      width: ms(80),
+      height: ms(80),
+      borderRadius: ms(40),
+      borderWidth: 2,
+      borderColor: '#2ecc71',
+      marginBottom: sp(10),
+      alignSelf: 'center',
+      overflow: 'hidden',
+    },
+    trainerImage: { width: '100%', height: '100%' },
+    trainerName: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginBottom: 4,
+    },
+    trainerExp: { color: '#4d94ff', fontSize: 10, marginBottom: 4 },
+    trainerCategory: { color: '#fff', fontSize: 10, marginBottom: 6 },
+    trainerRatingRow: { flexDirection: 'row', alignItems: 'center' },
+    trainerRating: { color: '#fff', fontSize: 10, marginLeft: 4 },
 
-  reviewHeaderRow: { flexDirection: 'row', marginBottom: 30 },
-  reviewScoreBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderColor: '#222',
-  },
-  reviewScoreMain: { color: '#fff', fontSize: fs(48), fontWeight: 'bold' },
-  reviewCount: { color: '#666', fontSize: fs(12), marginTop: sp(5) },
-  reviewBarsBlock: { flex: 1.5, paddingLeft: 20, justifyContent: 'center' },
-  reviewBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  reviewBarStar: { color: '#aaa', fontSize: fs(10), width: ms(25) },
-  reviewBarTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#222',
-    borderRadius: 2,
-    marginHorizontal: 10,
-  },
-  reviewBarFill: { height: '100%', backgroundColor: '#aaa', borderRadius: 2 },
-  reviewBarPct: { color: '#aaa', fontSize: fs(10), width: ms(30), textAlign: 'right' },
+    reviewHeaderRow: { flexDirection: 'row', marginBottom: 30 },
+    reviewScoreBlock: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRightWidth: 1,
+      borderColor: '#222',
+    },
+    reviewScoreMain: { color: '#fff', fontSize: fs(48), fontWeight: 'bold' },
+    reviewCount: { color: '#666', fontSize: fs(12), marginTop: sp(5) },
+    reviewBarsBlock: { flex: 1.5, paddingLeft: 20, justifyContent: 'center' },
+    reviewBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    reviewBarStar: { color: '#aaa', fontSize: fs(10), width: ms(25) },
+    reviewBarTrack: {
+      flex: 1,
+      height: 4,
+      backgroundColor: '#222',
+      borderRadius: 2,
+      marginHorizontal: 10,
+    },
+    reviewBarFill: { height: '100%', backgroundColor: '#aaa', borderRadius: 2 },
+    reviewBarPct: { color: '#aaa', fontSize: fs(10), width: ms(30), textAlign: 'right' },
 
-  reviewCard: {
-    backgroundColor: '#050505',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 12,
-    padding: 15,
-  },
-  reviewCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  reviewerAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
-  reviewerInfo: { flex: 1 },
-  reviewerName: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  verifiedMemberText: { color: '#2ecc71', fontSize: 9, fontWeight: 'normal' },
-  reviewCardStars: { flexDirection: 'row', alignItems: 'center' },
-  reviewCardScore: { color: '#fff', fontSize: 10, marginLeft: 5 },
-  reviewDate: { color: '#666', fontSize: 10 },
-  reviewCardText: {
-    color: '#ddd',
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 15,
-  },
-  reviewCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-  },
-  helpfulText: { color: '#b873f0', fontSize: 10, marginLeft: 5 },
+    reviewCard: {
+      backgroundColor: '#050505',
+      borderWidth: 1,
+      borderColor: '#222',
+      borderRadius: 12,
+      padding: 15,
+    },
+    reviewCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 10,
+    },
+    reviewerAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
+    reviewerInfo: { flex: 1 },
+    reviewerName: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: 'bold',
+      marginBottom: 2,
+    },
+    verifiedMemberText: { color: '#2ecc71', fontSize: 9, fontWeight: 'normal' },
+    reviewCardStars: { flexDirection: 'row', alignItems: 'center' },
+    reviewCardScore: { color: '#fff', fontSize: 10, marginLeft: 5 },
+    reviewDate: { color: '#666', fontSize: 10 },
+    reviewCardText: {
+      color: '#ddd',
+      fontSize: 12,
+      lineHeight: 18,
+      marginBottom: 15,
+    },
+    reviewCardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-end',
+    },
+    helpfulText: { color: '#b873f0', fontSize: 10, marginLeft: 5 },
 
-  // ─── FOOTER ────────────────────────────────────────────────────────────────
-  footerWrapper: {
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
-    paddingTop: 8,
-  },
-  footerGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    paddingLeft: 20,
-    paddingRight: 0, // button handles its own right edge flush
-    overflow: 'hidden',
-  },
-  footerLeft: {
-    flex: 1,
-    paddingVertical: 14,
-  },
-  footerPrice: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  footerPriceUnit: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.85)',
-  },
-  footerGst: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  footerBtn: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderLeftWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 130,
-  },
-  footerBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-});
+    // ─── FOOTER ────────────────────────────────────────────────────────────────
+    footerWrapper: {
+      paddingHorizontal: 16,
+      paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+      paddingTop: 8,
+    },
+    footerGradient: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderRadius: 16,
+      paddingLeft: 20,
+      paddingRight: 0, // button handles its own right edge flush
+      overflow: 'hidden',
+    },
+    footerLeft: {
+      flex: 1,
+      paddingVertical: 14,
+    },
+    footerPrice: {
+      color: '#fff',
+      fontSize: 20,
+      fontWeight: '800',
+      letterSpacing: 0.2,
+    },
+    footerPriceUnit: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.85)',
+    },
+    footerGst: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: 11,
+      marginTop: 2,
+    },
+    footerBtn: {
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      borderTopRightRadius: 16,
+      borderBottomRightRadius: 16,
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderLeftWidth: 1,
+      borderColor: 'rgba(255,255,255,0.18)',
+      alignSelf: 'stretch',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minWidth: 130,
+    },
+    footerBtnText: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+  });
 
 export default TrainerDetailScreen;

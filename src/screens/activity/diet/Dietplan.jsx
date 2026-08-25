@@ -1278,6 +1278,22 @@ const Dietplan = ({ navigation, route }) => {
         onSelectMeal={handleSelectMeal}
       />
 
+      {/* AI Dietician Chat FAB */}
+      <TouchableOpacity 
+        style={styles.aiChatFab} 
+        onPress={() => navigation.navigate('DieticianAIConversationList')}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+          style={styles.aiChatFabGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Icon name="chatbubbles" size={24} color="#FFF" />
+        </LinearGradient>
+      </TouchableOpacity>
+
     </View>
   );
 };
@@ -2148,26 +2164,44 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    backgroundColor: '#1A1A1E',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(231, 76, 60, 0.3)',
   },
   lockedTitle: {
     color: '#FFF',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
     marginBottom: 12,
+    textAlign: 'center',
   },
   lockedSubtitle: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
-    lineHeight: 22,
+    color: '#A0A0A0',
+    fontSize: 16,
     textAlign: 'center',
+    lineHeight: 24,
     marginBottom: 32,
+  },
+  aiChatFab: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 90 : 80,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    shadowColor: '#8F5D98',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  aiChatFabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   unlockButton: {
     width: '100%',

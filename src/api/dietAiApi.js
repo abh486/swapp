@@ -2,8 +2,8 @@
  * dietAiApi.js
  * Centralized API methods for all AI Diet Recommendation system calls.
  */
-import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from './apiClient';
 
 const migrateMeals = (mealsStr) => {
   if (!mealsStr) return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
@@ -22,72 +22,43 @@ const migrateMeals = (mealsStr) => {
   }
 };
 
-/**
- * Reads all saved diet preference keys from AsyncStorage and returns a params object
- * ready to send to the /recommendations endpoint.
- */
-export const buildDietParams = async (overrides = {}) => {
-  const [
-    savedPreference,
-    savedSkipDays,
-    savedMeals,
-    savedAllergies,
-    savedCuisines,
-    savedOtherInfo,
-  ] = await Promise.all([
-    AsyncStorage.getItem('diet_preference'),
-    AsyncStorage.getItem('diet_skip_days'),
-    AsyncStorage.getItem('diet_meals'),
-    AsyncStorage.getItem('diet_allergies'),
-    AsyncStorage.getItem('diet_cuisines'),
-    AsyncStorage.getItem('diet_other_info'),
-  ]);
 
-  return {
-    dietPreference: savedPreference || 'Selective Non-Veg',
-    skipDays: savedSkipDays ? JSON.parse(savedSkipDays) : ['Monday'],
-    meals: migrateMeals(savedMeals),
-    allergies: savedAllergies ? JSON.parse(savedAllergies) : ['No Known Allergies'],
-    cuisines: savedCuisines ? JSON.parse(savedCuisines) : ['USA Food'],
-    otherInfo: savedOtherInfo || 'Love extra protein, low calorie',
-    generate: 'false',
-    ...overrides,
-  };
-};
-
-export const fetchWeeklyPlan = async (params = {}) => {
-  return null;
+ * Fetch Macro Targets via proxy
+  */
+export const fetchMacroTargets = async (params) => {
+  const response = await apiClient.post('/diet/macros', params);
+  return response.data;
 };
 
 /**
- * Fetch macro targets for the current user from the backend.
- * Returns { calories, protein, carbs, fats } targets.
+ * Fetch Weekly Diet Plan via proxy
  */
-export const fetchMacroTargets = async () => {
-  const response = await apiClient.get('/diet/macro-targets');
-  if (!response.data?.success) {
-    throw new Error(response.data?.message || 'Failed to fetch macro targets.');
-  }
-  return response.data.data;
+export const fetchWeeklyPlan = async (params) => {
+  const response = await apiClient.post('/diet/generate-plan', params);
+  return response.data;
 };
 
 /**
- * Trigger AI meal analysis from an uploaded image URL.
- * @param {string} photoUrl - Cloudinary URL of the uploaded food image
- * @param {string} description - Optional text description of the meal
+ * Analyze Meal Photo via proxy
+ * Sends multipart/form-data for actual image upload
  */
-export const analyzeMealPhoto = async (photoUrl, description = '') => {
-  const response = await apiClient.post('/diet/analyze-meal', { photoUrl, description });
-  if (!response.data?.success) {
-    throw new Error(response.data?.message || 'Failed to analyze meal image.');
-  }
-  return response.data.data;
+export const analyzeMealPhoto = async (photoUri) => {
+  const formData = new FormData();
+  formData.append('photo', {
+    uri: photoUri,
+    type: 'image/jpeg', // Standard assumption for camera, backend can validate
+    name: 'meal_photo.jpg',
+  });
+
+  const response = await apiClient.post('/diet/analyze-meal', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
 };
 
-/**
- * Save diet preferences to AsyncStorage.
- * @param {Object} prefs - Preferences object to persist
- */
+
 export const saveDietPreferences = async (prefs) => {
   const {
     preference,
@@ -106,12 +77,52 @@ export const saveDietPreferences = async (prefs) => {
     cuisines !== undefined && AsyncStorage.setItem('diet_cuisines', JSON.stringify(cuisines)),
     otherInfo !== undefined && AsyncStorage.setItem('diet_other_info', otherInfo),
   ].filter(Boolean));
+
+  // Sync to Swapp Backend so it can be pushed to NutriAI
+  try {
+    const payload = {};
+    if (preference !== undefined) payload.dietPreference = preference;
+    if (skipDays !== undefined) payload.skipDays = JSON.stringify(skipDays);
+    if (meals !== undefined) payload.meals = JSON.stringify(meals);
+    if (allergies !== undefined) payload.allergies = JSON.stringify(allergies);
+    if (cuisines !== undefined) payload.cuisines = JSON.stringify(cuisines);
+    if (otherInfo !== undefined) payload.otherInfo = otherInfo;
+
+    if (Object.keys(payload).length > 0) {
+      await apiClient.put('/users/profile', payload);
+    }
+  } catch (err) {
+    console.error('Failed to sync diet preferences to backend:', err);
+  }
+};
+
+/**
+ * AI Dietician Chat API Endpoints
+ */
+export const getDietChatConversations = async () => {
+  const response = await apiClient.get('/diet/chat/conversations');
+  return response.data;
+};
+
+export const getDietChatConversation = async (conversationId) => {
+  const response = await apiClient.get(`/diet/chat/conversations/${conversationId}/messages`);
+  return response.data;
+};
+
+export const sendDietChatMessage = async (conversationId, message) => {
+  const response = await apiClient.post('/diet/chat/messages', {
+    conversationId,
+    message,
+  });
+  return response.data;
 };
 
 export default {
-  buildDietParams,
-  fetchWeeklyPlan,
-  fetchMacroTargets,
-  analyzeMealPhoto,
   saveDietPreferences,
+  fetchMacroTargets,
+  fetchWeeklyPlan,
+  analyzeMealPhoto,
+  getDietChatConversations,
+  getDietChatConversation,
+  sendDietChatMessage,
 };

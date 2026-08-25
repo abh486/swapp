@@ -17,9 +17,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
-import apiClient from '../../../api/apiClient';
 import { saveDietEntry } from '../../../redux/actions/dietActions';
-import { buildDietParams } from '../../../api/dietAiApi';
+import dietAiApi from '../../../api/dietAiApi';
 
 const { width } = Dimensions.get('window');
 
@@ -147,7 +146,33 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   }, [selectedDate]);
 
   const fetchRecommendation = async (generate = false) => {
-    setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const params = { generate: generate ? 'true' : 'false' };
+      const response = await dietAiApi.fetchWeeklyPlan(params);
+      
+      if (response && response.data && response.data.weeklyPlan) {
+        setCurrentRecommendation(response.data);
+      } else {
+        console.warn('Invalid weekly plan data returned from AI', response);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch recommendation from proxy API', err);
+      if (err.status === 400 || (err.response && err.response.status === 400)) {
+        Alert.alert(
+          'Profile Incomplete',
+          'Please complete your physical and dietary profile in settings to generate a meal plan.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Go to Profile', onPress: () => navigation.navigate('WeightBodyMetrics') }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to generate diet plan. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -201,22 +226,6 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
       }
       return { ...prev, [mealKey]: isLiked };
     });
-  };
-
-  // Helper to parse a single string description into list of food items
-  const parseFoodItems = (mealDescription) => {
-    if (!mealDescription) return [];
-    return mealDescription.split(/[+,]/).map(item => item.trim()).filter(Boolean);
-  };
-
-  // Helper to generate a weight for parsed food items
-  const getFoodItemWeight = (itemName) => {
-    let hash = 0;
-    for (let i = 0; i < itemName.length; i++) {
-      hash = itemName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const weight = Math.abs(hash % 250) + 120; // weight between 120 and 370
-    return `${weight} grams`;
   };
 
   // Get active day meals based on selectedDate
