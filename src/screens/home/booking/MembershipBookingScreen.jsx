@@ -421,7 +421,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
         targetPackageId
       });
       let journey = journeyResponse.data;
-      
+
       if (targetPackageId && journey?.state === 'AWAITING_ACCESS_SELECTION') {
         const selRes = await apiClient.post(`/v1/marketplace/journeys/${journey.id}/access-selection`, { accessSourceId: targetPackageId });
         if (selRes.data) {

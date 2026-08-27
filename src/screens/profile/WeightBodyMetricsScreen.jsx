@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../../api/apiClient';
 
 const WeightBodyMetricsScreen = ({ navigation }) => {
   const [metrics, setMetrics] = useState({
@@ -87,6 +88,16 @@ const WeightBodyMetricsScreen = ({ navigation }) => {
 
     try {
       await AsyncStorage.setItem('weight_body_metrics', JSON.stringify(newMetrics));
+      
+      // Sync to Swapp Backend to allow NutriAI macro calculation
+      if (selectedMetric.key === 'height' || selectedMetric.key === 'weight') {
+        const profileUpdate = {};
+        if (newMetrics.height) profileUpdate.height = parseFloat(newMetrics.height);
+        if (newMetrics.weight) profileUpdate.weight = parseFloat(newMetrics.weight);
+        if (Object.keys(profileUpdate).length > 0) {
+          await apiClient.put('/users/profile', profileUpdate);
+        }
+      }
     } catch (err) {
       console.error('Failed to persist metrics:', err);
     }

@@ -57,6 +57,8 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import TrainerDetailScreen from '../screens/home/trainer/TrainerDetailScreen';
 import AIDieticianPaywallScreen from '../screens/activity/diet/AIDieticianPaywallScreen';
 import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianSubscriptionScreen';
+import DieticianAIConversationListScreen from '../screens/activity/diet/DieticianAIConversationListScreen';
+import DieticianAIChatScreen from '../screens/activity/diet/DieticianAIChatScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
 import FollowListScreen from '../screens/profile/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
@@ -145,6 +147,8 @@ const AppNavigator = () => {
                 <Stack.Screen name="AlmostDoneFinal" component={AlmostDoneFinalScreen} />
                 <Stack.Screen name="AlmostDoneCloche" component={AlmostDoneClocheScreen} />
                 <Stack.Screen name="Reminders" component={Reminders} />
+                <Stack.Screen name="DieticianAIConversationList" component={DieticianAIConversationListScreen} />
+                <Stack.Screen name="DieticianAIChat" component={DieticianAIChatScreen} />
 
                 <Stack.Screen
                   name="DiscoverProvidersMap"

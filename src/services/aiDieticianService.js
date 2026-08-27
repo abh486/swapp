@@ -47,3 +47,29 @@ export const cancelSubscription = async (subscriptionId) => {
   const response = await apiClient.post('/subscriptions/ai-dietician/cancel', { subscriptionId });
   return response.data?.data || response.data || response;
 };
+
+/**
+ * Gets all AI Dietician chat conversations for the user
+ */
+export const getConversations = async () => {
+  const response = await apiClient.get('/diet/chat/conversations');
+  return response.data?.data || response.data || response;
+};
+
+/**
+ * Gets messages for a specific conversation
+ */
+export const getConversationMessages = async (conversationId) => {
+  const response = await apiClient.get(`/diet/chat/conversations/${conversationId}/messages`);
+  return response.data?.data || response.data || response;
+};
+
+/**
+ * Sends a message to the AI Dietician (and creates a conversation if ID is null)
+ */
+export const sendDieticianMessage = async (conversationId, message) => {
+  const payload = { message };
+  if (conversationId) payload.conversationId = conversationId;
+  const response = await apiClient.post('/diet/chat/messages', payload);
+  return response.data?.data || response.data || response;
+};

@@ -438,6 +438,12 @@ const WeightTrackerScreen = ({ navigation }) => {
       setWeightLogs(updated);
       await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
       dispatch(addWeightLog({ value: valInKg, date: newLog.date, timestamp: newLog.timestamp }));
+      
+      try {
+        await apiClient.put('/users/profile', { weight: valInKg });
+      } catch (err) {
+        console.error('Failed to sync weight to backend:', err);
+      }
     } else {
       const updated = [...bodyFatLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
       setBodyFatLogs(updated);
@@ -501,6 +507,7 @@ const WeightTrackerScreen = ({ navigation }) => {
         const m = raw ? JSON.parse(raw) : {};
         m.height = valStr;
         await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+        await apiClient.put('/users/profile', { height: parseFloat(valStr) });
       } catch (_) {}
     } else if (editCardModal === 'current') {
       const ts = Date.now();
@@ -509,6 +516,9 @@ const WeightTrackerScreen = ({ navigation }) => {
       setWeightLogs(updated);
       await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
       dispatch(addWeightLog({ value: numVInKg, date: newLog.date, timestamp: ts }));
+      try {
+        await apiClient.put('/users/profile', { weight: numVInKg });
+      } catch (_) {}
     }
     setEditCardModal(null);
   };
