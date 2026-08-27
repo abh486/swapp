@@ -61,7 +61,8 @@ export const getConversations = async () => {
  */
 export const getConversationMessages = async (conversationId) => {
   const response = await apiClient.get(`/diet/chat/conversations/${conversationId}/messages`);
-  return response.data?.data || response.data || response;
+  const data = response.data?.data || response.data || response;
+  return Array.isArray(data) ? data : (data?.messages || []);
 };
 
 /**

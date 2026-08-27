@@ -151,8 +151,10 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
       const params = { generate: generate ? 'true' : 'false' };
       const response = await dietAiApi.fetchWeeklyPlan(params);
       
-      if (response && response.data && response.data.weeklyPlan) {
-        setCurrentRecommendation(response.data);
+      const planData = response?.weeklyPlan ? response : (response?.data?.weeklyPlan ? response.data : null);
+      
+      if (planData) {
+        setCurrentRecommendation(planData);
       } else {
         console.warn('Invalid weekly plan data returned from AI', response);
       }
@@ -230,12 +232,36 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
 
   // Get active day meals based on selectedDate
   const dayOfWeekName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const year = selectedDate.getFullYear();
+  const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+  const dayNum = String(selectedDate.getDate()).padStart(2, '0');
+  const selectedDateStr = `${year}-${month}-${dayNum}`;
+
+  // Calculate day difference from today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const selectedMidnight = new Date(selectedDate);
+  selectedMidnight.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((selectedMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
   const weeklyPlan = currentRecommendation?.weeklyPlan || {};
   const hasGeneratedPlan = Object.keys(weeklyPlan).length > 0;
-  const dayDataKey = Object.keys(weeklyPlan).find(
-    key => key.toLowerCase() === dayOfWeekName.toLowerCase()
-  );
-  const meals = dayDataKey ? weeklyPlan[dayDataKey] : [];
+
+  // Retrieve meals strictly within the 7-day window starting today (0 to 6)
+  let meals = [];
+  if (diffDays >= 0 && diffDays < 7) {
+    if (weeklyPlan[selectedDateStr] && Array.isArray(weeklyPlan[selectedDateStr])) {
+      meals = weeklyPlan[selectedDateStr];
+    } else {
+      const dayDataKey = Object.keys(weeklyPlan).find(
+        key => key.toLowerCase() === dayOfWeekName.toLowerCase()
+      );
+      meals = dayDataKey ? weeklyPlan[dayDataKey] : [];
+    }
+  }
+
   const totalCalsForDay = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
 
   // Curated tip for the day
@@ -576,9 +602,20 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
             })
           ) : hasGeneratedPlan ? (
             <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="calendar-clock" size={48} color="#A3D9C9" style={{ opacity: 0.6 }} />
-              <Text style={styles.emptyTitle}>Rest Day / Skipped Day</Text>
-              <Text style={styles.emptyText}>No meals scheduled for this day in your weekly plan.</Text>
+              <MaterialCommunityIcons 
+                name={diffDays < 0 ? "history" : "calendar-clock"} 
+                size={48} 
+                color="#A3D9C9" 
+                style={{ opacity: 0.6 }} 
+              />
+              <Text style={styles.emptyTitle}>
+                {diffDays < 0 ? "Past Date" : "Rest Day / Skipped Day"}
+              </Text>
+              <Text style={styles.emptyText}>
+                {diffDays < 0 
+                  ? "Meal plan is active starting from today. Select today or an upcoming day to view meals." 
+                  : "No meals scheduled for this day in your weekly plan."}
+              </Text>
             </View>
           ) : (
             <View style={styles.emptyContainer}>

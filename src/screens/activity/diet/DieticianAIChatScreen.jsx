@@ -41,7 +41,8 @@ export const DieticianAIChatScreen = () => {
       setLoading(true);
       setError(null);
       const data = await getConversationMessages(conversationId);
-      setMessages(Array.isArray(data) ? data : []);
+      const msgList = Array.isArray(data) ? data : (data?.messages || []);
+      setMessages(msgList);
       // Scroll to bottom after load
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: false });
@@ -80,23 +81,36 @@ export const DieticianAIChatScreen = () => {
       setSending(true);
       const response = await sendDieticianMessage(conversationId, messageContent);
       
-      // The backend returns the new message(s) and potentially a new conversation ID
-      if (response && response.conversationId && !conversationId) {
-        setConversationId(response.conversationId);
+      const targetConvId = response?.conversationId || response?.data?.conversationId || conversationId;
+      if (targetConvId && !conversationId) {
+        setConversationId(targetConvId);
       }
 
-      // We expect the backend to return the assistant message.
-      // Depending on exact API contract, we might want to reload all messages or just append the returned ones.
-      // For safety, let's reload to get the authoritative server state.
-      if (response.conversationId || conversationId) {
-        const data = await getConversationMessages(response.conversationId || conversationId);
-        setMessages(Array.isArray(data) ? data : []);
+      if (targetConvId) {
+        const data = await getConversationMessages(targetConvId);
+        const msgList = Array.isArray(data) ? data : (data?.messages || []);
+        if (msgList.length > 0) {
+          setMessages(msgList);
+        } else if (response?.message || response?.data?.message) {
+          const assistantReply = response?.message || response?.data?.message;
+          setMessages((prev) => [
+            ...prev.map((m) => (m.id === tempMessage.id ? { ...m, pending: false } : m)),
+            {
+              id: `assistant-${Date.now()}`,
+              role: 'assistant',
+              content: typeof assistantReply === 'string' ? assistantReply : assistantReply?.content || '',
+              createdAt: new Date().toISOString(),
+            },
+          ]);
+        }
       }
-
     } catch (err) {
       console.error('[DieticianAIChatScreen] Error sending message:', err);
       // Remove the optimistic message on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
+      if (err?.response?.status === 403 || err?.status === 403 || err?.message?.includes('not found')) {
+        setConversationId(null);
+      }
       setError('Failed to send message. Please check your connection and try again.');
     } finally {
       setSending(false);

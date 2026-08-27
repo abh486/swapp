@@ -22,9 +22,9 @@ const migrateMeals = (mealsStr) => {
   }
 };
 
-
+/**
  * Fetch Macro Targets via proxy
-  */
+ */
 export const fetchMacroTargets = async (params) => {
   const response = await apiClient.post('/diet/macros', params);
   return response.data;
@@ -106,7 +106,8 @@ export const getDietChatConversations = async () => {
 
 export const getDietChatConversation = async (conversationId) => {
   const response = await apiClient.get(`/diet/chat/conversations/${conversationId}/messages`);
-  return response.data;
+  const data = response.data?.data || response.data || response;
+  return Array.isArray(data) ? data : (data?.messages || []);
 };
 
 export const sendDietChatMessage = async (conversationId, message) => {
