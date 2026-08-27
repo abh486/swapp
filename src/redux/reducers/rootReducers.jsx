@@ -16,6 +16,7 @@ import supportReducer from './supportReducer';
 import hydrationReducer from './hydrationReducer';
 import exerciseReducer from './exerciseReducer';
 import weightReducer from './weightReducer';
+import sleepReducer from './sleepReducer';
 
 const rootReducer = combineReducers({
   workout: workoutReducer,
@@ -23,6 +24,7 @@ const rootReducer = combineReducers({
   diet: dietReducer,
   hydration: hydrationReducer,
   weight: weightReducer,
+  sleep: sleepReducer,
   chat: chatReducer,
   cart: cartReducer,
   multiProvider: multiProviderReducer,

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import firebase from '@react-native-firebase/app';
 import apiClient from '../api/apiClient';
 import notifee, { AndroidImportance } from '@notifee/react-native';
@@ -21,7 +22,12 @@ export const requestUserPermission = async () => {
     return false;
   }
   try {
-    const authStatus = await messaging().requestPermission();
+    const authStatus = await messaging().requestPermission({
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    });
     const enabled =
       authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
       authStatus === messaging.AuthorizationStatus.PROVISIONAL;
@@ -48,10 +54,36 @@ export const registerFcmToken = async () => {
     const hasPermission = await requestUserPermission();
     if (!hasPermission) return;
 
+    // On iOS, register device for remote messages before fetching FCM token
+    if (Platform.OS === 'ios') {
+      try {
+        if (!messaging().isDeviceRegisteredForRemoteMessages) {
+          await messaging().registerDeviceForRemoteMessages();
+          console.log('[FCM] Device registered for remote messages on iOS.');
+        }
+
+        // On physical iOS devices, verify APNs token is ready before calling getToken()
+        let apnsToken = await messaging().getAPNSToken();
+        let retries = 0;
+        while (!apnsToken && retries < 4) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          apnsToken = await messaging().getAPNSToken();
+          retries++;
+        }
+        if (apnsToken) {
+          console.log('[FCM] APNs Token ready on iOS.');
+        } else {
+          console.log('[FCM] APNs token not yet available (may be on Simulator).');
+        }
+      } catch (iosErr) {
+        console.warn('[FCM] iOS remote message registration warning:', iosErr.message);
+      }
+    }
+
     // Get FCM device token
     const token = await messaging().getToken();
     if (token) {
-      console.log('[FCM] Token retrieved successfully');
+      console.log('[FCM] Token retrieved successfully:', token.substring(0, 15) + '...');
       await apiClient.post('/v1/notifications/register-fcm', { token });
       console.log('[FCM] Token registered with backend successfully.');
     }
@@ -102,6 +134,9 @@ export const initNotificationListeners = () => {
             pressAction: {
               id: 'default',
             },
+          },
+          ios: {
+            sound: 'default',
           },
         });
       }

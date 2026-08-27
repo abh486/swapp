@@ -19,6 +19,7 @@ import {
   getDistanceWalkingRunningToday,
   getSleepDurationToday,
 } from '../../utils/healthKit';
+import { fetchSleepLogs } from '../../api/sleepApi';
 
 const { width } = Dimensions.get('window');
 
@@ -36,18 +37,20 @@ const HealthKitDataScreen = ({ navigation }) => {
     try {
       setLoading(true);
 
-      // Check today's date for manual sleep duration
+      // Check today's date for sleep duration
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       const dateKey = `${year}-${month}-${day}`;
 
-      const manualSleepStr = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
       let sleepVal = 0;
-      if (manualSleepStr) {
-        sleepVal = parseFloat(manualSleepStr);
-      }
+      try {
+        const sleepData = await fetchSleepLogs(dateKey);
+        if (sleepData && sleepData.totalHours > 0) {
+          sleepVal = sleepData.totalHours;
+        }
+      } catch (e) {}
 
       const connected = await AsyncStorage.getItem('healthkit_connected');
       if (connected === 'true') {
@@ -63,14 +66,14 @@ const HealthKitDataScreen = ({ navigation }) => {
           steps: steps || 0,
           calories: burned || 0,
           distance: distance || 0,
-          sleep: manualSleepStr ? sleepVal : (hkSleep || 0),
+          sleep: sleepVal > 0 ? sleepVal : (hkSleep || 0),
         });
       } else {
         setIsConnected(false);
         // If not connected to HealthKit, but we have manual sleep logged, show it
         setData(prev => ({
           ...prev,
-          sleep: manualSleepStr ? sleepVal : prev.sleep,
+          sleep: sleepVal,
         }));
       }
     } catch (err) {

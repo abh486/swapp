@@ -26,6 +26,7 @@ import { useDispatch } from 'react-redux';
 import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 import { getAccessStatus } from '../../../services/aiDieticianService';
+import { fetchSleepLogs } from '../../../api/sleepApi';
 
 
 import DietHeader from './components/DietHeader';
@@ -119,14 +120,14 @@ const Dietplan = ({ navigation, route }) => {
   });
 
   const [stepsToday, setStepsToday] = useState(2000);
-  const [sleepHoursToday, setSleepHoursToday] = useState(7.5);
+  const [sleepHoursToday, setSleepHoursToday] = useState(0);
   const [hydrateGlasses, setHydrateGlasses] = useState(2);
   const [workoutCaloriesToday, setWorkoutCaloriesToday] = useState(0);
   const [sleepLogDetails, setSleepLogDetails] = useState(null); // { bedTime, wakeTime, duration }
 
   const formatSleep = (hours) => {
-    const hrs = Math.floor(hours);
-    const mins = Math.round((hours - hrs) * 60);
+    const hrs = Math.floor(hours || 0);
+    const mins = Math.round(((hours || 0) - hrs) * 60);
     return `${hrs} hr ${mins} min`;
   };
 
@@ -150,18 +151,15 @@ const Dietplan = ({ navigation, route }) => {
         setStepsToday(0);
       }
 
-      // 2. Check if there is a manually logged sleep value in AsyncStorage
-      const manualSleepStr = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
-      if (manualSleepStr) {
-        setSleepHoursToday(parseFloat(manualSleepStr));
-
-        // Also fetch the full sleep log details if exists
-        const logStr = await AsyncStorage.getItem(`sleep_log_${dateKey}`);
-        if (logStr) {
-          setSleepLogDetails(JSON.parse(logStr));
-        } else {
-          setSleepLogDetails(null);
-        }
+      // 2. Fetch sleep data from API & AsyncStorage cache
+      const sleepData = await fetchSleepLogs(dateKey);
+      if (sleepData && sleepData.logs && sleepData.logs.length > 0) {
+        setSleepHoursToday(sleepData.totalHours);
+        setSleepLogDetails(sleepData.logs[0]);
+        return;
+      } else if (sleepData && sleepData.totalHours > 0) {
+        setSleepHoursToday(sleepData.totalHours);
+        setSleepLogDetails(null);
         return;
       }
 
@@ -179,10 +177,11 @@ const Dietplan = ({ navigation, route }) => {
         }
       }
 
-      // 4. Fallback default
-      setSleepHoursToday(7.5);
+      // 4. Default to 0 when no sleep log is added
+      setSleepHoursToday(0);
     } catch (err) {
       console.warn('[Dietplan] Failed to load HealthKit/AsyncStorage data:', err.message);
+      setSleepHoursToday(0);
     }
   };
 
@@ -1028,7 +1027,10 @@ const Dietplan = ({ navigation, route }) => {
             {/* Sleep card */}
             <TouchableOpacity
               style={styles.trackerRowCard}
-              onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
+              onPress={() => navigation.navigate('SleepDetails', { 
+                sleepHoursToday, 
+                selectedDate: selectedDate instanceof Date ? selectedDate.toISOString() : selectedDate 
+              })}
               activeOpacity={0.8}
             >
               <View style={styles.rowIconContainerBlue}>
@@ -1192,7 +1194,10 @@ const Dietplan = ({ navigation, route }) => {
                         // Sleep Card
                         <TouchableOpacity
                           style={styles.sleepCard}
-                          onPress={() => navigation.navigate('SleepDetails', { sleepHoursToday })}
+                          onPress={() => navigation.navigate('SleepDetails', { 
+                            sleepHoursToday, 
+                            selectedDate: selectedDate instanceof Date ? selectedDate.toISOString() : selectedDate 
+                          })}
                           activeOpacity={0.8}
                         >
                           {/* Sparkles AI Icon in Top Right */}

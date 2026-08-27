@@ -18,12 +18,21 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  fetchSleepLogs,
+  fetchWeeklySleep,
+  logSleepEntry,
+  deleteSleepEntry,
+  fetchSleepTarget,
+  saveSleepTarget,
+} from '../../../api/sleepApi';
 
 const { width } = Dimensions.get('window');
 
 const SleepDetailsScreen = ({ route, navigation }) => {
-  const sleepHoursToday = route?.params?.sleepHoursToday || 7.7;
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const sleepHoursToday = route?.params?.sleepHoursToday !== undefined ? route.params.sleepHoursToday : 0;
+  const initialDate = route?.params?.selectedDate ? new Date(route.params.selectedDate) : new Date();
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Manual sleep states
@@ -75,13 +84,16 @@ const SleepDetailsScreen = ({ route, navigation }) => {
       id: `realtime-${Date.now()}`,
       bedTime: activeSleepStart.toISOString(),
       wakeTime: now.toISOString(),
-      duration: duration
+      duration: duration,
+      date: dateKey,
+      source: 'MANUAL',
     };
 
     const updatedLogs = [newLog, ...sleepLogs];
     const newTotal = updatedLogs.reduce((sum, item) => sum + item.duration, 0);
 
     try {
+      await logSleepEntry(newLog);
       await AsyncStorage.setItem(`sleep_logs_${dateKey}`, JSON.stringify(updatedLogs));
       await AsyncStorage.setItem(`sleep_duration_${dateKey}`, newTotal.toString());
       await AsyncStorage.setItem(`sleep_log_${dateKey}`, JSON.stringify(newLog));
@@ -186,45 +198,21 @@ const SleepDetailsScreen = ({ route, navigation }) => {
   };
 
   const loadWeeklySleepData = async (date) => {
-    const dataList = [];
-    let sumDeficit = 0;
-    
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(date);
-      d.setDate(date.getDate() - i);
-      
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
-      
-      let duration = 0;
-      try {
-        const val = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
-        if (val) {
-          duration = parseFloat(val);
-        } else {
-          const isToday = new Date().toDateString() === d.toDateString();
-          if (isToday) {
-            duration = parseFloat(sleepHoursToday);
-          }
-        }
-      } catch (e) {
-        console.warn(e);
-      }
-      
-      const weekdayLabel = d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0); // T, W, T, F, S, S, M
-      dataList.push({
-        label: weekdayLabel,
-        value: duration,
-        dateKey,
-      });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
 
-      sumDeficit += (duration - 8);
+    try {
+      const weekly = await fetchWeeklySleep(dateKey);
+      if (weekly && Array.isArray(weekly.days)) {
+        setWeeklyData(weekly.days);
+        setWeeklyDeficit(weekly.weeklyDeficit || 0);
+        return;
+      }
+    } catch (e) {
+      console.warn('[SleepDetailsScreen] Failed to load weekly sleep from API:', e);
     }
-    
-    setWeeklyData(dataList);
-    setWeeklyDeficit(Math.round(sumDeficit));
   };
 
   const loadSleepForDate = async (date) => {
@@ -234,53 +222,25 @@ const SleepDetailsScreen = ({ route, navigation }) => {
     const dateKey = `${year}-${month}-${day}`;
 
     try {
-      const logsArrayStr = await AsyncStorage.getItem(`sleep_logs_${dateKey}`);
-      if (logsArrayStr) {
-        const parsedLogs = JSON.parse(logsArrayStr);
-        setSleepLogs(parsedLogs);
-        const total = parsedLogs.reduce((sum, item) => sum + item.duration, 0);
-        setSleepHours(total);
-        setIsManual(parsedLogs.length > 0);
+      const sleepData = await fetchSleepLogs(dateKey);
+      if (sleepData && sleepData.logs && sleepData.logs.length > 0) {
+        setSleepLogs(sleepData.logs);
+        setSleepHours(sleepData.totalHours);
+        setIsManual(true);
+      } else if (sleepData && sleepData.totalHours > 0) {
+        setSleepLogs([]);
+        setSleepHours(sleepData.totalHours);
+        setIsManual(true);
       } else {
-        const singleLogStr = await AsyncStorage.getItem(`sleep_log_${dateKey}`);
-        if (singleLogStr) {
-          const parsedSingle = JSON.parse(singleLogStr);
-          const migrated = [
-            {
-              id: `migrated-${Date.now()}`,
-              bedTime: parsedSingle.bedTime,
-              wakeTime: parsedSingle.wakeTime,
-              duration: parsedSingle.duration
-            }
-          ];
-          setSleepLogs(migrated);
-          setSleepHours(parsedSingle.duration);
-          setIsManual(true);
-          await AsyncStorage.setItem(`sleep_logs_${dateKey}`, JSON.stringify(migrated));
-        } else {
-          const fallbackDurationStr = await AsyncStorage.getItem(`sleep_duration_${dateKey}`);
-          if (fallbackDurationStr) {
-            const fallbackHours = parseFloat(fallbackDurationStr);
-            setSleepHours(fallbackHours);
-            setIsManual(true);
-            
-            const defaultBed = new Date(date);
-            defaultBed.setHours(23, 0, 0, 0);
-            setSleepLogs([]);
-          } else {
-            setSleepLogs([]);
-            setIsManual(false);
-            const isToday = new Date().toDateString() === date.toDateString();
-            if (isToday) {
-              setSleepHours(sleepHoursToday);
-            } else {
-              setSleepHours(0);
-            }
-          }
-        }
+        setSleepLogs([]);
+        setSleepHours(0);
+        setIsManual(false);
       }
     } catch (e) {
-      console.warn('[SleepDetailsScreen] Failed to load manual sleep array:', e);
+      console.warn('[SleepDetailsScreen] Failed to load sleep for date:', e);
+      setSleepLogs([]);
+      setSleepHours(0);
+      setIsManual(false);
     }
   };
 
@@ -327,32 +287,33 @@ const SleepDetailsScreen = ({ route, navigation }) => {
     const day = String(selectedDate.getDate()).padStart(2, '0');
     const dateKey = `${year}-${month}-${day}`;
 
+    const logEntryPayload = {
+      id: editingLogId || `manual-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      bedTime: savedBed.toISOString(),
+      wakeTime: savedWake.toISOString(),
+      duration: totalHours,
+      date: dateKey,
+      notes: 'Manual sleep log',
+      source: 'MANUAL',
+    };
+
     let updatedLogs = [...sleepLogs];
 
     if (editingLogId) {
       updatedLogs = updatedLogs.map(item => {
         if (item.id === editingLogId) {
-          return {
-            id: editingLogId,
-            bedTime: savedBed.toISOString(),
-            wakeTime: savedWake.toISOString(),
-            duration: totalHours
-          };
+          return logEntryPayload;
         }
         return item;
       });
     } else {
-      updatedLogs.push({
-        id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        bedTime: savedBed.toISOString(),
-        wakeTime: savedWake.toISOString(),
-        duration: totalHours
-      });
+      updatedLogs.push(logEntryPayload);
     }
 
     const newTotal = updatedLogs.reduce((sum, item) => sum + item.duration, 0);
 
     try {
+      await logSleepEntry(logEntryPayload);
       await AsyncStorage.setItem(`sleep_logs_${dateKey}`, JSON.stringify(updatedLogs));
       await AsyncStorage.setItem(`sleep_duration_${dateKey}`, newTotal.toString());
       
@@ -383,10 +344,12 @@ const SleepDetailsScreen = ({ route, navigation }) => {
     const day = String(selectedDate.getDate()).padStart(2, '0');
     const dateKey = `${year}-${month}-${day}`;
 
-    const updatedLogs = sleepLogs.filter(item => item.id !== editingLogId);
+    const idToDelete = editingLogId;
+    const updatedLogs = sleepLogs.filter(item => item.id !== idToDelete);
     const newTotal = updatedLogs.reduce((sum, item) => sum + item.duration, 0);
 
     try {
+      await deleteSleepEntry(idToDelete);
       await AsyncStorage.setItem(`sleep_logs_${dateKey}`, JSON.stringify(updatedLogs));
       await AsyncStorage.setItem(`sleep_duration_${dateKey}`, newTotal.toString());
 

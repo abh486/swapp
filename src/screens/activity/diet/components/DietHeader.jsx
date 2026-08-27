@@ -334,7 +334,14 @@ const DietHeader = ({
           </View>
 
           {/* Sleep Info */}
-          <View style={styles.legendItem}>
+          <TouchableOpacity
+            style={styles.legendItem}
+            onPress={() => navigation.navigate('SleepDetails', {
+              sleepHoursToday,
+              selectedDate: selectedDate instanceof Date ? selectedDate.toISOString() : selectedDate,
+            })}
+            activeOpacity={0.7}
+          >
             <View style={[styles.legendBox, { backgroundColor: '#FF8E8E' }]} />
             <View style={styles.legendTextCol}>
               <Text style={styles.legendLabel}>Sleep</Text>
@@ -353,7 +360,7 @@ const DietHeader = ({
               </Text>
               <Text style={styles.legendUnit}>hours</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Food Intake Info */}
           <View style={styles.legendItem}>
