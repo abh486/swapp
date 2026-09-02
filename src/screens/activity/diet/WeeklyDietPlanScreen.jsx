@@ -117,7 +117,30 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState(() => getInitialSelectedDate(recommendation));
   const [currentRecommendation, setCurrentRecommendation] = useState(recommendation || null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('Updating diet plan...');
   const [likedMeals, setLikedMeals] = useState({});
+
+  useEffect(() => {
+    let interval;
+    if (isLoading) {
+      const msgs = [
+        'Updating diet plan...',
+        'Analyzing nutrition needs...',
+        'Curating meals...',
+        'Optimizing macros...',
+        'Finalizing your plan...'
+      ];
+      let i = 0;
+      setLoadingText(msgs[0]);
+      interval = setInterval(() => {
+        i = (i + 1) % msgs.length;
+        setLoadingText(msgs[i]);
+      }, 3500);
+    } else {
+      setLoadingText('Updating diet plan...');
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   const handlePrevWeek = () => {
     const newDate = new Date(selectedDate);
@@ -172,6 +195,8 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
             { text: 'Go to Profile', onPress: () => navigation.navigate('WeightBodyMetrics') }
           ]
         );
+      } else if (err.status === 429 || (err.response && err.response.status === 429)) {
+        Alert.alert('In Progress', 'The AI is currently generating your meal plan. Please wait a moment.');
       } else {
         Alert.alert('Error', 'Failed to generate diet plan. Please try again later.');
       }
@@ -358,7 +383,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
       {isLoading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#A3D9C9" />
-          <Text style={styles.loadingText}>Updating diet plan...</Text>
+          <Text style={styles.loadingText}>{loadingText}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>

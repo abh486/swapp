@@ -29,6 +29,33 @@ export const DieticianAIChatScreen = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [thinkingMessage, setThinkingMessage] = useState('AI is thinking...');
+
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const isBackendProcessing = lastMessage && lastMessage.role === 'user' && !lastMessage.pending && (Date.now() - new Date(lastMessage.createdAt).getTime() < 130000);
+  const isInputDisabled = sending || isBackendProcessing;
+  const isSendDisabled = !newMessage.trim() || isInputDisabled;
+
+  useEffect(() => {
+    let interval;
+    if (sending || isBackendProcessing) {
+      const msgs = [
+        'AI is thinking...',
+        'Analyzing your profile...',
+        'Reviewing past meals...',
+        'Drafting advice...'
+      ];
+      let i = 0;
+      setThinkingMessage(msgs[0]);
+      interval = setInterval(() => {
+        i = (i + 1) % msgs.length;
+        setThinkingMessage(msgs[i]);
+      }, 3000);
+    } else {
+      setThinkingMessage('AI is thinking...');
+    }
+    return () => clearInterval(interval);
+  }, [sending, isBackendProcessing]);
 
   useEffect(() => {
     if (conversationId) {
@@ -56,7 +83,7 @@ export const DieticianAIChatScreen = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return;
+    if (isSendDisabled) return;
 
     const messageContent = newMessage.trim();
     setNewMessage('');
@@ -108,10 +135,17 @@ export const DieticianAIChatScreen = () => {
       console.error('[DieticianAIChatScreen] Error sending message:', err);
       // Remove the optimistic message on failure
       setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
-      if (err?.response?.status === 403 || err?.status === 403 || err?.message?.includes('not found')) {
-        setConversationId(null);
+
+      if (err?.response?.status === 429 || err?.status === 429 || err?.message?.includes('429')) {
+        // AI is still processing. Don't clear the input text. Restore it from the tempMessage.
+        setNewMessage(tempMessage.content);
+        setError('The AI is still processing your previous message. Please wait a moment.');
+      } else {
+        if (err?.response?.status === 403 || err?.status === 403 || err?.message?.includes('not found')) {
+          setConversationId(null);
+        }
+        setError('Failed to send message. Please check your connection and try again.');
       }
-      setError('Failed to send message. Please check your connection and try again.');
     } finally {
       setSending(false);
       setTimeout(() => {
@@ -212,10 +246,10 @@ export const DieticianAIChatScreen = () => {
         )}
 
         {/* Thinking Indicator */}
-        {sending && (
+        {(sending || isBackendProcessing) && (
           <View style={styles.thinkingContainer}>
             <ActivityIndicator size="small" color="#9333EA" style={{ marginRight: 8 }} />
-            <Text style={styles.thinkingText}>AI is thinking...</Text>
+            <Text style={styles.thinkingText}>{thinkingMessage}</Text>
           </View>
         )}
 
@@ -229,14 +263,14 @@ export const DieticianAIChatScreen = () => {
             placeholderTextColor="#888"
             multiline
             maxLength={1000}
-            editable={!sending}
+            editable={!isInputDisabled}
           />
           <TouchableOpacity 
-            style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]} 
+            style={[styles.sendButton, isSendDisabled && styles.sendButtonDisabled]} 
             onPress={handleSendMessage}
-            disabled={!newMessage.trim() || sending}
+            disabled={isSendDisabled}
           >
-            <Icon name="send" size={20} color={newMessage.trim() && !sending ? "#FFF" : "#888"} />
+            <Icon name="send" size={20} color={!isSendDisabled ? "#FFF" : "#888"} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
