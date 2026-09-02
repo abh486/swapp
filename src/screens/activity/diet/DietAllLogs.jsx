@@ -15,10 +15,13 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import apiClient from '../../../api/apiClient';
 import { GlobalLoader } from '../../../components/GlobalLoader';
 import DietDatePickerModal from './components/DietDatePickerModal';
+import { useAuth } from '../../../context/AuthContext';
+import { getTargetsForUser } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 
 const DietAllLogs = ({ navigation, route }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
   const [dailySummary, setDailySummary] = useState(null);
@@ -62,7 +65,14 @@ const DietAllLogs = ({ navigation, route }) => {
   }, []);
 
   const fetchDailySummary = useCallback(async () => {
-    // No-op: /summary/daily route removed
+    try {
+      const response = await apiClient.get('/diet/progress/summary');
+      if (response?.data?.data) {
+        setDailySummary(response.data.data);
+      }
+    } catch (err) {
+      console.warn('[DietAllLogs] Failed to fetch summary:', err.message);
+    }
   }, []);
 
   useEffect(() => {
@@ -82,7 +92,8 @@ const DietAllLogs = ({ navigation, route }) => {
   }, [logs, selectedDate]);
 
   // Calculate target and consumed cals
-  const targetCals = dailySummary?.targets?.calories || 1800;
+  const userFallbackTargets = useMemo(() => getTargetsForUser(user), [user]);
+  const targetCals = dailySummary?.targets?.calories || userFallbackTargets.calories;
   const consumedCals = dailyLogs.reduce((sum, item) => sum + (item.calories || 0), 0);
 
   // Categories list matching Screenshot 2

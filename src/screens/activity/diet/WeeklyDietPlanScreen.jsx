@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -19,6 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { saveDietEntry } from '../../../redux/actions/dietActions';
 import dietAiApi from '../../../api/dietAiApi';
+import { useAuth } from '../../../context/AuthContext';
+import { getTargetsForUser } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 
@@ -108,6 +110,7 @@ const getInitialSelectedDate = (rec) => {
 };
 
 const WeeklyDietPlanScreen = ({ navigation, route }) => {
+  const { user } = useAuth();
   const { recommendation } = route.params || {};
   const dispatch = useDispatch();
 
@@ -178,9 +181,16 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    if (!currentRecommendation) {
-      fetchRecommendation(false);
-    }
+    const checkAndFetch = async () => {
+      const needsRefresh = await AsyncStorage.getItem('diet_plan_needs_refresh');
+      if (needsRefresh === 'true') {
+        await AsyncStorage.removeItem('diet_plan_needs_refresh');
+        fetchRecommendation(true);
+      } else if (!currentRecommendation) {
+        fetchRecommendation(false);
+      }
+    };
+    checkAndFetch();
   }, []);
 
   const handleTrackMeal = async (meal) => {
@@ -262,7 +272,8 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
     }
   }
 
-  const totalCalsForDay = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
+  const userTargets = useMemo(() => getTargetsForUser(user), [user]);
+  const totalCalsForDay = meals && meals.length > 0 ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : userTargets.calories;
 
   // Curated tip for the day
   const activeDayIndex = selectedDate.getDay();

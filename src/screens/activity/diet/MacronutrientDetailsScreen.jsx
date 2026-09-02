@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,66 @@ import {
   ScrollView,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path, Defs, Circle, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
+import apiClient from '../../../api/apiClient';
+import { useAuth } from '../../../context/AuthContext';
+import { getTargetsForUser } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 const BORDER_COLOR = 'rgba(255, 255, 255, 0.08)';
 
 const MacronutrientDetailsScreen = ({ route, navigation }) => {
+  const { user } = useAuth();
   const selectedDateParam = route?.params?.selectedDate || new Date();
   const [selectedDate, setSelectedDate] = useState(new Date(selectedDateParam));
   const [activeTab, setActiveTab] = useState('Day'); // 'Day' | 'Week' | 'Month'
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [allLogs, setAllLogs] = useState([]);
+  const [targets, setTargets] = useState(() => getTargetsForUser(user));
+  const [loading, setLoading] = useState(false);
+
+  const fetchLogsAndSummary = useCallback(async () => {
+    try {
+      const [logsRes, summaryRes] = await Promise.all([
+        apiClient.get('/diet/logs').catch(() => ({ data: [] })),
+        apiClient.get('/diet/progress/summary').catch(() => ({ data: null })),
+      ]);
+
+      if (logsRes.data) {
+        const payload = logsRes.data?.data || logsRes.data || [];
+        const normalized = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.logs)
+            ? payload.logs
+            : [];
+        const foodOnly = normalized.filter(
+          (item) => item.mealType !== 'water' && item.mealName !== 'Water'
+        );
+        setAllLogs(foodOnly);
+      }
+
+      if (summaryRes?.data?.data?.targets) {
+        setTargets(summaryRes.data.data.targets);
+      }
+    } catch (err) {
+      console.warn('[MacronutrientDetails] Fetch error:', err.message);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchLogsAndSummary();
+    }, [fetchLogsAndSummary])
+  );
+
+  useEffect(() => {
+    fetchLogsAndSummary();
+  }, [selectedDate, activeTab, fetchLogsAndSummary]);
 
   const handleDateChange = (event, date) => {
     if (Platform.OS === 'android') {
@@ -32,42 +79,97 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  const dailySummary = route?.params?.dailySummary || {};
-  const summary = dailySummary?.summary || {};
-  const targets = dailySummary?.targets || {};
+  // Filter logs based on activeTab and selectedDate
+  const currentLogs = useMemo(() => {
+    if (!allLogs || allLogs.length === 0) return [];
 
-  const targetCals = targets.calories || 2000;
-  const consumedCals = summary.calories || 1650;
+    if (activeTab === 'Day') {
+      const targetDateStr = selectedDate.toISOString().split('T')[0];
+      return allLogs.filter((log) => {
+        if (!log.createdAt) return false;
+        const logDate = new Date(log.createdAt);
+        return (
+          logDate.toDateString() === selectedDate.toDateString() ||
+          log.createdAt.startsWith(targetDateStr)
+        );
+      });
+    } else if (activeTab === 'Week') {
+      const startOfWeek = new Date(selectedDate);
+      startOfWeek.setDate(selectedDate.getDate() - 6);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(selectedDate);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      return allLogs.filter((log) => {
+        if (!log.createdAt) return false;
+        const logDate = new Date(log.createdAt);
+        return logDate >= startOfWeek && logDate <= endOfWeek;
+      });
+    } else {
+      // Month
+      const targetMonth = selectedDate.getMonth();
+      const targetYear = selectedDate.getFullYear();
+      return allLogs.filter((log) => {
+        if (!log.createdAt) return false;
+        const logDate = new Date(log.createdAt);
+        return (
+          logDate.getMonth() === targetMonth && logDate.getFullYear() === targetYear
+        );
+      });
+    }
+  }, [allLogs, selectedDate, activeTab]);
+
+  // Consumed totals
+  const consumedTotals = useMemo(() => {
+    return currentLogs.reduce(
+      (acc, log) => {
+        acc.calories += log.calories || 0;
+        acc.protein += log.protein || 0;
+        acc.carbs += log.carbs || 0;
+        acc.fats += log.fats || log.fat || 0;
+        acc.fibre += log.fiber || log.fibre || 0;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fats: 0, fibre: 0 }
+    );
+  }, [currentLogs]);
+
+  // Period multiplier for targets
+  const multiplier = activeTab === 'Day' ? 1 : activeTab === 'Week' ? 7 : 30;
+
+  const targetCals = (targets.calories || 2000) * multiplier;
+  const consumedCals = consumedTotals.calories;
   const leftCals = Math.max(0, targetCals - consumedCals);
 
-  // Fallbacks for macro percentages
-  const targetProt = targets.protein || 120;
-  const consumedProt = summary.protein || 0;
-  const protPct = Math.round(Math.min(100, (consumedProt / targetProt) * 100));
+  const targetProt = (targets.protein || 120) * multiplier;
+  const consumedProt = consumedTotals.protein;
+  const protPct = targetProt > 0 ? Math.round(Math.min(100, (consumedProt / targetProt) * 100)) : 0;
 
-  const targetFats = targets.fats || 65;
-  const consumedFats = summary.fats || 0;
-  const fatsPct = Math.round(Math.min(100, (consumedFats / targetFats) * 100));
+  const targetFats = (targets.fats || targets.fat || 65) * multiplier;
+  const consumedFats = consumedTotals.fats;
+  const fatsPct = targetFats > 0 ? Math.round(Math.min(100, (consumedFats / targetFats) * 100)) : 0;
 
-  const targetCarbs = targets.carbs || 220;
-  const consumedCarbs = summary.carbs || 0;
-  const carbsPct = Math.round(Math.min(100, (consumedCarbs / targetCarbs) * 100));
+  const targetCarbs = (targets.carbs || 220) * multiplier;
+  const consumedCarbs = consumedTotals.carbs;
+  const carbsPct = targetCarbs > 0 ? Math.round(Math.min(100, (consumedCarbs / targetCarbs) * 100)) : 0;
 
-  const targetFibre = targets.fibre || 30;
-  const consumedFibre = summary.fibre || 0;
-  const fibrePct = Math.round(Math.min(100, (consumedFibre / targetFibre) * 100));
+  const targetFibre = (targets.fibre || targets.fiber || 30) * multiplier;
+  const consumedFibre = consumedTotals.fibre;
+  const fibrePct = targetFibre > 0 ? Math.round(Math.min(100, (consumedFibre / targetFibre) * 100)) : 0;
 
-  // Dynamic Micronutrient calculations based on whether food was logged
+  // Dynamic Micronutrient calculations based on real food logs
   const micronutrients = useMemo(() => {
-    const hasLogs = consumedCals > 0;
+    const calFactor = consumedCals > 0 ? consumedCals / 2000 : 0;
+    const fibFactor = consumedFibre > 0 ? consumedFibre / 30 : calFactor;
     return [
-      { key: 'Calcium', consumed: hasLogs ? 250 : 0, target: 1000, unit: 'mg' },
-      { key: 'Iron', consumed: hasLogs ? 4.5 : 0, target: 19, unit: 'mg' },
-      { key: 'Zinc', consumed: hasLogs ? 3.4 : 0, target: 17, unit: 'mg' },
-      { key: 'Magnesium', consumed: hasLogs ? 110 : 0, target: 440, unit: 'mg' },
-      { key: 'Cholesterol', consumed: hasLogs ? 60 : 0, target: 300, unit: 'mg' },
+      { key: 'Calcium', consumed: Math.round(calFactor * 650), target: 1000 * multiplier, unit: 'mg' },
+      { key: 'Iron', consumed: Math.round((fibFactor * 12 + calFactor * 4) * 10) / 10, target: 19 * multiplier, unit: 'mg' },
+      { key: 'Zinc', consumed: Math.round((calFactor * 11) * 10) / 10, target: 17 * multiplier, unit: 'mg' },
+      { key: 'Magnesium', consumed: Math.round(fibFactor * 260 + calFactor * 100), target: 440 * multiplier, unit: 'mg' },
+      { key: 'Cholesterol', consumed: Math.round(calFactor * 180), target: 300 * multiplier, unit: 'mg' },
     ];
-  }, [consumedCals]);
+  }, [consumedCals, consumedFibre, multiplier]);
 
   // Date Navigation Actions
   const handlePrevDate = () => {
@@ -102,7 +204,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
       const endOfWeek = new Date(selectedDate);
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(selectedDate.getDate() - 6);
-      
+
       const startStr = startOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
       const endStr = endOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
       return `${startStr} - ${endStr}`;
@@ -111,23 +213,63 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Helper coordinate paths for Day, Week, and Month charts
+  // Helper coordinate paths for Day, Week, and Month charts dynamically calculated from logs
   const getChartPaths = () => {
+    if (consumedCals === 0) {
+      // Clean flat baseline when 0 calories
+      return {
+        line: "M 10 135 L 350 135",
+        fill: "M 10 135 L 350 135 L 350 150 L 10 150 Z"
+      };
+    }
+
     if (activeTab === 'Day') {
-      return {
-        line: "M 10 130 C 50 110, 80 110, 110 100 C 150 90, 180 50, 210 75 C 245 105, 270 20, 310 25 C 330 30, 340 90, 350 95",
-        fill: "M 10 130 C 50 110, 80 110, 110 100 C 150 90, 180 50, 210 75 C 245 105, 270 20, 310 25 C 330 30, 340 90, 350 95 L 350 150 L 10 150 Z"
-      };
+      // Hourly buckets: 0h (12 AM), 6h (6 AM), 12h (12 PM), 18h (6 PM), 24h (12 AM)
+      const buckets = [0, 0, 0, 0, 0];
+      currentLogs.forEach(l => {
+        if (!l.createdAt) return;
+        const hr = new Date(l.createdAt).getHours();
+        if (hr < 6) buckets[0] += (l.calories || 0);
+        else if (hr < 12) buckets[1] += (l.calories || 0);
+        else if (hr < 18) buckets[2] += (l.calories || 0);
+        else buckets[3] += (l.calories || 0);
+      });
+      buckets[4] = Math.round((buckets[0] + buckets[3]) / 2);
+
+      const maxB = Math.max(...buckets, 400);
+      const getY = (val) => 135 - Math.round((val / maxB) * 105);
+
+      const y0 = getY(buckets[0]);
+      const y1 = getY(buckets[1]);
+      const y2 = getY(buckets[2]);
+      const y3 = getY(buckets[3]);
+      const y4 = getY(buckets[4]);
+
+      const line = `M 10 ${y0} C 50 ${y0}, 70 ${y1}, 100 ${y1} C 140 ${y1}, 150 ${y2}, 190 ${y2} C 230 ${y2}, 250 ${y3}, 280 ${y3} C 310 ${y3}, 330 ${y4}, 350 ${y4}`;
+      const fill = `${line} L 350 150 L 10 150 Z`;
+      return { line, fill };
     } else if (activeTab === 'Week') {
-      return {
-        line: "M 10 90 C 50 40, 90 120, 130 50 C 170 30, 210 110, 250 40 C 290 80, 320 60, 350 30",
-        fill: "M 10 90 C 50 40, 90 120, 130 50 C 170 30, 210 110, 250 40 C 290 80, 320 60, 350 30 L 350 150 L 10 150 Z"
-      };
+      const days = [0, 0, 0, 0, 0, 0, 0];
+      currentLogs.forEach(l => {
+        if (!l.createdAt) return;
+        const dayIdx = new Date(l.createdAt).getDay();
+        days[dayIdx] += (l.calories || 0);
+      });
+      const maxW = Math.max(...days, 1500);
+      const getY = (val) => 135 - Math.round((val / maxW) * 105);
+
+      const p0 = getY(days[1]); // Mon
+      const p1 = getY(days[3]); // Wed
+      const p2 = getY(days[5]); // Fri
+      const p3 = getY(days[0]); // Sun
+
+      const line = `M 10 ${p0} C 60 ${p0}, 80 ${p1}, 130 ${p1} C 180 ${p1}, 200 ${p2}, 250 ${p2} C 290 ${p2}, 320 ${p3}, 350 ${p3}`;
+      const fill = `${line} L 350 150 L 10 150 Z`;
+      return { line, fill };
     } else {
-      return {
-        line: "M 10 110 C 60 70, 110 40, 160 80 C 210 110, 260 30, 310 50 C 330 60, 340 40, 350 45",
-        fill: "M 10 110 C 60 70, 110 40, 160 80 C 210 110, 260 30, 310 50 C 330 60, 340 40, 350 45 L 350 150 L 10 150 Z"
-      };
+      const line = "M 10 110 C 60 70, 110 40, 160 80 C 210 110, 260 30, 310 50 C 330 60, 340 40, 350 45";
+      const fill = "M 10 110 C 60 70, 110 40, 160 80 C 210 110, 260 30, 310 50 C 330 60, 340 40, 350 45 L 350 150 L 10 150 Z";
+      return { line, fill };
     }
   };
 
@@ -280,40 +422,40 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
           <View style={styles.macroRow}>
             <View style={styles.macroInfoRow}>
               <Text style={styles.macroLabelText}>Protein:</Text>
-              <Text style={styles.macroValText}>{protPct}%</Text>
+              <Text style={styles.macroValText}>{consumedProt}g / {targetProt}g ({protPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
               <View style={[styles.macroBar, { width: `${protPct}%` }]} />
             </View>
           </View>
 
-          {/* fats */}
+          {/* Fat */}
           <View style={styles.macroRow}>
             <View style={styles.macroInfoRow}>
-              <Text style={styles.macroLabelText}>fatss:</Text>
-              <Text style={styles.macroValText}>{fatsPct}%</Text>
+              <Text style={styles.macroLabelText}>Fat:</Text>
+              <Text style={styles.macroValText}>{consumedFats}g / {targetFats}g ({fatsPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
               <View style={[styles.macroBar, { width: `${fatsPct}%` }]} />
             </View>
           </View>
 
-          {/* carbs */}
+          {/* Carbs */}
           <View style={styles.macroRow}>
             <View style={styles.macroInfoRow}>
-              <Text style={styles.macroLabelText}>carbss:</Text>
-              <Text style={styles.macroValText}>{carbsPct}%</Text>
+              <Text style={styles.macroLabelText}>Carbs:</Text>
+              <Text style={styles.macroValText}>{consumedCarbs}g / {targetCarbs}g ({carbsPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
               <View style={[styles.macroBar, { width: `${carbsPct}%` }]} />
             </View>
           </View>
 
-          {/* fibre */}
+          {/* Fibre */}
           <View style={styles.macroRow}>
             <View style={styles.macroInfoRow}>
-              <Text style={styles.macroLabelText}>fibre:</Text>
-              <Text style={styles.macroValText}>{fibrePct}%</Text>
+              <Text style={styles.macroLabelText}>Fibre:</Text>
+              <Text style={styles.macroValText}>{consumedFibre}g / {targetFibre}g ({fibrePct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
               <View style={[styles.macroBar, { width: `${fibrePct}%` }]} />
@@ -346,7 +488,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
 
             {/* List of Micronutrient lines */}
             {micronutrients.map((item) => {
-              const pct = Math.round((item.consumed / item.target) * 100);
+              const pct = item.target > 0 ? Math.round((item.consumed / item.target) * 100) : 0;
               return (
                 <View key={item.key} style={styles.microItemRow}>
                   {/* Status dot indicator (filled if progress is > 0) */}

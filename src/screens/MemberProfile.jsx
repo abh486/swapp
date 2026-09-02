@@ -1066,7 +1066,10 @@ const MemberProfile = () => {
     setLoading(true);
     setCurrentStep(12);
     try {
-      const cleanUsername = formData.username.trim().toLowerCase();
+      const cleanUsername = (formData.username || '').trim().toLowerCase();
+      const allGoals = [...formData.fitnessGoal, ...formData.simpleGoals].filter(Boolean);
+      const uniqueGoals = Array.from(new Set(allGoals)).join(', ');
+
       await apiClient.post('/v1/auth/create-user-profile', {
         name: formData.name.trim(),
         username: cleanUsername,
@@ -1074,7 +1077,9 @@ const MemberProfile = () => {
         gender: formData.gender,
         weight: { value: Number(formData.weight), unit: weightUnit },
         height: { value: Number(formData.height), unit: heightUnit },
-        fitnessGoal: formData.fitnessGoal.join(', '),
+        fitnessGoal: uniqueGoals || formData.fitnessGoal.join(', '),
+        activityLevel: formData.activityLevel || 'moderate',
+        focusAreas: formData.focusAreas.join(', '),
         healthConditions: formData.interests.join(', ') || 'None',
         profileImage: profileImage ? profileImage : undefined,
         profilePicture: profileImage ? profileImage : undefined,
