@@ -219,8 +219,14 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         return;
       }
 
+      const resolvedCommerceModel = planToUse.commerce_model || planToUse.commerceModel;
+      if (!resolvedCommerceModel) {
+        Alert.alert('Error', 'Invalid package configuration: missing commerce model.');
+        return;
+      }
+
       const response = await dispatch(
-        createCheckoutSession(planToUse.id, 'PARTNER_PACKAGE'),
+        createCheckoutSession(planToUse.id, 'PARTNER_PACKAGE', null, resolvedCommerceModel),
       );
       if (response && response.success && response.data?.checkoutUrl) {
         navigation.navigate('CheckoutBrowser', {
