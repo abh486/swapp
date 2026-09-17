@@ -27,6 +27,9 @@ import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 import { getAccessStatus } from '../../../services/aiDieticianService';
 import { fetchSleepLogs } from '../../../api/sleepApi';
+import { useAuth } from '../../../context/AuthContext';
+import { getTargetsForUser } from '../../../utils/nutritionCalculator';
+import dietAiApi from '../../../api/dietAiApi';
 
 
 import DietHeader from './components/DietHeader';
@@ -88,6 +91,7 @@ const buildCalendarDays = (selectedDate) => {
 };
 
 const Dietplan = ({ navigation, route }) => {
+  const { user } = useAuth();
   const dispatch = useDispatch();
   const cameraRef = useRef(null);
   const weeklyPlanScrollViewRef = useRef(null);
@@ -253,9 +257,10 @@ const Dietplan = ({ navigation, route }) => {
         AsyncStorage.getItem('diet_other_info')
       ]);
 
-      const [logsResponse, workoutsResponse] = await Promise.all([
+      const [logsResponse, workoutsResponse, summaryResponse] = await Promise.all([
         apiClient.get('/diet/logs').catch(() => ({ data: [] })),
-        apiClient.get('/workouts/sessions?limit=100').catch(() => ({ data: { success: false } }))
+        apiClient.get('/workouts/sessions?limit=100').catch(() => ({ data: { success: false } })),
+        apiClient.get('/diet/progress/summary').catch(() => ({ data: null })),
       ]);
 
       if (logsResponse.data) {
@@ -270,6 +275,49 @@ const Dietplan = ({ navigation, route }) => {
           (item) => item.mealType !== 'water' && item.mealName !== 'Water'
         );
         setLogs(foodLogsOnly);
+
+        // Filter food logs for the selected date
+        const selectedDateStr = dateToFetch.toISOString().split('T')[0];
+        const todayFoodLogs = foodLogsOnly.filter((item) => {
+          if (!item.createdAt) return true;
+          const itemDate = new Date(item.createdAt);
+          return itemDate.toDateString() === dateToFetch.toDateString() ||
+                 item.createdAt.startsWith(selectedDateStr);
+        });
+
+        const daySummary = todayFoodLogs.reduce((acc, log) => {
+          acc.calories += log.calories || 0;
+          acc.protein += log.protein || 0;
+          acc.carbs += log.carbs || 0;
+          acc.fats += log.fats || log.fat || 0;
+          acc.fibre += log.fiber || log.fibre || 0;
+          return acc;
+        }, { calories: 0, protein: 0, carbs: 0, fats: 0, fibre: 0 });
+
+        const targets = summaryResponse?.data?.data?.targets || getTargetsForUser(user);
+
+        setDailySummary({
+          summary: daySummary,
+          targets,
+          logs: todayFoodLogs,
+        });
+      }
+
+      // Check if weekly plan needs refresh or recommendation is not loaded
+      try {
+        const needsRefresh = await AsyncStorage.getItem('diet_plan_needs_refresh');
+        if (needsRefresh === 'true' || !recommendation) {
+          const recRes = await dietAiApi.fetchWeeklyPlan({ generate: needsRefresh === 'true' ? 'true' : 'false' });
+          const planData = recRes?.weeklyPlan ? recRes : (recRes?.data?.weeklyPlan ? recRes.data : null);
+          if (planData) {
+            setRecommendation(planData);
+            if (needsRefresh === 'true') {
+              await AsyncStorage.removeItem('diet_plan_needs_refresh');
+            }
+          }
+        }
+      } catch (recErr) {
+        console.log('[Dietplan] Weekly plan fetch note:', recErr.message);
       }
 
       // Calculate workouts calories
@@ -748,7 +796,8 @@ const Dietplan = ({ navigation, route }) => {
                   key => key.toLowerCase() === day.toLowerCase()
                 );
                 const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
-                const totalCals = meals ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : 0;
+                const userCalsTarget = dailySummary?.targets?.calories || getTargetsForUser(user).calories;
+                const totalCals = meals && meals.length > 0 ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : userCalsTarget;
 
                 return (
                   <View key={day} style={styles.dayPlanColumn}>
@@ -2190,7 +2239,7 @@ const styles = StyleSheet.create({
   },
   aiChatFab: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 90 : 80,
+    bottom: Platform.OS === 'ios' ? 115 : 100,
     right: 20,
     width: 56,
     height: 56,

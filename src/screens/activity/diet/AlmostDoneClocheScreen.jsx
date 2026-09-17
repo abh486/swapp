@@ -59,9 +59,10 @@ const AlmostDoneClocheScreen = ({ navigation }) => {
 
       await AsyncStorage.setItem('diet_flow_completed', 'true');
       navigation.reset({
-        index: 0,
+        index: 1,
         routes: [
-          { name: 'MainTabs', params: { screen: 'Diet' } }
+          { name: 'MainTabs', params: { screen: 'Diet' } },
+          { name: 'WeeklyDietPlan' }
         ],
       });
     } catch (err) {
@@ -74,8 +75,11 @@ const AlmostDoneClocheScreen = ({ navigation }) => {
             text: 'OK',
             onPress: () => {
               navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs', params: { screen: 'Diet' } }],
+                index: 1,
+                routes: [
+                  { name: 'MainTabs', params: { screen: 'Diet' } },
+                  { name: 'WeeklyDietPlan' }
+                ],
               });
             }
           }

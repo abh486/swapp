@@ -360,6 +360,7 @@ const DietMealModal = ({
                                  protein: Math.round((nutritionData.protein || 0) * mealQuantity),
                                  carbs: Math.round((nutritionData.carbs || 0) * mealQuantity),
                                  fats: Math.round((nutritionData.fats || 0) * mealQuantity),
+                                 fiber: Math.round((nutritionData.fiber || nutritionData.fibre || 0) * mealQuantity),
                                  notes: mealDescription || '',
                                  photoUrl: uploadedImageUrl,
                                  photo: selectedImage ? { uri: selectedImage } : null,

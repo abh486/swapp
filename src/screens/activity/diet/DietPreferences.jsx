@@ -108,6 +108,39 @@ const DietPreferences = ({ navigation, route }) => {
         }
         if (savedOtherInfo) setOtherInfo(savedOtherInfo);
 
+        // Fetch authoritative profile from backend
+        try {
+          const response = await apiClient.get('/users/profile');
+          const userProfile = response.data?.data?.userProfile || response.data?.data;
+          if (userProfile) {
+            if (userProfile.dietPreference) setPreference(userProfile.dietPreference);
+            if (userProfile.skipDays) {
+              try { setSkipDays(typeof userProfile.skipDays === 'string' ? JSON.parse(userProfile.skipDays) : userProfile.skipDays); } catch(e){}
+            }
+            if (userProfile.nonVegDays) {
+              try { setNonVegDays(typeof userProfile.nonVegDays === 'string' ? JSON.parse(userProfile.nonVegDays) : userProfile.nonVegDays); } catch(e){}
+            }
+            if (userProfile.meals) {
+              try { setSelectedMeals(typeof userProfile.meals === 'string' ? JSON.parse(userProfile.meals) : userProfile.meals); } catch(e){}
+            }
+            if (userProfile.allergies) {
+              try { setSelectedAllergies(typeof userProfile.allergies === 'string' ? JSON.parse(userProfile.allergies) : userProfile.allergies); } catch(e){}
+            }
+            if (userProfile.cuisines) {
+              try { setSelectedCuisines(typeof userProfile.cuisines === 'string' ? JSON.parse(userProfile.cuisines) : userProfile.cuisines); } catch(e){}
+            }
+            if (userProfile.avoidedFoods) {
+              try { setAvoidedFoods(typeof userProfile.avoidedFoods === 'string' ? JSON.parse(userProfile.avoidedFoods) : userProfile.avoidedFoods); } catch(e){}
+            }
+            if (userProfile.cuisineFrequency) {
+              try { setCuisineFrequency(typeof userProfile.cuisineFrequency === 'string' ? JSON.parse(userProfile.cuisineFrequency) : userProfile.cuisineFrequency); } catch(e){}
+            }
+            if (userProfile.otherInfo) setOtherInfo(userProfile.otherInfo);
+          }
+        } catch (apiErr) {
+          console.log('[DietPreferences] Initial backend fetch fallback:', apiErr.message);
+        }
+
         const startFlow = route.params?.startFlow;
         if (savedFlowCompleted !== 'true' || startFlow) {
           setIsFlowMode(true);
@@ -151,6 +184,7 @@ const DietPreferences = ({ navigation, route }) => {
           try {
             await apiClient[endpoint.method](endpoint.url, payload);
             console.log(`[DietPreferences] Synced preferences to backend at ${endpoint.url}`);
+            await AsyncStorage.setItem('diet_plan_needs_refresh', 'true');
             break;
           } catch (e) {
             // ignore and try next
@@ -162,7 +196,7 @@ const DietPreferences = ({ navigation, route }) => {
     };
 
     syncPreferences();
-  }, [preference, skipDays, nonVegDays, selectedMeals, selectedAllergies, selectedCuisines, otherInfo, isLoaded]);
+  }, [preference, skipDays, nonVegDays, selectedMeals, selectedAllergies, selectedCuisines, avoidedFoods, cuisineFrequency, otherInfo, isLoaded]);
 
   const preferencesOptions = [
     {
@@ -240,6 +274,8 @@ const DietPreferences = ({ navigation, route }) => {
     { title: 'Other Poultry', desc: 'Turkey, duck, quail', image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
     { title: 'Organ Meats', desc: 'Liver, kidney, heart', image: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
     { title: 'Processed Meats', desc: 'Salami, cold cuts', image: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
+    { title: 'High-Fat / Oily Foods', desc: 'Butter, ghee, deep-fried, fatty dishes', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
+    { title: 'Deep-Fried Foods', desc: 'Pakoras, puris, fries, greasy snacks', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=150&q=80', isMinusOption: true },
   ];
 
   const popularCuisines = [

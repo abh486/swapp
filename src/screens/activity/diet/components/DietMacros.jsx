@@ -25,7 +25,7 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
   const fibrePct = Math.round(Math.min(100, (consumedFibre / targetFibre) * 100));
 
   const handlePress = () => {
-    navigation?.navigate('MacronutrientDetails', { dailySummary });
+    navigation?.navigate('MacronutrientDetails', { dailySummary, selectedDate });
   };
 
   return (
@@ -63,10 +63,10 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
           </View>
         </TouchableOpacity>
 
-        {/* fatss */}
+        {/* Fat */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>fatss:</Text>
+            <Text style={styles.macroLabel}>Fat:</Text>
             <Text style={styles.macroValue}>{fatsPct}%</Text>
           </View>
           <View style={styles.track}>
@@ -76,10 +76,10 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
       </View>
 
       <View style={styles.gridRow}>
-        {/* carbss */}
+        {/* Carbs */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>carbss:</Text>
+            <Text style={styles.macroLabel}>Carbs:</Text>
             <Text style={styles.macroValue}>{carbsPct}%</Text>
           </View>
           <View style={styles.track}>
@@ -87,10 +87,10 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
           </View>
         </TouchableOpacity>
 
-        {/* fibre */}
+        {/* Fibre */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>fibre:</Text>
+            <Text style={styles.macroLabel}>Fibre:</Text>
             <Text style={styles.macroValue}>{fibrePct}%</Text>
           </View>
           <View style={styles.track}>
