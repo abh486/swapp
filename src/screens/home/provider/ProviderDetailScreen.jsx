@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getProviderDetails } from '../../../redux/actions/providersActions';
+import { getProviderDetails, getProviderReviews, submitProviderReview } from '../../../redux/actions/providersActions';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '../../../utils/clarity';
@@ -64,6 +64,12 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  
+  const [localReviews, setLocalReviews] = useState([]);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const { wp, hp, ms, sp, fs, isTablet } = useResponsiveMetrics();
   const styles = useMemo(
     () => createStyles({ wp, hp, ms, sp, fs, isTablet }),
@@ -90,6 +96,14 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         if (response.data.packages && response.data.packages.length > 0) {
           setSelectedPlan(response.data.packages[0]);
         }
+        
+        // Fetch full reviews separately
+        const reviewsResponse = await dispatch(getProviderReviews(id));
+        if (reviewsResponse && reviewsResponse.reviews) {
+          setLocalReviews(reviewsResponse.reviews);
+        } else {
+          setLocalReviews(response.data.reviews || response.data.review || []);
+        }
       } else {
         Alert.alert('Error', 'Failed to fetch partner details');
         navigation.goBack();
@@ -106,6 +120,38 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
+
+  const handleSubmitReview = async () => {
+    if (!reviewText.trim()) {
+      Alert.alert('Error', 'Please write a review.');
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      const response = await dispatch(submitProviderReview({
+        providerId: id,
+        rating: reviewRating,
+        content: reviewText
+      }));
+      if (response && response.success) {
+        Alert.alert('Success', 'Your review has been submitted successfully.');
+        setReviewModalVisible(false);
+        setReviewText('');
+        setReviewRating(5);
+        // Refresh reviews
+        const reviewsResponse = await dispatch(getProviderReviews(id));
+        if (reviewsResponse && reviewsResponse.reviews) {
+          setLocalReviews(reviewsResponse.reviews);
+        }
+      } else {
+        Alert.alert('Error', response?.message || 'Failed to submit review.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   const isPlanActive = useCallback((planId) => {
     if (!planId) return false;
@@ -790,7 +836,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   );
 
   const renderReviews = () => {
-    const reviews = provider.reviews || provider.review || [];
+    const reviews = localReviews;
     const avgRating = provider.rating || 4.5;
 
     return (
@@ -823,6 +869,13 @@ const ProviderDetailScreen = ({ route, navigation }) => {
             ))}
           </View>
         </View>
+
+        <TouchableOpacity 
+          style={{ backgroundColor: '#2ecc71', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 20 }}
+          onPress={() => setReviewModalVisible(true)}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Write a Review</Text>
+        </TouchableOpacity>
 
         {reviews.map((rev, idx) => (
           <View
@@ -993,6 +1046,50 @@ const ProviderDetailScreen = ({ route, navigation }) => {
         {activeTab === 'Reviews' && renderReviews()}
         {renderFooter()}
       </ScrollView>
+
+      {/* Review Modal */}
+      <Modal visible={reviewModalVisible} transparent={true} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#111', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Write a Review</Text>
+              <TouchableOpacity onPress={() => setReviewModalVisible(false)}>
+                <Icon name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 20 }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                  <Icon name="star" size={32} color={star <= reviewRating ? '#FFD700' : '#444'} style={{ marginHorizontal: 5 }} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={{ backgroundColor: '#222', color: '#fff', borderRadius: 8, padding: 15, height: 100, textAlignVertical: 'top' }}
+              placeholder="Share your experience..."
+              placeholderTextColor="#666"
+              multiline
+              value={reviewText}
+              onChangeText={setReviewText}
+            />
+
+            <TouchableOpacity
+              style={{ backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 20 }}
+              onPress={handleSubmitReview}
+              disabled={isSubmittingReview}
+            >
+              {isSubmittingReview ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit Review</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };

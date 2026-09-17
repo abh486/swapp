@@ -162,3 +162,31 @@ export const getProviderDetails = (providerId) => async (dispatch) => {
     return result;
   }
 };
+
+export const getProviderReviews = (providerId) => async (dispatch) => {
+  try {
+    const response = await apiClient.get(`/reviews/provider/${providerId}`);
+    return response.data;
+  } catch (error) {
+    console.error('[ProviderService] Get provider reviews error:', error);
+    return {
+      success: false,
+      message: parseApiError(error),
+      data: null
+    };
+  }
+};
+
+export const submitProviderReview = (reviewData) => async (dispatch) => {
+  try {
+    const response = await apiClient.post('/reviews', reviewData);
+    return response.data;
+  } catch (error) {
+    console.error('[ProviderService] Submit review error:', error);
+    return {
+      success: false,
+      message: parseApiError(error),
+      data: null
+    };
+  }
+};
