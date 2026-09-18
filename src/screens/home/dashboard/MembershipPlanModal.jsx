@@ -29,7 +29,7 @@ const MembershipPlanModal = ({ visible, onClose }) => {
   const [activeTab, setActiveTab] = useState('Monthly');
   const [selectedTier, setSelectedTier] = useState(null);
 
-  const tabs = ['Hourly', 'Daily', 'Weekly', 'Monthly', 'Yearly'];
+  const tabs = ['Hourly', 'Daily', 'Weekly', 'Monthly', '2 Months', '3 Months', '6 Months', 'Yearly'];
 
   const tiers = feed?.membership_tiers || [];
 
