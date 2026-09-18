@@ -90,13 +90,23 @@ const WeightBodyMetricsScreen = ({ navigation }) => {
       await AsyncStorage.setItem('weight_body_metrics', JSON.stringify(newMetrics));
       
       // Sync to Swapp Backend to allow NutriAI macro calculation
-      if (selectedMetric.key === 'height' || selectedMetric.key === 'weight') {
+      if (selectedMetric.key === 'height' || selectedMetric.key === 'weight' || selectedMetric.key === 'targetWeight') {
         const profileUpdate = {};
         if (newMetrics.height) profileUpdate.height = parseFloat(newMetrics.height);
         if (newMetrics.weight) profileUpdate.weight = parseFloat(newMetrics.weight);
+        if (newMetrics.targetWeight) {
+          const numT = parseFloat(newMetrics.targetWeight);
+          profileUpdate.targetWeight = numT;
+          profileUpdate.goalWeight = numT;
+          profileUpdate.target_weight = numT;
+          if (newMetrics.weight) {
+            profileUpdate.fitnessGoal = numT < parseFloat(newMetrics.weight) ? 'Lose Weight' : numT > parseFloat(newMetrics.weight) ? 'Build Muscle' : 'Maintain';
+          }
+        }
         if (Object.keys(profileUpdate).length > 0) {
           await apiClient.put('/users/profile', profileUpdate);
         }
+        await AsyncStorage.setItem('diet_plan_needs_refresh', 'true');
       }
     } catch (err) {
       console.error('Failed to persist metrics:', err);

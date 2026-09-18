@@ -28,7 +28,6 @@ import MembershipPlanModal from './MembershipPlanModal';
 import { RefreshControl } from 'react-native';
 import { getAccessStatus } from '../../../services/aiDieticianService';
 import { setActiveCategory as setGlobalCategory } from '../../../redux/actions/homeActions';
-import FindTrainers from './components/FindTrainers';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import LocationSelectorModal from './components/LocationSelectorModal';
 import { browseTrainers, getTrainerById } from '../../../redux/actions/trainerActions';
@@ -284,7 +283,7 @@ export const HomeDashboard = ({ navigation }) => {
       }));
 
     const list = [...fromUser, ...pkgs, ...ents];
-    
+
     // Deduplicate the final list by type and ID/packageId to be absolutely safe
     const seen = new Set();
     const uniqueList = [];
@@ -333,7 +332,7 @@ export const HomeDashboard = ({ navigation }) => {
       {
         id: '1',
         title: 'PERSONAL\nAI DIETICIAN',
-        subtitle: hasDietAccess 
+        subtitle: hasDietAccess
           ? 'Track customized meal plans & scan insights'
           : 'Unlock customized meal plans & scan insights',
         image:
@@ -635,8 +634,8 @@ export const HomeDashboard = ({ navigation }) => {
     const verticalLabel = 'Trainer';
 
     const trainerPlans = Array.isArray(trainer.plans) ? trainer.plans : [];
-    const lowestPrice = trainerPlans.length > 0 
-      ? Math.min(...trainerPlans.map(p => parseFloat(p.price) || 0)) 
+    const lowestPrice = trainerPlans.length > 0
+      ? Math.min(...trainerPlans.map(p => parseFloat(p.price) || 0))
       : null;
 
     const trainerName = trainer.name || trainer.user?.name || trainer.user?.email?.split('@')[0] || 'Trainer';
@@ -750,19 +749,19 @@ export const HomeDashboard = ({ navigation }) => {
 
     const subscribedProvider =
       isBooking ? sub.provider :
-      sub?.provider ||
-      sub?.gym ||
-      sub?.partner ||
-      sub?.package?.provider ||
-      null;
+        sub?.provider ||
+        sub?.gym ||
+        sub?.partner ||
+        sub?.package?.provider ||
+        null;
 
     const subscribedPlan =
       isBooking ? null :
-      sub?.plan ||
-      sub?.package ||
-      sub?.membershipTier ||
-      sub?.tier ||
-      null;
+        sub?.plan ||
+        sub?.package ||
+        sub?.membershipTier ||
+        sub?.tier ||
+        null;
 
     const subscribedGymName =
       subscribedProvider?.name ||
@@ -788,10 +787,10 @@ export const HomeDashboard = ({ navigation }) => {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
       });
     } else if (isPackage && sub.totalSessions > 0) {
-      const upcomingCount = sub.type === 'GYM_PACKAGE' 
+      const upcomingCount = sub.type === 'GYM_PACKAGE'
         ? (user?.upcomingBookings || []).filter(b => b.packageSubscriptionId === sub.id).length
-        : sub.type === 'ENTITLEMENT' 
-          ? (user?.upcomingBookings || []).filter(b => b.entitlementId === sub.id).length 
+        : sub.type === 'ENTITLEMENT'
+          ? (user?.upcomingBookings || []).filter(b => b.entitlementId === sub.id).length
           : 0;
       const remaining = sub.totalSessions - (sub.usedSessions || 0) - upcomingCount;
       subscribedTierName = `${remaining} Sessions Left`;
@@ -801,10 +800,10 @@ export const HomeDashboard = ({ navigation }) => {
 
     const subscribedImage =
       isBooking ? (sub.provider?.images?.[0]?.url || sub.provider?.photos?.[0] || 'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop') :
-      subscribedProvider?.photos?.[0] ||
-      sub?.image ||
-      sub?.photoUrl ||
-      'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
+        subscribedProvider?.photos?.[0] ||
+        sub?.image ||
+        sub?.photoUrl ||
+        'https://images.unsplash.com/photo-1580261450046-d0a30080dc9b?q=80&w=600&auto=format&fit=crop';
 
     const statusText = isBooking ? 'UPCOMING' : 'ACTIVE';
 
@@ -898,7 +897,7 @@ export const HomeDashboard = ({ navigation }) => {
             </View>
 
             {!isBooking ? (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.bookSlotBtn}
                 activeOpacity={0.8}
                 onPress={(e) => {
@@ -954,23 +953,23 @@ export const HomeDashboard = ({ navigation }) => {
       {activeAccessItems.length > 1 && (
         <View style={styles.paginationContainer}>
           {Array.from({ length: activeAccessItems.length }).map((_, i) => (
-            <View 
-              key={i} 
+            <View
+              key={i}
               style={[
-                styles.paginationDot, 
+                styles.paginationDot,
                 activeCardIndex === i ? styles.paginationDotActive : null
-              ]} 
+              ]}
             />
           ))}
         </View>
       )}
       <View style={{ marginBottom: 16 }}>
-          {activeJourneys.length > 0 ? (
-            activeJourneys.map((journey) => (
-              <JourneyActionCard key={journey.id} journey={journey} />
-            ))
-          ) : null}
-        </View>
+        {activeJourneys.length > 0 ? (
+          activeJourneys.map((journey) => (
+            <JourneyActionCard key={journey.id} journey={journey} />
+          ))
+        ) : null}
+      </View>
     </View>
   );
 
@@ -1163,9 +1162,13 @@ export const HomeDashboard = ({ navigation }) => {
             style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
           >
             <Text style={styles.partnersText}>
-              {activeCategory === 'trainer' 
-                ? `100+ Trainers In ${locationName || 'Bangalore'}`
-                : `100+ Partners In ${locationName || 'Bangalore'}`}
+              {activeCategory === 'trainer'
+                ? (locationName && locationName !== 'My Location'
+                    ? `100+ Trainers In ${locationName}`
+                    : '100+ Trainers Near You')
+                : (locationName && locationName !== 'My Location'
+                    ? `100+ Partners In ${locationName}`
+                    : '100+ Partners Near You')}
             </Text>
             <Icon name="chevron-down" size={14} color="#888" style={{ marginLeft: 4 }} />
           </TouchableOpacity>
@@ -1179,7 +1182,7 @@ export const HomeDashboard = ({ navigation }) => {
               style={{ textDecorationLine: 'underline', color: '#3498db' }}
               onPress={() => setLocationModalVisible(true)}
             >
-              {locationName ? locationName.toUpperCase() : 'YOU'}
+              {locationName && locationName !== 'My Location' ? locationName.toUpperCase() : 'YOU'}
             </Text>
           </Text>
           <TouchableOpacity

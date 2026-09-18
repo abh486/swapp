@@ -237,10 +237,7 @@ const ProfileWorkoutPostItem = ({
                 <Image
                   source={{
                     uri,
-                    headers: uri.includes('rapidapi') ? {
-                      'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                      'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                    } : undefined,
+                    
                   }}
                   style={[styles.postMediaImage, { width: cardWidth }]}
                   resizeMode="cover"
@@ -300,10 +297,7 @@ const ProfileWorkoutPostItem = ({
                 const imageSource = (primaryUri && !isFailed)
                   ? {
                       uri: primaryUri,
-                      headers: primaryUri.includes('rapidapi') ? {
-                        'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                        'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                      } : undefined,
+                      
                     }
                   : getExerciseMuscleFallback(exObj);
 

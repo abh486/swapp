@@ -40,7 +40,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     () => createStyles({ ...metrics, wp: metrics.wp }, insets, SNAP_TOP),
     [metrics, insets, SNAP_TOP],
   );
-  
+
   const { userLocation, locationName, permissionGranted, showPermissionModal, actions: locationActions } = useLocation();
   const [isLocationModalVisible, setLocationModalVisible] = useState(false);
   const { feed } = useSelector(state => state.home);
@@ -50,10 +50,25 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     if (route.params && route.params.selectedLocation && route.params.selectedLocation.latitude && route.params.selectedLocation.longitude) {
       return route.params.selectedLocation;
     }
+    if (userLocation && userLocation.latitude && userLocation.longitude) {
+      return userLocation;
+    }
     return userLocation;
   }, [route.params && route.params.selectedLocation, userLocation]);
 
   React.useEffect(() => {
+    // If targetLoc is specified (e.g. user selected Mumbai or Bangalore or GPS location), center map on targetLoc
+    if (targetLoc && targetLoc.latitude && targetLoc.longitude && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: parseFloat(targetLoc.latitude),
+        longitude: parseFloat(targetLoc.longitude),
+        latitudeDelta: 0.15,
+        longitudeDelta: 0.15,
+      }, 800);
+      return;
+    }
+
+    // Otherwise, if no location is selected, frame all regional gyms on the map
     if (providers && providers.length > 0 && mapRef.current) {
       const validCoords = providers
         .map(p => {
@@ -63,31 +78,27 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
         })
         .filter(Boolean);
 
-      if (targetLoc && targetLoc.latitude && targetLoc.longitude) {
-        validCoords.push({
-          latitude: parseFloat(targetLoc.latitude),
-          longitude: parseFloat(targetLoc.longitude)
-        });
-      }
-
       if (validCoords.length > 0) {
-        mapRef.current.fitToCoordinates(validCoords, {
-          edgePadding: { top: 120, right: 60, bottom: 280, left: 60 },
-          animated: true,
-        });
-        return;
+        // Filter coordinates within Indian subcontinent so Middle East doesn't stretch camera
+        const regionalCoords = validCoords.filter(c => c.latitude >= 8 && c.latitude <= 36 && c.longitude >= 68 && c.longitude <= 96);
+        const coordsToFit = regionalCoords.length > 0 ? regionalCoords : validCoords;
+
+        if (coordsToFit.length === 1) {
+          mapRef.current.animateToRegion({
+            latitude: coordsToFit[0].latitude,
+            longitude: coordsToFit[0].longitude,
+            latitudeDelta: 0.15,
+            longitudeDelta: 0.15,
+          }, 800);
+        } else {
+          mapRef.current.fitToCoordinates(coordsToFit, {
+            edgePadding: { top: 120, right: 60, bottom: 280, left: 60 },
+            animated: true,
+          });
+        }
       }
     }
-
-    if (targetLoc && targetLoc.latitude && targetLoc.longitude && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: parseFloat(targetLoc.latitude),
-        longitude: parseFloat(targetLoc.longitude),
-        latitudeDelta: 0.35,
-        longitudeDelta: 0.35,
-      }, 1000);
-    }
-  }, [providers, targetLoc]);
+  }, [providers, targetLoc, route.params]);
 
   React.useEffect(() => {
     if (route.params && (route.params.categoryId || route.params.vertical)) {
@@ -205,6 +216,71 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
     });
   }, [SNAP_MID, SNAP_TOP, translateY]);
 
+  const flatListRef = useRef(null);
+  const [selectedProviderId, setSelectedProviderId] = useState(null);
+
+  // Filter gym cards so only NEARBY providers (within 30 miles) are shown in the bottom sheet
+  const nearbyProviders = useMemo(() => {
+    if (!providers || providers.length === 0) return [];
+    if (!targetLoc || !targetLoc.latitude || !targetLoc.longitude) {
+      return providers;
+    }
+
+    const MAX_NEARBY_MILES = 30; // Approx 48 km
+    const nearby = providers.filter(p => p.distance != null && p.distance <= MAX_NEARBY_MILES);
+
+    // If the user tapped a marker on the map that is further away, include it so its card is shown
+    if (selectedProviderId) {
+      const selected = providers.find(p => p.id === selectedProviderId);
+      if (selected && !nearby.some(p => p.id === selected.id)) {
+        return [selected, ...nearby];
+      }
+    }
+
+    return nearby;
+  }, [providers, targetLoc, selectedProviderId]);
+
+  const handleMarkerPress = useCallback((provider) => {
+    if (!provider) return;
+    setSelectedProviderId(provider.id);
+
+    const lat = parseFloat((provider.coordinates && provider.coordinates.latitude) || provider.latitude || provider.lat);
+    const lng = parseFloat((provider.coordinates && provider.coordinates.longitude) || provider.longitude || provider.lng);
+
+    if (lat && lng && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: lat,
+        longitude: lng,
+        latitudeDelta: 0.04,
+        longitudeDelta: 0.04,
+      }, 500);
+    }
+
+    expandSheet();
+
+    const index = nearbyProviders.findIndex(p => p.id === provider.id);
+    if (index !== -1 && flatListRef.current) {
+      setTimeout(() => {
+        try {
+          if (flatListRef.current) {
+            flatListRef.current.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.1,
+            });
+          }
+        } catch (err) {
+          if (flatListRef.current) {
+            flatListRef.current.scrollToOffset({
+              offset: index * 135,
+              animated: true,
+            });
+          }
+        }
+      }, 150);
+    }
+  }, [nearbyProviders, expandSheet]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -294,102 +370,120 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
   const renderProviderCard = ({ item }) => {
     const isTrainer = item.vertical === 'TRAINER' || (Array.isArray(item.vertical) && item.vertical.includes('TRAINER'));
+    const isSelected = selectedProviderId === item.id;
     return (
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => {
+          setSelectedProviderId(item.id);
+          const lat = parseFloat((item.coordinates && item.coordinates.latitude) || item.latitude || item.lat);
+          const lng = parseFloat((item.coordinates && item.coordinates.longitude) || item.longitude || item.lng);
+          if (lat && lng && mapRef.current) {
+            mapRef.current.animateToRegion({
+              latitude: lat,
+              longitude: lng,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            }, 500);
+          }
           if (isTrainer) {
             navigation.navigate('TrainerDetailScreen', { id: item.ownerId || item.id });
           } else {
             navigation.navigate('ProviderDetails', { id: item.id });
           }
         }}
-        style={styles.providerCard}
+        style={[styles.providerCard, isSelected && styles.providerCardSelected]}
       >
-      <Image source={{ uri: (item.photos && item.photos[0]) || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} style={styles.providerImage} />
+        <Image source={{ uri: (item.photos && item.photos[0]) || 'https://images.unsplash.com/photo-1571019613454-1cb9f99b2d8b?w=400' }} style={styles.providerImage} />
 
-      <View style={styles.providerContent}>
-        <View style={styles.providerHeader}>
-          <Text style={styles.providerName} numberOfLines={1}>
-            {item.name}
+        <View style={styles.providerContent}>
+          <View style={styles.providerHeader}>
+            <Text style={styles.providerName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {isSelected && (
+              <View style={styles.selectedBadge}>
+                <Icon name="location-sharp" size={9} color="#fff" />
+                <Text style={styles.selectedBadgeText}>ON MAP</Text>
+              </View>
+            )}
+            {item.isPremium && (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumText}>PREMIUM</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.providerMeta}>
+            {(() => {
+              const v = (item.vertical && item.vertical[0]) || 'Fitness';
+              const vLower = v.toLowerCase();
+              if (
+                vLower === 'wellness' ||
+                vLower === 'wellness and spa' ||
+                vLower === 'wellness & spa' ||
+                vLower === 'spa & wellness' ||
+                vLower === 'spa and wellness'
+              ) {
+                return 'Wellnest';
+              } else if (
+                vLower === 'yoya' ||
+                vLower === 'plaints' ||
+                vLower === 'yoga' ||
+                vLower === 'yoga and plaints' ||
+                vLower === 'yoga & plaints' ||
+                vLower === 'yoga and pilates' ||
+                vLower === 'yoga & pilates'
+              ) {
+                return 'Yoga';
+              } else if (
+                vLower === 'genaral gym' ||
+                vLower === 'general gym' ||
+                vLower === 'genaral' ||
+                vLower === 'general'
+              ) {
+                return 'Gym';
+              }
+              return v.charAt(0) + v.slice(1).toLowerCase();
+            })()}{'   '}•{'   '}{item.distance ? `${item.distance.toFixed(1)} miles` : '0.5 miles'}
           </Text>
-          {item.isPremium && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumText}>PREMIUM</Text>
-            </View>
-          )}
+
+          <View style={styles.providerRatingRow}>
+            <Text style={styles.providerRatingText}>{item.rating}</Text>
+            <Icon name="star" size={10} color="#FFD700" style={styles.starIcon} />
+            <Text style={styles.providerReviewsText}>({item.reviews})</Text>
+          </View>
+
+          <View style={styles.tagsContainer}>
+            {Array.isArray(item.amenities) && item.amenities.slice(0, 3).map((tag, index) => (
+              <View key={index} style={styles.tagPill}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        <Text style={styles.providerMeta}>
-          {(() => {
-            const v = (item.vertical && item.vertical[0]) || 'Fitness';
-            const vLower = v.toLowerCase();
-            if (
-              vLower === 'wellness' ||
-              vLower === 'wellness and spa' ||
-              vLower === 'wellness & spa' ||
-              vLower === 'spa & wellness' ||
-              vLower === 'spa and wellness'
-            ) {
-              return 'Wellnest';
-            } else if (
-              vLower === 'yoya' ||
-              vLower === 'plaints' ||
-              vLower === 'yoga' ||
-              vLower === 'yoga and plaints' ||
-              vLower === 'yoga & plaints' ||
-              vLower === 'yoga and pilates' ||
-              vLower === 'yoga & pilates'
-            ) {
-              return 'Yoga';
-            } else if (
-              vLower === 'genaral gym' ||
-              vLower === 'general gym' ||
-              vLower === 'genaral' ||
-              vLower === 'general'
-            ) {
-              return 'Gym';
-            }
-            return v.charAt(0) + v.slice(1).toLowerCase();
-          })()}{'   '}•{'   '}{item.distance ? `${item.distance.toFixed(1)} miles` : '0.5 miles'}
-        </Text>
-
-        <View style={styles.providerRatingRow}>
-          <Text style={styles.providerRatingText}>{item.rating}</Text>
-          <Icon name="star" size={10} color="#FFD700" style={styles.starIcon} />
-          <Text style={styles.providerReviewsText}>({item.reviews})</Text>
+        <View style={styles.providerRightActions}>
+          <TouchableOpacity
+            style={{ marginRight: 6 }}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('LiveGymNavigationScreen', {
+                gym: item,
+                origin: targetLoc,
+                destination: item.coordinates || { latitude: item.latitude || item.lat, longitude: item.longitude || item.lng }
+              });
+            }}
+          >
+            <Icon name="navigate-circle" size={34} color="#00E5FF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.arrowBtn}>
+            <Icon name="arrow-forward-circle" size={28} color="#aaa" />
+          </TouchableOpacity>
         </View>
-
-        <View style={styles.tagsContainer}>
-          {Array.isArray(item.amenities) && item.amenities.slice(0, 3).map((tag, index) => (
-            <View key={index} style={styles.tagPill}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.providerRightActions}>
-        <TouchableOpacity
-          style={{ marginRight: 6 }}
-          onPress={(e) => {
-            e.stopPropagation();
-            navigation.navigate('LiveGymNavigationScreen', {
-              gym: item,
-              origin: targetLoc,
-              destination: item.coordinates || { latitude: item.latitude || item.lat, longitude: item.longitude || item.lng }
-            });
-          }}
-        >
-          <Icon name="navigate-circle" size={34} color="#00E5FF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.arrowBtn}>
-          <Icon name="arrow-forward-circle" size={28} color="#aaa" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-};
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -400,10 +494,10 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           ref={mapRef}
           style={styles.map}
           initialRegion={{
-            latitude: (targetLoc && targetLoc.latitude) || (userLocation && userLocation.latitude) || 12.9716,
-            longitude: (targetLoc && targetLoc.longitude) || (userLocation && userLocation.longitude) || 77.5946,
-            latitudeDelta: 0.35,
-            longitudeDelta: 0.35,
+            latitude: (route.params && route.params.selectedLocation && route.params.selectedLocation.latitude) || (targetLoc && targetLoc.latitude) || (userLocation && userLocation.latitude) || 20.5937,
+            longitude: (route.params && route.params.selectedLocation && route.params.selectedLocation.longitude) || (targetLoc && targetLoc.longitude) || (userLocation && userLocation.longitude) || 78.9629,
+            latitudeDelta: 0.15,
+            longitudeDelta: 0.15,
           }}
         >
           {providers
@@ -450,14 +544,9 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
                     }
                     return v;
                   })()} • ${provider.address || 'Fitness Partner'}`}
-                  pinColor="red"
+                  pinColor={selectedProviderId === provider.id ? '#FF3B30' : '#E74C3C'}
                   onPress={() => {
-                    expandSheet();
-                    if (isTrainer) {
-                      navigation.navigate('TrainerDetailScreen', { id: provider.ownerId || provider.id });
-                    } else {
-                      navigation.navigate('ProviderDetails', { id: provider.id });
-                    }
+                    handleMarkerPress(provider);
                   }}
                 />
               );
@@ -478,7 +567,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
       <View style={styles.topContainer}>
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >
@@ -486,7 +575,7 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
           </TouchableOpacity>
           <View style={styles.searchContainer}>
             <Icon name="search" size={18} color="#888" style={styles.searchIcon} />
-            <TextInput 
+            <TextInput
               style={styles.searchInput}
               placeholder="Search providers or partners..."
               placeholderTextColor="#888"
@@ -501,8 +590,8 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
         {/* Location Selector Bar */}
         <View style={styles.locationBar}>
-          <TouchableOpacity 
-            style={styles.locationButton} 
+          <TouchableOpacity
+            style={styles.locationButton}
             onPress={() => setLocationModalVisible(true)}
             activeOpacity={0.8}
           >
@@ -529,14 +618,14 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
               <Text style={styles.modalSub}>
                 To show you partners and studios on the map, we need access to your location.
               </Text>
-              <TouchableOpacity 
-                style={styles.modalBtn} 
+              <TouchableOpacity
+                style={styles.modalBtn}
                 onPress={() => locationActions.requestPermission()}
               >
                 <Text style={styles.modalBtnText}>ALLOW ACCESS</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.modalSkipBtn} 
+              <TouchableOpacity
+                style={styles.modalSkipBtn}
                 onPress={() => locationActions.skipPermission()}
               >
                 <Text style={styles.modalSkipText}>Not now</Text>
@@ -586,17 +675,30 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
 
           <View style={styles.topLine} pointerEvents="none" />
           <Text style={styles.listTitle} pointerEvents="none">
-            {providers.length}+ Providers Nearby
+            {nearbyProviders.length === 0
+              ? 'No Providers Nearby'
+              : nearbyProviders.length === 1
+              ? '1 Provider Nearby'
+              : `${nearbyProviders.length} Providers Nearby`}
           </Text>
         </View>
 
         <FlatList
-          data={providers}
+          ref={flatListRef}
+          data={nearbyProviders}
           style={styles.providersList}
           renderItem={renderProviderCard}
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           scrollEnabled={true}
+          onScrollToIndexFailed={info => {
+            if (flatListRef.current) {
+              flatListRef.current.scrollToOffset({
+                offset: info.index * 135,
+                animated: true,
+              });
+            }
+          }}
           onScroll={e => {
             const y = e.nativeEvent.contentOffset.y;
             if (y < -15 && Math.abs(lastOffsetY.current - SNAP_TOP) < 40) {
@@ -609,7 +711,15 @@ const DiscoverProvidersMapScreen = ({ navigation, route }) => {
             }
           }}
           contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
-          ListEmptyComponent={!isLoading && <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No providers found nearby</Text>}
+          ListEmptyComponent={!isLoading && (
+            <View style={{ alignItems: 'center', marginTop: 35, paddingHorizontal: 25 }}>
+              <Icon name="location-outline" size={40} color="#555" style={{ marginBottom: 12 }} />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 6 }}>No Partners Found Nearby</Text>
+              <Text style={{ color: '#888', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                There are currently no fitness partners registered in this area.
+              </Text>
+            </View>
+          )}
         />
       </Animated.View>
     </SafeAreaView>
@@ -674,6 +784,26 @@ const createStyles = ({ fs, sp, ms, wp, height, isTablet }, insets, SNAP_TOP) =>
   listTitle: { color: '#fff', fontSize: fs(20), fontWeight: '500', letterSpacing: 1 },
   providersList: { flex: 1, backgroundColor: '#000' },
   providerCard: { flexDirection: 'row', backgroundColor: '#050505', borderRadius: ms(12), padding: sp(12), marginHorizontal: sp(isTablet ? 28 : 20), marginBottom: sp(15), borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  providerCardSelected: {
+    borderColor: '#e74c3c',
+    borderWidth: 1.5,
+    backgroundColor: '#160808',
+  },
+  selectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e74c3c',
+    paddingHorizontal: sp(6),
+    paddingVertical: sp(2),
+    borderRadius: ms(8),
+    marginRight: sp(6),
+  },
+  selectedBadgeText: {
+    color: '#fff',
+    fontSize: fs(8),
+    fontWeight: 'bold',
+    marginLeft: sp(2),
+  },
   providerImage: { width: ms(isTablet ? 96 : 80), height: ms(isTablet ? 96 : 80), borderRadius: ms(8) },
   providerContent: { flex: 1, marginLeft: sp(15), minWidth: 0 },
   providerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: sp(4) },

@@ -9,9 +9,71 @@ const LocationContext = createContext();
 const LOCATION_STORAGE_KEY = 'userLocation';
 const LOCATION_EXPIRATION_MS = 30 * 60 * 1000; // 30 minutes
 
+const GOOGLE_MAPS_API_KEY = Platform.select({
+  ios: 'AIzaSyDbCCPsto9OSDAYX7D9vm1ibB1VKVOoTeI',
+  android: 'AIzaSyCYCaA0JTX_cpFbDbe3rlX764XyRsCUYPk',
+  default: 'AIzaSyCYCaA0JTX_cpFbDbe3rlX764XyRsCUYPk',
+});
+
+const reverseGeocodeLocation = async (latitude, longitude) => {
+  try {
+    const headers = Platform.select({
+      ios: { 'X-Ios-Bundle-Identifier': 'com.swapp.swappfit' },
+      android: { 'X-Android-Package': 'com.swappios' },
+      default: {},
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`,
+      { headers }
+    );
+    const json = await res.json();
+    if (json?.status === 'OK' && json?.results?.length > 0) {
+      let sublocality = '';
+      let locality = '';
+      let neighborhood = '';
+
+      for (const result of json.results) {
+        for (const comp of result.address_components) {
+          if (comp.types.includes('sublocality_level_1') || comp.types.includes('sublocality')) {
+            if (!sublocality) sublocality = comp.long_name;
+          }
+          if (comp.types.includes('neighborhood')) {
+            if (!neighborhood) neighborhood = comp.long_name;
+          }
+          if (comp.types.includes('locality')) {
+            if (!locality) locality = comp.long_name;
+          }
+        }
+        if (sublocality || locality) break;
+      }
+      return sublocality || neighborhood || locality || 'My Location';
+    }
+  } catch (err) {
+    console.warn('[LocationContext] Google reverse geocode failed:', err);
+  }
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=en`,
+      {
+        headers: { 'User-Agent': 'SwappFitnessApp/1.0' },
+      }
+    );
+    const json = await res.json();
+    if (json?.address) {
+      const name = json.address.suburb || json.address.neighbourhood || json.address.city || json.address.town || json.address.county;
+      if (name) return name;
+    }
+  } catch (err) {
+    console.warn('[LocationContext] Nominatim reverse geocode failed:', err);
+  }
+
+  return 'My Location';
+};
+
 export const LocationProvider = ({ children }) => {
   const [userLocation, setUserLocation] = useState(null);
-  const [locationName, setLocationName] = useState('Bangalore');
+  const [locationName, setLocationName] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,7 +86,7 @@ export const LocationProvider = ({ children }) => {
           ...location,
           timestamp: Date.now(),
           permission: true,
-          name: name || 'Bangalore',
+          name: name || 'My Location',
         };
         await AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(locationData));
       } else {
@@ -44,7 +106,7 @@ export const LocationProvider = ({ children }) => {
       if (Date.now() - locationData.timestamp < LOCATION_EXPIRATION_MS) {
         setUserLocation({ latitude: locationData.latitude, longitude: locationData.longitude });
         setPermissionGranted(locationData.permission);
-        setLocationName(locationData.name || 'Bangalore');
+        setLocationName(locationData.name || 'My Location');
         setIsLoading(false);
         return true;
       } else {
@@ -67,8 +129,16 @@ export const LocationProvider = ({ children }) => {
           const newLocation = { latitude, longitude };
           setUserLocation(newLocation);
           setPermissionGranted(true);
-          setLocationName('My Location');
-          await saveLocationToStorage(newLocation, true, 'My Location');
+
+          let resolvedName = 'My Location';
+          try {
+            resolvedName = await reverseGeocodeLocation(latitude, longitude);
+          } catch (geoErr) {
+            console.warn('[LocationContext] Reverse geocode error:', geoErr);
+          }
+
+          setLocationName(resolvedName);
+          await saveLocationToStorage(newLocation, true, resolvedName);
           setIsLoading(false);
           resolve(newLocation);
         },
@@ -144,6 +214,7 @@ export const LocationProvider = ({ children }) => {
       }
     } else {
       try {
+        Geolocation.requestAuthorization();
         await getCurrentLocation();
       } catch (err) {
         console.warn('[LocationContext] iOS checkPermission getCurrentLocation failed:', err);
@@ -156,6 +227,9 @@ export const LocationProvider = ({ children }) => {
     const restored = await restoreLocationFromStorage();
     if (!restored) {
       await checkPermission();
+    } else {
+      // Refresh current location in background to keep data fresh
+      checkPermission().catch(() => {});
     }
   }, [checkPermission]);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, StatusBar, Dimensions, Platform, Linking, Alert, Modal } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
@@ -65,9 +66,10 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   const [isViewerVisible, setViewerVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const { wp, hp, ms, sp, fs, isTablet } = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(
-    () => createStyles({ wp, hp, ms, sp, fs, isTablet }),
-    [wp, hp, ms, sp, fs, isTablet]
+    () => createStyles({ wp, hp, ms, sp, fs, isTablet }, insets),
+    [wp, hp, ms, sp, fs, isTablet, insets]
   );
 
   // Vertical-aware flags — derived once provider loads
@@ -970,12 +972,12 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 16) + 20 }}
       >
         {renderHeaderGallery()}
         {renderTitleBlock()}
@@ -991,7 +993,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
   );
 };
 
-const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
+const createStyles = ({ wp, hp, ms, sp, fs, isTablet }, insets) =>
   StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#000' },
     container: { flex: 1 },
@@ -1332,7 +1334,7 @@ const createStyles = ({ wp, hp, ms, sp, fs, isTablet }) =>
     // ─── FOOTER ────────────────────────────────────────────────────────────────
     footerWrapper: {
       paddingHorizontal: 16,
-      paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+      paddingBottom: Math.max(insets?.bottom || 0, Platform.OS === 'android' ? 24 : 16) + 8,
       paddingTop: 8,
     },
     footerGradient: {

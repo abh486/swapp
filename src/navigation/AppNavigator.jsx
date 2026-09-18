@@ -16,7 +16,7 @@ import AlmostDoneClocheScreen from '../screens/activity/diet/AlmostDoneClocheScr
 import WeeklyDietPlanScreen from '../screens/activity/diet/WeeklyDietPlanScreen';
 import MacronutrientDetailsScreen from '../screens/activity/diet/MacronutrientDetailsScreen';
 import HealthKitDataScreen from '../screens/profile/HealthKitDataScreen';
-import WalkDetailsScreen from '../screens/profile/WalkDetailsScreen';
+import WalkDetailsScreen from '../screens/activity/diet/WalkDetailsScreen';
 import SleepDetailsScreen from '../screens/activity/diet/SleepDetailsScreen';
 
 import BottomTabNavigator from './BottomTabNavigator';
@@ -48,7 +48,7 @@ import MembershipBookingScreen from '../screens/home/booking/MembershipBookingSc
 import TrainerBookingScreen from '../screens/home/trainer/TrainerBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import WeightBodyMetricsScreen from '../screens/profile/WeightBodyMetricsScreen';
-import WeightTrackerScreen from '../screens/profile/WeightTrackerScreen';
+import WeightTrackerScreen from '../screens/community/WeightTrackerScreen';
 import HydrationTrackerScreen from '../screens/activity/diet/HydrationTrackerScreen';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
@@ -60,13 +60,13 @@ import AIDieticianSubscriptionScreen from '../screens/activity/diet/AIDieticianS
 import DieticianAIConversationListScreen from '../screens/activity/diet/DieticianAIConversationListScreen';
 import DieticianAIChatScreen from '../screens/activity/diet/DieticianAIChatScreen';
 import ManageSubscriptionsScreen from '../screens/profile/ManageSubscriptionsScreen';
-import FollowListScreen from '../screens/profile/FollowListScreen';
+import FollowListScreen from '../screens/community/FollowListScreen';
 import Reminders from '../screens/profile/Reminders';
 import AppsAndDevicesScreen from '../screens/profile/AppsAndDevicesScreen';
-import UserProfileScreen from '../screens/profile/UserProfileScreen';
+import UserProfileScreen from '../screens/community/UserProfileScreen';
 import LikesListScreen from '../screens/community/LikesListScreen';
 import PostDetailsScreen from '../screens/community/PostDetailsScreen';
-import ComparisonScreen from '../screens/profile/ComparisonScreen';
+import ComparisonScreen from '../screens/community/ComparisonScreen';
 import NotificationScreen from '../screens/community/NotificationScreen';
 import ProfileDashboard from '../screens/profile/ProfileDashboard';
 

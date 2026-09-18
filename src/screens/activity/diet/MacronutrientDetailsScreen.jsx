@@ -15,9 +15,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path, Defs, Circle, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import apiClient from '../../../api/apiClient';
 import { useAuth } from '../../../context/AuthContext';
-import { getTargetsForUser } from '../../../utils/nutritionCalculator';
+import { getTargetsForUser, getCachedBackendTargets, setCachedBackendTargets } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 const BORDER_COLOR = 'rgba(255, 255, 255, 0.08)';
@@ -28,9 +29,42 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
   const [selectedDate, setSelectedDate] = useState(new Date(selectedDateParam));
   const [activeTab, setActiveTab] = useState('Day'); // 'Day' | 'Week' | 'Month'
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const reduxWeight = useSelector(state => state.weight);
+  const liveTargets = useMemo(() => {
+    const cached = getCachedBackendTargets();
+    if (cached && cached.calories > 0) {
+      return cached;
+    }
+    const activeWeight =
+      reduxWeight?.logs?.[reduxWeight.logs.length - 1]?.value ||
+      user?.weight?.value ||
+      user?.weight ||
+      reduxWeight?.startingValue ||
+      70;
+    const activeTarget =
+      reduxWeight?.targetWeight ||
+      user?.targetWeight?.value ||
+      user?.targetWeight ||
+      user?.goalWeight;
+    const activeHeight = reduxWeight?.height || user?.height?.value || user?.height || 170;
+    const activeGoal = user?.fitnessGoal || '';
+    return getTargetsForUser({
+      ...(user || {}),
+      weight: activeWeight,
+      height: activeHeight,
+      targetWeight: activeTarget,
+      goalWeight: activeTarget,
+      fitnessGoal: activeGoal,
+    });
+  }, [user, reduxWeight?.targetWeight, reduxWeight?.startingValue, reduxWeight?.logs, reduxWeight?.height]);
+
   const [allLogs, setAllLogs] = useState([]);
-  const [targets, setTargets] = useState(() => getTargetsForUser(user));
+  const [targets, setTargets] = useState(() => liveTargets);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setTargets(liveTargets);
+  }, [liveTargets]);
 
   const fetchLogsAndSummary = useCallback(async () => {
     try {
@@ -52,8 +86,10 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
         setAllLogs(foodOnly);
       }
 
-      if (summaryRes?.data?.data?.targets) {
-        setTargets(summaryRes.data.data.targets);
+      const backendTargets = summaryRes?.data?.data?.targets || summaryRes?.data?.targets;
+      if (backendTargets && backendTargets.calories > 0) {
+        setCachedBackendTargets(backendTargets);
+        setTargets(backendTargets);
       }
     } catch (err) {
       console.warn('[MacronutrientDetails] Fetch error:', err.message);
@@ -158,18 +194,31 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
   const consumedFibre = consumedTotals.fibre;
   const fibrePct = targetFibre > 0 ? Math.round(Math.min(100, (consumedFibre / targetFibre) * 100)) : 0;
 
-  // Dynamic Micronutrient calculations based on real food logs
+  // Aggregate real micronutrients from logged meals
   const micronutrients = useMemo(() => {
-    const calFactor = consumedCals > 0 ? consumedCals / 2000 : 0;
-    const fibFactor = consumedFibre > 0 ? consumedFibre / 30 : calFactor;
+    let totalCalcium = 0;
+    let totalIron = 0;
+    let totalZinc = 0;
+    let totalMagnesium = 0;
+    let totalCholesterol = 0;
+
+    currentLogs.forEach((log) => {
+      const micros = log.micronutrients || log.nutrition || log;
+      totalCalcium += Number(micros.calcium || micros.calciumMg) || 0;
+      totalIron += Number(micros.iron || micros.ironMg) || 0;
+      totalZinc += Number(micros.zinc || micros.zincMg) || 0;
+      totalMagnesium += Number(micros.magnesium || micros.magnesiumMg) || 0;
+      totalCholesterol += Number(micros.cholesterol || micros.cholesterolMg) || 0;
+    });
+
     return [
-      { key: 'Calcium', consumed: Math.round(calFactor * 650), target: 1000 * multiplier, unit: 'mg' },
-      { key: 'Iron', consumed: Math.round((fibFactor * 12 + calFactor * 4) * 10) / 10, target: 19 * multiplier, unit: 'mg' },
-      { key: 'Zinc', consumed: Math.round((calFactor * 11) * 10) / 10, target: 17 * multiplier, unit: 'mg' },
-      { key: 'Magnesium', consumed: Math.round(fibFactor * 260 + calFactor * 100), target: 440 * multiplier, unit: 'mg' },
-      { key: 'Cholesterol', consumed: Math.round(calFactor * 180), target: 300 * multiplier, unit: 'mg' },
+      { key: 'Calcium', consumed: Math.round(totalCalcium), target: 1000 * multiplier, unit: 'mg' },
+      { key: 'Iron', consumed: Math.round(totalIron * 10) / 10, target: 19 * multiplier, unit: 'mg' },
+      { key: 'Zinc', consumed: Math.round(totalZinc * 10) / 10, target: 17 * multiplier, unit: 'mg' },
+      { key: 'Magnesium', consumed: Math.round(totalMagnesium), target: 440 * multiplier, unit: 'mg' },
+      { key: 'Cholesterol', consumed: Math.round(totalCholesterol), target: 300 * multiplier, unit: 'mg' },
     ];
-  }, [consumedCals, consumedFibre, multiplier]);
+  }, [currentLogs, multiplier]);
 
   // Date Navigation Actions
   const handlePrevDate = () => {

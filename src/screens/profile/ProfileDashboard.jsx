@@ -795,6 +795,12 @@ const ProfileDashboard = () => {
             ))
           )}
         </View>
+
+        {/* App Version Footer */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>App Version 1.0.4</Text>
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
@@ -1164,6 +1170,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginLeft: 6,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 36,
+    marginBottom: 10,
+  },
+  versionText: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
 });
 

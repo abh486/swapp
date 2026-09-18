@@ -16,27 +16,22 @@ import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useResponsiveMetrics } from '../../utils/responsive';
 import exerciseApi from '../../redux/actions/exerciseActions';
+import {
+  resolveExerciseImageUri,
+  resolveExerciseAnimationUri,
+  getExerciseMuscleFallback
+} from '../../redux/actions/workoutActions';
 
-const { width } = Dimensions.get('window');
-
-const getFallbackVideoUrl = (exerciseName) => {
-  const name = String(exerciseName || '').toLowerCase();
-  if (name.includes('run') || name.includes('jog') || name.includes('cardio') || name.includes('bike') || name.includes('jump') || name.includes('treadmill') || name.includes('step')) {
-    return 'https://assets.mixkit.co/videos/preview/mixkit-woman-running-on-treadmill-in-gym-40283-large.mp4';
-  }
-  if (name.includes('stretch') || name.includes('warm') || name.includes('reach') || name.includes('bend') || name.includes('yoga') || name.includes('flex') || name.includes('twist') || name.includes('neck') || name.includes('groin')) {
-    return 'https://assets.mixkit.co/videos/preview/mixkit-woman-doing-stretching-exercises-on-a-mat-40282-large.mp4';
-  }
-  return 'https://assets.mixkit.co/videos/preview/mixkit-man-lifting-dumbbells-in-the-gym-41712-large.mp4';
+const isVideoMedia = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.split('?')[0].toLowerCase().trim();
+  return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.m3u8') || clean.endsWith('.webm');
 };
 
-const getApiIdFromName = (name) => {
-  if (!name) return '';
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\//g, '-')      // Slashes -> Dashes
-    .replace(/\s+/g, '_');    // Spaces -> Underscores
+const isGifMedia = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.split('?')[0].toLowerCase().trim();
+  return clean.endsWith('.gif');
 };
 
 const ExerciseDetailScreen = () => {
@@ -44,10 +39,11 @@ const ExerciseDetailScreen = () => {
   const route = useRoute();
   const { exercise: initialExercise } = route.params || {};
 
-  const { wp, hp, ms, sp, fs } = useResponsiveMetrics();
+  const { width, wp, hp, ms, sp, fs } = useResponsiveMetrics();
 
   const [exercise, setExercise] = useState(initialExercise || null);
   const [videoError, setVideoError] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
@@ -56,7 +52,7 @@ const ExerciseDetailScreen = () => {
   useEffect(() => {
     let active = true;
     const exId = String(initialExercise?.exerciseId || initialExercise?.id || '');
-    if (exId && exId.startsWith('exr_')) {
+    if (exId) {
       exerciseApi.getExerciseById(exId)
         .then(res => {
           if (active && res && res.data) {
@@ -99,14 +95,25 @@ const ExerciseDetailScreen = () => {
     );
   }
 
-  const primaryVideoUrl = exercise?.videoUrl || (exercise?.name ? `https://api.wrkout.xyz/videos/${getApiIdFromName(exercise.name)}/premium/${getApiIdFromName(exercise.name)}.mp4` : null) || getFallbackVideoUrl(exercise?.name);
+  // 1. Playable Video stream (MP4 / MOV / M3U8)
+  const playableVideoUrl = isVideoMedia(exercise?.videoUrl) ? exercise.videoUrl : null;
 
-  const displayImageUri =
-    exercise?.gifUrl ||
-    exercise?.imageUrl ||
-    exercise?.gif ||
-    exercise?.image ||
-    (exercise?.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${exercise.exerciseId}` : null);
+  // 2. Animated demonstration GIF
+  const animatedGifUri =
+    resolveExerciseAnimationUri(exercise) ||
+    (isGifMedia(exercise?.gifUrl) ? exercise.gifUrl : null) ||
+    (isGifMedia(exercise?.videoUrl) ? exercise.videoUrl : null) ||
+    (exercise?.gifUrl && typeof exercise.gifUrl === 'string' && exercise.gifUrl.startsWith('http') ? exercise.gifUrl : null) ||
+    null;
+
+  // 3. Static preview frame (used when paused or as fallback)
+  const staticImageUri =
+    (exercise?.imageUrl && !isGifMedia(exercise.imageUrl) ? exercise.imageUrl : null) ||
+    resolveExerciseImageUri(exercise) ||
+    null;
+
+  const hasRealVideo = !!playableVideoUrl && !videoError;
+  const hasAnimatedGif = !!animatedGifUri && !imageError;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -124,14 +131,22 @@ const ExerciseDetailScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Exercise Video Player */}
-        <View style={styles.videoWrapper}>
-          {primaryVideoUrl && !videoError ? (
+        {/* Exercise Video Player / Animated Demonstration */}
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => setIsPlaying(prev => !prev)}
+          style={[
+            styles.videoWrapper,
+            { height: Math.min(width * 0.92, 380) },
+            !hasRealVideo && { backgroundColor: '#FFFFFF' }
+          ]}
+        >
+          {hasRealVideo ? (
             <Video
               ref={videoRef}
-              source={{ uri: primaryVideoUrl }}
+              source={{ uri: playableVideoUrl }}
               style={styles.videoPlayer}
-              resizeMode="cover"
+              resizeMode="contain"
               repeat={true}
               paused={!isPlaying}
               muted={isMuted}
@@ -144,14 +159,27 @@ const ExerciseDetailScreen = () => {
             />
           ) : (
             <Image
-              source={{ uri: displayImageUri }}
+              source={
+                hasAnimatedGif
+                  ? { uri: isPlaying ? animatedGifUri : (staticImageUri || animatedGifUri) }
+                  : (staticImageUri ? { uri: staticImageUri } : getExerciseMuscleFallback(exercise))
+              }
               style={styles.videoPlayer}
-              resizeMode="cover"
+              resizeMode="contain"
+              onError={() => setImageError(true)}
             />
           )}
 
-          {/* Video Controls */}
-          {primaryVideoUrl && !videoError && (
+          {/* Media Type Badge */}
+          <View style={styles.demoBadge}>
+            <View style={[styles.demoDot, !isPlaying && { backgroundColor: '#9CA3AF' }]} />
+            <Text style={styles.demoText}>
+              {hasRealVideo ? 'VIDEO' : 'DEMO'}
+            </Text>
+          </View>
+
+          {/* Video / Animation Controls */}
+          {(hasRealVideo || hasAnimatedGif) && (
             <View style={styles.videoOverlay}>
               <TouchableOpacity
                 style={styles.controlBadge}
@@ -168,25 +196,27 @@ const ExerciseDetailScreen = () => {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.controlBadge}
-                onPress={() => setIsMuted(!isMuted)}
-              >
-                {isMuted ? (
-                  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#FFFFFF" />
-                    <Path d="M23 9l-6 6M17 9l6 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-                  </Svg>
-                ) : (
-                  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#FFFFFF" />
-                    <Path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-                  </Svg>
-                )}
-              </TouchableOpacity>
+              {hasRealVideo && (
+                <TouchableOpacity
+                  style={styles.controlBadge}
+                  onPress={() => setIsMuted(!isMuted)}
+                >
+                  {isMuted ? (
+                    <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#FFFFFF" />
+                      <Path d="M23 9l-6 6M17 9l6 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+                    </Svg>
+                  ) : (
+                    <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#FFFFFF" />
+                      <Path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+                    </Svg>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Content Section */}
 
@@ -299,10 +329,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40
   },
   videoWrapper: {
-    width: width,
-    height: width * 0.65,
+    width: '100%',
+    height: 340,
     backgroundColor: '#000000',
-    position: 'relative'
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden'
   },
   videoPlayer: {
     width: '100%',
@@ -325,6 +358,32 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)'
+  },
+  demoBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)'
+  },
+  demoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6
+  },
+  demoText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8
   },
   contentBody: {
     paddingHorizontal: 20,

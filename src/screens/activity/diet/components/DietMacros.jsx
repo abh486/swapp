@@ -1,62 +1,74 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useResponsiveMetrics } from '../../../../utils/responsive';
 
-const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress, navigation }) => {
+const DietMacros = ({ dailySummary, selectedDate, handleTrackWithCamera, handlePlusButtonPress, navigation }) => {
+  const { sp, fs, ms } = useResponsiveMetrics();
   const summary = dailySummary?.summary || {};
   const targets = dailySummary?.targets || {};
 
-  const targetCals = targets.calories || 1000;
+  const targetCals = targets.calories || 0;
 
-  const targetProt = targets.protein || 120;
+  const targetProt = targets.protein || 0;
   const consumedProt = summary.protein || 0;
-  const protPct = Math.round(Math.min(100, (consumedProt / targetProt) * 100));
+  const protPct = targetProt > 0 ? Math.round(Math.min(100, (consumedProt / targetProt) * 100)) : 0;
 
-  const targetFats = targets.fats || 65;
-  const consumedFats = summary.fats || 0;
-  const fatsPct = Math.round(Math.min(100, (consumedFats / targetFats) * 100));
+  const targetFats = targets.fats || targets.fat || 0;
+  const consumedFats = summary.fats || summary.fat || 0;
+  const fatsPct = targetFats > 0 ? Math.round(Math.min(100, (consumedFats / targetFats) * 100)) : 0;
 
-  const targetCarbs = targets.carbs || 220;
+  const targetCarbs = targets.carbs || 0;
   const consumedCarbs = summary.carbs || 0;
-  const carbsPct = Math.round(Math.min(100, (consumedCarbs / targetCarbs) * 100));
+  const carbsPct = targetCarbs > 0 ? Math.round(Math.min(100, (consumedCarbs / targetCarbs) * 100)) : 0;
 
-  const targetFibre = targets.fibre || 30;
-  const consumedFibre = summary.fibre || 0;
-  const fibrePct = Math.round(Math.min(100, (consumedFibre / targetFibre) * 100));
+  const targetFibre = targets.fibre || targets.fiber || 0;
+  const consumedFibre = summary.fibre || summary.fiber || 0;
+  const fibrePct = targetFibre > 0 ? Math.round(Math.min(100, (consumedFibre / targetFibre) * 100)) : 0;
 
   const handlePress = () => {
-    navigation?.navigate('MacronutrientDetails', { dailySummary, selectedDate });
+    navigation?.navigate('MacronutrientDetails', { dailySummary, selectedDate: selectedDate || new Date() });
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal: sp(20), paddingVertical: sp(15) }]}>
       {/* Track Food Header Row */}
-      <View style={styles.trackFoodHeader}>
+      <View style={[styles.trackFoodHeader, { marginBottom: sp(16) }]}>
         <TouchableOpacity 
           style={styles.titleCol} 
           onPress={() => navigation?.navigate('DietAllLogs')}
           activeOpacity={0.7}
         >
-          <Text style={styles.trackFoodTitle}>Track Food</Text>
-          <Text style={styles.trackFoodSubtitle}>Eat {targetCals.toLocaleString()} Cal</Text>
+          <Text style={[styles.trackFoodTitle, { fontSize: fs(22) }]}>Track Food</Text>
+          <Text style={[styles.trackFoodSubtitle, { fontSize: fs(12) }]}>
+            {targetCals > 0 ? `Eat ${targetCals.toLocaleString()} Cal` : 'Daily Target'}
+          </Text>
         </TouchableOpacity>
         <View style={styles.trackFoodActions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleTrackWithCamera} activeOpacity={0.7}>
-            <Icon name="camera" size={20} color="#FFF" />
+          <TouchableOpacity 
+            style={[styles.actionBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+            onPress={handleTrackWithCamera} 
+            activeOpacity={0.7}
+          >
+            <Icon name="camera" size={ms(18)} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handlePlusButtonPress} activeOpacity={0.7}>
-            <Icon name="add" size={20} color="#FFF" />
+          <TouchableOpacity 
+            style={[styles.actionBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+            onPress={handlePlusButtonPress} 
+            activeOpacity={0.7}
+          >
+            <Icon name="add" size={ms(20)} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Macros Grid */}
-      <View style={styles.gridRow}>
+      <View style={[styles.gridRow, { marginBottom: sp(16) }]}>
         {/* Protein */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>Protein:</Text>
-            <Text style={styles.macroValue}>{protPct}%</Text>
+            <Text style={[styles.macroLabel, { fontSize: fs(15) }]}>Protein:</Text>
+            <Text style={[styles.macroValue, { fontSize: fs(15) }]}>{protPct}%</Text>
           </View>
           <View style={styles.track}>
             <View style={[styles.bar, { width: `${protPct}%` }]} />
@@ -66,8 +78,8 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
         {/* Fat */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>Fat:</Text>
-            <Text style={styles.macroValue}>{fatsPct}%</Text>
+            <Text style={[styles.macroLabel, { fontSize: fs(15) }]}>Fat:</Text>
+            <Text style={[styles.macroValue, { fontSize: fs(15) }]}>{fatsPct}%</Text>
           </View>
           <View style={styles.track}>
             <View style={[styles.bar, { width: `${fatsPct}%` }]} />
@@ -75,12 +87,12 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
         </TouchableOpacity>
       </View>
 
-      <View style={styles.gridRow}>
+      <View style={[styles.gridRow, { marginBottom: sp(16) }]}>
         {/* Carbs */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>Carbs:</Text>
-            <Text style={styles.macroValue}>{carbsPct}%</Text>
+            <Text style={[styles.macroLabel, { fontSize: fs(15) }]}>Carbs:</Text>
+            <Text style={[styles.macroValue, { fontSize: fs(15) }]}>{carbsPct}%</Text>
           </View>
           <View style={styles.track}>
             <View style={[styles.bar, { width: `${carbsPct}%` }]} />
@@ -90,8 +102,8 @@ const DietMacros = ({ dailySummary, handleTrackWithCamera, handlePlusButtonPress
         {/* Fibre */}
         <TouchableOpacity style={styles.macroCol} onPress={handlePress} activeOpacity={0.7}>
           <View style={styles.labelRow}>
-            <Text style={styles.macroLabel}>Fibre:</Text>
-            <Text style={styles.macroValue}>{fibrePct}%</Text>
+            <Text style={[styles.macroLabel, { fontSize: fs(15) }]}>Fibre:</Text>
+            <Text style={[styles.macroValue, { fontSize: fs(15) }]}>{fibrePct}%</Text>
           </View>
           <View style={styles.track}>
             <View style={[styles.bar, { width: `${fibrePct}%` }]} />

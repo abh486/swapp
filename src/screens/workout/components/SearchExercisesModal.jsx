@@ -49,10 +49,8 @@ export const SearchExercisesModal = ({
   const renderExerciseItem = ({ item }) => {
     const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
     const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
-    const rawImg = item.imageUrl || item.gifUrl || (item.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${item.exerciseId}` : null);
-    const imageSource = rawImg
-      ? { uri: rawImg, headers: { 'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com', 'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d' } }
-      : null;
+    const rawImg = item.imageUrl || item.gifUrl;
+    const imageSource = rawImg ? { uri: rawImg } : null;
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
 
     return (

@@ -1,54 +1,106 @@
-import axios from 'axios';
 import * as types from '../actionTypes/actionTypes';
+import LOCAL_EXERCISES from '../../data/exercises.json';
 
-const RAPIDAPI_BASE_URL = 'https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1';
-
-const exerciseApiClient = axios.create({
-  baseURL: RAPIDAPI_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-    'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-    'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-  },
+// Pre-computed lookup index for O(1) ID access
+const EXERCISE_BY_ID = new Map();
+const EXERCISE_BY_NAME = new Map();
+LOCAL_EXERCISES.forEach((ex) => {
+  if (ex.id) EXERCISE_BY_ID.set(String(ex.id).toLowerCase(), ex);
+  if (ex.exerciseId) EXERCISE_BY_ID.set(String(ex.exerciseId).toLowerCase(), ex);
+  if (ex.name) EXERCISE_BY_NAME.set(String(ex.name).toLowerCase(), ex);
 });
 
-// ── Raw Direct API Call Helpers ──
+// ── Raw Direct API Call Helpers (Now Powered Locally) ──
+
 export const checkLiveness = async () => {
-  try {
-    const res = await exerciseApiClient.get('/liveness');
-    return res.data;
-  } catch (error) {
-    console.warn('[exerciseActions] checkLiveness failed:', error?.message);
-    return null;
-  }
+  return {
+    success: true,
+    message: 'Local ExerciseDB Ready (Offline & Zero Latency)',
+    totalExercises: LOCAL_EXERCISES.length,
+  };
 };
 
 export const getExercises = async (params = {}) => {
   try {
-    const queryParams = {};
-    if (params.limit) queryParams.limit = params.limit;
-    if (params.after) queryParams.after = params.after;
-    if (params.name) queryParams.name = params.name;
-    if (params.keywords) queryParams.keywords = params.keywords;
+    let filtered = LOCAL_EXERCISES;
 
-    const res = await exerciseApiClient.get('/exercises', { params: queryParams });
-    return res.data;
+    // Search query by name / keywords
+    const search = (params.search || params.name || params.keywords || '').trim().toLowerCase();
+    if (search) {
+      filtered = filtered.filter((ex) =>
+        ex.name?.toLowerCase().includes(search) ||
+        ex.target?.toLowerCase().includes(search) ||
+        ex.equipment?.toLowerCase().includes(search)
+      );
+    }
+
+    // Filter by target muscles
+    const rawMuscles = params.targetMuscles || params.muscles || [];
+    const muscleList = (Array.isArray(rawMuscles) ? rawMuscles : String(rawMuscles).split(','))
+      .map(m => m.trim().toLowerCase())
+      .filter(m => m && !m.includes('all muscle'));
+    if (muscleList.length > 0) {
+      filtered = filtered.filter((ex) =>
+        (ex.targetMuscles || []).some(tm => muscleList.includes(tm.toLowerCase())) ||
+        (ex.bodyParts || []).some(bp => muscleList.includes(bp.toLowerCase()))
+      );
+    }
+
+    // Filter by equipment
+    const rawEquips = params.equipments || params.equipment || [];
+    const equipList = (Array.isArray(rawEquips) ? rawEquips : String(rawEquips).split(','))
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && !e.includes('all equip'));
+    if (equipList.length > 0) {
+      filtered = filtered.filter((ex) =>
+        (ex.equipments || []).some(eq => equipList.includes(eq.toLowerCase()))
+      );
+    }
+
+    // Pagination / Slicing
+    let startIndex = 0;
+    if (params.after) {
+      const cursorIndex = parseInt(params.after, 10);
+      if (!isNaN(cursorIndex) && cursorIndex >= 0) {
+        startIndex = cursorIndex;
+      }
+    }
+
+    const limit = Number(params.limit) > 0 ? Number(params.limit) : filtered.length;
+    const endIndex = Math.min(startIndex + limit, filtered.length);
+    const pagedData = filtered.slice(startIndex, endIndex);
+
+    return {
+      success: true,
+      data: pagedData,
+      meta: {
+        total: filtered.length,
+        hasNextPage: endIndex < filtered.length,
+        nextCursor: endIndex < filtered.length ? String(endIndex) : null,
+      },
+    };
   } catch (error) {
-    console.error('[exerciseActions] getExercises error:', error?.response?.data || error?.message);
+    console.error('[exerciseActions] getExercises error:', error?.message);
     throw error;
   }
 };
 
 export const searchExercises = async (query) => {
   try {
-    if (!query) return { success: true, data: [] };
-    const res = await exerciseApiClient.get('/exercises/search', {
-      params: { search: query },
-    });
-    return res.data;
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return { success: true, data: [] };
+
+    const results = LOCAL_EXERCISES.filter((ex) =>
+      ex.name?.toLowerCase().includes(q) ||
+      ex.target?.toLowerCase().includes(q) ||
+      ex.equipment?.toLowerCase().includes(q) ||
+      (ex.targetMuscles || []).some(m => m.toLowerCase().includes(q)) ||
+      (ex.bodyParts || []).some(b => b.toLowerCase().includes(q))
+    );
+
+    return { success: true, data: results };
   } catch (error) {
-    console.error('[exerciseActions] searchExercises error:', error?.response?.data || error?.message);
+    console.error('[exerciseActions] searchExercises error:', error?.message);
     throw error;
   }
 };
@@ -56,18 +108,24 @@ export const searchExercises = async (query) => {
 export const getExerciseById = async (exerciseId) => {
   try {
     if (!exerciseId) return null;
-    const res = await exerciseApiClient.get(`/exercises/${encodeURIComponent(exerciseId)}`);
-    return res.data;
+    const cleanId = String(exerciseId).trim().toLowerCase();
+    const found = EXERCISE_BY_ID.get(cleanId) || EXERCISE_BY_NAME.get(cleanId);
+    return {
+      success: !!found,
+      data: found || null,
+    };
   } catch (error) {
-    console.error(`[exerciseActions] getExerciseById (${exerciseId}) error:`, error?.response?.data || error?.message);
+    console.error(`[exerciseActions] getExerciseById (${exerciseId}) error:`, error?.message);
     throw error;
   }
 };
 
 export const getMuscles = async () => {
   try {
-    const res = await exerciseApiClient.get('/muscles');
-    return res.data;
+    const muscles = [...new Set(LOCAL_EXERCISES.flatMap(e => e.targetMuscles || []))]
+      .filter(Boolean)
+      .sort();
+    return { success: true, data: muscles };
   } catch (error) {
     console.warn('[exerciseActions] getMuscles error:', error?.message);
     return { success: false, data: [] };
@@ -76,8 +134,10 @@ export const getMuscles = async () => {
 
 export const getBodyParts = async () => {
   try {
-    const res = await exerciseApiClient.get('/bodyparts');
-    return res.data;
+    const bodyParts = [...new Set(LOCAL_EXERCISES.flatMap(e => e.bodyParts || []))]
+      .filter(Boolean)
+      .sort();
+    return { success: true, data: bodyParts };
   } catch (error) {
     console.warn('[exerciseActions] getBodyParts error:', error?.message);
     return { success: false, data: [] };
@@ -86,8 +146,10 @@ export const getBodyParts = async () => {
 
 export const getEquipments = async () => {
   try {
-    const res = await exerciseApiClient.get('/equipments');
-    return res.data;
+    const equipments = [...new Set(LOCAL_EXERCISES.flatMap(e => e.equipments || []))]
+      .filter(Boolean)
+      .sort();
+    return { success: true, data: equipments };
   } catch (error) {
     console.warn('[exerciseActions] getEquipments error:', error?.message);
     return { success: false, data: [] };
@@ -95,34 +157,34 @@ export const getEquipments = async () => {
 };
 
 export const getExerciseTypes = async () => {
-  try {
-    const res = await exerciseApiClient.get('/exercisetypes');
-    return res.data;
-  } catch (error) {
-    console.warn('[exerciseActions] getExerciseTypes error:', error?.message);
-    return { success: false, data: [] };
-  }
+  return {
+    success: true,
+    data: ['STRENGTH', 'CARDIO', 'STRETCHING', 'PLYOMETRICS'],
+  };
 };
 
 export const getWarmupExercises = async () => {
   try {
-    const res = await exerciseApiClient.get('/exercises/search', {
-      params: { search: 'stretch' },
-    });
-    if (res?.data?.data) {
-      return res.data.data.map((ex, idx) => ({
-        exerciseId: ex.exerciseId,
-        id: ex.exerciseId || `warmup_${idx}`,
-        name: ex.name,
-        imageUrl: ex.imageUrl,
-        videoUrl: ex.videoUrl || null,
-        type: 'WARMUP',
-        durationSec: 45,
-        reps: 12,
-        sets: 2,
-      }));
-    }
-    return [];
+    const warmups = LOCAL_EXERCISES.filter((ex) =>
+      ex.category === 'CARDIO' ||
+      ex.name?.toLowerCase().includes('stretch') ||
+      ex.name?.toLowerCase().includes('jump') ||
+      ex.name?.toLowerCase().includes('circle') ||
+      (ex.bodyParts || []).includes('cardio')
+    ).slice(0, 12);
+
+    return warmups.map((ex, idx) => ({
+      exerciseId: ex.exerciseId,
+      id: ex.exerciseId || `warmup_${idx}`,
+      name: ex.name,
+      imageUrl: ex.imageUrl,
+      videoUrl: ex.videoUrl || null,
+      gifUrl: ex.gifUrl,
+      type: 'WARMUP',
+      durationSec: 45,
+      reps: 12,
+      sets: 2,
+    }));
   } catch (error) {
     console.warn('[exerciseActions] getWarmupExercises error:', error?.message);
     return [];
@@ -133,14 +195,14 @@ export const getCompleteWorkouts = async () => {
   try {
     const [warmupRes, strengthRes] = await Promise.all([
       getWarmupExercises(),
-      getExercises({ limit: 20 }),
+      getExercises({ limit: 30 }),
     ]);
 
     const strengthList = strengthRes?.data || [];
 
     const completeRoutines = [
       {
-        id: 'api-warmup-routine',
+        id: 'local-warmup-routine',
         name: 'Full-Body Dynamic Mobility & Warm-up',
         level: 'BEGINNER',
         category: 'WARMUP',
@@ -149,7 +211,7 @@ export const getCompleteWorkouts = async () => {
         exercises: warmupRes.slice(0, 6),
       },
       {
-        id: 'api-fullbody-routine',
+        id: 'local-fullbody-routine',
         name: 'Complete Full-Body Strength Routine',
         level: 'INTERMEDIATE',
         category: 'STRENGTH',
@@ -160,6 +222,8 @@ export const getCompleteWorkouts = async () => {
           id: ex.exerciseId || `ex_fb_${idx}`,
           name: ex.name,
           imageUrl: ex.imageUrl,
+          gifUrl: ex.gifUrl,
+          videoUrl: ex.videoUrl,
           bodyParts: ex.bodyParts,
           equipments: ex.equipments,
           targetMuscles: ex.targetMuscles,
@@ -169,7 +233,7 @@ export const getCompleteWorkouts = async () => {
         })),
       },
       {
-        id: 'api-upperbody-routine',
+        id: 'local-upperbody-routine',
         name: 'Upper Body Power & Hypertrophy',
         level: 'ADVANCED',
         category: 'UPPER_BODY',
@@ -180,6 +244,8 @@ export const getCompleteWorkouts = async () => {
           id: ex.exerciseId || `ex_ub_${idx}`,
           name: ex.name,
           imageUrl: ex.imageUrl,
+          gifUrl: ex.gifUrl,
+          videoUrl: ex.videoUrl,
           bodyParts: ex.bodyParts,
           equipments: ex.equipments,
           targetMuscles: ex.targetMuscles,
@@ -202,6 +268,7 @@ export const getCompleteWorkouts = async () => {
 };
 
 // ── Redux Async Thunk Actions ──
+
 export const fetchExercisesRedux = (params = {}) => async (dispatch) => {
   dispatch({ type: types.EXERCISE_FETCH_LIST_REQUEST });
   try {

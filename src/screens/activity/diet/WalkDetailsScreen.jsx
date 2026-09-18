@@ -18,7 +18,7 @@ import {
   getActiveEnergyBurnedForDate,
   getDistanceWalkingRunningForDate,
   getStepsHistoryLastDays,
-} from '../../utils/healthKit';
+} from '../../../utils/healthKit';
 
 const { width } = Dimensions.get('window');
 
@@ -145,7 +145,7 @@ const WalkDetailsScreen = ({ route, navigation }) => {
       const endOfWeek = new Date(selectedDate);
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(selectedDate.getDate() - 6);
-      
+
       const startStr = startOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
       const endStr = endOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
       return `${startStr} - ${endStr}`;
@@ -160,7 +160,7 @@ const WalkDetailsScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.container}>
       {/* Top Navigation */}
       <View style={styles.topHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
 
@@ -182,19 +182,19 @@ const WalkDetailsScreen = ({ route, navigation }) => {
             );
           })}
         </View>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Date Selector Row */}
       <View style={styles.dateSelectorRow}>
-        <TouchableOpacity onPress={handlePrevDate} style={styles.arrowBtn}>
+        <TouchableOpacity onPress={handlePrevDate} style={styles.arrowBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="chevron-back" size={20} color="#FFF" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={[styles.dateTitleText, { marginRight: 8, marginHorizontal: 0 }]}>{getHeaderDateText()}</Text>
-          <Icon name="caret-down" size={14} color="#FFF" style={{ marginTop: 2 }} />
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerTriggerBtn} activeOpacity={0.7}>
+          <Text style={styles.dateTitleText}>{getHeaderDateText()}</Text>
+          <Icon name="caret-down" size={13} color="#FFF" style={styles.dateCaretIcon} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleNextDate} style={styles.arrowBtn}>
+        <TouchableOpacity onPress={handleNextDate} style={styles.arrowBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="chevron-forward" size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -211,8 +211,8 @@ const WalkDetailsScreen = ({ route, navigation }) => {
                 maximumDate={new Date()}
                 themeVariant="dark"
               />
-              <TouchableOpacity 
-                style={styles.datePickerDoneBtn} 
+              <TouchableOpacity
+                style={styles.datePickerDoneBtn}
                 onPress={() => setShowDatePicker(false)}
               >
                 <Text style={styles.datePickerDoneBtnText}>Done</Text>
@@ -259,7 +259,7 @@ const WalkDetailsScreen = ({ route, navigation }) => {
               transform="rotate(-90 80 80)"
             />
           </Svg>
-          
+
           {/* Footsteps icon inside the ring */}
           <View style={styles.footstepsIconContainer}>
             <Icon name="footsteps" size={48} color="#FFF" />
@@ -271,28 +271,36 @@ const WalkDetailsScreen = ({ route, navigation }) => {
       <View style={styles.metricsRow}>
         {/* Calories */}
         <View style={styles.metricCol}>
-          <Text style={styles.metricValText}>{caloriesBurned}</Text>
+          <Text style={styles.metricValText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {caloriesBurned}
+          </Text>
           <Text style={styles.metricLabelText}>CALORIES</Text>
         </View>
         <View style={styles.dividerLine} />
 
         {/* Steps */}
         <View style={styles.metricCol}>
-          <Text style={styles.metricValText}>{stepsToday.toLocaleString()}</Text>
+          <Text style={styles.metricValText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {stepsToday.toLocaleString()}
+          </Text>
           <Text style={styles.metricLabelText}>STEPS</Text>
         </View>
         <View style={styles.dividerLine} />
 
         {/* Distance */}
         <View style={styles.metricCol}>
-          <Text style={styles.metricValText}>{distanceKm} KM</Text>
+          <Text style={styles.metricValText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {distanceKm} <Text style={styles.metricUnitText}>KM</Text>
+          </Text>
           <Text style={styles.metricLabelText}>DISTANCE</Text>
         </View>
         <View style={styles.dividerLine} />
 
         {/* Duration */}
         <View style={styles.metricCol}>
-          <Text style={styles.metricValText}>{durationStr}</Text>
+          <Text style={styles.metricValText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {durationStr}
+          </Text>
           <Text style={styles.metricLabelText}>DURATION</Text>
         </View>
       </View>
@@ -306,18 +314,26 @@ const WalkDetailsScreen = ({ route, navigation }) => {
           <Text style={styles.sectionHeaderTitle}>Your Top Step</Text>
         </View>
 
-        <View style={styles.topStepList}>
-          {topSteps.map((item, idx) => (
-            <View key={idx} style={styles.topStepRow}>
-              <Text style={styles.rankText}>{item.rank}</Text>
-              <View style={styles.topStepDetails}>
-                <Text style={styles.stepCountText}>{item.steps.toLocaleString()} Steps</Text>
-                <Text style={styles.kcalText}>{item.kcal} Kcal</Text>
+        {topSteps && topSteps.length > 0 ? (
+          <View style={styles.topStepList}>
+            {topSteps.map((item, idx) => (
+              <View key={idx} style={styles.topStepRow}>
+                <Text style={styles.rankText}>{item.rank}</Text>
+                <View style={styles.topStepDetails}>
+                  <Text style={styles.stepCountText}>{item.steps.toLocaleString()} Steps</Text>
+                  <Text style={styles.kcalText}>{item.kcal} Kcal</Text>
+                </View>
+                <Text style={styles.distanceText}>{item.distance}</Text>
               </View>
-              <Text style={styles.distanceText}>{item.distance}</Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyTopStepsContainer}>
+            <Icon name="footsteps-outline" size={32} color="rgba(255, 255, 255, 0.2)" />
+            <Text style={styles.emptyTopStepsText}>No top steps recorded yet</Text>
+            <Text style={styles.emptyTopStepsSubtext}>Walk and track your activity to see your top milestones</Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -333,7 +349,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
+    paddingBottom: 10,
   },
   backBtn: {
     width: 40,
@@ -342,17 +359,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerSpacer: {
+    width: 40,
+    height: 40,
+  },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 24,
     padding: 3,
-    width: 240,
+    width: 220,
     justifyContent: 'space-between',
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
     alignItems: 'center',
   },
@@ -362,32 +383,43 @@ const styles = StyleSheet.create({
   tabBtnText: {
     color: 'rgba(255, 255, 255, 0.45)',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   activeTabBtnText: {
     color: '#FFF',
+    fontWeight: 'bold',
   },
   dateSelectorRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
   arrowBtn: {
     padding: 8,
   },
+  datePickerTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+  },
   dateTitleText: {
     color: '#FFF',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginHorizontal: 25,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  dateCaretIcon: {
+    marginLeft: 6,
+    marginTop: 2,
   },
   circleWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 30,
-    marginBottom: 30,
+    marginTop: 24,
+    marginBottom: 24,
   },
   svgWrapper: {
     position: 'relative',
@@ -406,30 +438,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     marginTop: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   metricCol: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+    minWidth: 0,
   },
   metricValText: {
     color: '#FFF',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  metricUnitText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   metricLabelText: {
-    color: 'rgba(255, 255, 255, 0.35)',
+    color: 'rgba(255, 255, 255, 0.38)',
     fontSize: 10,
     fontWeight: '600',
     marginTop: 5,
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
+    textAlign: 'center',
   },
   dividerLine: {
     width: 1,
-    height: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   bottomDivider: {
     height: 1,
@@ -439,12 +481,12 @@ const styles = StyleSheet.create({
   },
   topStepSection: {
     paddingHorizontal: 20,
-    marginTop: 20,
+    marginTop: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   sectionHeaderTitle: {
     color: '#FFF',
@@ -453,12 +495,12 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   topStepList: {
-    marginTop: 10,
+    marginTop: 4,
   },
   topStepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -473,18 +515,37 @@ const styles = StyleSheet.create({
   },
   stepCountText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
   },
   kcalText: {
     color: 'rgba(255, 255, 255, 0.35)',
-    fontSize: 13,
-    marginTop: 3,
+    fontSize: 12,
+    marginTop: 2,
   },
   distanceText: {
     color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+  },
+  emptyTopStepsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+  },
+  emptyTopStepsText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  emptyTopStepsSubtext: {
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
   },
   modalOverlayCentered: {
     flex: 1,

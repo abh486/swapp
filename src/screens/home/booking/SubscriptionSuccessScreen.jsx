@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -119,8 +119,9 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
   }, [planName, price, pendingSubscription, reservationId]);
 
   const metrics = useResponsiveMetrics();
+  const insets = useSafeAreaInsets();
   const { sp, ms, fs, wp } = metrics;
-  const styles = useMemo(() => createStyles(metrics), [metrics]);
+  const styles = useMemo(() => createStyles(metrics, insets), [metrics, insets]);
 
   const [downloading, setDownloading] = useState(false);
 
@@ -220,7 +221,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -438,7 +439,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
   );
 };
 
-const createStyles = ({ sp, ms, fs, wp }) =>
+const createStyles = ({ sp, ms, fs, wp }, insets) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -449,7 +450,8 @@ const createStyles = ({ sp, ms, fs, wp }) =>
       alignItems: 'center',
       justifyContent: 'space-around',
       paddingHorizontal: wp(4),
-      paddingVertical: sp(16),
+      paddingTop: sp(16),
+      paddingBottom: Math.max(insets?.bottom || 0, Platform.OS === 'android' ? sp(32) : sp(18)) + sp(16),
     },
     confettiContainer: {
       marginTop: sp(16),

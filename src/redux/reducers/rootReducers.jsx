@@ -18,7 +18,7 @@ import exerciseReducer from './exerciseReducer';
 import weightReducer from './weightReducer';
 import sleepReducer from './sleepReducer';
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   workout: workoutReducer,
   exercise: exerciseReducer,
   diet: dietReducer,
@@ -38,6 +38,13 @@ const rootReducer = combineReducers({
   home: homeReducer,
   support: supportReducer,
 });
+
+const rootReducer = (state, action) => {
+  if (action.type === 'USER_LOGOUT') {
+    state = undefined;
+  }
+  return appReducer(state, action);
+};
 
 export default rootReducer;
 

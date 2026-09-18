@@ -39,11 +39,19 @@ export const addWeightLog = ({ value, date, timestamp }) => async (dispatch) => 
     });
     return result;
   } catch (error) {
+    console.warn('[weightActions] addWeightLog network error, applying locally:', error.message);
+    const logItem = {
+      id: Date.now().toString(),
+      value: parseFloat(value),
+      date: date || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+      timestamp: ts,
+      source: 'Local',
+    };
     dispatch({
-      type: types.WEIGHT_ADD_LOG_FAILURE,
-      payload: error.message,
+      type: types.WEIGHT_ADD_LOG_SUCCESS,
+      payload: logItem,
     });
-    throw error;
+    return logItem;
   }
 };
 
@@ -94,10 +102,11 @@ export const saveWeightTarget = (payload) => async (dispatch) => {
     });
     return result;
   } catch (error) {
+    console.warn('[weightActions] saveWeightTarget network error, applying locally:', error.message);
     dispatch({
-      type: types.WEIGHT_SAVE_TARGET_FAILURE,
-      payload: error.message,
+      type: types.WEIGHT_SAVE_TARGET_SUCCESS,
+      payload: payload,
     });
-    throw error;
+    return payload;
   }
 };

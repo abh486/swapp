@@ -18,21 +18,29 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
     page === 1 ? setIsLoading(true) : setIsLoadingMore(true);
     setError('');
 
+    const effectiveRadius = newRadius || radius || 30;
+
     try {
       const isTrainerFilter = activeFilters.vertical === 'TRAINER' || activeFilters.categoryId === 'trainer';
       
       if (isTrainerFilter) {
         const params = {
           page,
-          limit: 20,
-          maxDistance: newRadius,
+          limit: 50,
         };
         if (location && location.latitude && location.longitude) {
           params.latitude = location.latitude;
           params.longitude = location.longitude;
+          params.maxDistance = 10000;
         }
-        const result = await dispatch(browseTrainers(params));
-        const fetched = Array.isArray(result) ? result : (result?.trainers || result?.data || []);
+        let result = await dispatch(browseTrainers(params));
+        let fetched = Array.isArray(result) ? result : (result?.trainers || result?.data || []);
+
+        if (fetched.length === 0 && (params.latitude || params.longitude)) {
+          const fallbackResult = await dispatch(browseTrainers({ page, limit: 50 }));
+          fetched = Array.isArray(fallbackResult) ? fallbackResult : (fallbackResult?.trainers || fallbackResult?.data || []);
+        }
+
         const formatted = fetched.map(t => ({
           id: t.id,
           name: t.name || t.user?.email?.split('@')[0] || 'Trainer',
@@ -51,25 +59,47 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
           amenities: t.specialties || []
         }));
         setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);
-        setHasMore(formatted.length === 20);
+        setHasMore(formatted.length === 50);
         if (page === 1 && formatted.length === 0) {
-            setError('No trainers found in this radius.');
+            setError('No trainers found.');
         }
       } else {
         const params = {
           page,
-          limit: 20,
-          radius: newRadius,
+          limit: 50,
           ...activeFilters
         };
 
+        // When location is available, request with 10000 km radius so all gyms are fetched with accurate distance
         if (location && location.latitude && location.longitude) {
           params.lat = location.latitude;
           params.lon = location.longitude;
+          params.radius = 10000;
         }
-        const response = await dispatch(discoverProviders(params));
+        let response = await dispatch(discoverProviders(params));
 
-        if (response.success) {
+        // Fallback: If location query returned no gyms, fetch all gyms
+        const hasProviders = response?.success && (
+          (Array.isArray(response.data) && response.data.length > 0) ||
+          (response.data?.providers && response.data.providers.length > 0)
+        );
+
+        if (!hasProviders && (params.lat || params.lon)) {
+          const fallbackParams = {
+            page,
+            limit: 50,
+            ...activeFilters
+          };
+          delete fallbackParams.lat;
+          delete fallbackParams.lon;
+          delete fallbackParams.radius;
+          const fallbackResponse = await dispatch(discoverProviders(fallbackParams));
+          if (fallbackResponse?.success) {
+            response = fallbackResponse;
+          }
+        }
+
+        if (response?.success) {
           const fetched = Array.isArray(response.data) 
             ? response.data 
             : (response.data?.providers || response.data?.data || []);
@@ -85,10 +115,10 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
           setProviders(prev => page === 1 ? formatted : [...prev, ...formatted]);
           setHasMore(formatted.length === params.limit);
           if (page === 1 && formatted.length === 0) {
-              setError('No partners found in this radius.');
+              setError('No partners found.');
           }
         } else {
-          setError('Failed to load partners.');
+          setError(response?.message || 'Failed to load partners.');
         }
       }
     } catch (err) {
@@ -97,7 +127,7 @@ export const useProviderData = (location, permissionGranted, activeFilters = {})
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [location, permissionGranted, dispatch, activeFilters]);
+  }, [location, permissionGranted, dispatch, activeFilters, radius]);
 
   useEffect(() => {
     fetchProviders(1, radius);

@@ -879,7 +879,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
   }, [device, isGlobalBundlePackage, isOpenAccess, openScanner, route?.params?.openAccessAutoOpenScanner, selectedCategoryId]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#170B20" />
       <ScrollView
         style={styles.container}
@@ -1259,7 +1259,7 @@ const createStyles = ({ fs, sp, ms, wp, isTablet, isLandscape, maxContentWidth, 
   safeArea: { flex: 1, backgroundColor: '#000' },
   container: { flex: 1, backgroundColor: '#000' },
   content: {
-    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(16),
+    paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? sp(32) : sp(18)) + sp(16),
     alignSelf: 'center',
     width: '100%',
     maxWidth: maxContentWidth,

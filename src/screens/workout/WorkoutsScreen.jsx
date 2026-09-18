@@ -4,10 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Modal,
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
 import { PRESET_ROUTINES } from '../../utils/presetRoutinesData';
-
-const { width } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 const FAST_WORKOUT_IMG = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=300&auto=format&fit=crop';
 const CUSTOM_WORKOUT_IMG = 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=300&auto=format&fit=crop';
@@ -191,6 +191,9 @@ const SuspensionIcon = () => (
 
 
 const WorkoutsScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
+  const { width, wp, hp, ms, sp, fs } = metrics;
   const dispatch = useDispatch();
   const levels = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED'];
   const [selectedLevel, setSelectedLevel] = useState('');
@@ -245,10 +248,10 @@ const WorkoutsScreen = ({ navigation }) => {
         }}
       >
         <View style={styles.routineCardBody}>
-          <Text style={styles.routineTitle} numberOfLines={2}>
+          <Text style={[styles.routineTitle, { fontSize: fs(15) }]} numberOfLines={2}>
             {routine.name}
           </Text>
-          <Text style={styles.routineSubtitle}>
+          <Text style={[styles.routineSubtitle, { fontSize: fs(12) }]}>
             {routine.routinesCount} routines
           </Text>
         </View>
@@ -349,7 +352,7 @@ const WorkoutsScreen = ({ navigation }) => {
 
   const renderHeader = () => (
     <View>
-      <View style={styles.header}>
+      <View style={[styles.header, { marginBottom: sp(22) }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
             style={styles.backButton}
@@ -359,16 +362,16 @@ const WorkoutsScreen = ({ navigation }) => {
           >
             <BackIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Workouts</Text>
+          <Text style={[styles.headerTitle, { fontSize: fs(28) }]}>Workouts</Text>
         </View>
         <TouchableOpacity style={styles.headerIcon}>
           <ClockIcon />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.actionRow}>
+      <View style={[styles.actionRow, { gap: sp(8), marginBottom: sp(20) }]}>
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { height: Math.min(ms(72), hp(9.5)) }]}
           activeOpacity={0.75}
           onPress={() => navigation?.navigate?.('FastWorkoutActive', { source: 'fast_workout', isCustomWorkout: false })}
         >
@@ -378,12 +381,12 @@ const WorkoutsScreen = ({ navigation }) => {
             imageStyle={{ borderRadius: 16 }}
           >
             <View style={styles.actionOverlay} />
-            <Text style={styles.actionLabel}>Create a New{'\n'}Fast Workout</Text>
+            <Text style={[styles.actionLabel, { fontSize: fs(10.5), lineHeight: fs(13.5) }]}>Create a New{'\n'}Fast Workout</Text>
           </ImageBackground>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { height: Math.min(ms(72), hp(9.5)) }]}
           activeOpacity={0.75}
           onPress={() => navigation?.navigate?.('CreateCustomWorkoutScreen')}
         >
@@ -393,12 +396,12 @@ const WorkoutsScreen = ({ navigation }) => {
             imageStyle={{ borderRadius: 16 }}
           >
             <View style={styles.actionOverlay} />
-            <Text style={styles.actionLabel}>Create a Custom{'\n'}Workout</Text>
+            <Text style={[styles.actionLabel, { fontSize: fs(10.5), lineHeight: fs(13.5) }]}>Create a Custom{'\n'}Workout</Text>
           </ImageBackground>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionCard}
+          style={[styles.actionCard, { height: Math.min(ms(72), hp(9.5)) }]}
           activeOpacity={0.75}
           onPress={() => navigation?.navigate?.('CurrentWorkoutPlanScreen')}
         >
@@ -408,7 +411,7 @@ const WorkoutsScreen = ({ navigation }) => {
             imageStyle={{ borderRadius: 16 }}
           >
             <View style={styles.actionOverlay} />
-            <Text style={styles.actionLabel}>AI{'\n'}Workout</Text>
+            <Text style={[styles.actionLabel, { fontSize: fs(10.5), lineHeight: fs(13.5) }]}>AI{'\n'}Workout</Text>
           </ImageBackground>
         </TouchableOpacity>
       </View>
@@ -710,7 +713,7 @@ const WorkoutsScreen = ({ navigation }) => {
       </Modal>
 
       <FlatList
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: sp(18), paddingTop: Math.max(insets.top + sp(8), sp(44)) }]}
         data={showAllRoutines ? filteredRoutines : filteredRoutines.slice(0, 5)}
         keyExtractor={(item) => item.id}
         renderItem={renderRoutineItem}
@@ -738,83 +741,83 @@ const WorkoutsScreen = ({ navigation }) => {
             )}
 
             {/* Categories Grid */}
-            <View style={styles.categoriesGrid}>
-              <View style={styles.gridRow}>
+            <View style={[styles.categoriesGrid, { gap: sp(12), marginBottom: sp(24) }]}>
+              <View style={[styles.gridRow, { gap: sp(12) }]}>
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'At home' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'At home' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('At home')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>At home</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>At home</Text>
                   <AtHomeIcon />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Travel' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Travel' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Travel')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Travel</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Travel</Text>
                   <TravelIcon />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.gridRow}>
+              <View style={[styles.gridRow, { gap: sp(12) }]}>
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Dumbbells Only' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Dumbbells Only' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Dumbbells Only')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Dumbbells{'\n'}Only</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Dumbbells{'\n'}Only</Text>
                   <DumbbellCategoryIcon />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Band' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Band' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Band')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Band</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Band</Text>
                   <BandIcon />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.gridRow}>
+              <View style={[styles.gridRow, { gap: sp(12) }]}>
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Cardio & HIIT' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Cardio & HIIT' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Cardio & HIIT')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Cardio &{'\n'}HIIT</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Cardio &{'\n'}HIIT</Text>
                   <CardioIcon />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Gym' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Gym' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Gym')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Gym</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Gym</Text>
                   <GymCategoryIcon />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.gridRow}>
+              <View style={[styles.gridRow, { gap: sp(12) }]}>
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Bodyweight' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Bodyweight' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Bodyweight')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Bodyweight</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Bodyweight</Text>
                   <BodyweightIcon />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.categoryCard, selectedCategory === 'Suspension Band' && styles.categoryCardSelected]}
+                  style={[styles.categoryCard, { height: Math.min(ms(84), hp(10.5)) }, selectedCategory === 'Suspension Band' && styles.categoryCardSelected]}
                   onPress={() => handleCategoryPress('Suspension Band')}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.categoryCardText}>Suspension{'\n'}Band</Text>
+                  <Text style={[styles.categoryCardText, { fontSize: fs(15), lineHeight: fs(20) }]}>Suspension{'\n'}Band</Text>
                   <SuspensionIcon />
                 </TouchableOpacity>
               </View>

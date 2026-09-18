@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useResponsiveMetrics } from '../../../../utils/responsive';
 
 const DietWaterWidget = ({ selectedDate }) => {
+  const { sp, fs, ms } = useResponsiveMetrics();
   const [waterVolume, setWaterVolume] = useState(0.0);
   const [selectedIncrement, setSelectedIncrement] = useState(0.2);
   const [targetVolume, setTargetVolume] = useState(4.0); // Default 4.0L (16 glasses)
@@ -64,15 +66,15 @@ const DietWaterWidget = ({ selectedDate }) => {
   const activeDropsCount = Math.min(totalDrops, Math.round((waterVolume / targetVolume) * totalDrops));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal: sp(20), paddingVertical: sp(18) }]}>
       {/* Left side info block */}
       <View style={styles.leftBlock}>
         <View style={styles.titleRow}>
-          <Text style={styles.waterBlueTitle}>Water </Text>
-          <Text style={styles.waterWhiteValue}>{waterVolume.toFixed(1)}L </Text>
-          <Text style={styles.waterWhitePercent}>({percent}%)</Text>
+          <Text style={[styles.waterBlueTitle, { fontSize: fs(21) }]}>Water </Text>
+          <Text style={[styles.waterWhiteValue, { fontSize: fs(21) }]}>{waterVolume.toFixed(1)}L </Text>
+          <Text style={[styles.waterWhitePercent, { fontSize: fs(15) }]}>({percent}%)</Text>
         </View>
-        <Text style={styles.subtext}>Daily Target {targetVolume.toFixed(1)}L</Text>
+        <Text style={[styles.subtext, { fontSize: fs(12) }]}>Daily Target {targetVolume.toFixed(1)}L</Text>
 
         {/* Drops row */}
         <View style={styles.dropsRow}>
@@ -80,19 +82,23 @@ const DietWaterWidget = ({ selectedDate }) => {
             <MaterialCommunityIcons 
               key={idx} 
               name="water" 
-              size={18} 
+              size={ms(18)} 
               color={idx < activeDropsCount ? '#FF9500' : '#FFFFFF'} 
-              style={{ marginRight: 6 }}
+              style={{ marginRight: sp(6) }}
             />
           ))}
         </View>
       </View>
 
       {/* Right side controls block */}
-      <View style={styles.rightBlock}>
+      <View style={[styles.rightBlock, { width: ms(140) }]}>
         {/* Minus button */}
-        <TouchableOpacity style={styles.circleBtn} onPress={handleSubtractWater} activeOpacity={0.7}>
-          <Icon name="remove" size={18} color="#FFF" />
+        <TouchableOpacity 
+          style={[styles.circleBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+          onPress={handleSubtractWater} 
+          activeOpacity={0.7}
+        >
+          <Icon name="remove" size={ms(18)} color="#FFF" />
         </TouchableOpacity>
 
         {/* Vertical options list */}
@@ -111,8 +117,12 @@ const DietWaterWidget = ({ selectedDate }) => {
         </View>
 
         {/* Plus button */}
-        <TouchableOpacity style={styles.circleBtn} onPress={handleAddWater} activeOpacity={0.7}>
-          <Icon name="add" size={18} color="#FFF" />
+        <TouchableOpacity 
+          style={[styles.circleBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+          onPress={handleAddWater} 
+          activeOpacity={0.7}
+        >
+          <Icon name="add" size={ms(18)} color="#FFF" />
         </TouchableOpacity>
       </View>
     </View>

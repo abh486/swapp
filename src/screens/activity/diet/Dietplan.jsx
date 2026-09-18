@@ -22,27 +22,24 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { useCameraDevice, useCameraPermission, usePhotoOutput } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 import { getAccessStatus } from '../../../services/aiDieticianService';
-import { fetchSleepLogs } from '../../../api/sleepApi';
+import { fetchSleepLogs } from '../../../redux/actions/sleepActions';
 import { useAuth } from '../../../context/AuthContext';
-import { getTargetsForUser } from '../../../utils/nutritionCalculator';
+import { getTargetsForUser, getCachedBackendTargets, setCachedBackendTargets, fetchNutritionTargets } from '../../../utils/nutritionCalculator';
 import dietAiApi from '../../../api/dietAiApi';
 
 
 import DietHeader from './components/DietHeader';
 import DietMacros from './components/DietMacros';
-import DietBanners from './components/DietBanners';
-import DietLogs from './components/DietLogs';
 import DietWaterWidget from './components/DietWaterWidget';
 import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import DietMealModal from './components/DietMealModal';
 import DietMealSelectionModal from './components/DietMealSelectionModal';
-
-const { width } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../../../utils/responsive';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const PLAN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -70,29 +67,45 @@ const getMondayBasedIndex = (date) => {
 };
 
 const buildCalendarDays = (selectedDate) => {
-  const days = [];
-  const year = selectedDate.getFullYear();
-  const month = selectedDate.getMonth();
+  const now = new Date();
+  const currentMonth = selectedDate.getMonth();
+  const currentYear = selectedDate.getFullYear();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  const numDays = new Date(year, month + 1, 0).getDate();
-  const WEEKDAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const date = i + 1;
+    const fullDate = new Date(currentYear, currentMonth, date);
+    const dayOfWeek = fullDate.getDay();
+    const isToday =
+      date === now.getDate() &&
+      currentMonth === now.getMonth() &&
+      currentYear === now.getFullYear();
 
-  for (let d = 1; d <= numDays; d++) {
-    const dayDate = new Date(year, month, d);
-    days.push({
-      label: WEEKDAY_NAMES_SHORT[dayDate.getDay()],
-      date: String(d).padStart(2, '0'),
-      active: d === selectedDate.getDate(),
-      month: dayDate.toLocaleDateString('en-US', { month: 'short' }),
-      fullDate: dayDate,
-    });
-  }
-  return days;
+    const isSelected =
+      date === selectedDate.getDate() &&
+      currentMonth === selectedDate.getMonth() &&
+      currentYear === selectedDate.getFullYear();
+
+    return {
+      date,
+      label: WEEKDAY_LABELS[getMondayBasedIndex(fullDate)],
+      active: isSelected,
+      isToday,
+      fullDate,
+    };
+  });
 };
 
 const Dietplan = ({ navigation, route }) => {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const reduxWeight = useSelector(state => state.weight);
+  const metrics = useResponsiveMetrics();
+  const { width, wp, hp, ms, sp, fs } = metrics;
+  const weeklyPlanCardWidth = Math.min(wp(84), ms(360));
+  const weeklyPlanCardSpacing = sp(12);
+  const weeklyPlanSnapInterval = weeklyPlanCardWidth + weeklyPlanCardSpacing;
+
   const cameraRef = useRef(null);
   const weeklyPlanScrollViewRef = useRef(null);
   const isProgrammaticScroll = useRef(false);
@@ -111,6 +124,88 @@ const Dietplan = ({ navigation, route }) => {
 
   // --- NUTRITION ENGINE STATES ---
   const [dailySummary, setDailySummary] = useState(null);
+
+  const liveTargets = useMemo(() => {
+    const cached = getCachedBackendTargets();
+    if (cached && cached.calories > 0) {
+      return cached;
+    }
+    const activeWeight =
+      reduxWeight?.logs?.[reduxWeight.logs.length - 1]?.value ||
+      user?.weight?.value ||
+      user?.weight ||
+      user?.userProfile?.weight ||
+      user?.memberProfile?.weight ||
+      reduxWeight?.startingValue ||
+      70;
+    const activeTarget =
+      reduxWeight?.targetWeight ||
+      user?.targetWeight?.value ||
+      user?.targetWeight ||
+      user?.userProfile?.targetWeight ||
+      user?.memberProfile?.targetWeight ||
+      user?.goalWeight;
+    const activeHeight =
+      reduxWeight?.height ||
+      user?.height?.value ||
+      user?.height ||
+      user?.userProfile?.height ||
+      user?.memberProfile?.height ||
+      170;
+    const activeFitnessGoal =
+      user?.fitnessGoal ||
+      user?.userProfile?.fitnessGoal ||
+      user?.memberProfile?.fitnessGoal ||
+      '';
+    const activeGoalWeeks =
+      reduxWeight?.goalWeeks ||
+      user?.goalWeeks ||
+      user?.userProfile?.goalWeeks ||
+      user?.memberProfile?.goalWeeks ||
+      12;
+    const activeTimeframeDays =
+      reduxWeight?.targetTimeframeDays ||
+      user?.targetTimeframeDays ||
+      user?.userProfile?.targetTimeframeDays ||
+      user?.memberProfile?.targetTimeframeDays ||
+      (activeGoalWeeks ? activeGoalWeeks * 7 : 84);
+    const activeGoalType =
+      reduxWeight?.goalType ||
+      user?.goalType ||
+      user?.userProfile?.goalType ||
+      user?.memberProfile?.goalType ||
+      null;
+
+    const merged = {
+      ...(user || {}),
+      weight: activeWeight,
+      height: activeHeight,
+      targetWeight: activeTarget || undefined,
+      goalWeight: activeTarget || undefined,
+      fitnessGoal: activeFitnessGoal,
+      goalWeeks: activeGoalWeeks,
+      targetTimeframeDays: activeTimeframeDays,
+      goalType: activeGoalType,
+    };
+    return getTargetsForUser(merged);
+  }, [reduxWeight, user]);
+
+  useEffect(() => {
+    setDailySummary(prev => {
+      const updatedTargets = liveTargets;
+      if (!prev) {
+        return {
+          summary: { calories: 0, protein: 0, carbs: 0, fats: 0, fibre: 0 },
+          targets: updatedTargets,
+          logs: [],
+        };
+      }
+      return {
+        ...prev,
+        targets: updatedTargets,
+      };
+    });
+  }, [liveTargets]);
   const [recommendation, setRecommendation] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isNutritionLoading, setIsNutritionLoading] = useState(false);
@@ -123,15 +218,16 @@ const Dietplan = ({ navigation, route }) => {
     return PLAN_DAY_NAMES[new Date().getDay()] || 'Monday';
   });
 
-  const [stepsToday, setStepsToday] = useState(2000);
+  const [stepsToday, setStepsToday] = useState(0);
   const [sleepHoursToday, setSleepHoursToday] = useState(0);
-  const [hydrateGlasses, setHydrateGlasses] = useState(2);
+  const [hydrateGlasses, setHydrateGlasses] = useState(0);
   const [workoutCaloriesToday, setWorkoutCaloriesToday] = useState(0);
   const [sleepLogDetails, setSleepLogDetails] = useState(null); // { bedTime, wakeTime, duration }
 
   const formatSleep = (hours) => {
-    const hrs = Math.floor(hours || 0);
-    const mins = Math.round(((hours || 0) - hrs) * 60);
+    const totalMinutes = Math.round((hours || 0) * 60);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
     return `${hrs} hr ${mins} min`;
   };
 
@@ -219,11 +315,11 @@ const Dietplan = ({ navigation, route }) => {
         : new Date().toISOString().split('T')[0];
       try {
         const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
-        const currentWater = savedVal ? parseFloat(savedVal) : 0.9;
+        const currentWater = savedVal ? parseFloat(savedVal) : 0.0;
         const glasses = Math.round(currentWater / 0.45);
         setHydrateGlasses(glasses);
       } catch (err) {
-        setHydrateGlasses(2);
+        setHydrateGlasses(0);
       }
     };
     loadHydrateGlasses();
@@ -294,11 +390,36 @@ const Dietplan = ({ navigation, route }) => {
           return acc;
         }, { calories: 0, protein: 0, carbs: 0, fats: 0, fibre: 0 });
 
-        const targets = summaryResponse?.data?.data?.targets || getTargetsForUser(user);
+        // Retrieve backend-calculated targets (authoritative) or fallback to live profile targets
+        const summaryPayload = summaryResponse?.data?.data || summaryResponse?.data;
+        const backendTargets = summaryPayload?.targets;
+        if (backendTargets && backendTargets.calories > 0) {
+          setCachedBackendTargets(backendTargets);
+        }
+
+        const activeTargets = (backendTargets && backendTargets.calories > 0)
+          ? {
+              ...backendTargets,
+              fat: backendTargets.fats || backendTargets.fat,
+              fats: backendTargets.fats || backendTargets.fat,
+              fiber: backendTargets.fibre || backendTargets.fiber,
+              fibre: backendTargets.fibre || backendTargets.fiber,
+            }
+          : (getCachedBackendTargets() || liveTargets);
+
+        const currentWeight =
+          reduxWeight?.logs?.[reduxWeight.logs.length - 1]?.value ||
+          user?.weight?.value ||
+          user?.weight ||
+          user?.userProfile?.weight ||
+          user?.memberProfile?.weight ||
+          reduxWeight?.startingValue ||
+          70;
+        daySummary.weight = currentWeight;
 
         setDailySummary({
           summary: daySummary,
-          targets,
+          targets: activeTargets,
           logs: todayFoodLogs,
         });
       }
@@ -400,10 +521,9 @@ const Dietplan = ({ navigation, route }) => {
   useEffect(() => {
     if (recommendation && recommendation.weeklyPlan) {
       const dayIndex = selectedDate.getDay();
-      const cardWidth = width * 0.82 + 12;
       isProgrammaticScroll.current = true;
       weeklyPlanScrollViewRef.current?.scrollTo({
-        x: dayIndex * cardWidth,
+        x: dayIndex * weeklyPlanSnapInterval,
         animated: true,
       });
       const timer = setTimeout(() => {
@@ -411,14 +531,13 @@ const Dietplan = ({ navigation, route }) => {
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [selectedDate, recommendation]);
+  }, [selectedDate, recommendation, weeklyPlanSnapInterval]);
 
   const handleWeeklyPlanScroll = (event) => {
     if (isProgrammaticScroll.current) return;
 
     const contentOffset = event.nativeEvent.contentOffset.x;
-    const cardWidth = width * 0.82 + 12;
-    const index = Math.round(contentOffset / cardWidth);
+    const index = Math.round(contentOffset / weeklyPlanSnapInterval);
 
     if (index >= 0 && index < PLAN_DAY_NAMES.length) {
       const targetDayName = PLAN_DAY_NAMES[index];
@@ -506,11 +625,11 @@ const Dietplan = ({ navigation, route }) => {
   const [selectedMealType, setSelectedMealType] = useState('Lunch');
   const [mealDescription, setMealDescription] = useState('');
   const [nutritionData, setNutritionData] = useState({
-    mealName: 'Green Luxe Bowl',
-    calories: 360,
-    protein: 12,
-    carbs: 18,
-    fats: 8
+    mealName: '',
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fats: 0
   });
 
   // --- CALENDAR STATE ---
@@ -786,7 +905,7 @@ const Dietplan = ({ navigation, route }) => {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.weeklyPlanScrollWrapper}
-              snapToInterval={width * 0.82 + 12}
+              snapToInterval={weeklyPlanSnapInterval}
               decelerationRate="fast"
               bounces={true}
               onMomentumScrollEnd={handleWeeklyPlanScroll}
@@ -796,11 +915,17 @@ const Dietplan = ({ navigation, route }) => {
                   key => key.toLowerCase() === day.toLowerCase()
                 );
                 const meals = dayDataKey ? recommendation.weeklyPlan[dayDataKey] : [];
-                const userCalsTarget = dailySummary?.targets?.calories || getTargetsForUser(user).calories;
+                const userCalsTarget = dailySummary?.targets?.calories || getCachedBackendTargets()?.calories || getTargetsForUser(user).calories;
                 const totalCals = meals && meals.length > 0 ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : userCalsTarget;
 
                 return (
-                  <View key={day} style={styles.dayPlanColumn}>
+                  <View 
+                    key={day} 
+                    style={[
+                      styles.dayPlanColumn, 
+                      { width: weeklyPlanCardWidth, marginHorizontal: weeklyPlanCardSpacing / 2 }
+                    ]}
+                  >
                     <View style={styles.dayColumnHeader}>
                       <Text style={styles.dayColumnTitle}>{day.toUpperCase()}</Text>
                       <View style={styles.dayColumnBadge}>
@@ -941,6 +1066,7 @@ const Dietplan = ({ navigation, route }) => {
           />
           <DietMacros
             dailySummary={dailySummary}
+            selectedDate={selectedDate}
             handleTrackWithCamera={handleTrackWithCamera}
             handlePlusButtonPress={handlePlusButtonPress}
             navigation={navigation}
@@ -1045,7 +1171,7 @@ const Dietplan = ({ navigation, route }) => {
               <View style={styles.rowTextContainer}>
                 <Text style={styles.rowTitle}>Weight</Text>
                 <Text style={styles.rowSubtitle}>
-                  {dailySummary?.summary?.weight ? `${dailySummary.summary.weight} kg` : '2 kg gained'}
+                  {dailySummary?.summary?.weight ? `${dailySummary.summary.weight} kg` : user?.weight ? `${user.weight} kg` : 'Track weight'}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => navigation.navigate('WeightTracker')} style={styles.rowActionBtn}>
@@ -1178,7 +1304,7 @@ const Dietplan = ({ navigation, route }) => {
                             {/* Calories */}
                             <Text style={styles.caloriesRow}>
                               <Text style={styles.caloriesBold}>{item.calories}</Text>
-                              <Text style={styles.caloriesTarget}> / 937 Cal Eaten</Text>
+                              <Text style={styles.caloriesTarget}> Cal Eaten</Text>
                             </Text>
 
                             {/* Meal description */}
@@ -1887,7 +2013,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   dayPlanColumn: {
-    width: width * 0.82,
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderRadius: 20,
     borderWidth: 1,

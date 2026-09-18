@@ -1,6 +1,6 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, SafeAreaView, FlatList, Image, TextInput, ScrollView, Alert, ImageBackground, Platform, Share, Linking, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView, FlatList, Image, TextInput, ScrollView, Alert, ImageBackground, Platform, Share, Linking, Modal, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -8,8 +8,7 @@ import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
-
-const { height: screenHeight } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
@@ -121,6 +120,7 @@ const PostItem = React.memo(({
   onShowOptions,
   listHeight,
 }) => {
+  const { width, ms, sp, fs } = useResponsiveMetrics();
   const [currentMediaSlide, setCurrentMediaSlide] = useState(0);
   const [failedImages, setFailedImages] = useState({});
   const duration = item.stats?.duration || item.duration || 0;
@@ -139,29 +139,30 @@ const PostItem = React.memo(({
 
   const formattedDate = getFormattedDate(item.date || item.createdAt);
   const workoutTitle = item.workoutName || item.workoutType || 'Workout';
+  const cardWidth = width;
 
   return (
     <View
       style={[styles.postContainer, { height: listHeight, justifyContent: 'space-between' }]}
     >
       {/* Top Section */}
-      <View style={{ paddingHorizontal: 16 }}>
+      <View style={{ paddingHorizontal: sp(16) }}>
         {/* 1. Header (User Info & Date) */}
         <View style={styles.postHeader}>
-          <TouchableOpacity onPress={() => onPressUser && onPressUser(item.userId || item.user?.id, item.user)} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => onPressUser && onPressUser(item.userId || item.user?.id || item.user?._id || item.user?.userId, item.user)} activeOpacity={0.8}>
             {item.user?.avatar ? (
               <Image source={{ uri: item.user.avatar }} style={styles.postAvatar} />
             ) : (
               <View style={[styles.postAvatar, styles.initialsAvatar]}>
-                <Text style={styles.initialsText}>{userInitials}</Text>
+                <Text style={[styles.initialsText, { fontSize: fs(15) }]}>{userInitials}</Text>
               </View>
             )}
           </TouchableOpacity>
           <View style={styles.postHeaderDetails}>
             <View style={styles.postHeaderNameRow}>
               {userName ? (
-                <TouchableOpacity onPress={() => onPressUser && onPressUser(item.userId || item.user?.id, item.user)} activeOpacity={0.8}>
-                  <Text style={styles.postUserName}>{userName}</Text>
+                <TouchableOpacity onPress={() => onPressUser && onPressUser(item.userId || item.user?.id || item.user?._id || item.user?.userId, item.user)} activeOpacity={0.8}>
+                  <Text style={[styles.postUserName, { fontSize: fs(16) }]}>{userName}</Text>
                 </TouchableOpacity>
               ) : null}
               {item.user?.isVerified ? (
@@ -174,7 +175,7 @@ const PostItem = React.memo(({
               ) : null}
             </View>
             {formattedDate ? (
-              <Text style={styles.postDateText}>{formattedDate}</Text>
+              <Text style={[styles.postDateText, { fontSize: fs(12) }]}>{formattedDate}</Text>
             ) : null}
           </View>
         </View>
@@ -185,35 +186,35 @@ const PostItem = React.memo(({
           onPress={() => onPress && onPress(item)}
         >
           {/* 2. Workout Title */}
-          <Text style={styles.postWorkoutTitle} numberOfLines={1}>{workoutTitle}</Text>
+          <Text style={[styles.postWorkoutTitle, { fontSize: fs(21) }]} numberOfLines={1}>{workoutTitle}</Text>
 
           {/* Caption (description/notes) right below Workout Title */}
           {caption ? (
             <View style={styles.captionContainer}>
-              <Text style={styles.captionText} numberOfLines={2}>{caption}</Text>
+              <Text style={[styles.captionText, { fontSize: fs(13) }]} numberOfLines={2}>{caption}</Text>
             </View>
           ) : null}
 
           {/* 3. Workout Stats */}
-          <View style={styles.postStatsRow}>
+          <View style={[styles.postStatsRow, { gap: sp(16) }]}>
             <View style={styles.postStatItem}>
-              <Text style={styles.postStatLabel}>Time</Text>
-              <Text style={styles.postStatValue}>{formatDuration(duration)}</Text>
+              <Text style={[styles.postStatLabel, { fontSize: fs(11) }]}>Time</Text>
+              <Text style={[styles.postStatValue, { fontSize: fs(15) }]}>{formatDuration(duration)}</Text>
             </View>
             <View style={styles.postStatItem}>
-              <Text style={styles.postStatLabel}>Volume</Text>
-              <Text style={styles.postStatValue}>{formatVolume(volume)}</Text>
+              <Text style={[styles.postStatLabel, { fontSize: fs(11) }]}>Volume</Text>
+              <Text style={[styles.postStatValue, { fontSize: fs(15) }]}>{formatVolume(volume)}</Text>
             </View>
             {calories > 0 && (
               <View style={styles.postStatItem}>
-                <Text style={styles.postStatLabel}>Calories</Text>
-                <Text style={styles.postStatValue}>{calories} kcal</Text>
+                <Text style={[styles.postStatLabel, { fontSize: fs(11) }]}>Calories</Text>
+                <Text style={[styles.postStatValue, { fontSize: fs(15) }]}>{calories} kcal</Text>
               </View>
             )}
             {item.stats?.records > 0 && (
               <View style={styles.postStatItem}>
-                <Text style={styles.postStatLabel}>Records</Text>
-                <Text style={styles.postStatValue}>🥇 {item.stats.records}</Text>
+                <Text style={[styles.postStatLabel, { fontSize: fs(11) }]}>Records</Text>
+                <Text style={[styles.postStatValue, { fontSize: fs(15) }]}>🥇 {item.stats.records}</Text>
               </View>
             )}
           </View>
@@ -248,8 +249,6 @@ const PostItem = React.memo(({
 
             if (exercises.length === 0) return null;
 
-            const cardWidth = Dimensions.get('window').width;
-
             return (
               <View style={[styles.postExercisesContainer, { flex: 1, padding: 0, overflow: 'hidden', marginVertical: 0 }]}>
                 <ScrollView
@@ -278,10 +277,7 @@ const PostItem = React.memo(({
                     const imageSource = (primaryUri && !isFailed)
                       ? {
                           uri: primaryUri,
-                          headers: primaryUri.includes('rapidapi') ? {
-                            'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                            'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                          } : undefined,
+                          
                         }
                       : getExerciseMuscleFallback(exObj);
 
@@ -352,10 +348,8 @@ const PostItem = React.memo(({
             );
           }
 
-          const cardWidth = Dimensions.get('window').width;
-
           return (
-            <View style={[styles.postMediaContainer, { height: undefined, flex: 1, minHeight: 200, marginBottom: 0 }]}>
+            <View style={[styles.postMediaContainer, { height: undefined, flex: 1, minHeight: Math.min(ms(180), listHeight * 0.35), marginBottom: 0 }]}>
               <ScrollView
                 horizontal
                 pagingEnabled
@@ -516,6 +510,7 @@ const PostItem = React.memo(({
 });
 
 const Community = ({ navigation }) => {
+  const { width, height: screenHeight, sp, ms, fs } = useResponsiveMetrics();
   const { user } = useAuth();
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const loggedInUserAvatar =
@@ -536,6 +531,10 @@ const Community = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
+  const [searchTab, setSearchTab] = useState('profiles'); // 'profiles' | 'posts'
+  const [apiUsers, setApiUsers] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [followedUserIds, setFollowedUserIds] = useState({});
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [postToShare, setPostToShare] = useState(null);
@@ -634,6 +633,129 @@ const Community = ({ navigation }) => {
     }
   };
 
+  // Extract unique post authors to enrich local candidate search
+  const postAuthors = React.useMemo(() => {
+    const map = new Map();
+    posts.forEach(p => {
+      const u = p.user;
+      const uId = u?.id || u?._id || p.userId;
+      if (uId && !map.has(uId)) {
+        map.set(uId, {
+          id: uId,
+          _id: uId,
+          name: getDisplayName(u),
+          username: u.username || '',
+          avatar: u.avatar || u.profileImage || u.profilePicture || u.profilePhoto,
+          isVerified: u.isVerified || false,
+          isFollowing: u.isFollowing || false,
+          ...u,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [posts]);
+
+  // Combined candidate local users from suggestions and feed posts
+  const allLocalUsers = React.useMemo(() => {
+    const map = new Map();
+    suggestedUsers.forEach(u => {
+      const id = u.id || u._id;
+      if (id) map.set(id, { ...u, id, _id: id });
+    });
+    postAuthors.forEach(u => {
+      const id = u.id || u._id;
+      if (id && !map.has(id)) map.set(id, u);
+    });
+    return Array.from(map.values());
+  }, [suggestedUsers, postAuthors]);
+
+  // Debounced API search for users
+  useEffect(() => {
+    if (!searchActive || searchTab !== 'profiles') return;
+    const q = searchQuery.trim();
+    if (!q) {
+      setApiUsers([]);
+      setIsSearchingUsers(false);
+      return;
+    }
+
+    setIsSearchingUsers(true);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await apiClient.get('/users/search', {
+          params: { q, query: q, search: q }
+        });
+        const data = response?.data?.data || response?.data?.users || response?.data || [];
+        if (Array.isArray(data)) {
+          setApiUsers(data);
+        } else {
+          setApiUsers([]);
+        }
+      } catch (err) {
+        console.log('[Community] /users/search error:', err?.message);
+        setApiUsers([]);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchActive, searchTab]);
+
+  // Merge and deduplicate displayed user profiles
+  const displayedUserProfiles = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      return suggestedUsers.length > 0 ? suggestedUsers : allLocalUsers;
+    }
+    const map = new Map();
+    // 1. API users first
+    apiUsers.forEach(u => {
+      const id = u.id || u._id;
+      if (id) map.set(id, { ...u, id, _id: id });
+    });
+    // 2. Filter local users matching query
+    allLocalUsers.forEach(u => {
+      const id = u.id || u._id;
+      const name = (getDisplayName(u) || u.name || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      if (name.includes(q) || username.includes(q)) {
+        if (!map.has(id)) {
+          map.set(id, u);
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [searchQuery, apiUsers, allLocalUsers, suggestedUsers]);
+
+  const handleToggleFollowUser = async (targetUser) => {
+    const userId = targetUser.id || targetUser._id;
+    if (!userId) return;
+
+    const currentlyFollowing = Boolean(
+      followedUserIds[userId] !== undefined
+        ? followedUserIds[userId]
+        : targetUser.isFollowing
+    );
+    const nextState = !currentlyFollowing;
+
+    setFollowedUserIds(prev => ({ ...prev, [userId]: nextState }));
+
+    setSuggestedUsers(current =>
+      current.map(u => (u.id || u._id) === userId ? { ...u, isFollowing: nextState } : u)
+    );
+
+    try {
+      await apiClient.post(`/users/follow/${userId}`);
+    } catch (error) {
+      console.error('[Community] Follow toggle error:', error?.message);
+      setFollowedUserIds(prev => ({ ...prev, [userId]: currentlyFollowing }));
+      setSuggestedUsers(current =>
+        current.map(u => (u.id || u._id) === userId ? { ...u, isFollowing: currentlyFollowing } : u)
+      );
+    }
+  };
+
   const listData = React.useMemo(() => {
     let filteredPosts = posts.filter(post => {
       const postUserId = post.user?.id || post.userId;
@@ -654,12 +776,13 @@ const Community = ({ navigation }) => {
     }
 
     if (filteredPosts.length === 0) return [];
+    if (searchActive || searchQuery.trim().length > 0) return filteredPosts;
     if (suggestedUsers.length === 0) return filteredPosts;
     // Insert a dummy item for suggestions at index 1
     const copy = [...filteredPosts];
     copy.splice(1, 0, { isSuggestionsItem: true, id: 'suggestions-standalone' });
     return copy;
-  }, [posts, suggestedUsers, blockedPostIds, blockedUserIds, searchQuery]);
+  }, [posts, suggestedUsers, blockedPostIds, blockedUserIds, searchQuery, searchActive]);
 
   const snapOffsets = React.useMemo(() => {
     const offsets = [];
@@ -880,12 +1003,87 @@ const Community = ({ navigation }) => {
   };
 
   const handlePressUser = (userId, userObj) => {
-    if (!userId) return;
-    if (userId.startsWith && userId.startsWith('mock-')) {
+    const targetId = userId || userObj?.id || userObj?._id || userObj?.userId;
+    if (!targetId) return;
+    if (typeof targetId === 'string' && targetId.startsWith('mock-')) {
       Alert.alert('Mock Profile', 'This is a demo athlete profile.');
       return;
     }
-    navigation.navigate('UserProfile', { userId, user: userObj });
+    navigation.navigate('UserProfile', { userId: targetId, user: userObj });
+  };
+
+  const renderUserProfileItem = ({ item }) => {
+    const userId = item.id || item._id;
+    const displayName = getDisplayName(item) || item.name || item.username || 'Swapp Athlete';
+    const username = item.username || '';
+    const avatar = item.avatar || item.profileImage || item.profilePicture || item.profilePhoto;
+    const isFollowing = Boolean(
+      followedUserIds[userId] !== undefined
+        ? followedUserIds[userId]
+        : item.isFollowing
+    );
+    const mutualsCount = item.mutualsCount ?? item.mutualCount ?? item.mutualFriendsCount;
+    const bio = item.bio || item.fitnessGoal || item.activityLevel || '';
+
+    return (
+      <TouchableOpacity
+        style={styles.userProfileSearchCard}
+        activeOpacity={0.75}
+        onPress={() => handlePressUser(userId, item)}
+      >
+        {/* Avatar */}
+        {avatar ? (
+          <Image source={{ uri: avatar }} style={styles.userProfileSearchAvatar} />
+        ) : (
+          <View style={[styles.userProfileSearchAvatar, styles.userProfileSearchInitialsAvatar]}>
+            <Text style={styles.userProfileSearchInitialsText}>{getInitials(item)}</Text>
+          </View>
+        )}
+
+        {/* User Details */}
+        <View style={styles.userProfileSearchDetails}>
+          <View style={styles.userProfileSearchNameRow}>
+            <Text style={styles.userProfileSearchName} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {item.isVerified ? (
+              <Icon name="checkmark-circle" size={14} color="#5E5CE6" style={styles.verifiedIcon} />
+            ) : null}
+          </View>
+          {username ? (
+            <Text style={styles.userProfileSearchHandle} numberOfLines={1}>
+              @{username}
+            </Text>
+          ) : null}
+          {mutualsCount > 0 ? (
+            <Text style={styles.userProfileSearchMutuals} numberOfLines={1}>
+              {mutualsCount} mutual friends
+            </Text>
+          ) : bio ? (
+            <Text style={styles.userProfileSearchBio} numberOfLines={1}>
+              {bio}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Follow / Following Button */}
+        <TouchableOpacity
+          style={[
+            styles.userProfileFollowBtn,
+            isFollowing && styles.userProfileFollowingBtn
+          ]}
+          onPress={() => handleToggleFollowUser(item)}
+          activeOpacity={0.8}
+        >
+          <Text style={[
+            styles.userProfileFollowBtnText,
+            isFollowing && styles.userProfileFollowingBtnText
+          ]}>
+            {isFollowing ? 'Following' : 'Follow'}
+          </Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
   };
 
   const handleShowPostOptions = (post) => {
@@ -995,7 +1193,9 @@ const Community = ({ navigation }) => {
   const renderListHeader = () => {
     if (suggestedUsers.length === 0) return null;
 
-    const cardWidth = (Dimensions.get('window').width - 48) / 2;
+    const pageWidth = width - sp(32);
+    const cardWidth = (pageWidth - sp(14)) / 2;
+    const cardHeight = Math.min(ms(246), Math.max(ms(190), (listHeight - ms(110)) / 2));
 
     return (
       <View style={[styles.suggestionsFullScreenContainer, { height: listHeight }]}>
@@ -1005,7 +1205,7 @@ const Community = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           onScroll={(e) => {
             const contentOffsetX = e.nativeEvent.contentOffset.x;
-            const page = Math.round(contentOffsetX / (Dimensions.get('window').width - 32));
+            const page = Math.round(contentOffsetX / pageWidth);
             if (page !== activePageIndex && page >= 0 && page < suggestionPages.length) {
               setActivePageIndex(page);
             }
@@ -1014,7 +1214,7 @@ const Community = ({ navigation }) => {
           style={styles.suggestionsGridScroll}
         >
           {suggestionPages.map((pageItems, pageIdx) => (
-            <View key={`page-${pageIdx}`} style={[styles.suggestionGridPage, { width: Dimensions.get('window').width - 32 }]}>
+            <View key={`page-${pageIdx}`} style={[styles.suggestionGridPage, { width: pageWidth }]}>
               {pageItems.map((item) => {
                 const userId = item.id || item._id;
                 const userAvatar = item.avatar || item.profileImage || item.profilePicture;
@@ -1023,7 +1223,7 @@ const Community = ({ navigation }) => {
                 const mutualAvatars = item.mutualAvatars || item.mutualFriendsAvatars || item.mutualPhotos;
 
                 return (
-                  <View key={userId} style={[styles.suggestionCardGrid, { width: cardWidth }]}>
+                  <View key={userId} style={[styles.suggestionCardGrid, { width: cardWidth, height: cardHeight }]}>
                     {/* Close Icon */}
                     <TouchableOpacity
                       style={styles.suggestionCloseBtnTopRight}
@@ -1040,10 +1240,10 @@ const Community = ({ navigation }) => {
                       style={styles.suggestionAvatarContainer}
                     >
                       {userAvatar ? (
-                        <Image source={{ uri: userAvatar }} style={styles.suggestionLargeAvatar} />
+                        <Image source={{ uri: userAvatar }} style={[styles.suggestionLargeAvatar, { width: ms(68), height: ms(68), borderRadius: ms(34) }]} />
                       ) : (
-                        <View style={[styles.suggestionLargeAvatar, styles.suggestionInitialsAvatar]}>
-                          <Text style={styles.suggestionLargeInitialsText}>
+                        <View style={[styles.suggestionLargeAvatar, styles.suggestionInitialsAvatar, { width: ms(68), height: ms(68), borderRadius: ms(34) }]}>
+                          <Text style={[styles.suggestionLargeInitialsText, { fontSize: fs(20) }]}>
                             {getInitials(item)}
                           </Text>
                         </View>
@@ -1186,28 +1386,71 @@ const Community = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Search Bar Overlay */}
+      {/* Search Bar Overlay & Tabs */}
       {searchActive && (
-        <View style={styles.searchBarContainer}>
-          <Icon name="search-outline" size={18} color="#8E8E93" style={styles.searchIconLeft} />
-          <TextInput
-            placeholder="Search posts, workouts or captions..."
-            placeholderTextColor="#8E8E93"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-            autoFocus
-            clearButtonMode="while-editing"
-          />
-          <TouchableOpacity
-            onPress={() => {
-              setSearchQuery('');
-              setSearchActive(false);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelSearchText}>Cancel</Text>
-          </TouchableOpacity>
+        <View>
+          <View style={styles.searchBarContainer}>
+            <Icon name="search-outline" size={18} color="#8E8E93" style={styles.searchIconLeft} />
+            <TextInput
+              placeholder="Search profiles, athletes or posts..."
+              placeholderTextColor="#8E8E93"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+              autoFocus
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && Platform.OS !== 'ios' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close-circle" size={18} color="#8E8E93" style={{ marginRight: 6 }} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setSearchActive(false);
+                setSearchTab('profiles');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelSearchText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Segmented Tabs: Profiles vs Posts */}
+          <View style={styles.searchTabsContainer}>
+            <TouchableOpacity
+              style={[styles.searchTabPill, searchTab === 'profiles' && styles.searchTabPillActive]}
+              onPress={() => setSearchTab('profiles')}
+              activeOpacity={0.8}
+            >
+              <Icon
+                name="person-outline"
+                size={14}
+                color={searchTab === 'profiles' ? '#FFF' : '#8E8E93'}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.searchTabPillText, searchTab === 'profiles' && styles.searchTabPillTextActive]}>
+                Profiles
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.searchTabPill, searchTab === 'posts' && styles.searchTabPillActive]}
+              onPress={() => setSearchTab('posts')}
+              activeOpacity={0.8}
+            >
+              <Icon
+                name="barbell-outline"
+                size={14}
+                color={searchTab === 'posts' ? '#FFF' : '#8E8E93'}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.searchTabPillText, searchTab === 'posts' && styles.searchTabPillTextActive]}>
+                Posts
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -1219,7 +1462,50 @@ const Community = ({ navigation }) => {
           <View style={styles.loadingContainer}>
             <GlobalLoader size={60} />
           </View>
+        ) : searchActive && searchTab === 'profiles' ? (
+          /* User Profile Search Results */
+          <FlatList
+            data={displayedUserProfiles}
+            keyExtractor={(item, index) => String(item.id || item._id || index)}
+            renderItem={renderUserProfileItem}
+            contentContainerStyle={styles.profileSearchListContent}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              <View style={styles.searchListHeader}>
+                <Text style={styles.searchListHeaderText}>
+                  {searchQuery.trim().length === 0
+                    ? 'SUGGESTED ATHLETES'
+                    : `ATHLETES (${displayedUserProfiles.length})`}
+                </Text>
+                {isSearchingUsers && (
+                  <ActivityIndicator size="small" color="#007AFF" style={{ marginLeft: 8 }} />
+                )}
+              </View>
+            }
+            ListEmptyComponent={
+              !isSearchingUsers ? (
+                <View style={styles.searchEmptyContainer}>
+                  <Icon name="person-outline" size={54} color="#444" />
+                  <Text style={styles.searchEmptyTitle}>No athletes found</Text>
+                  <Text style={styles.searchEmptySubtitle}>
+                    {searchQuery.trim().length > 0
+                      ? `We couldn't find any athletes or profiles matching "${searchQuery}".`
+                      : 'No suggested athletes at the moment.'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.searchEmptyContainer, { paddingTop: 40 }]}>
+                  <ActivityIndicator size="large" color="#007AFF" />
+                  <Text style={[styles.searchEmptySubtitle, { marginTop: 14 }]}>
+                    Searching athlete profiles...
+                  </Text>
+                </View>
+              )
+            }
+            showsVerticalScrollIndicator={false}
+          />
         ) : (
+          /* Posts Feed (or Posts Search Results) */
           <FlatList
             data={listData}
             keyExtractor={item => item.id.toString()}
@@ -1267,9 +1553,21 @@ const Community = ({ navigation }) => {
               );
             }}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {fetchError || 'No community posts yet.'}
+              <View style={[styles.emptyContainer, { height: listHeight, justifyContent: 'center' }]}>
+                <Icon name={searchActive ? "barbell-outline" : "fitness-outline"} size={64} color="#666" />
+                <Text style={styles.emptyTitle}>
+                  {searchActive
+                    ? 'No Matching Posts'
+                    : activeTab === 'explore'
+                    ? 'No Community Workouts Yet'
+                    : 'No Friends Workouts Yet'}
+                </Text>
+                <Text style={styles.emptySubtitle}>
+                  {searchActive
+                    ? `No workouts found matching "${searchQuery}".`
+                    : activeTab === 'explore'
+                    ? 'Be the first to share your fitness journey with the community!'
+                    : 'Follow people or share workouts to see your friends here.'}
                 </Text>
               </View>
             }
@@ -1507,7 +1805,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyContainer: {
-    minHeight: screenHeight - 220,
+    flex: 1,
+    minHeight: 320,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -1562,8 +1861,10 @@ const styles = StyleSheet.create({
   },
   postStatsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
-    gap: 32,
+    gap: 16,
+    flexWrap: 'wrap',
   },
   postStatItem: {
     alignItems: 'flex-start',
@@ -2069,7 +2370,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C1C1E',
     borderRadius: 10,
     marginHorizontal: 16,
-    marginVertical: 10,
+    marginTop: 10,
+    marginBottom: 8,
     paddingHorizontal: 12,
     height: 40,
   },
@@ -2088,6 +2390,152 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 10,
+  },
+  searchTabsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  searchTabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+  },
+  searchTabPillActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  searchTabPillText: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  searchTabPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  profileSearchListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 40,
+  },
+  searchListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  searchListHeaderText: {
+    color: '#8E8E93',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  userProfileSearchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161618',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  userProfileSearchAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  userProfileSearchInitialsAvatar: {
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userProfileSearchInitialsText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  userProfileSearchDetails: {
+    flex: 1,
+    marginRight: 10,
+  },
+  userProfileSearchNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userProfileSearchName: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+  },
+  userProfileSearchHandle: {
+    color: '#8E8E93',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  userProfileSearchMutuals: {
+    color: '#007AFF',
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  userProfileSearchBio: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  userProfileFollowBtn: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 76,
+  },
+  userProfileFollowingBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  userProfileFollowBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+  },
+  userProfileFollowingBtnText: {
+    color: '#AEAEB2',
+  },
+  searchEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  searchEmptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  searchEmptySubtitle: {
+    color: '#8E8E93',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

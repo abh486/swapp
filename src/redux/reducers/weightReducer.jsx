@@ -47,9 +47,12 @@ const weightReducer = (state = initialState, action) => {
       return {
         ...state,
         loading: false,
-        targetWeight: action.payload?.targetWeight !== undefined && action.payload?.targetWeight !== null ? action.payload.targetWeight : state.targetWeight,
-        height: action.payload?.height !== undefined && action.payload?.height !== null ? action.payload.height : state.height,
-        startingValue: action.payload?.startingValue !== undefined && action.payload?.startingValue !== null ? action.payload.startingValue : state.startingValue,
+        targetWeight: action.payload?.targetWeight !== undefined ? action.payload.targetWeight : null,
+        height: action.payload?.height !== undefined ? action.payload.height : null,
+        startingValue: action.payload?.startingValue !== undefined ? action.payload.startingValue : null,
+        goalWeeks: action.payload?.goalWeeks !== undefined ? action.payload.goalWeeks : null,
+        targetTimeframeDays: action.payload?.targetTimeframeDays !== undefined ? action.payload.targetTimeframeDays : null,
+        goalType: action.payload?.goalType !== undefined ? action.payload.goalType : null,
       };
 
     case types.WEIGHT_SAVE_TARGET_SUCCESS:
@@ -59,6 +62,9 @@ const weightReducer = (state = initialState, action) => {
         ...(action.payload?.targetWeight !== undefined ? { targetWeight: action.payload.targetWeight } : {}),
         ...(action.payload?.height !== undefined ? { height: action.payload.height } : {}),
         ...(action.payload?.startingValue !== undefined ? { startingValue: action.payload.startingValue } : {}),
+        ...(action.payload?.goalWeeks !== undefined ? { goalWeeks: action.payload.goalWeeks } : {}),
+        ...(action.payload?.targetTimeframeDays !== undefined ? { targetTimeframeDays: action.payload.targetTimeframeDays } : {}),
+        ...(action.payload?.goalType !== undefined ? { goalType: action.payload.goalType } : {}),
       };
 
     case types.WEIGHT_FETCH_LOGS_FAILURE:

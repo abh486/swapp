@@ -351,7 +351,7 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
                   return (
                     <TouchableOpacity
                       style={[
-                        styles.cityRow, 
+                        styles.cityRow,
                         { paddingVertical: sp(14) },
                         isSelected && styles.cityRowSelected
                       ]}
@@ -362,7 +362,7 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
                         <Icon name={item.icon} size={18} color={isSelected ? '#fff' : '#888'} />
                       </View>
                       <Text style={[
-                        styles.cityName, 
+                        styles.cityName,
                         { fontSize: fs(14) },
                         isSelected && styles.cityNameSelected
                       ]}>

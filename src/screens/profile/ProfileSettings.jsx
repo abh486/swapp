@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
   Linking,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -226,7 +227,10 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.row} onPress={() => navigation.navigate('WeightBodyMetrics')}>
+          <TouchableOpacity
+            style={Platform.OS === 'ios' ? styles.row : styles.rowNoBorder}
+            onPress={() => navigation.navigate('WeightBodyMetrics')}
+          >
             <View style={styles.rowLeft}>
               <Icon name="pulse-outline" size={22} color="#FFF" style={styles.rowIcon} />
               <Text style={styles.rowText}>Weight and Body Metrics</Text>
@@ -234,13 +238,15 @@ const ProfileSettingsScreen = ({ navigation }) => {
             <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('AppsAndDevices')}>
-            <View style={styles.rowLeft}>
-              <Icon name="heart-outline" size={22} color="#FFF" style={styles.rowIcon} />
-              <Text style={styles.rowText}>Connect Apple Health</Text>
-            </View>
-            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity style={styles.rowNoBorder} onPress={() => navigation.navigate('AppsAndDevices')}>
+              <View style={styles.rowLeft}>
+                <Icon name="heart-outline" size={22} color="#FFF" style={styles.rowIcon} />
+                <Text style={styles.rowText}>Connect Apple Health</Text>
+              </View>
+              <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* SECTION: Help */}
@@ -296,6 +302,11 @@ const ProfileSettingsScreen = ({ navigation }) => {
             </View>
             <Icon name="chevron-forward" size={16} color="#e74c3c" />
           </TouchableOpacity>
+        </View>
+
+        {/* App Version */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>App Version 1.0.4</Text>
         </View>
 
         <View style={{ height: 40 }} />
@@ -389,6 +400,18 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  versionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 36,
+    marginBottom: 8,
+  },
+  versionText: {
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
 });
 

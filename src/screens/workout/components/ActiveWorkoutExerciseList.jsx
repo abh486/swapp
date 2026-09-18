@@ -1,21 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
   Image,
+  TouchableOpacity,
+  StyleSheet,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { SwipeableSetRow } from './SwipeableSetRow';
+import SwipeableSetRow from './SwipeableSetRow';
 
-// Handles image loading with two-stage fallback:
-// 1. Primary imageUrl/gifUrl
-// 2. ExerciseDB API URL (when exerciseId starts with 'exr_')
-// 3. Muscle group avatar from wrkout.xyz
+// Handles image loading:
+// 1. Primary imageUrl/gifUrl (from local dataset or CDN)
+// 2. Muscle group avatar from wrkout.xyz
 const ExerciseAvatar = ({ exercise, resolveExerciseImageUri, getMuscleImageUrl, failedImages, setFailedImages }) => {
-  const [secondChanceFailed, setSecondChanceFailed] = useState(false);
-
   const target = (exercise.targetMuscles && exercise.targetMuscles[0]) ||
     (exercise.bodyParts && exercise.bodyParts[0]) || 'triceps';
   const muscleAvatar = getMuscleImageUrl(target);
@@ -24,45 +21,14 @@ const ExerciseAvatar = ({ exercise, resolveExerciseImageUri, getMuscleImageUrl, 
   const primaryUrl = resolveExerciseImageUri(exercise);
   const primaryFailed = failedImages[exercise.id];
 
-  // Build second-chance ExerciseDB URL (only if primary was the GitHub fallback)
-  const exId = exercise.exerciseId || exercise.id;
-  const hasExerciseDbId = exId && typeof exId === 'string' && exId.startsWith('exr_');
-  const secondChanceUrl =
-    primaryFailed && hasExerciseDbId && !secondChanceFailed
-      ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${exId}`
-      : null;
-
   // Determine which source to render
   if (primaryUrl && !primaryFailed) {
     return (
       <Image
-        source={{
-          uri: primaryUrl,
-          headers: primaryUrl.includes('rapidapi') ? {
-            'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-            'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-          } : undefined,
-        }}
+        source={{ uri: primaryUrl }}
         style={styles.exerciseImagePlaceholder}
         resizeMode="cover"
         onError={() => setFailedImages(prev => ({ ...prev, [exercise.id]: true }))}
-      />
-    );
-  }
-
-  if (secondChanceUrl) {
-    return (
-      <Image
-        source={{
-          uri: secondChanceUrl,
-          headers: {
-            'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-            'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-          },
-        }}
-        style={styles.exerciseImagePlaceholder}
-        resizeMode="cover"
-        onError={() => setSecondChanceFailed(true)}
       />
     );
   }

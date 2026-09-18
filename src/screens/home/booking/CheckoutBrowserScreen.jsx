@@ -1,6 +1,7 @@
 import { GlobalLoader } from '../../../components/GlobalLoader';
 import React, { useState, useRef, useEffect } from 'react';
-import { View, SafeAreaView, StyleSheet, TouchableOpacity, Text, Alert, Platform, Linking } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Platform, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import Chargebee from '@chargebee/react-native-chargebee';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -191,7 +192,7 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
   }, [url, planId, isNativeIAP]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}

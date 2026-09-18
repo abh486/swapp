@@ -318,7 +318,7 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <ScrollView
         contentContainerStyle={styles.content}
@@ -407,7 +407,7 @@ const createStyles = ({ fs, sp, ms, isLandscape, maxContentWidth }, insets) => S
     justifyContent: isLandscape ? 'flex-start' : 'space-around',
     paddingHorizontal: sp(30),
     paddingTop: sp(isLandscape ? 18 : 36),
-    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(16),
+    paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? sp(32) : sp(18)) + sp(16),
     alignSelf: 'center',
     width: '100%',
     maxWidth: maxContentWidth,

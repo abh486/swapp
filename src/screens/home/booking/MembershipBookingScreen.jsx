@@ -539,7 +539,7 @@ const MembershipBookingScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#050209" />
 
       {/* Deep purple/black gradient background top glow */}
@@ -895,7 +895,7 @@ const createStyles = ({ fs, sp, ms, isTablet, isLandscape, maxContentWidth }, in
   },
   slotContent: {
     paddingHorizontal: sp(isTablet ? 28 : 20),
-    paddingBottom: Math.max(insets.bottom, sp(18)) + sp(12),
+    paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? sp(32) : sp(18)) + sp(16),
     alignSelf: 'center',
     width: '100%',
     maxWidth: maxContentWidth,

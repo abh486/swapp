@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   SafeAreaView,
   FlatList,
   Image,
@@ -17,8 +16,6 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
-
-const { height: screenHeight } = Dimensions.get('window');
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');

@@ -22,6 +22,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../api/apiClient';
+import { useAuth } from '../../context/AuthContext';
+import { calculateNutritionTargets, fetchNutritionTargets, getCachedBackendTargets } from '../../utils/nutritionCalculator';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -95,12 +97,25 @@ const AnimatedKeypadKey = ({ label, icon, onPress, isUnit, isDone, onKeypadType 
 };
 
 const WeightTrackerScreen = ({ navigation }) => {
+  const { refreshAuthStatus, updateUserLocal, user } = useAuth() || {};
   const dispatch = useDispatch();
   const reduxWeight = useSelector(state => state.weight);
   const [goalType, setGoalType] = useState('Gained');
-  const [startingValue, setStartingValue] = useState(() => reduxWeight?.startingValue ? String(Number(reduxWeight.startingValue).toFixed(1)) : '');
-  const [currentGoalVal, setCurrentGoalVal] = useState(() => reduxWeight?.targetWeight ? String(Number(reduxWeight.targetWeight).toFixed(1)) : '');
-  const [heightVal, setHeightVal] = useState(() => reduxWeight?.height ? String(Math.round(Number(reduxWeight.height))) : '');
+  const [startingValue, setStartingValue] = useState(() => {
+    const profile = user?.userProfile || user?.memberProfile || user || {};
+    const sw = profile.startingWeight?.value ?? profile.startingWeight ?? reduxWeight?.startingValue;
+    return sw ? String(Number(sw).toFixed(1)) : '';
+  });
+  const [currentGoalVal, setCurrentGoalVal] = useState(() => {
+    const profile = user?.userProfile || user?.memberProfile || user || {};
+    const tw = profile.targetWeight?.value ?? profile.targetWeight ?? profile.goalWeight ?? reduxWeight?.targetWeight;
+    return tw ? String(Number(tw).toFixed(1)) : '';
+  });
+  const [heightVal, setHeightVal] = useState(() => {
+    const profile = user?.userProfile || user?.memberProfile || user || {};
+    const h = profile.height?.value ?? profile.height ?? reduxWeight?.height;
+    return h ? String(Math.round(Number(h))) : '';
+  });
   const [weightLogs, setWeightLogs] = useState([]);
   const [bodyFatLogs, setBodyFatLogs] = useState([]);
   const [activeTab, setActiveTab] = useState('Weight');
@@ -118,6 +133,101 @@ const WeightTrackerScreen = ({ navigation }) => {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [isFirstKey, setIsFirstKey] = useState(true);
   const sliderRef = useRef(null);
+
+  const currentWeightVal = useMemo(() => {
+    if (weightLogs && weightLogs.length > 0) {
+      return Number(weightLogs[weightLogs.length - 1].value);
+    }
+    const profW = user?.weight?.value ?? user?.weight ?? user?.userProfile?.weight ?? user?.memberProfile?.weight;
+    if (profW && Number(profW) > 0) return Number(profW);
+    return parseFloat(startingValue) || 0;
+  }, [weightLogs, startingValue, user]);
+
+  const currentTargetCals = useMemo(() => {
+    const cached = getCachedBackendTargets();
+    if (cached && cached.calories > 0) {
+      return cached.calories;
+    }
+    const w = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+    const resolvedHeight = parseFloat(heightVal) || parseFloat(user?.userProfile?.height) || parseFloat(user?.memberProfile?.height) || parseFloat(user?.height?.value) || parseFloat(user?.height) || 170;
+    const tw = parseFloat(currentGoalVal);
+    if (!tw || isNaN(tw) || tw <= 0) return null;
+    const act = user?.activityLevel || user?.userProfile?.activityLevel || user?.memberProfile?.activityLevel || 'moderate';
+    const g = user?.gender || user?.userProfile?.gender || user?.memberProfile?.gender || 'Male';
+    const a = user?.age || user?.userProfile?.age || user?.memberProfile?.age || 25;
+    const goal = user?.fitnessGoal || user?.userProfile?.fitnessGoal || user?.memberProfile?.fitnessGoal || '';
+    const tfDays = (parseInt(goalWeeks, 10) || 12) * 7;
+    return calculateNutritionTargets(w, resolvedHeight, a, g, goal, act, tw, tfDays, goalType).calories;
+  }, [currentWeightVal, startingValue, heightVal, currentGoalVal, goalWeeks, goalType, user]);
+
+  const modalTargetsPreview = useMemo(() => {
+    if (editCardModal !== 'goal' && editCardModal !== 'current') return null;
+    const val = parseFloat(editValue);
+    if (!val || isNaN(val) || val <= 0) return null;
+    const valInKg = weightUnit === 'lbs' ? val / 2.20462262 : val;
+    const act = user?.activityLevel || user?.userProfile?.activityLevel || user?.memberProfile?.activityLevel || 'moderate';
+    const g = user?.gender || user?.userProfile?.gender || user?.memberProfile?.gender || 'Male';
+    const a = user?.age || user?.userProfile?.age || user?.memberProfile?.age || 25;
+    const goal = user?.fitnessGoal || user?.userProfile?.fitnessGoal || user?.memberProfile?.fitnessGoal || '';
+    const resolvedHeight = parseFloat(heightVal) || parseFloat(user?.userProfile?.height) || parseFloat(user?.memberProfile?.height) || parseFloat(user?.height?.value) || parseFloat(user?.height) || 170;
+
+    let w, tw;
+    let previewGoalType = goalType;
+    if (editCardModal === 'goal') {
+      w = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+      tw = valInKg;
+      previewGoalType = Math.abs(tw - w) < 0.1 ? 'maintain' : (tw >= w ? 'gain' : 'lose');
+    } else {
+      w = valInKg;
+      tw = parseFloat(currentGoalVal) || null;
+      if (tw) {
+        previewGoalType = Math.abs(tw - w) < 0.1 ? 'maintain' : (tw >= w ? 'gain' : 'lose');
+      }
+    }
+    const tfDays = (parseInt(goalWeeks, 10) || 12) * 7;
+    return calculateNutritionTargets(w, resolvedHeight, a, g, goal, act, tw, tfDays, previewGoalType);
+  }, [editCardModal, editValue, weightUnit, currentWeightVal, startingValue, heightVal, currentGoalVal, goalWeeks, goalType, user]);
+
+  const modalCaloriesPreview = useMemo(() => {
+    return modalTargetsPreview?.calories || null;
+  }, [modalTargetsPreview]);
+
+  const goalModalRateInfo = useMemo(() => {
+    if (editCardModal !== 'goal') return null;
+    const val = parseFloat(editValue);
+    if (!val || isNaN(val) || val <= 0) return null;
+    const goalKg = weightUnit === 'lbs' ? val / 2.20462262 : val;
+    const currW = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+    const deltaKg = Math.abs(goalKg - currW);
+    const isGain = goalKg > currW;
+    const isLoss = goalKg < currW;
+    const isMaintain = Math.abs(goalKg - currW) < 0.1;
+    const weeks = Math.max(1, parseInt(goalWeeks, 10) || 12);
+    const weeklyRateKg = deltaKg > 0 ? (deltaKg / weeks) : 0;
+    const weeklyRateDisplay = weightUnit === 'lbs' ? (weeklyRateKg * 2.20462262) : weeklyRateKg;
+    const maxSafeWeeklyKg = currW * 0.01;
+    const isUnsafeRate = deltaKg > 0.5 && weeklyRateKg > (maxSafeWeeklyKg * 1.05);
+    const minSafeWeeks = Math.max(1, Math.ceil(deltaKg / Math.max(0.1, maxSafeWeeklyKg)));
+    const safeWeeklyRateKg = deltaKg > 0 ? (deltaKg / minSafeWeeks) : 0.5;
+    const safeWeeklyRateDisplay = weightUnit === 'lbs' ? (safeWeeklyRateKg * 2.20462262) : safeWeeklyRateKg;
+
+    return {
+      goalKg,
+      currW,
+      deltaKg,
+      isGain,
+      isLoss,
+      isMaintain,
+      weeks,
+      weeklyRateKg,
+      weeklyRateDisplay,
+      maxSafeWeeklyKg,
+      isUnsafeRate,
+      minSafeWeeks,
+      safeWeeklyRateKg,
+      safeWeeklyRateDisplay,
+    };
+  }, [editCardModal, editValue, weightUnit, currentWeightVal, startingValue, goalWeeks]);
 
   // ── Reanimated values for typing feedback (Up to Down slide drop) ─────
   const keypadY = useSharedValue(0);
@@ -142,10 +252,12 @@ const WeightTrackerScreen = ({ navigation }) => {
     opacity: keypadOpacity.value,
   }));
 
-  const WEIGHT_GOAL_KEY = 'weight_tracker_goal';
-  const WEIGHT_LOGS_KEY = 'weight_tracker_logs';
-  const BODY_FAT_LOGS_KEY = 'body_fat_tracker_logs';
-  const METRICS_KEY = 'weight_body_metrics';
+  const currentUserId = user?.id || user?._id || 'guest';
+  const STARTING_WEIGHT_KEY = `weight_tracker_starting_${currentUserId}`;
+  const WEIGHT_GOAL_KEY = `weight_tracker_goal_${currentUserId}`;
+  const WEIGHT_LOGS_KEY = `weight_tracker_logs_${currentUserId}`;
+  const BODY_FAT_LOGS_KEY = `body_fat_tracker_logs_${currentUserId}`;
+  const METRICS_KEY = `weight_body_metrics_${currentUserId}`;
 
   // Helper: apply a profile object to state (called from cache and fresh API response)
   const applyProfile = async (profile, existingWeightLogs, savedGoal) => {
@@ -197,12 +309,85 @@ const WeightTrackerScreen = ({ navigation }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        // ── 1. Restore weight logs ──────────────────────────────────────────
+        if (!user) return;
+        fetchNutritionTargets().catch(() => {});
+        const profile = user?.userProfile || user?.memberProfile || user || {};
+
+        // ── 0. Resolve Starting Weight Robustly ─────────────────────────────
+        const savedStarting = await AsyncStorage.getItem(STARTING_WEIGHT_KEY);
+        let finalStarting = savedStarting;
+
+        if (!finalStarting) {
+          const profSW = profile.startingWeight?.value ?? profile.startingWeight;
+          if (profSW && Number(profSW) > 0) {
+            finalStarting = String(Number(profSW).toFixed(1));
+          }
+        }
+
+        if (!finalStarting) {
+          const onboardingRaw = await AsyncStorage.getItem('member_profile_metrics');
+          if (onboardingRaw) {
+            const m = JSON.parse(onboardingRaw);
+            if ((!m.userId || m.userId === currentUserId) && m.startingWeight && Number(m.startingWeight) > 0) {
+              finalStarting = String(Number(m.startingWeight).toFixed(1));
+            }
+          }
+        }
+
+        if (!finalStarting) {
+          const rawLogs = await AsyncStorage.getItem(WEIGHT_LOGS_KEY);
+          const parsedLogs = rawLogs ? JSON.parse(rawLogs) : [];
+          if (parsedLogs.length > 0 && parsedLogs[0]?.value) {
+            finalStarting = String(Number(parsedLogs[0].value).toFixed(1));
+          } else {
+            const initialW = profile.weight?.value ?? profile.weight;
+            if (initialW && Number(initialW) > 0) {
+              finalStarting = String(Number(initialW).toFixed(1));
+            }
+          }
+        }
+
+        if (finalStarting) {
+          setStartingValue(finalStarting);
+          await AsyncStorage.setItem(STARTING_WEIGHT_KEY, finalStarting);
+          if (!profile.startingWeight) {
+            apiClient.put('/users/profile', { startingWeight: parseFloat(finalStarting) }).catch(() => {});
+            apiClient.post('/weight/target', { startingValue: parseFloat(finalStarting) }).catch(() => {});
+          }
+        }
+
+        const targetW =
+          profile.targetWeight?.value ??
+          profile.targetWeight ??
+          profile.target_weight?.value ??
+          profile.target_weight ??
+          profile.goalWeight?.value ??
+          profile.goalWeight ??
+          null;
+        const h = profile.height?.value ?? profile.height ?? null;
+
+        if (targetW) setCurrentGoalVal(String(Number(targetW).toFixed(1)));
+        else setCurrentGoalVal('');
+
+        if (h) setHeightVal(String(Math.round(Number(h))));
+        else setHeightVal('');
+
+        // ── 1. Restore user-scoped weight logs ──────────────────────────────
         let curWeights = [];
         const savedW = await AsyncStorage.getItem(WEIGHT_LOGS_KEY);
-        if (savedW) { curWeights = JSON.parse(savedW); setWeightLogs(curWeights); }
+        if (savedW) {
+          curWeights = JSON.parse(savedW);
+          setWeightLogs(curWeights);
+        } else {
+          setWeightLogs([]);
+        }
+
         const savedF = await AsyncStorage.getItem(BODY_FAT_LOGS_KEY);
-        if (savedF) setBodyFatLogs(JSON.parse(savedF));
+        if (savedF) {
+          setBodyFatLogs(JSON.parse(savedF));
+        } else {
+          setBodyFatLogs([]);
+        }
 
         // ── 2. Restore user-edited goal preferences (goalType, goalWeeks) ───
         const savedGoal = await AsyncStorage.getItem(WEIGHT_GOAL_KEY);
@@ -212,51 +397,44 @@ const WeightTrackerScreen = ({ navigation }) => {
           setGoalWeeks(g.goalWeeks || '4');
         }
 
-        // ── 2. Read onboarding metrics ONLY as fallback if state is empty ───
+        // ── 3. Read onboarding metrics ONLY if scoped to current user ───────
         const onboardingRaw = await AsyncStorage.getItem('member_profile_metrics');
         if (onboardingRaw) {
           const m = JSON.parse(onboardingRaw);
-          setStartingValue(prev => prev || (m.weight ? String(Number(m.weight).toFixed(1)) : ''));
-          setCurrentGoalVal(prev => prev || (m.targetWeight ? String(Number(m.targetWeight).toFixed(1)) : ''));
-          setHeightVal(prev => prev || (m.height ? String(Math.round(Number(m.height))) : ''));
-
-          // Seed initial weight log if none exist yet
-          if (curWeights.length === 0 && m.weight && Number(m.weight) > 0) {
-            const log = {
-              id: 'initial_profile_weight',
-              value: Number(m.weight),
-              date: new Date(0).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-              timestamp: 0,
-              source: 'Profile',
-              photo: null,
-            };
-            setWeightLogs([log]);
-            await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify([log]));
+          if (!m.userId || m.userId === currentUserId) {
+            setStartingValue(prev => prev || (m.weight ? String(Number(m.weight).toFixed(1)) : ''));
+            setCurrentGoalVal(prev => prev || (m.targetWeight ? String(Number(m.targetWeight).toFixed(1)) : ''));
+            setHeightVal(prev => prev || (m.height ? String(Math.round(Number(m.height))) : ''));
           }
         }
 
-        // ── 3. Dispatch Redux Thunks to Sync Ground-Truth API Data ─────────
+        // ── 4. Dispatch Redux Thunks to Sync Ground-Truth API Data ─────────
         dispatch(fetchWeightLogs());
         dispatch(fetchWeightTarget());
-      } catch (e) { console.error('[WeightTracker] Load failed:', e); }
+      } catch (e) {
+        console.error('[WeightTracker] Load failed:', e);
+      }
     };
     load();
-  }, [dispatch]);
+  }, [currentUserId, dispatch, WEIGHT_LOGS_KEY, WEIGHT_GOAL_KEY, BODY_FAT_LOGS_KEY]);
 
   // Sync Redux store logs to local state when reduxWeight changes
   useEffect(() => {
-    if (Array.isArray(reduxWeight.logs) && reduxWeight.logs.length > 0) {
-      const sorted = [...reduxWeight.logs].sort((a, b) => (a.timestamp || new Date(a.date).getTime()) - (b.timestamp || new Date(b.date).getTime()));
-      setWeightLogs(sorted);
+    if (Array.isArray(reduxWeight.logs)) {
+      if (reduxWeight.logs.length > 0) {
+        const sorted = [...reduxWeight.logs].sort((a, b) => (a.timestamp || new Date(a.date).getTime()) - (b.timestamp || new Date(b.date).getTime()));
+        setWeightLogs(sorted);
+      } else {
+        setWeightLogs([]);
+      }
     }
     if (reduxWeight.targetWeight) setCurrentGoalVal(String(Number(reduxWeight.targetWeight).toFixed(1)));
-    if (reduxWeight.startingValue) setStartingValue(String(Number(reduxWeight.startingValue).toFixed(1)));
+    if (reduxWeight.startingValue) setStartingValue(prev => prev || String(Number(reduxWeight.startingValue).toFixed(1)));
     if (reduxWeight.height) setHeightVal(String(Math.round(Number(reduxWeight.height))));
   }, [reduxWeight.logs, reduxWeight.targetWeight, reduxWeight.startingValue, reduxWeight.height]);
 
 
   const currentLogs = useMemo(() => activeTab === 'Weight' ? weightLogs : bodyFatLogs, [activeTab, weightLogs, bodyFatLogs]);
-  const currentWeightVal = useMemo(() => weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : parseFloat(startingValue) || 0, [weightLogs, startingValue]);
   const displayUnit = activeTab === 'Weight' ? weightUnit.toUpperCase() : '%';
   const unit = displayUnit;
 
@@ -428,6 +606,161 @@ const WeightTrackerScreen = ({ navigation }) => {
     setEditCardModal('current');
   };
 
+  const syncGoalWeight = async (targetWeightKg, customGoalWeeks = null, customGoalType = null) => {
+    const numTarget = parseFloat(targetWeightKg);
+    if (isNaN(numTarget) || numTarget <= 0) return;
+    const currentW = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+    const diff = Math.abs(numTarget - currentW).toFixed(1);
+    const gType = customGoalType || (Math.abs(numTarget - currentW) < 0.1 ? 'Maintain' : numTarget >= currentW ? 'Gained' : 'Lost');
+    const fitGoal = gType === 'Maintain' ? 'Maintenance' : gType === 'Gained' ? 'Build Muscle' : 'Weight Loss';
+    const dbGoalType = gType === 'Maintain' ? 'maintain' : gType === 'Gained' ? 'gain' : 'lose';
+    const weeksToSave = customGoalWeeks ? String(customGoalWeeks) : (goalWeeks || '12');
+    const daysToSave = parseInt(weeksToSave, 10) * 7;
+
+    setGoalAmount(diff);
+    setGoalType(gType);
+    if (customGoalWeeks) {
+      setGoalWeeks(String(customGoalWeeks));
+    }
+
+    try {
+      // 1. Local member profile metrics
+      const raw = await AsyncStorage.getItem('member_profile_metrics');
+      const m = raw ? JSON.parse(raw) : {};
+      m.targetWeight = String(numTarget.toFixed(1));
+      m.goalWeight = String(numTarget.toFixed(1));
+      m.goalWeeks = String(weeksToSave);
+      m.targetTimeframeDays = daysToSave;
+      m.goalType = dbGoalType;
+      m.fitnessGoal = fitGoal;
+      await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+
+      // 2. Goal metadata
+      const gData = {
+        goalType: gType,
+        goalAmount: diff,
+        goalWeeks: weeksToSave,
+        targetTimeframeDays: daysToSave,
+        startingValue,
+        currentGoalVal: String(numTarget.toFixed(1)),
+        weightUnit,
+      };
+      await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(gData));
+
+      // 3. User profile cache
+      const cached = await AsyncStorage.getItem('userProfile');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        parsed.targetWeight = numTarget;
+        parsed.goalWeight = numTarget;
+        parsed.target_weight = numTarget;
+        parsed.goalWeeks = parseInt(weeksToSave, 10);
+        parsed.targetTimeframeDays = daysToSave;
+        parsed.goalType = dbGoalType;
+        parsed.fitnessGoal = fitGoal;
+        if (parsed.userProfile) {
+          parsed.userProfile.targetWeight = numTarget;
+          parsed.userProfile.goalWeight = numTarget;
+          parsed.userProfile.target_weight = numTarget;
+          parsed.userProfile.goalWeeks = parseInt(weeksToSave, 10);
+          parsed.userProfile.targetTimeframeDays = daysToSave;
+          parsed.userProfile.goalType = dbGoalType;
+          parsed.userProfile.fitnessGoal = fitGoal;
+        }
+        if (parsed.memberProfile) {
+          parsed.memberProfile.targetWeight = numTarget;
+          parsed.memberProfile.goalWeight = numTarget;
+          parsed.memberProfile.target_weight = numTarget;
+          parsed.memberProfile.goalWeeks = parseInt(weeksToSave, 10);
+          parsed.memberProfile.targetTimeframeDays = daysToSave;
+          parsed.memberProfile.goalType = dbGoalType;
+          parsed.memberProfile.fitnessGoal = fitGoal;
+        }
+        await AsyncStorage.setItem('userProfile', JSON.stringify(parsed));
+      }
+
+      // 4. Update AuthContext state synchronously
+      if (typeof updateUserLocal === 'function') {
+        updateUserLocal({
+          targetWeight: numTarget,
+          goalWeight: numTarget,
+          target_weight: numTarget,
+          goalWeeks: parseInt(weeksToSave, 10),
+          targetTimeframeDays: daysToSave,
+          goalType: dbGoalType,
+          fitnessGoal: fitGoal,
+        });
+      }
+
+      // 5. Mark diet plan to refresh targets
+      await AsyncStorage.setItem('diet_plan_needs_refresh', 'true');
+
+      // 6. Backend sync
+      await Promise.allSettled([
+        apiClient.post('/weight/target', {
+          targetWeight: numTarget,
+          goalWeeks: parseInt(weeksToSave, 10),
+          targetTimeframeDays: daysToSave,
+          goalType: dbGoalType,
+        }),
+        apiClient.put('/users/profile', {
+          targetWeight: numTarget,
+          goalWeight: numTarget,
+          target_weight: numTarget,
+          goalWeeks: parseInt(weeksToSave, 10),
+          targetTimeframeDays: daysToSave,
+          goalType: dbGoalType,
+          fitnessGoal: fitGoal,
+        }),
+      ]);
+
+      // 7. Fetch updated nutrition targets from backend
+      await fetchNutritionTargets().catch(() => {});
+
+      // 8. Refresh Auth context across entire app
+      if (typeof refreshAuthStatus === 'function') {
+        await refreshAuthStatus();
+      }
+    } catch (err) {
+      console.warn('[WeightTracker] syncGoalWeight error:', err.message);
+    }
+  };
+
+  const syncCurrentWeight = async (currentWeightKg) => {
+    const numW = parseFloat(currentWeightKg);
+    if (isNaN(numW) || numW <= 0) return;
+    try {
+      const raw = await AsyncStorage.getItem('member_profile_metrics');
+      const m = raw ? JSON.parse(raw) : {};
+      m.weight = String(numW.toFixed(1));
+      await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+
+      const cached = await AsyncStorage.getItem('userProfile');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        parsed.weight = numW;
+        if (parsed.userProfile) parsed.userProfile.weight = numW;
+        if (parsed.memberProfile) parsed.memberProfile.weight = numW;
+        await AsyncStorage.setItem('userProfile', JSON.stringify(parsed));
+      }
+
+      if (typeof updateUserLocal === 'function') {
+        updateUserLocal({ weight: numW });
+      }
+
+      await AsyncStorage.setItem('diet_plan_needs_refresh', 'true');
+
+      await apiClient.put('/users/profile', { weight: numW });
+      await fetchNutritionTargets().catch(() => {});
+
+      if (typeof refreshAuthStatus === 'function') {
+        await refreshAuthStatus();
+      }
+    } catch (err) {
+      console.warn('[WeightTracker] syncCurrentWeight error:', err.message);
+    }
+  };
+
   const handleAddLog = async () => {
     const val = parseFloat(logValue);
     if (isNaN(val) || val <= 0) { Alert.alert('Invalid Input', 'Please enter a valid number.'); return; }
@@ -438,12 +771,7 @@ const WeightTrackerScreen = ({ navigation }) => {
       setWeightLogs(updated);
       await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
       dispatch(addWeightLog({ value: valInKg, date: newLog.date, timestamp: newLog.timestamp }));
-      
-      try {
-        await apiClient.put('/users/profile', { weight: valInKg });
-      } catch (err) {
-        console.error('Failed to sync weight to backend:', err);
-      }
+      await syncCurrentWeight(valInKg);
     } else {
       const updated = [...bodyFatLogs, newLog].sort((a, b) => a.timestamp - b.timestamp);
       setBodyFatLogs(updated);
@@ -455,6 +783,9 @@ const WeightTrackerScreen = ({ navigation }) => {
   const handleSaveGoal = async () => {
     const data = { goalType, goalAmount, goalWeeks, startingValue, currentGoalVal };
     await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(data));
+    if (currentGoalVal && !isNaN(parseFloat(currentGoalVal))) {
+      await syncGoalWeight(parseFloat(currentGoalVal));
+    }
     setGoalModalVisible(false);
   };
 
@@ -481,23 +812,42 @@ const WeightTrackerScreen = ({ navigation }) => {
     if (editCardModal === 'starting') {
       const valStr = numVInKg.toFixed(1);
       setStartingValue(valStr);
+      await AsyncStorage.setItem(STARTING_WEIGHT_KEY, valStr);
       dispatch(saveWeightTarget({ startingValue: valStr }));
       try {
         const raw = await AsyncStorage.getItem('member_profile_metrics');
         const m = raw ? JSON.parse(raw) : {};
-        m.weight = valStr;
+        m.userId = currentUserId;
+        m.startingWeight = valStr;
         await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
+        if (typeof updateUserLocal === 'function') {
+          updateUserLocal({ startingWeight: numVInKg });
+        }
+        await apiClient.put('/users/profile', { startingWeight: numVInKg });
+        await apiClient.post('/weight/target', { startingValue: numVInKg });
+        if (typeof refreshAuthStatus === 'function') await refreshAuthStatus();
       } catch (_) {}
     } else if (editCardModal === 'goal') {
       const valStr = numVInKg.toFixed(1);
+      const currentW = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+      const diff = Math.abs(numVInKg - currentW).toFixed(1);
+      const gType = Math.abs(numVInKg - currentW) < 0.1 ? 'Maintain' : (numVInKg >= currentW ? 'Gained' : 'Lost');
+      const weeksNum = parseInt(goalWeeks, 10) || 12;
+
       setCurrentGoalVal(valStr);
-      dispatch(saveWeightTarget({ targetWeight: valStr }));
-      try {
-        const raw = await AsyncStorage.getItem('member_profile_metrics');
-        const m = raw ? JSON.parse(raw) : {};
-        m.targetWeight = valStr;
-        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
-      } catch (_) {}
+      setGoalAmount(diff);
+      setGoalType(gType);
+
+      dispatch(saveWeightTarget({
+        targetWeight: valStr,
+        height: heightVal,
+        startingValue,
+        goalWeeks: weeksNum,
+        targetTimeframeDays: weeksNum * 7,
+        goalType: gType === 'Maintain' ? 'maintain' : (gType === 'Gained' ? 'gain' : 'lose'),
+      }));
+
+      await syncGoalWeight(numVInKg, String(weeksNum), gType);
     } else if (editCardModal === 'height') {
       const valStr = String(Math.round(numV));
       setHeightVal(valStr);
@@ -508,6 +858,7 @@ const WeightTrackerScreen = ({ navigation }) => {
         m.height = valStr;
         await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
         await apiClient.put('/users/profile', { height: parseFloat(valStr) });
+        if (typeof refreshAuthStatus === 'function') await refreshAuthStatus();
       } catch (_) {}
     } else if (editCardModal === 'current') {
       const ts = Date.now();
@@ -516,9 +867,7 @@ const WeightTrackerScreen = ({ navigation }) => {
       setWeightLogs(updated);
       await AsyncStorage.setItem(WEIGHT_LOGS_KEY, JSON.stringify(updated));
       dispatch(addWeightLog({ value: numVInKg, date: newLog.date, timestamp: ts }));
-      try {
-        await apiClient.put('/users/profile', { weight: numVInKg });
-      } catch (_) {}
+      await syncCurrentWeight(numVInKg);
     }
     setEditCardModal(null);
   };
@@ -543,7 +892,13 @@ const WeightTrackerScreen = ({ navigation }) => {
   const metricCards = [
     { key: 'starting', icon: 'weight-lifter', label: 'Starting Weight', value: `${formatWeight(startingValue)} ${displayUnit}` },
     { key: 'current', icon: 'weight-lifter', label: 'Current Weight', value: `${formatWeight(currentWeightVal)} ${displayUnit}` },
-    { key: 'goal', icon: 'target', label: 'Goal Weight', value: `${formatWeight(currentGoalVal)} ${displayUnit}` },
+    {
+      key: 'goal',
+      icon: 'target',
+      label: 'Goal Weight',
+      value: `${formatWeight(currentGoalVal)} ${displayUnit}`,
+      subvalue: currentTargetCals ? `${currentTargetCals.toLocaleString()} Cal/day` : undefined,
+    },
     { key: 'height', icon: 'ruler', label: 'Height', value: `${heightVal} cm` },
   ];
 
@@ -569,7 +924,9 @@ const WeightTrackerScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.heroContent}>
-            <Text style={[styles.targetLabel, { color: themeColor }]}>TARGET: {formatWeight(currentGoalVal)} {displayUnit}</Text>
+            <Text style={[styles.targetLabel, { color: themeColor }]}>
+              TARGET: {formatWeight(currentGoalVal)} {displayUnit} {currentTargetCals ? `• ${currentTargetCals.toLocaleString()} Cal/day` : ''}
+            </Text>
             <View style={styles.deltaRow}>
               <Animated.Text key={displayDelta.toFixed(1)} entering={FadeInUp.springify()} style={styles.deltaValue}>
                 {displayDelta >= 0 ? '+' : ''}{displayDelta.toFixed(1)}
@@ -635,6 +992,11 @@ const WeightTrackerScreen = ({ navigation }) => {
               </View>
               <Text style={styles.cardLabel}>{card.label}</Text>
               <Text style={styles.cardValue}>{card.value}</Text>
+              {card.subvalue && (
+                <Text style={{ fontSize: 11, color: GREEN_BRIGHT, marginTop: 4, fontWeight: '600' }}>
+                  {card.subvalue}
+                </Text>
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -737,9 +1099,103 @@ const WeightTrackerScreen = ({ navigation }) => {
           <View style={styles.keypadModalSheet}>
             <View style={styles.keypadHandle} />
             {/* Value display */}
-            <Animated.Text style={[styles.keypadDisplayValue, animatedKeypadValueStyle]}>
-              {editValue || '0'}
-            </Animated.Text>
+            <View style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Animated.Text style={[styles.keypadDisplayValue, animatedKeypadValueStyle, { marginBottom: 2 }]}>
+                {editValue || '0'}
+              </Animated.Text>
+              {goalModalRateInfo && !goalModalRateInfo.isMaintain && (
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                  {goalModalRateInfo.isGain ? '+' : '−'}
+                  {formatWeight(goalModalRateInfo.deltaKg)} {displayUnit} to {goalModalRateInfo.isGain ? 'gain' : 'lose'}
+                </Text>
+              )}
+            </View>
+
+            {/* Per-week Rate of Increase / Decrease Selector */}
+            {editCardModal === 'goal' && goalModalRateInfo && !goalModalRateInfo.isMaintain && (
+              <View style={styles.keypadGoalRateCard}>
+                <View style={styles.keypadGoalRateHeader}>
+                  <Text style={styles.keypadGoalRateLabel}>
+                    Per-week {goalModalRateInfo.isGain ? 'increase' : 'loss'}:
+                  </Text>
+                  <Text style={[styles.keypadGoalRateValue, { color: goalModalRateInfo.isUnsafeRate ? '#FFB300' : GREEN_BRIGHT }]}>
+                    {goalModalRateInfo.isGain ? '+' : '−'}{goalModalRateInfo.weeklyRateDisplay.toFixed(2)} {displayUnit}/wk
+                  </Text>
+                </View>
+
+                <Text style={styles.keypadGoalRateSubtext}>
+                  Timeframe: {goalModalRateInfo.weeks} Weeks ({goalModalRateInfo.weeks * 7} Days)
+                </Text>
+
+                <View style={styles.keypadRateStepperRow}>
+                  <TouchableOpacity
+                    style={styles.keypadRateStepperBtn}
+                    onPress={() => {
+                      const step = weightUnit === 'lbs' ? 0.25 : 0.1;
+                      const nextRate = Math.max(0.1, goalModalRateInfo.weeklyRateDisplay - step);
+                      const nextRateKg = weightUnit === 'lbs' ? nextRate / 2.20462262 : nextRate;
+                      const nextWeeks = Math.max(1, Math.round(goalModalRateInfo.deltaKg / nextRateKg));
+                      setGoalWeeks(String(nextWeeks));
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.keypadRateStepperBtnText}>−</Text>
+                  </TouchableOpacity>
+
+                  {(weightUnit === 'lbs' ? [0.5, 1.0, 1.5, 2.0] : [0.25, 0.50, 0.75, 1.00]).map((rateVal) => {
+                    const rateKg = weightUnit === 'lbs' ? rateVal / 2.20462262 : rateVal;
+                    const impliedWeeks = Math.max(1, Math.round(goalModalRateInfo.deltaKg / rateKg));
+                    const isSelected = Math.abs(goalModalRateInfo.weeks - impliedWeeks) <= 1;
+                    return (
+                      <TouchableOpacity
+                        key={`kr-${rateVal}`}
+                        style={[styles.keypadRateChip, isSelected && styles.keypadRateChipActive]}
+                        onPress={() => setGoalWeeks(String(impliedWeeks))}
+                      >
+                        <Text style={[styles.keypadRateChipText, isSelected && styles.keypadRateChipTextActive]}>
+                          {rateVal.toFixed(2)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  <TouchableOpacity
+                    style={styles.keypadRateStepperBtn}
+                    onPress={() => {
+                      const step = weightUnit === 'lbs' ? 0.25 : 0.1;
+                      const nextRate = goalModalRateInfo.weeklyRateDisplay + step;
+                      const nextRateKg = weightUnit === 'lbs' ? nextRate / 2.20462262 : nextRate;
+                      const nextWeeks = Math.max(1, Math.round(goalModalRateInfo.deltaKg / nextRateKg));
+                      setGoalWeeks(String(nextWeeks));
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.keypadRateStepperBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {goalModalRateInfo.isUnsafeRate && (
+                  <TouchableOpacity
+                    style={styles.keypadRateWarning}
+                    onPress={() => setGoalWeeks(String(goalModalRateInfo.minSafeWeeks))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.keypadRateWarningText}>
+                      ⚠️ Aggressive pace (>1%/wk). Tap for safe pace: {goalModalRateInfo.safeWeeklyRateDisplay.toFixed(2)} {displayUnit}/wk ({goalModalRateInfo.minSafeWeeks}W)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {(editCardModal === 'goal' || editCardModal === 'current') && modalTargetsPreview && (
+              <Text style={{ textAlign: 'center', color: GREEN_BRIGHT, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>
+                Estimated Daily Target: {modalTargetsPreview.calories.toLocaleString()} Cal/day
+                {modalTargetsPreview.dailyAdjustment !== 0 && (
+                  ` (${modalTargetsPreview.dailyAdjustment > 0 ? `+${modalTargetsPreview.dailyAdjustment}` : modalTargetsPreview.dailyAdjustment} Cal ${modalTargetsPreview.dailyAdjustment > 0 ? 'surplus' : 'deficit'})`
+                )}
+              </Text>
+            )}
 
             {/* Numpad grid */}
             <View style={styles.keypadGrid}>
@@ -967,6 +1423,9 @@ const WeightTrackerScreen = ({ navigation }) => {
                 onPress={async () => {
                   const data = { goalType, goalAmount, goalWeeks, startingValue, currentGoalVal, weightUnit, targetBMI };
                   await AsyncStorage.setItem(WEIGHT_GOAL_KEY, JSON.stringify(data));
+                  if (currentGoalVal && !isNaN(parseFloat(currentGoalVal))) {
+                    await syncGoalWeight(parseFloat(currentGoalVal), goalWeeks, goalType);
+                  }
                   setGoalModalVisible(false);
                 }}
               >
@@ -1072,6 +1531,170 @@ const WeightTrackerScreen = ({ navigation }) => {
                 </View>
               </View>
 
+              {/* Target Timeframe section */}
+              {(() => {
+                const hM = parseFloat(heightVal) > 10 ? parseFloat(heightVal) / 100 : parseFloat(heightVal);
+                const idealWNum = parseFloat((targetBMI * hM * hM).toFixed(1));
+                const currWNum = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
+                const totalDeltaKg = Math.abs(idealWNum - currWNum);
+                const weeksNum = Math.max(1, parseInt(goalWeeks, 10) || 12);
+                const weeklyKg = totalDeltaKg / weeksNum;
+                const weeklyPct = currWNum > 0 ? (weeklyKg / currWNum) * 100 : 0;
+                const minSafeWeeks = Math.max(1, Math.ceil(totalDeltaKg / (currWNum * 0.01)));
+                const isUnsafe = weeklyPct > 1.05 && totalDeltaKg > 0.5;
+
+                const userGender = user?.gender || user?.userProfile?.gender || user?.memberProfile?.gender || 'Male';
+                const userAge = user?.age || user?.userProfile?.age || user?.memberProfile?.age || 25;
+                const userAct = user?.activityLevel || user?.userProfile?.activityLevel || user?.memberProfile?.activityLevel || 'moderate';
+                const userGoal = user?.fitnessGoal || user?.userProfile?.fitnessGoal || user?.memberProfile?.fitnessGoal || '';
+
+                const previewTargets = calculateNutritionTargets(
+                  currWNum,
+                  parseFloat(heightVal) || 170,
+                  userAge,
+                  userGender,
+                  userGoal,
+                  userAct,
+                  idealWNum,
+                  weeksNum * 7
+                );
+
+                const presetWeeks = [4, 8, 12, 16, 20, 24, 32];
+
+                return (
+                  <View style={{ marginTop: 6, marginBottom: 10 }}>
+                    {/* Timeframe Card */}
+                    <View style={styles.settingsCard}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.settingsCardLabel}>Target Timeframe</Text>
+                        <Text style={styles.bmiSliderValue}>{weeksNum} Weeks</Text>
+                      </View>
+
+                      {/* Stepper */}
+                      <View style={styles.stepperContainer}>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => setGoalWeeks(prev => String(Math.max(1, (parseInt(prev, 10) || 12) - 1)))}
+                        >
+                          <Text style={styles.stepperBtnText}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.stepperValText}>{weeksNum} W ({weeksNum * 7}d)</Text>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => setGoalWeeks(prev => String(Math.min(104, (parseInt(prev, 10) || 12) + 1)))}
+                        >
+                          <Text style={styles.stepperBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Preset Chips */}
+                      <View style={styles.timeframePresetRow}>
+                        {presetWeeks.map(w => {
+                          const isActive = weeksNum === w;
+                          return (
+                            <TouchableOpacity
+                              key={`pw-${w}`}
+                              onPress={() => setGoalWeeks(String(w))}
+                              style={[styles.timeframeChip, isActive && styles.timeframeChipActive]}
+                            >
+                              <Text style={[styles.timeframeChipText, isActive && styles.timeframeChipTextActive]}>
+                                {w}W
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      {/* Weekly Rate Indicator & Presets */}
+                      {totalDeltaKg > 0.2 && (
+                        <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                              Weekly Rate ({idealWNum >= currWNum ? 'Gain' : 'Loss'}):
+                            </Text>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: isUnsafe ? '#FFB300' : GREEN_BRIGHT }}>
+                              {idealWNum >= currWNum ? '+' : '−'}{(weightUnit === 'lbs' ? (weeklyKg * 2.20462262) : weeklyKg).toFixed(2)} {displayUnit}/wk
+                            </Text>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                            {(weightUnit === 'lbs' ? [0.5, 1.0, 1.5, 2.0] : [0.25, 0.50, 0.75, 1.00]).map((rateVal) => {
+                              const rateKg = weightUnit === 'lbs' ? rateVal / 2.20462262 : rateVal;
+                              const impliedWeeks = Math.max(1, Math.round(totalDeltaKg / rateKg));
+                              const isSelected = Math.abs(weeksNum - impliedWeeks) <= 1;
+                              return (
+                                <TouchableOpacity
+                                  key={`swr-${rateVal}`}
+                                  onPress={() => setGoalWeeks(String(impliedWeeks))}
+                                  style={[styles.timeframeChip, isSelected && styles.timeframeChipActive, { paddingVertical: 5, paddingHorizontal: 10 }]}
+                                >
+                                  <Text style={[styles.timeframeChipText, isSelected && styles.timeframeChipTextActive]}>
+                                    {rateVal.toFixed(2)} {displayUnit}/wk
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Pace & Guardrail Feedback */}
+                    {totalDeltaKg > 0.2 && (
+                      <View style={[styles.guardrailCard, isUnsafe ? styles.guardrailCardUnsafe : styles.guardrailCardSafe]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Icon
+                            name={isUnsafe ? 'warning-outline' : 'checkmark-circle-outline'}
+                            size={18}
+                            color={isUnsafe ? '#FFB300' : '#2ecc71'}
+                          />
+                          <Text style={[styles.guardrailTitle, { color: isUnsafe ? '#FFB300' : '#2ecc71' }]}>
+                            {isUnsafe ? 'Aggressive Pace (>1% bodyweight/week)' : 'Healthy & Sustainable Pace'}
+                          </Text>
+                        </View>
+                        <Text style={styles.guardrailSubtitle}>
+                          {isUnsafe
+                            ? `Pace of ${weeklyKg.toFixed(2)} kg/week (${weeklyPct.toFixed(1)}%/wk) is too fast and risks muscle loss. Recommended safe timeframe is at least ${minSafeWeeks} weeks.`
+                            : `Pace of ${weeklyKg.toFixed(2)} kg/week (${weeklyPct.toFixed(1)}%/wk) is within the recommended 1% weekly limit.`}
+                        </Text>
+                        {isUnsafe && (
+                          <TouchableOpacity
+                            style={styles.safeTimeframeBtn}
+                            onPress={() => setGoalWeeks(String(minSafeWeeks))}
+                          >
+                            <Text style={styles.safeTimeframeBtnText}>
+                              Auto-Set Safe Timeframe ({minSafeWeeks} Weeks)
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Calculated Daily Nutrition Impact */}
+                    <View style={styles.caloriesPreviewCard}>
+                      <View style={styles.caloriesPreviewRow}>
+                        <View>
+                          <Text style={styles.settingsCardLabel}>Computed Daily Calories</Text>
+                          <Text style={styles.caloriesPreviewVal}>{previewTargets.calories} kcal</Text>
+                        </View>
+                        <View style={[styles.caloriesPreviewBadge, { backgroundColor: previewTargets.isMaintenance ? '#3A3A3C' : previewTargets.goalType === 'lose' ? '#2C3830' : '#382F2C' }]}>
+                          <Text style={[styles.caloriesPreviewBadgeText, { color: previewTargets.isMaintenance ? '#AAA' : previewTargets.goalType === 'lose' ? '#2ecc71' : '#FF9F43' }]}>
+                            {previewTargets.isMaintenance
+                              ? 'Maintenance'
+                              : previewTargets.goalType === 'lose'
+                              ? `-${Math.abs(previewTargets.dailyAdjustment)} kcal deficit`
+                              : `+${previewTargets.dailyAdjustment} kcal surplus`}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.caloriesPreviewMacros}>
+                        Protein: {previewTargets.protein}g • Fats: {previewTargets.fats}g • Carbs: {previewTargets.carbs}g • Fiber: {previewTargets.fiber}g
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
               {/* Big White Pill 'Use as goal' button */}
               <TouchableOpacity
                 style={styles.useAsGoalPillBtn}
@@ -1080,15 +1703,26 @@ const WeightTrackerScreen = ({ navigation }) => {
                   const idealW = (targetBMI * hM * hM).toFixed(1);
                   const startW = parseFloat(startingValue) || currentWeightVal;
                   const diff = Math.abs(parseFloat(idealW) - startW).toFixed(1);
-                  const gType = parseFloat(idealW) >= startW ? 'Gained' : 'Lost';
+                  const gType = Math.abs(parseFloat(idealW) - startW) < 0.1 ? 'Maintain' : (parseFloat(idealW) >= startW ? 'Gained' : 'Lost');
+                  const weeksNum = parseInt(goalWeeks, 10) || 12;
 
                   // Update screen state immediately
                   setCurrentGoalVal(idealW);
                   setGoalAmount(diff);
                   setGoalType(gType);
 
-                  // Dispatch Redux action to persist target weight to DB
-                  dispatch(saveWeightTarget({ targetWeight: idealW, height: heightVal, startingValue }));
+                  // Dispatch Redux action to persist target weight & timeframe to DB
+                  dispatch(saveWeightTarget({
+                    targetWeight: idealW,
+                    height: heightVal,
+                    startingValue,
+                    goalWeeks: weeksNum,
+                    targetTimeframeDays: weeksNum * 7,
+                    goalType: gType === 'Maintain' ? 'maintain' : (gType === 'Gained' ? 'gain' : 'lose'),
+                  }));
+
+                  // Sync target weight and timeframe across local storage, backend profile, and AuthContext
+                  await syncGoalWeight(parseFloat(idealW), String(weeksNum), gType);
 
                   // Dismiss settings modal so user sees updated screen
                   setGoalModalVisible(false);
@@ -1262,6 +1896,46 @@ const styles = StyleSheet.create({
   keypadUnitBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   keypadDoneBtn: { flex: 1, height: 50, backgroundColor: '#D6D8DC', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
   keypadDoneBtnText: { fontSize: 16, fontWeight: '700', color: '#111111' },
+
+  // ── Timeframe & Guardrails Styles ───────────────────────────────────────
+  timeframePresetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  timeframeChip: { backgroundColor: '#32353A', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20 },
+  timeframeChipActive: { backgroundColor: '#FFFFFF' },
+  timeframeChipText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  timeframeChipTextActive: { color: '#111', fontWeight: '700' },
+  stepperContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 10 },
+  stepperBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#32353A', justifyContent: 'center', alignItems: 'center' },
+  stepperBtnText: { fontSize: 20, color: '#FFF', fontWeight: '700', lineHeight: 22 },
+  stepperValText: { fontSize: 17, color: '#FFF', fontWeight: '800', minWidth: 90, textAlign: 'center' },
+  guardrailCard: { borderRadius: 16, padding: 14, marginTop: 8, marginBottom: 12 },
+  guardrailCardUnsafe: { backgroundColor: 'rgba(255, 179, 0, 0.12)', borderWidth: 1, borderColor: '#FFB300' },
+  guardrailCardSafe: { backgroundColor: 'rgba(46, 204, 113, 0.12)', borderWidth: 1, borderColor: 'rgba(46, 204, 113, 0.4)' },
+  guardrailTitle: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  guardrailSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 17 },
+  safeTimeframeBtn: { backgroundColor: '#FFB300', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginTop: 10, alignSelf: 'flex-start' },
+  safeTimeframeBtnText: { fontSize: 13, fontWeight: '700', color: '#111' },
+  caloriesPreviewCard: { backgroundColor: '#232528', borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  caloriesPreviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  caloriesPreviewVal: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+  caloriesPreviewBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
+  caloriesPreviewBadgeText: { fontSize: 12, fontWeight: '700' },
+  caloriesPreviewMacros: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+
+  // ── Keypad Goal Rate Card Styles ─────────────────────────────────────────
+  keypadGoalRateCard: { backgroundColor: '#272A2F', borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  keypadGoalRateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  keypadGoalRateLabel: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  keypadGoalRateValue: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  keypadGoalRateSubtext: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8 },
+  keypadRateStepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 2 },
+  keypadRateStepperBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#35393F', justifyContent: 'center', alignItems: 'center' },
+  keypadRateStepperBtnText: { fontSize: 18, fontWeight: '700', color: '#FFF', lineHeight: 20 },
+  keypadRateChip: { backgroundColor: '#35393F', paddingVertical: 6, paddingHorizontal: 11, borderRadius: 14 },
+  keypadRateChipActive: { backgroundColor: '#FFF' },
+  keypadRateChipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  keypadRateChipTextActive: { color: '#111', fontWeight: '700' },
+  keypadRateWarning: { backgroundColor: 'rgba(255, 179, 0, 0.15)', borderRadius: 8, paddingVertical: 5, paddingHorizontal: 8, marginTop: 8, borderWidth: 1, borderColor: 'rgba(255, 179, 0, 0.4)' },
+  keypadRateWarningText: { fontSize: 11, color: '#FFB300', fontWeight: '600' },
 });
 
 export default WeightTrackerScreen;

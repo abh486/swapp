@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Image,
   Alert,
   ScrollView,
@@ -13,8 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Text as TextSvg } from 'react-native-svg';
 import { useAuth } from '../../../../context/AuthContext';
-
-const { width } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../../../../utils/responsive';
 
 const getMondayBasedIndex = (date) => {
   const dayOfWeek = date.getDay();
@@ -40,13 +38,18 @@ const DietHeader = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const metrics = useResponsiveMetrics();
+  const { width, wp, hp, ms, sp, fs } = metrics;
+  const svgSize = Math.min(width * 0.43, ms(175));
+  const capsuleWidth = Math.min(ms(52), Math.floor((width - 48) / 6.5));
+  const capsuleHeight = Math.min(ms(76), hp(9.5));
   const calendarScrollViewRef = useRef(null);
 
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const userName =
     profileData.name ||
     `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim() ||
-    'Brian';
+    'Member';
   const userAvatar =
     profileData.profileImage ||
     profileData.profilePicture ||
@@ -186,6 +189,7 @@ const DietHeader = ({
                 key={idx}
                 style={[
                   styles.calendarCapsule,
+                  { width: capsuleWidth, height: capsuleHeight },
                   isActive ? styles.activeCalendarCapsule : styles.inactiveCalendarCapsule
                 ]}
                 onPress={() => handleSelectDay(day)}
@@ -213,8 +217,8 @@ const DietHeader = ({
       {/* Concentric Progress Rings + Legend */}
       <View style={styles.ringsContainerRow}>
         {/* SVG Ring Area */}
-        <View style={styles.svgWrapper}>
-          <Svg width={175} height={175} viewBox="0 0 200 200">
+        <View style={[styles.svgWrapper, { width: svgSize, height: svgSize }]}>
+          <Svg width={svgSize} height={svgSize} viewBox="0 0 200 200">
             <Defs>
               <SvgLinearGradient id="burnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <Stop offset="0%" stopColor="#BD93F9" />
@@ -382,7 +386,7 @@ const DietHeader = ({
 
       {/* Snap Card */}
       <TouchableOpacity 
-        style={styles.snapCard} 
+        style={[styles.snapCard, { width: width - sp(32), marginHorizontal: sp(16) }]} 
         onPress={() => navigation.navigate('DietAllLogs', { mode: 'diet' })}
         activeOpacity={0.8}
       >
@@ -608,8 +612,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 20,
     marginBottom: 5,
-    marginHorizontal: 16,
-    width: width - 32,
   },
   snapText: {
     color: 'rgba(255, 255, 255, 0.65)',

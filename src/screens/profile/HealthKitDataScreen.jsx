@@ -19,7 +19,7 @@ import {
   getDistanceWalkingRunningToday,
   getSleepDurationToday,
 } from '../../utils/healthKit';
-import { fetchSleepLogs } from '../../api/sleepApi';
+import { fetchSleepLogs } from '../../redux/actions/sleepActions';
 
 const { width } = Dimensions.get('window');
 

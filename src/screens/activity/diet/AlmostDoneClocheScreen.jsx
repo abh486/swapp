@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -15,11 +15,52 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../../api/apiClient';
 import LinearGradient from 'react-native-linear-gradient';
+import { useAuth } from '../../../context/AuthContext';
+import { getTargetsForUser, fetchNutritionTargets, getCachedBackendTargets } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 
 const AlmostDoneClocheScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [goalInfo, setGoalInfo] = useState({
+    goalType: 'Lost',
+    goalAmount: '5',
+    goalWeeks: '4',
+    calorieRange: '1800–1900',
+  });
+
+  useEffect(() => {
+    const loadGoalAndCalories = async () => {
+      try {
+        let targets = getCachedBackendTargets();
+        if (!targets || !targets.calories) {
+          targets = await fetchNutritionTargets();
+        }
+
+        const profile = user?.userProfile || user?.memberProfile || user || {};
+        const cals = targets?.calories || getTargetsForUser(user).calories || 2000;
+        const lowerCal = Math.round(cals * 0.95);
+        const upperCal = Math.round(cals * 1.05);
+
+        const currentW = profile.weight?.value || profile.weight;
+        const targetW = profile.targetWeight?.value || profile.targetWeight || profile.goalWeight;
+        const isLoss = targetW && currentW ? Number(targetW) < Number(currentW) : true;
+        const diff = targetW && currentW ? Math.abs(Number(targetW) - Number(currentW)).toFixed(1) : '5';
+        const weeks = profile.goalWeeks || user?.goalWeeks || '4';
+
+        setGoalInfo({
+          goalType: isLoss ? 'Lost' : 'Gained',
+          goalAmount: diff,
+          goalWeeks: String(weeks),
+          calorieRange: `${lowerCal}–${upperCal}`,
+        });
+      } catch (e) {
+        console.warn('[AlmostDoneClocheScreen] Failed to load goal info:', e);
+      }
+    };
+    loadGoalAndCalories();
+  }, [user]);
 
   const migrateMeals = (mealsStr) => {
     if (!mealsStr) return ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
@@ -139,10 +180,10 @@ const AlmostDoneClocheScreen = ({ navigation }) => {
         {/* Text descriptions below the image */}
         <View style={styles.textBlock}>
           <Text style={styles.descText}>
-            Lose 5 kg in 4 weeks with steady, sustainable progress. Every step forward matters.
+            {goalInfo.goalType === 'Lost' ? 'Lose' : 'Gain'} {goalInfo.goalAmount} kg in {goalInfo.goalWeeks} weeks with steady, sustainable progress. Every step forward matters.
           </Text>
           <Text style={styles.calorieText}>
-            Daily calorie range: 3698–3798 Cal.
+            Daily calorie range: {goalInfo.calorieRange} Cal.
           </Text>
           <Text style={styles.subText}>
             Based on your unique goals and activity level.

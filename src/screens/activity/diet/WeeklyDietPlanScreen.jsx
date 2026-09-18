@@ -16,11 +16,11 @@ import LinearGradient from 'react-native-linear-gradient';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { saveDietEntry } from '../../../redux/actions/dietActions';
 import dietAiApi from '../../../api/dietAiApi';
 import { useAuth } from '../../../context/AuthContext';
-import { getTargetsForUser } from '../../../utils/nutritionCalculator';
+import { getTargetsForUser, getCachedBackendTargets } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 
@@ -111,6 +111,7 @@ const getInitialSelectedDate = (rec) => {
 
 const WeeklyDietPlanScreen = ({ navigation, route }) => {
   const { user } = useAuth();
+  const reduxWeight = useSelector(state => state.weight);
   const { recommendation } = route.params || {};
   const dispatch = useDispatch();
 
@@ -297,7 +298,15 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
     }
   }
 
-  const userTargets = useMemo(() => getTargetsForUser(user), [user]);
+  const userTargets = useMemo(() => {
+    const cached = getCachedBackendTargets();
+    if (cached && cached.calories > 0) {
+      return cached;
+    }
+    const activeWeight = reduxWeight?.logs?.[reduxWeight.logs.length - 1]?.value || reduxWeight?.startingValue || user?.weight;
+    const activeTarget = reduxWeight?.targetWeight || user?.targetWeight || user?.goalWeight;
+    return getTargetsForUser({ ...(user || {}), weight: activeWeight, targetWeight: activeTarget, goalWeight: activeTarget });
+  }, [user, reduxWeight?.targetWeight, reduxWeight?.startingValue, reduxWeight?.logs]);
   const totalCalsForDay = meals && meals.length > 0 ? meals.reduce((sum, m) => sum + (m.calories || 0), 0) : userTargets.calories;
 
   // Curated tip for the day

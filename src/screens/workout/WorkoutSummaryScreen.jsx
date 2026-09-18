@@ -226,14 +226,9 @@ const WorkoutSummaryScreen = () => {
           >
             {displayImages.filter(uri => typeof uri === 'string' && uri.trim().length > 0).map((uri, index) => {
               const currentEx = (sessionData?.exercises || sessionData?.templateExercises || [])[index] || {};
+              const isFailed = Boolean(failedImages[uri]);
               const imageSource = !isFailed
-                ? {
-                    uri,
-                    headers: uri.includes('rapidapi') ? {
-                      'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                      'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                    } : undefined,
-                  }
+                ? { uri }
                 : getExerciseMuscleFallback(currentEx);
 
               return (

@@ -10,6 +10,7 @@ import {
   Dimensions,
   Image,
   TextInput,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -197,6 +198,78 @@ const DietPreferences = ({ navigation, route }) => {
 
     syncPreferences();
   }, [preference, skipDays, nonVegDays, selectedMeals, selectedAllergies, selectedCuisines, avoidedFoods, cuisineFrequency, otherInfo, isLoaded]);
+
+  // Handle hardware back press on Android
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showOtherInfoSelect) {
+        setShowOtherInfoSelect(false);
+        if (isFlowMode) setShowCuisineFrequencySelect(true);
+        return true;
+      }
+      if (showCuisineFrequencySelect) {
+        setShowCuisineFrequencySelect(false);
+        if (isFlowMode) setShowAvoidSelect(true);
+        return true;
+      }
+      if (showAvoidSelect) {
+        setShowAvoidSelect(false);
+        if (isFlowMode) setShowCuisinesSelect(true);
+        return true;
+      }
+      if (showCuisinesSelect) {
+        setShowCuisinesSelect(false);
+        if (isFlowMode) setShowAllergiesSelect(true);
+        return true;
+      }
+      if (showAllergiesSelect) {
+        setShowAllergiesSelect(false);
+        if (isFlowMode) {
+          if (preference === 'Selective Non-Veg' || preference === 'No Restriction') {
+            setShowNonVegDaysSelect(true);
+          } else {
+            setShowSkipDaysSelect(true);
+          }
+        }
+        return true;
+      }
+      if (showNonVegDaysSelect) {
+        setShowNonVegDaysSelect(false);
+        if (isFlowMode) setShowPreferenceSelect(true);
+        return true;
+      }
+      if (showSkipDaysSelect) {
+        setShowSkipDaysSelect(false);
+        if (isFlowMode) setShowPreferenceSelect(true);
+        return true;
+      }
+      if (showPreferenceSelect) {
+        if (isFlowMode) {
+          navigation.goBack();
+          return true;
+        } else {
+          setShowPreferenceSelect(false);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [
+    showOtherInfoSelect,
+    showCuisineFrequencySelect,
+    showAvoidSelect,
+    showCuisinesSelect,
+    showAllergiesSelect,
+    showNonVegDaysSelect,
+    showSkipDaysSelect,
+    showPreferenceSelect,
+    isFlowMode,
+    preference,
+    navigation,
+  ]);
 
   const preferencesOptions = [
     {
@@ -486,7 +559,7 @@ const DietPreferences = ({ navigation, route }) => {
           <TouchableOpacity
             onPress={() => {
               if (isFlowMode) {
-                navigation.navigate('MainTabs', { screen: 'Home' });
+                navigation.goBack();
               } else {
                 setShowPreferenceSelect(false);
                 setIsFlowMode(false);
@@ -1236,7 +1309,7 @@ const DietPreferences = ({ navigation, route }) => {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Preference Card */}
-        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(true); setShowPreferenceSelect(true); }} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.cardContainer} onPress={() => { setIsFlowMode(false); setShowPreferenceSelect(true); }} activeOpacity={0.9}>
           <View style={styles.avatarOverlap}>
             <View style={styles.avatarInner}>
               <MaterialCommunityIcons name="food-apple" size={20} color="#FFF" />

@@ -25,8 +25,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
-
-const { width } = Dimensions.get('window');
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
@@ -199,6 +198,7 @@ const fallbackExercises = [
 ];
 
 const PostDetailsScreen = ({ route, navigation }) => {
+  const { width, ms, sp, fs } = useResponsiveMetrics();
   const { post: initialPost } = route.params;
   const { user } = useAuth();
   const profileData = user?.userProfile || user?.memberProfile || user || {};
@@ -336,7 +336,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
     }
   }
   imagesList = imagesList.filter(u => typeof u === 'string' && u.trim().length > 0);
-  const cardWidth = Dimensions.get('window').width;
+  const cardWidth = width;
 
   useEffect(() => {
     fetchComments();
@@ -532,10 +532,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
                   key={index}
                   source={{
                     uri,
-                    headers: uri.includes('rapidapi') ? {
-                      'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                      'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                    } : undefined,
+                    
                   }}
                   style={[styles.postMediaImage, { width: cardWidth }]}
                   resizeMode="cover"
@@ -594,10 +591,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
                   const imageSource = (primaryUri && !isFailed)
                     ? {
                         uri: primaryUri,
-                        headers: primaryUri.includes('rapidapi') ? {
-                          'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com',
-                          'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d',
-                        } : undefined,
+                        
                       }
                     : getExerciseMuscleFallback(exObj);
 

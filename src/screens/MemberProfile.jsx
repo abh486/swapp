@@ -787,6 +787,11 @@ const MemberProfile = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepDirection, setStepDirection] = useState('next');
 
+  const isIOS = Platform.OS === 'ios';
+  const TOTAL_STEPS = isIOS ? 12 : 11;
+  const LAST_STEP = TOTAL_STEPS - 1;
+  const SUBMIT_LOADING_STEP = 12;
+
   const { wp, hp, ms, mvs, sp, fs, width: screenWidth, height: screenHeight } = useResponsiveMetrics();
   const styles = useMemo(
     () => createStyles({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }),
@@ -1003,10 +1008,10 @@ const MemberProfile = () => {
     return true;
   };
 
-  const isLastStep = currentStep === 11;
+  const isLastStep = currentStep === LAST_STEP;
 
   const handleNext = () => {
-    if (currentStep === 11) {
+    if (isIOS && currentStep === 11) {
       // Apple Health step — Authorize button triggers HealthKit permission
       handleHealthAuthorize();
       return;
@@ -1064,26 +1069,53 @@ const MemberProfile = () => {
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setLoading(true);
-    setCurrentStep(12);
+    setCurrentStep(SUBMIT_LOADING_STEP);
     try {
       const cleanUsername = (formData.username || '').trim().toLowerCase();
       const allGoals = [...formData.fitnessGoal, ...formData.simpleGoals].filter(Boolean);
       const uniqueGoals = Array.from(new Set(allGoals)).join(', ');
+
+      const rawWeightKg = Number(formData.weight) || 70;
+      const rawHeightCm = Number(formData.height) || 176;
+
+      const submittedWeight = weightUnit === 'LBS'
+        ? Math.round(rawWeightKg * 2.20462262)
+        : rawWeightKg;
+
+      const submittedHeight = heightUnit === 'FT'
+        ? Math.round((rawHeightCm / 2.54) * 10) / 10
+        : rawHeightCm;
 
       await apiClient.post('/v1/auth/create-user-profile', {
         name: formData.name.trim(),
         username: cleanUsername,
         age: Number(formData.age),
         gender: formData.gender,
-        weight: { value: Number(formData.weight), unit: weightUnit },
-        height: { value: Number(formData.height), unit: heightUnit },
+        weight: { value: submittedWeight, unit: weightUnit },
+        height: { value: submittedHeight, unit: heightUnit },
         fitnessGoal: uniqueGoals || formData.fitnessGoal.join(', '),
         activityLevel: formData.activityLevel || 'moderate',
         focusAreas: formData.focusAreas.join(', '),
+        interests: formData.interests.join(', '),
         healthConditions: formData.interests.join(', ') || 'None',
         profileImage: profileImage ? profileImage : undefined,
         profilePicture: profileImage ? profileImage : undefined,
       });
+
+      try {
+        const metricsToCache = {
+          weight: String(rawWeightKg),
+          height: String(rawHeightCm),
+          startingWeight: String(rawWeightKg),
+          fitnessGoal: uniqueGoals || formData.fitnessGoal.join(', '),
+          activityLevel: formData.activityLevel || 'moderate',
+          gender: formData.gender,
+          age: String(formData.age),
+        };
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(metricsToCache));
+      } catch (e) {
+        console.log('Error caching member profile metrics locally:', e);
+      }
 
       try {
         const reservedJSON = await AsyncStorage.getItem('reserved_usernames');
@@ -1105,7 +1137,7 @@ const MemberProfile = () => {
       }
       await refreshAuthStatus();
     } catch (err) {
-      setCurrentStep(11);
+      setCurrentStep(LAST_STEP);
       console.error('Profile Setup Failed:', err.response ? err.response.data : err.message);
       Alert.alert('Profile Setup Failed', err.response?.data?.message || 'An error occurred. Please try again.');
     } finally {
@@ -1588,6 +1620,7 @@ const MemberProfile = () => {
 
       // ── Step 11: Connect Apple Health ─────────────────────────────────────────
       case 11:
+        if (!isIOS) return null;
         return (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(20) }}>
             <Animated.Text
@@ -1629,7 +1662,7 @@ const MemberProfile = () => {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
-  if (currentStep === 12) {
+  if (currentStep === SUBMIT_LOADING_STEP) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Animated.Text entering={ZoomIn.duration(400).springify()} style={{ color: '#FFFFFF', fontSize: fs(32), fontWeight: '600', letterSpacing: 0.5 }}>
@@ -1648,7 +1681,7 @@ const MemberProfile = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={{ paddingHorizontal: sp(20), paddingVertical: sp(14) }}>
-          <SegmentedStepHeader currentStep={currentStep} totalSteps={12} sp={sp} />
+          <SegmentedStepHeader currentStep={currentStep} totalSteps={TOTAL_STEPS} sp={sp} />
         </View>
 
         {/* Directional Slide & Fade Reanimated Step Transition */}
@@ -1681,9 +1714,9 @@ const MemberProfile = () => {
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={styles.continuePillText}>
-                  {currentStep === 11 ? '✦ Authorize' : 'Continue'}
+                  {isIOS && currentStep === 11 ? '✦ Authorize' : 'Continue'}
                 </Text>
-                {currentStep !== 11 && <Feather name="arrow-right" size={sp(20)} color="#000000" style={{ marginLeft: sp(8) }} />}
+                {(!isIOS || currentStep !== 11) && <Feather name="arrow-right" size={sp(20)} color="#000000" style={{ marginLeft: sp(8) }} />}
               </View>
             )}
           </AnimatedButton>

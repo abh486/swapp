@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -25,7 +26,7 @@ import {
   deleteSleepEntry,
   fetchSleepTarget,
   saveSleepTarget,
-} from '../../../api/sleepApi';
+} from '../../../redux/actions/sleepActions';
 
 const { width } = Dimensions.get('window');
 
@@ -73,7 +74,8 @@ const SleepDetailsScreen = ({ route, navigation }) => {
   const handleWakeUp = async () => {
     if (!activeSleepStart) return;
     const now = new Date();
-    const duration = calculateDuration(activeSleepStart, now);
+    const elapsedHours = (now.getTime() - activeSleepStart.getTime()) / (1000 * 60 * 60);
+    const duration = Math.min(24, Math.max(0, elapsedHours));
 
     const year = selectedDate.getFullYear();
     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -105,7 +107,10 @@ const SleepDetailsScreen = ({ route, navigation }) => {
       setIsManual(true);
       loadWeeklySleepData(selectedDate);
 
-      Alert.alert('Good Morning! ☀️', `You slept for ${Math.floor(duration)}h ${Math.round((duration - Math.floor(duration)) * 60)}m.`);
+      const totalMins = Math.round(duration * 60);
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      Alert.alert('Good Morning! ☀️', `You slept for ${h}h ${m}m.`);
     } catch (e) {
       console.warn('Failed to log wake up:', e);
     }
@@ -136,11 +141,16 @@ const SleepDetailsScreen = ({ route, navigation }) => {
   const [activePicker, setActivePicker] = useState(null); // null | 'bed' | 'wake'
 
   const calculateDuration = (bed, wake) => {
-    let diffMs = wake.getTime() - bed.getTime();
-    if (diffMs < 0) {
-      diffMs += 24 * 60 * 60 * 1000; // Crosses midnight
+    if (!bed || !wake) return 0;
+    const bedMinutes = bed.getHours() * 60 + bed.getMinutes();
+    const wakeMinutes = wake.getHours() * 60 + wake.getMinutes();
+
+    let diffMinutes = wakeMinutes - bedMinutes;
+    if (diffMinutes < 0) {
+      diffMinutes += 24 * 60; // Crosses midnight (e.g. 11:00 PM to 7:00 AM)
     }
-    const totalHours = diffMs / (1000 * 60 * 60);
+
+    const totalHours = diffMinutes / 60;
     return Math.min(24, Math.max(0, totalHours));
   };
 
@@ -245,10 +255,18 @@ const SleepDetailsScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    loadSleepForDate(selectedDate);
-    loadWeeklySleepData(selectedDate);
-    loadReminderSettings();
-  }, [selectedDate]);
+    if (route?.params?.selectedDate) {
+      setSelectedDate(new Date(route.params.selectedDate));
+    }
+  }, [route?.params?.selectedDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSleepForDate(selectedDate);
+      loadWeeklySleepData(selectedDate);
+      loadReminderSettings();
+    }, [selectedDate])
+  );
 
   const handleTimeChange = (event, selectedTime) => {
     if (event.type === 'dismissed') {
@@ -282,6 +300,12 @@ const SleepDetailsScreen = ({ route, navigation }) => {
     }
 
     const totalHours = calculateDuration(savedBed, savedWake);
+
+    if (totalHours <= 0) {
+      Alert.alert('Invalid Time', 'Bedtime and wake-up time cannot be the same.');
+      return;
+    }
+
     const year = selectedDate.getFullYear();
     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -490,12 +514,19 @@ const SleepDetailsScreen = ({ route, navigation }) => {
         <View style={styles.summaryContainer}>
           <View style={styles.summaryHeader}>
             <View style={styles.summaryHoursRow}>
-              <Text style={styles.totalHoursText}>
-                {Math.floor(sleepHours)}h
-                {Math.round((sleepHours - Math.floor(sleepHours)) * 60) > 0 && (
-                  <Text style={styles.totalMinsText}> {Math.round((sleepHours - Math.floor(sleepHours)) * 60)}m</Text>
-                )}
-              </Text>
+              {(() => {
+                const totalMins = Math.round(sleepHours * 60);
+                const hrs = Math.floor(totalMins / 60);
+                const mins = totalMins % 60;
+                return (
+                  <Text style={styles.totalHoursText}>
+                    {hrs}h
+                    {mins > 0 && (
+                      <Text style={styles.totalMinsText}> {mins}m</Text>
+                    )}
+                  </Text>
+                );
+              })()}
               <Text style={styles.goalText}> of 8h</Text>
             </View>
             <TouchableOpacity onPress={handleEditPencilPress} style={styles.editBtn}>
@@ -581,8 +612,9 @@ const SleepDetailsScreen = ({ route, navigation }) => {
             const wakeTimeStr = wakeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const wakeDateStr = wakeDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
-            const hrs = Math.floor(item.duration);
-            const mins = Math.round((item.duration - hrs) * 60);
+            const totalMins = Math.round((item.duration || 0) * 60);
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
             const durationLabel = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 
             return (
@@ -795,8 +827,9 @@ const SleepDetailsScreen = ({ route, navigation }) => {
                     {/* Live Sleep Summary Card */}
                     {(() => {
                       const dur = calculateDuration(bedTime, wakeTime);
-                      const h = Math.floor(dur);
-                      const m = Math.round((dur - h) * 60);
+                      const totalMins = Math.round((dur || 0) * 60);
+                      const h = Math.floor(totalMins / 60);
+                      const m = totalMins % 60;
                       const bedStr = bedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       const wakeStr = wakeTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       return (

@@ -20,8 +20,8 @@ android {
         applicationId "com.swappios"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.0.8"
+        versionCode 13
+        versionName "1.0.12"
 
         // FIX FOR react-native-camera
         missingDimensionStrategy 'react-native-camera', 'general'
@@ -92,3 +92,14 @@ dependencies {
 
 apply plugin: "com.google.gms.google-services"
 
+tasks.configureEach { task ->
+    if (task.name.startsWith("externalNativeBuildClean")) {
+        task.enabled = false
+    }
+}
+
+tasks.named("clean") {
+    doLast {
+        delete file("${projectDir}/.cxx")
+    }
+}

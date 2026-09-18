@@ -16,12 +16,15 @@ import apiClient from '../../../api/apiClient';
 import { GlobalLoader } from '../../../components/GlobalLoader';
 import DietDatePickerModal from './components/DietDatePickerModal';
 import { useAuth } from '../../../context/AuthContext';
-import { getTargetsForUser } from '../../../utils/nutritionCalculator';
+import { useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
+import { getTargetsForUser, getCachedBackendTargets, setCachedBackendTargets } from '../../../utils/nutritionCalculator';
 
 const { width } = Dimensions.get('window');
 
 const DietAllLogs = ({ navigation, route }) => {
   const { user } = useAuth();
+  const reduxWeight = useSelector(state => state.weight);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState([]);
   const [dailySummary, setDailySummary] = useState(null);
@@ -67,8 +70,12 @@ const DietAllLogs = ({ navigation, route }) => {
   const fetchDailySummary = useCallback(async () => {
     try {
       const response = await apiClient.get('/diet/progress/summary');
-      if (response?.data?.data) {
-        setDailySummary(response.data.data);
+      const data = response?.data?.data || response?.data;
+      if (data) {
+        setDailySummary(data);
+        if (data.targets && data.targets.calories > 0) {
+          setCachedBackendTargets(data.targets);
+        }
       }
     } catch (err) {
       console.warn('[DietAllLogs] Failed to fetch summary:', err.message);
@@ -83,6 +90,13 @@ const DietAllLogs = ({ navigation, route }) => {
     fetchDailySummary();
   }, [fetchDailySummary, selectedDate]);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchAllDietLogs();
+      fetchDailySummary();
+    }, [fetchAllDietLogs, fetchDailySummary])
+  );
+
   // Filter logs for the selected date
   const dailyLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -91,19 +105,46 @@ const DietAllLogs = ({ navigation, route }) => {
     });
   }, [logs, selectedDate]);
 
-  // Calculate target and consumed cals
-  const userFallbackTargets = useMemo(() => getTargetsForUser(user), [user]);
-  const targetCals = dailySummary?.targets?.calories || userFallbackTargets.calories;
+  // Calculate live target and consumed cals
+  const liveTargets = useMemo(() => {
+    const cached = getCachedBackendTargets();
+    if (cached && cached.calories > 0) {
+      return cached;
+    }
+    const activeWeight =
+      reduxWeight?.logs?.[reduxWeight.logs.length - 1]?.value ||
+      user?.weight?.value ||
+      user?.weight ||
+      reduxWeight?.startingValue ||
+      70;
+    const activeTarget =
+      reduxWeight?.targetWeight ||
+      user?.targetWeight?.value ||
+      user?.targetWeight ||
+      user?.goalWeight;
+    const activeHeight = reduxWeight?.height || user?.height?.value || user?.height || 170;
+    const activeGoal = user?.fitnessGoal || '';
+    return getTargetsForUser({
+      ...(user || {}),
+      weight: activeWeight,
+      height: activeHeight,
+      targetWeight: activeTarget,
+      goalWeight: activeTarget,
+      fitnessGoal: activeGoal,
+    });
+  }, [user, reduxWeight?.targetWeight, reduxWeight?.startingValue, reduxWeight?.logs, reduxWeight?.height]);
+
+  const targetCals = dailySummary?.targets?.calories || getCachedBackendTargets()?.calories || liveTargets.calories;
   const consumedCals = dailyLogs.reduce((sum, item) => sum + (item.calories || 0), 0);
 
-  // Categories list matching Screenshot 2
+  // Meal categories list
   const categories = [
-    { type: 'Breakfast', label: 'Breakfast', time: '07:30 AM', defaultImage: 'https://images.unsplash.com/photo-1517881917430-e70dfb3610aa?auto=format&fit=crop&w=150&q=80' },
-    { type: 'Morning Snack', label: 'Morning Snack', time: '10:30 AM', defaultImage: 'https://images.unsplash.com/photo-1543362906-acfc16c67564?auto=format&fit=crop&w=150&q=80' },
-    { type: 'Lunch', label: 'Lunch', time: '01:30 PM', defaultImage: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=150&q=80' },
-    { type: 'Evening Snack', label: 'Evening Snack', time: '04:30 PM', defaultImage: 'https://images.unsplash.com/photo-1543362906-acfc16c67564?auto=format&fit=crop&w=150&q=80' },
-    { type: 'Dinner', label: 'Dinner', time: '07:30 PM', defaultImage: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=150&q=80' },
-    { type: 'Custom Meal', label: 'Custom Meal', time: 'Anytime', defaultImage: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=150&q=80' },
+    { type: 'Breakfast', label: 'Breakfast' },
+    { type: 'Morning Snack', label: 'Morning Snack' },
+    { type: 'Lunch', label: 'Lunch' },
+    { type: 'Evening Snack', label: 'Evening Snack' },
+    { type: 'Dinner', label: 'Dinner' },
+    { type: 'Custom Meal', label: 'Custom Meal' },
   ];
 
   const isToday = selectedDate.toDateString() === new Date().toDateString();
@@ -190,7 +231,11 @@ const DietAllLogs = ({ navigation, route }) => {
               const firstLogWithPhoto = catLogs.find(l => l.photoUrl || l.photo?.uri || l.imageUrl);
               const cardImage = firstLogWithPhoto 
                 ? (firstLogWithPhoto.photoUrl || firstLogWithPhoto.photo?.uri || firstLogWithPhoto.imageUrl) 
-                : cat.defaultImage;
+                : null;
+
+              const loggedTime = catLogs.length > 0 && catLogs[0].createdAt
+                ? new Date(catLogs[0].createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : null;
 
               return (
                 <View key={cat.type}>
@@ -203,7 +248,7 @@ const DietAllLogs = ({ navigation, route }) => {
                         <View style={styles.categoryPill}>
                           <Text style={styles.categoryPillText}>{cat.label}</Text>
                         </View>
-                        <Text style={styles.timeLabelText}>{cat.time}</Text>
+                        {loggedTime && <Text style={styles.timeLabelText}>{loggedTime}</Text>}
                       </View>
 
                       {/* Items List */}
@@ -235,7 +280,13 @@ const DietAllLogs = ({ navigation, route }) => {
 
                     {/* Right Overlapping circular image */}
                     <View style={styles.imageOuterWrapper}>
-                      <Image source={{ uri: cardImage }} style={styles.circularMealImage} />
+                      {cardImage ? (
+                        <Image source={{ uri: cardImage }} style={styles.circularMealImage} />
+                      ) : (
+                        <View style={[styles.circularMealImage, { backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' }]}>
+                          <Icon name="restaurant-outline" size={24} color="rgba(255, 255, 255, 0.4)" />
+                        </View>
+                      )}
                     </View>
                   </View>
 

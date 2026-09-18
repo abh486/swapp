@@ -146,10 +146,8 @@ export const CustomWorkoutModal = ({
     const target = formatDisplayName(rawTarget);
     const equipment = formatDisplayName(rawEquipment);
 
-    const rawImg = item.imageUrl || item.gifUrl || (item.exerciseId ? `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${item.exerciseId}` : null);
-    const imageSource = rawImg
-      ? { uri: rawImg, headers: { 'x-rapidapi-host': 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com', 'x-rapidapi-key': '0232da47famsh2b99ed94d5627b8p195111jsnc217869da53d' } }
-      : null;
+    const rawImg = item.imageUrl || item.gifUrl;
+    const imageSource = rawImg ? { uri: rawImg } : null;
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
 
     return (

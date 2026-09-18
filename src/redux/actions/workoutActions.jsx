@@ -57,9 +57,6 @@ export const resolveExerciseImageUri = (exercise) => {
     if (url) return url;
   }
   const exId = exercise.exerciseId || exercise.id;
-  if (exId && typeof exId === 'string' && exId.startsWith('exr_')) {
-    return `https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com/api/v1/exercises/image/${exId}`;
-  }
   if (exercise.name && typeof exercise.name === 'string') {
     const formattedName = exercise.name
       .trim()
@@ -68,6 +65,18 @@ export const resolveExerciseImageUri = (exercise) => {
       .join('_');
     return `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${formattedName}/0.jpg`;
   }
+  return null;
+};
+
+export const resolveExerciseAnimationUri = (exercise) => {
+  if (!exercise) return null;
+  if (exercise.gifUrl && typeof exercise.gifUrl === 'string' && exercise.gifUrl.startsWith('http')) return exercise.gifUrl;
+  if (exercise.videoUrl && typeof exercise.videoUrl === 'string' && exercise.videoUrl.startsWith('http')) {
+    const clean = exercise.videoUrl.split('?')[0].toLowerCase();
+    if (clean.endsWith('.gif')) return exercise.videoUrl;
+  }
+  if (exercise.gif && typeof exercise.gif === 'string' && exercise.gif.startsWith('http')) return exercise.gif;
+  if (exercise.imageUrl && typeof exercise.imageUrl === 'string' && exercise.imageUrl.toLowerCase().includes('.gif')) return exercise.imageUrl;
   return null;
 };
 
@@ -101,20 +110,24 @@ export const getExerciseMuscleFallback = (exercise) => {
 
 export const normalizeApiExercise = (ex, index = 0) => {
   const exId = ex.exerciseId || ex.id || `ex_${index}`;
-  const targetMuscles = (ex.targetMuscles || ex.primaryMuscles || []).map(m => String(m).toLowerCase());
-  const bodyParts = (ex.bodyParts || []).map(b => String(b).toLowerCase());
+  const targetMuscles = (ex.targetMuscles || ex.primaryMuscles || (ex.target ? [ex.target] : [])).map(m => String(m).toLowerCase());
+  const bodyParts = (ex.bodyParts || (ex.bodyPart ? [ex.bodyPart] : [])).map(b => String(b).toLowerCase());
   const equipments = (ex.equipments || (ex.equipment ? [ex.equipment] : [])).map(e => String(e).toLowerCase());
 
   const resolvedImg = resolveExerciseImageUri(ex);
+  const resolvedAnim = resolveExerciseAnimationUri(ex);
 
   return {
     id: exId,
     exerciseId: exId,
     name: ex.name || '',
+    target: ex.target || (targetMuscles[0] || ''),
+    bodyPart: ex.bodyPart || (bodyParts[0] || ''),
+    equipment: ex.equipment || (equipments[0] || ''),
     imageUrl: resolvedImg,
     imageUrls: ex.imageUrls || null,
     videoUrl: ex.videoUrl || null,
-    gifUrl: resolvedImg,
+    gifUrl: resolvedAnim || ex.gifUrl || resolvedImg,
     targetMuscles: targetMuscles.length > 0 ? targetMuscles : bodyParts,
     secondaryMuscles: (ex.secondaryMuscles || []).map(m => String(m).toLowerCase()),
     equipments: equipments.length > 0 ? equipments : ['body weight'],
@@ -187,7 +200,9 @@ const isEquipmentMatch = (exEquipment, filterEq) => {
   if (clean1.includes('barbell') && clean2.includes('barbell')) return true;
   if (clean1.includes('dumbbell') && clean2.includes('dumbbell')) return true;
   if (clean1.includes('kettlebell') && clean2.includes('kettlebell')) return true;
-  if (clean1.includes('machine') && clean2.includes('machine')) return true;
+  if (clean1.includes('machine') && (clean2.includes('machine') || clean2.includes('cable') || clean2.includes('leverage'))) return true;
+  if (clean2.includes('machine') && (clean1.includes('machine') || clean1.includes('cable') || clean1.includes('leverage'))) return true;
+  if ((clean1.includes('plate') || clean1.includes('weighted')) && (clean2.includes('plate') || clean2.includes('weighted'))) return true;
 
   return false;
 };
@@ -195,11 +210,6 @@ const isEquipmentMatch = (exEquipment, filterEq) => {
 export const fetchExercises = (params = {}) => async (dispatch) => {
   dispatch({ type: types.WORKOUT_GET_EXERCISES_REQUEST, payload: { isLoadMore: params.isLoadMore } });
   try {
-    let rawExercises = [];
-    let hasNextPage = false;
-    let nextCursor = null;
-    let totalCount = 0;
-
     // Filter by muscles / body parts
     const filterMuscles = [];
     const rawMuscles = params.targetMuscles || params.muscles || params.bodyParts || params.muscle || [];
@@ -218,89 +228,74 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
       if (cleaned && !cleaned.includes('all equip')) filterEquipments.push(cleaned);
     });
 
-    const searchQuery = (params.search || params.name || params.keywords || '').trim();
+    const searchQuery = (params.search || params.name || params.keywords || '').trim().toLowerCase();
 
+    // Fetch all exercises from local dataset (zero network latency)
+    const apiRes = await exerciseApi.getExercises({ limit: 0 });
+    let allExercises = (apiRes?.data || []).map(normalizeApiExercise);
+
+    let filteredList = allExercises;
+
+    // Apply search query filtering across name, target, body parts, and equipments
     if (searchQuery) {
-      const apiRes = await exerciseApi.searchExercises(searchQuery);
-      if (apiRes && apiRes.data && apiRes.data.length > 0) {
-        rawExercises = apiRes.data.map(normalizeApiExercise);
-        totalCount = rawExercises.length;
-      }
-    } else if (filterMuscles.length > 0 && filterEquipments.length === 0) {
-      const apiRes = await exerciseApi.searchExercises(filterMuscles[0]);
-      if (apiRes && apiRes.data && apiRes.data.length > 0) {
-        rawExercises = apiRes.data.map(normalizeApiExercise);
-        totalCount = rawExercises.length;
-      }
+      filteredList = filteredList.filter(ex =>
+        (ex.name || '').toLowerCase().includes(searchQuery) ||
+        (ex.target || '').toLowerCase().includes(searchQuery) ||
+        (ex.equipment || '').toLowerCase().includes(searchQuery) ||
+        (ex.targetMuscles || []).some(m => m.toLowerCase().includes(searchQuery)) ||
+        (ex.bodyParts || []).some(bp => bp.toLowerCase().includes(searchQuery)) ||
+        (ex.equipments || []).some(eq => eq.toLowerCase().includes(searchQuery))
+      );
     }
-
-    if (rawExercises.length === 0) {
-      let currentAfter = params.after || undefined;
-      let targetLimit = Number(params.limit) || 350;
-      let fetchedCount = 0;
-      let maxPages = 15;
-
-      while (fetchedCount < targetLimit && maxPages > 0) {
-        maxPages--;
-        try {
-          const apiRes = await exerciseApi.getExercises({
-            limit: 50,
-            after: currentAfter,
-          });
-
-          const pageData = apiRes?.data || [];
-          if (!pageData.length) break;
-
-          const normalizedPage = pageData.map(normalizeApiExercise);
-          rawExercises.push(...normalizedPage);
-          fetchedCount += normalizedPage.length;
-
-          hasNextPage = Boolean(apiRes?.meta?.hasNextPage);
-          currentAfter = apiRes?.meta?.nextCursor;
-
-          if (!hasNextPage || !currentAfter) break;
-        } catch (pageErr) {
-          console.warn('[fetchExercises] Page fetch warning:', pageErr?.message);
-          break;
-        }
-      }
-      totalCount = rawExercises.length;
-      nextCursor = currentAfter;
-    }
-
-    let filteredList = rawExercises;
 
     // Apply equipment filtering
     if (filterEquipments.length > 0) {
       filteredList = filteredList.filter(ex =>
-        ex.equipments.some(eq => filterEquipments.some(filterEq => isEquipmentMatch(eq, filterEq)))
+        (ex.equipments || []).some(eq => filterEquipments.some(filterEq => isEquipmentMatch(eq, filterEq))) ||
+        (ex.equipment && filterEquipments.some(filterEq => isEquipmentMatch(ex.equipment, filterEq)))
       );
     }
 
     // Apply muscle filtering
     if (filterMuscles.length > 0) {
       filteredList = filteredList.filter(ex =>
-        ex.targetMuscles.some(m => filterMuscles.some(filterM => isMuscleMatch(m, filterM))) ||
-        ex.bodyParts.some(bp => filterMuscles.some(filterM => isMuscleMatch(bp, filterM)))
+        (ex.targetMuscles || []).some(m => filterMuscles.some(filterM => isMuscleMatch(m, filterM))) ||
+        (ex.bodyParts || []).some(bp => filterMuscles.some(filterM => isMuscleMatch(bp, filterM))) ||
+        (ex.target && filterMuscles.some(filterM => isMuscleMatch(ex.target, filterM))) ||
+        (ex.bodyPart && filterMuscles.some(filterM => isMuscleMatch(ex.bodyPart, filterM)))
       );
     }
 
-    const lastItem = filteredList[filteredList.length - 1];
-    nextCursor = nextCursor || (lastItem ? lastItem.id : null);
+    const totalCount = filteredList.length;
+    let paginatedList = filteredList;
+
+    // Slicing/pagination after filtering across the whole dataset
+    const limit = Number(params.limit);
+    if (limit > 0 && params.after) {
+      const cursorIndex = parseInt(params.after, 10);
+      const startIndex = (!isNaN(cursorIndex) && cursorIndex >= 0) ? cursorIndex : 0;
+      paginatedList = filteredList.slice(startIndex, startIndex + limit);
+    } else if (limit > 0 && (filterEquipments.length === 0 && filterMuscles.length === 0 && !searchQuery) && limit < filteredList.length) {
+      // If no filters are active, cap initial view to limit for smooth initial render
+      paginatedList = filteredList.slice(0, limit);
+    }
+
+    const lastItem = paginatedList[paginatedList.length - 1];
+    const nextCursor = lastItem ? lastItem.id : null;
 
     dispatch({
       type: types.WORKOUT_GET_EXERCISES_SUCCESS,
       payload: {
-        exercises: filteredList,
+        exercises: paginatedList,
         meta: {
-          total: totalCount || filteredList.length,
-          hasNextPage,
+          total: totalCount,
+          hasNextPage: paginatedList.length < filteredList.length,
           nextCursor
         },
         isLoadMore: params.isLoadMore
       },
     });
-    return filteredList;
+    return paginatedList;
   } catch (error) {
     console.error('Fetch Exercises Error:', error);
     dispatch({

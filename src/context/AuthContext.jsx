@@ -16,6 +16,7 @@ import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import Auth0 from 'react-native-auth0';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clarity from '../utils/clarity';
+import store from '../redux/store/store';
 import apiClient, {
   AUTH0_API_AUDIENCE,
   AUTH0_LOGIN_SCOPE,
@@ -25,6 +26,7 @@ import apiClient, {
 import { AUTH_CONFIG } from '../config/config';
 import { registerFcmToken, initNotificationListeners } from '../utils/notifications';
 import { syncLocalNotifications } from '../utils/localNotifications';
+import { fetchNutritionTargets, setCachedBackendTargets } from '../utils/nutritionCalculator';
 
 // Initialize Auth0
 const auth0 = new Auth0({
@@ -246,8 +248,67 @@ export const AuthProvider = ({ children }) => {
             }
           }
 
+          // Preserve local target weight, goal weight, and metrics if server payload omits them
+          const prevTargetWeight = userProfile?.targetWeight || userProfile?.goalWeight;
+          const prevWeight = userProfile?.weight;
+          const prevHeight = userProfile?.height;
+          const prevFitnessGoal = userProfile?.fitnessGoal;
+
+          try {
+            const rawM = await AsyncStorage.getItem('member_profile_metrics');
+            const localM = rawM ? JSON.parse(rawM) : {};
+            const isSameUser = !localM.userId || localM.userId === userObject.id;
+            if (isSameUser) {
+              const targetVal = localM.targetWeight || localM.goalWeight;
+              if (targetVal) {
+                const numTarget = parseFloat(targetVal);
+                userObject.targetWeight = numTarget;
+                userObject.goalWeight = numTarget;
+                userObject.target_weight = numTarget;
+                if (userObject.userProfile) {
+                  userObject.userProfile.targetWeight = numTarget;
+                  userObject.userProfile.goalWeight = numTarget;
+                  userObject.userProfile.target_weight = numTarget;
+                }
+                if (userObject.memberProfile) {
+                  userObject.memberProfile.targetWeight = numTarget;
+                  userObject.memberProfile.goalWeight = numTarget;
+                  userObject.memberProfile.target_weight = numTarget;
+                }
+              }
+
+              if (localM.fitnessGoal) {
+                userObject.fitnessGoal = localM.fitnessGoal;
+                if (userObject.userProfile) userObject.userProfile.fitnessGoal = localM.fitnessGoal;
+              }
+
+              if (localM.startingWeight) {
+                const numSW = parseFloat(localM.startingWeight);
+                userObject.startingWeight = numSW;
+                if (userObject.userProfile) userObject.userProfile.startingWeight = numSW;
+                if (userObject.memberProfile) userObject.memberProfile.startingWeight = numSW;
+              }
+
+              if (localM.weight) {
+                const numW = parseFloat(localM.weight);
+                userObject.weight = numW;
+                if (userObject.userProfile) userObject.userProfile.weight = numW;
+              }
+
+              if (localM.height) {
+                const numH = parseFloat(localM.height);
+                userObject.height = numH;
+                if (userObject.userProfile) userObject.userProfile.height = numH;
+              }
+            } else {
+              // Stale metrics from a different user - discard them!
+              AsyncStorage.removeItem('member_profile_metrics').catch(() => {});
+            }
+          } catch (_) {}
+
           setUserProfile(userObject);
           setIsAuthenticated(true);
+          fetchNutritionTargets().catch(() => {});
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
 
           if (userObject && userObject.id) {
@@ -335,6 +396,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      fetchNutritionTargets().catch(() => {});
       registerFcmToken();
       const cleanUp = initNotificationListeners();
 
@@ -812,17 +874,37 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      await auth0.credentialsManager.clearCredentials();
+      try {
+        await auth0.credentialsManager.clearCredentials();
+      } catch (_) {}
       await AsyncStorage.clear();
+      store.dispatch({ type: 'USER_LOGOUT' });
     } catch (e) {
       console.warn('Clear session error:', e.message);
     } finally {
+      setCachedBackendTargets(null);
       setIsAuthenticated(false);
       setHasProfile(false);
       setUserProfile(null);
       setLoading(false);
     }
   };
+
+  const updateUserLocal = useCallback((fields) => {
+    if (!fields || typeof fields !== 'object') return;
+    setUserProfile(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        ...fields,
+        userProfile: { ...(prev.userProfile || {}), ...fields },
+        memberProfile: { ...(prev.memberProfile || {}), ...fields },
+      };
+      AsyncStorage.setItem('userProfile', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
 
   return (
     <AuthContext.Provider
@@ -842,6 +924,7 @@ export const AuthProvider = ({ children }) => {
         resetPassword,
         logout,
         refreshAuthStatus,
+        updateUserLocal,
         debugStorage,
       }}
     >
