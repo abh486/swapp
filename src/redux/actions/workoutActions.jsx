@@ -48,29 +48,177 @@ const mapNameToMuscleAndEquipment = (name, displayName) => {
   return { target, equipment };
 };
 
+import LOCAL_EXERCISES from '../../data/exercises.json';
+
+// Pre-computed lookup index for O(1) ID and Name exercise access
+const EXERCISE_MAP_BY_ID = new Map();
+const EXERCISE_MAP_BY_NAME = new Map();
+
+(LOCAL_EXERCISES || []).forEach((ex) => {
+  if (ex.id) EXERCISE_MAP_BY_ID.set(String(ex.id).toLowerCase(), ex);
+  if (ex.exerciseId) EXERCISE_MAP_BY_ID.set(String(ex.exerciseId).toLowerCase(), ex);
+  if (ex.name) EXERCISE_MAP_BY_NAME.set(String(ex.name).toLowerCase().trim(), ex);
+});
+
+const EXERCISE_ALIASES = {
+  'push-up': 'close-grip push-up',
+  'push up': 'close-grip push-up',
+  'pushups': 'close-grip push-up',
+  'plank': 'front plank with twist',
+  'plank hold': 'front plank with twist',
+  'superman': 'superman push-up',
+  'superman hold': 'superman push-up',
+  'bodyweight squat': 'bodyweight drop jump squat',
+  'squat': 'bodyweight drop jump squat',
+  'lunges': 'forward lunge (male)',
+  'lunge': 'forward lunge (male)',
+  'glute bridge': 'barbell glute bridge',
+  'single-leg glute bridge': 'barbell glute bridge',
+  'single-leg calf raise': 'standing calf raise',
+  'calf raise': 'standing calf raise',
+  'mountain climbers': 'bridge - mountain climber (cross body)',
+  'mountain climber': 'bridge - mountain climber (cross body)',
+  'burpees': 'burpee',
+  'burpee': 'burpee',
+  'high knees': 'high knee against wall',
+  'bench dips': 'chest dip (on dip-pull-up cage)',
+  'dips': 'chest dip (on dip-pull-up cage)',
+  'inverted row': 'inverted row',
+  'inverted bodyweight row': 'inverted row',
+  'bicycle crunches': 'band bicycle crunch',
+  'bicycle crunch': 'band bicycle crunch',
+  'db press': 'dumbbell bench press',
+  'dumbbell bench press': 'dumbbell bench press',
+  'db goblet squat': 'dumbbell goblet squat',
+  'dumbbell goblet squat': 'dumbbell goblet squat',
+  'db row': 'dumbbell bent over row',
+  'dumbbell row': 'dumbbell bent over row',
+  'one-arm dumbbell row': 'dumbbell one arm bent-over row',
+  'db shoulder press': 'dumbbell standing overhead press',
+  'dumbbell shoulder press': 'dumbbell standing overhead press',
+  'dumbbell shoulder press (heavy)': 'dumbbell standing overhead press',
+  'db romanian deadlift': 'dumbbell romanian deadlift',
+  'dumbbell romanian deadlift': 'dumbbell romanian deadlift',
+  'db bicep curl': 'dumbbell alternate biceps curl',
+  'dumbbell bicep curl': 'dumbbell alternate biceps curl',
+  'dumbbell curl': 'dumbbell alternate biceps curl',
+  'dumbbell hammer curl': 'dumbbell hammer curl',
+  'db thruster': 'dumbbell push press',
+  'dumbbell thruster': 'dumbbell push press',
+  'db lunge': 'dumbbell lunge',
+  'dumbbell lunges': 'dumbbell lunge',
+  'dumbbell lateral raise': 'dumbbell lateral raise',
+  'db lateral raise': 'dumbbell lateral raise',
+  'db tricep extension': 'barbell lying triceps extension',
+  'dumbbell overhead tricep extension': 'barbell lying triceps extension',
+  'dumbbell overhead extension': 'barbell lying triceps extension',
+  'db pullover': 'dumbbell pullover',
+  'dumbbell pullover': 'dumbbell pullover',
+  'db rear delt fly': 'barbell rear delt raise',
+  'dumbbell rear delt fly': 'barbell rear delt raise',
+  'cable tricep pushdown': 'cable pushdown',
+  'barbell overhead press': 'barbell seated overhead press',
+  'barbell row': 'barbell bent over row',
+  'cable face pulls': 'ez barbell decline close grip face press',
+  'barbell skull crushers': 'barbell lying triceps extension skull crusher',
+  'hack squat machine': 'sled hack squat',
+  'cable crossover': 'cable cross-over',
+  'deadlift': 'barbell deadlift',
+  'romanian deadlift': 'barbell romanian deadlift',
+  'lat pulldown': 'cable pulldown',
+  'pull-up': 'assisted pull-up',
+  'pull up': 'assisted pull-up',
+};
+
+export const findLocalExercise = (exercise) => {
+  if (!exercise) return null;
+  const idKey = exercise.id || exercise.exerciseId;
+  if (idKey && EXERCISE_MAP_BY_ID.has(String(idKey).toLowerCase())) {
+    return EXERCISE_MAP_BY_ID.get(String(idKey).toLowerCase());
+  }
+  const nameKey = (exercise.name || exercise.exerciseName || '').toLowerCase().trim();
+  if (nameKey && EXERCISE_MAP_BY_NAME.has(nameKey)) {
+    return EXERCISE_MAP_BY_NAME.get(nameKey);
+  }
+  // Check alias lookup
+  if (nameKey && EXERCISE_ALIASES[nameKey]) {
+    const aliasTarget = EXERCISE_ALIASES[nameKey];
+    if (EXERCISE_MAP_BY_NAME.has(aliasTarget)) {
+      return EXERCISE_MAP_BY_NAME.get(aliasTarget);
+    }
+  }
+  // Substring / keyword fuzzy lookup
+  if (nameKey && nameKey.length >= 3) {
+    const matched = (LOCAL_EXERCISES || []).find((e) => {
+      const eName = (e.name || '').toLowerCase();
+      return eName.includes(nameKey) || nameKey.includes(eName);
+    });
+    if (matched) return matched;
+  }
+  return null;
+};
+
 export const resolveExerciseImageUri = (exercise) => {
   if (!exercise) return null;
-  if (exercise.imageUrl && typeof exercise.imageUrl === 'string' && exercise.imageUrl.startsWith('http')) return exercise.imageUrl;
-  if (exercise.gifUrl && typeof exercise.gifUrl === 'string' && exercise.gifUrl.startsWith('http')) return exercise.gifUrl;
+
+  // 1. Check local exercise dataset first (verified CDN image)
+  const localMatch = findLocalExercise(exercise);
+  if (localMatch) {
+    if (localMatch.imageUrl && typeof localMatch.imageUrl === 'string' && localMatch.imageUrl.startsWith('http')) {
+      return localMatch.imageUrl;
+    }
+    if (localMatch.gifUrl && typeof localMatch.gifUrl === 'string' && localMatch.gifUrl.startsWith('http')) {
+      return localMatch.gifUrl;
+    }
+  }
+
+  // 2. Check exercise object's own valid image URLs (filter out broken github raw URLs)
+  if (
+    exercise.imageUrl &&
+    typeof exercise.imageUrl === 'string' &&
+    exercise.imageUrl.startsWith('http') &&
+    !exercise.imageUrl.includes('yuhonas/free-exercise-db')
+  ) {
+    return exercise.imageUrl;
+  }
+  if (
+    exercise.gifUrl &&
+    typeof exercise.gifUrl === 'string' &&
+    exercise.gifUrl.startsWith('http') &&
+    !exercise.gifUrl.includes('yuhonas/free-exercise-db')
+  ) {
+    return exercise.gifUrl;
+  }
   if (exercise.imageUrls) {
     const url = exercise.imageUrls['720p'] || exercise.imageUrls['480p'] || exercise.imageUrls['360p'];
     if (url) return url;
   }
-  const exId = exercise.exerciseId || exercise.id;
-  if (exercise.name && typeof exercise.name === 'string') {
-    const formattedName = exercise.name
-      .trim()
-      .split(' ')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join('_');
-    return `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${formattedName}/0.jpg`;
+
+  if (exercise.imageUrl && typeof exercise.imageUrl === 'string' && exercise.imageUrl.startsWith('http')) {
+    return exercise.imageUrl;
   }
+
   return null;
 };
 
 export const resolveExerciseAnimationUri = (exercise) => {
   if (!exercise) return null;
-  if (exercise.gifUrl && typeof exercise.gifUrl === 'string' && exercise.gifUrl.startsWith('http')) return exercise.gifUrl;
+
+  const localMatch = findLocalExercise(exercise);
+  if (localMatch) {
+    if (localMatch.gifUrl && typeof localMatch.gifUrl === 'string' && localMatch.gifUrl.startsWith('http')) {
+      return localMatch.gifUrl;
+    }
+  }
+
+  if (
+    exercise.gifUrl &&
+    typeof exercise.gifUrl === 'string' &&
+    exercise.gifUrl.startsWith('http') &&
+    !exercise.gifUrl.includes('yuhonas/free-exercise-db')
+  ) {
+    return exercise.gifUrl;
+  }
   if (exercise.videoUrl && typeof exercise.videoUrl === 'string' && exercise.videoUrl.startsWith('http')) {
     const clean = exercise.videoUrl.split('?')[0].toLowerCase();
     if (clean.endsWith('.gif')) return exercise.videoUrl;
@@ -104,6 +252,9 @@ export const getExerciseMuscleFallback = (exercise) => {
   }
   if (search.includes('arm') || search.includes('bicep') || search.includes('tricep') || search.includes('curl')) {
     return require('../../assets/image/arm.jpg');
+  }
+  if (search.includes('ab') || search.includes('sit-up') || search.includes('crunch') || search.includes('core') || search.includes('waist')) {
+    return require('../../assets/image/pickpush.jpg');
   }
   return require('../../assets/image/athletic-shirtless-young-male-fitness-model-holds-dumbbell-with-light-isolated-dark-background.png');
 };
@@ -517,6 +668,9 @@ export const saveCustomWorkoutTemplate = (folderName, workouts) => async (dispat
   try {
     const formattedWorkouts = (workouts || []).map(wk => ({
       ...wk,
+      name: wk.name || wk.dayName || 'Workout',
+      duration: wk.duration != null ? String(wk.duration) : null,
+      calories: wk.calories != null ? String(wk.calories) : null,
       exercises: (wk.exercises || []).map(ex => ({
         ...ex,
         imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl || null,
@@ -577,6 +731,16 @@ export const deleteCustomWorkoutFolder = (folderId) => async (dispatch) => {
   } catch (error) {
     console.error('API Error:', error);
     throw error.response?.data || new Error('Server error.');
+  }
+};
+
+export const renameCustomWorkoutFolder = (folderId, newName) => async (dispatch) => {
+  try {
+    const response = await apiClient.put(`/workouts/sessions/custom-folders/${folderId}`, { name: newName });
+    return response.data.data;
+  } catch (error) {
+    console.error('API Error in renameCustomWorkoutFolder:', error);
+    throw error.response?.data || new Error('Failed to rename folder.');
   }
 };
 

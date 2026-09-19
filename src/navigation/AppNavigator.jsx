@@ -34,6 +34,7 @@ import CreateCustomWorkoutScreen, {
 } from '../screens/workout/CreateCustomWorkoutScreen';
 import StoreComingSoon from '../screens/store/StoreComingSoon';
 import FastWorkoutActiveScreen from '../screens/workout/FastWorkoutActiveScreen';
+import ActiveWorkoutMiniBar from '../screens/workout/components/ActiveWorkoutMiniBar';
 import WorkoutSummaryScreen from '../screens/workout/WorkoutSummaryScreen';
 import CurrentWorkoutPlanScreen from '../screens/workout/CurrentWorkoutPlanScreen';
 import ExerciseDetailScreen from '../screens/workout/ExerciseDetailScreen';
@@ -48,7 +49,7 @@ import MembershipBookingScreen from '../screens/home/booking/MembershipBookingSc
 import TrainerBookingScreen from '../screens/home/trainer/TrainerBookingScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettings';
 import WeightBodyMetricsScreen from '../screens/profile/WeightBodyMetricsScreen';
-import WeightTrackerScreen from '../screens/community/WeightTrackerScreen';
+import WeightTrackerScreen from '../screens/activity/diet/WeightTrackerScreen';
 import HydrationTrackerScreen from '../screens/activity/diet/HydrationTrackerScreen';
 import EditPersonalInfoScreen from '../screens/profile/EditPersonalInfoScreen';
 import SupportScreen from '../screens/profile/SupportScreen';
@@ -77,6 +78,7 @@ import { FullScreenLoader } from '../components/GlobalLoader';
 const AppNavigator = () => {
   const { isAuthenticated, hasProfile, loading, isLoggingIn, refreshAuthStatus } = useAuth();
   const navigationRef = React.useRef();
+  const [currentRouteName, setCurrentRouteName] = React.useState('MainTabs');
 
   React.useEffect(() => {
     // Request App Tracking Transparency permission on iOS startup
@@ -121,12 +123,13 @@ const AppNavigator = () => {
         theme={DarkTheme}
         onStateChange={() => {
           const currentRoute = navigationRef.current && navigationRef.current.getCurrentRoute();
-          const currentRouteName = currentRoute && currentRoute.name;
-          if (currentRouteName) {
-            console.log('[Clarity] Screen viewed:', currentRouteName);
+          const routeName = currentRoute && currentRoute.name;
+          if (routeName) {
+            setCurrentRouteName(routeName);
+            console.log('[Clarity] Screen viewed:', routeName);
             try {
-              Clarity.setCustomTag('CurrentScreen', currentRouteName);
-              Clarity.sendCustomEvent(`Viewed_${currentRouteName}`);
+              Clarity.setCustomTag('CurrentScreen', routeName);
+              Clarity.sendCustomEvent(`Viewed_${routeName}`);
             } catch (err) {
               console.error('[Clarity] Navigation tracking failed:', err);
             }
@@ -307,6 +310,7 @@ const AppNavigator = () => {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      <ActiveWorkoutMiniBar navigationRef={navigationRef} currentRouteName={currentRouteName} />
       {isLoggingIn && <FullScreenLoader />}
     </View>
   );

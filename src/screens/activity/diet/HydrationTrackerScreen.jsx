@@ -212,14 +212,16 @@ const HydrationTrackerScreen = ({ navigation }) => {
 
   // Core States
   const [totalMl, setTotalMl] = useState(0); // stored in mL
-  const [targetMl, setTargetMl] = useState(2500); // default 2.50 L = 2500 mL
+  const [targetMl, setTargetMl] = useState(4000); // default 4.00 L = 4000 mL
   const [todayLogs, setTodayLogs] = useState([]); // array of { id, amount, timestamp }
 
   // Sync Redux state with component state
   useEffect(() => {
     if (reduxHydration.logs !== undefined) setTodayLogs(reduxHydration.logs);
     if (reduxHydration.totalMl !== undefined) setTotalMl(reduxHydration.totalMl);
-    if (reduxHydration.targetMl !== undefined) setTargetMl(reduxHydration.targetMl);
+    if (reduxHydration.targetMl !== undefined) {
+      setTargetMl(reduxHydration.targetMl === 2500 ? 4000 : reduxHydration.targetMl);
+    }
   }, [reduxHydration]);
 
   // Period Toggle for Progress Chart ('M' or 'Y')
@@ -233,7 +235,7 @@ const HydrationTrackerScreen = ({ navigation }) => {
   // Modals
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [customModalVisible, setCustomModalVisible] = useState(false);
-  const [targetInput, setTargetInput] = useState('2500');
+  const [targetInput, setTargetInput] = useState('4000');
   const [customInput, setCustomInput] = useState('');
 
   // Storage Keys
@@ -269,7 +271,11 @@ const HydrationTrackerScreen = ({ navigation }) => {
           const key = d.toISOString().split('T')[0];
           const val = await AsyncStorage.getItem(`water_intake_${key}`);
           if (val) {
-            weekSum += parseInt(val, 10);
+            const num = parseFloat(val);
+            if (!isNaN(num)) {
+              const ml = num <= 50 ? Math.round(num * 1000) : Math.round(num);
+              weekSum += ml;
+            }
           }
         }
         setThisWeekTotal(weekSum);
@@ -734,7 +740,7 @@ const HydrationTrackerScreen = ({ navigation }) => {
               keyboardType="numeric"
               value={targetInput}
               onChangeText={setTargetInput}
-              placeholder="e.g. 2500"
+              placeholder="e.g. 4000"
               placeholderTextColor="#64748B"
             />
 

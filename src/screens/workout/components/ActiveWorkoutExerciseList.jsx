@@ -8,18 +8,16 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import SwipeableSetRow from './SwipeableSetRow';
+import { getExerciseMuscleFallback } from '../../../redux/actions/workoutActions';
 
 // Handles image loading:
 // 1. Primary imageUrl/gifUrl (from local dataset or CDN)
-// 2. Muscle group avatar from wrkout.xyz
+// 2. Reliable local asset fallback based on exercise muscle/name (guaranteed to render)
 const ExerciseAvatar = ({ exercise, resolveExerciseImageUri, getMuscleImageUrl, failedImages, setFailedImages }) => {
-  const target = (exercise.targetMuscles && exercise.targetMuscles[0]) ||
-    (exercise.bodyParts && exercise.bodyParts[0]) || 'triceps';
-  const muscleAvatar = getMuscleImageUrl(target);
-
   // Build primary image URL
-  const primaryUrl = resolveExerciseImageUri(exercise);
-  const primaryFailed = failedImages[exercise.id];
+  const primaryUrl = resolveExerciseImageUri ? resolveExerciseImageUri(exercise) : (exercise.imageUrl || exercise.gifUrl);
+  const exerciseKey = exercise.id || exercise.exerciseId || exercise.name;
+  const primaryFailed = (failedImages && (failedImages[exerciseKey] || failedImages[exercise.id]));
 
   // Determine which source to render
   if (primaryUrl && !primaryFailed) {
@@ -28,20 +26,27 @@ const ExerciseAvatar = ({ exercise, resolveExerciseImageUri, getMuscleImageUrl, 
         source={{ uri: primaryUrl }}
         style={styles.exerciseImagePlaceholder}
         resizeMode="cover"
-        onError={() => setFailedImages(prev => ({ ...prev, [exercise.id]: true }))}
+        onError={() => {
+          if (setFailedImages) {
+            setFailedImages(prev => ({
+              ...prev,
+              [exerciseKey]: true,
+              ...(exercise.id ? { [exercise.id]: true } : {})
+            }));
+          }
+        }}
       />
     );
   }
 
-  // Final fallback: muscle group avatar
+  // Final fallback: local bundled muscle exercise image
+  const localFallback = getExerciseMuscleFallback(exercise);
   return (
-    <View style={[styles.exerciseImagePlaceholder, { alignItems: 'center', justifyContent: 'center' }]}>
-      <Image
-        source={{ uri: muscleAvatar }}
-        style={{ width: 44, height: 44 }}
-        resizeMode="contain"
-      />
-    </View>
+    <Image
+      source={localFallback}
+      style={styles.exerciseImagePlaceholder}
+      resizeMode="cover"
+    />
   );
 };
 

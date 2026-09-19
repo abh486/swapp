@@ -27,6 +27,7 @@ import { uploadToCloudinary } from '../../../utils/uploadToCloudinary';
 import { analyzeMealWithAI } from '../../../redux/actions/dietActions';
 import { getAccessStatus } from '../../../services/aiDieticianService';
 import { fetchSleepLogs } from '../../../redux/actions/sleepActions';
+import { fetchHydrationLogs, getHydrationTarget, addWaterLog } from '../../../redux/actions/hydrationActions';
 import { useAuth } from '../../../context/AuthContext';
 import { getTargetsForUser, getCachedBackendTargets, setCachedBackendTargets, fetchNutritionTargets } from '../../../utils/nutritionCalculator';
 import dietAiApi from '../../../api/dietAiApi';
@@ -100,6 +101,7 @@ const Dietplan = ({ navigation, route }) => {
   const { user } = useAuth();
   const dispatch = useDispatch();
   const reduxWeight = useSelector(state => state.weight);
+  const reduxHydration = useSelector(state => state.hydration || {});
   const metrics = useResponsiveMetrics();
   const { width, wp, hp, ms, sp, fs } = metrics;
   const weeklyPlanCardWidth = Math.min(wp(84), ms(360));
@@ -285,8 +287,33 @@ const Dietplan = ({ navigation, route }) => {
     }
   };
 
+  const loadHydrateGlasses = useCallback(async () => {
+    const dateKey = selectedDate
+      ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
+      : new Date().toISOString().split('T')[0];
+    try {
+      if (reduxHydration?.totalMl !== undefined && reduxHydration.totalMl > 0) {
+        const glasses = Math.round((reduxHydration.totalMl / 1000) / 0.25);
+        setHydrateGlasses(glasses);
+      } else {
+        const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
+        const currentWater = savedVal ? parseFloat(savedVal) : 0.0;
+        const glasses = Math.round(currentWater / 0.25);
+        setHydrateGlasses(glasses);
+      }
+    } catch (err) {
+      setHydrateGlasses(0);
+    }
+  }, [selectedDate, reduxHydration?.totalMl]);
+
+  useEffect(() => {
+    loadHydrateGlasses();
+  }, [loadHydrateGlasses, selectedDate, dailySummary]);
+
   const incrementHydrate = async () => {
-    const newGlasses = Math.min(10, hydrateGlasses + 1);
+    const targetWaterVolume = (reduxHydration?.targetMl && reduxHydration.targetMl !== 2500) ? reduxHydration.targetMl / 1000 : 4.0;
+    const targetGlasses = Math.max(1, Math.round(targetWaterVolume / 0.25));
+    const newGlasses = Math.min(targetGlasses, hydrateGlasses + 1);
     setHydrateGlasses(newGlasses);
 
     const dateKey = selectedDate
@@ -296,34 +323,17 @@ const Dietplan = ({ navigation, route }) => {
     try {
       const currentWaterStr = await AsyncStorage.getItem(`water_intake_${dateKey}`);
       const currentWater = currentWaterStr ? parseFloat(currentWaterStr) : 0.0;
-      const newWater = Math.min(8.0, currentWater + 0.45);
+      const newWater = Math.min(8.0, currentWater + 0.25);
       await AsyncStorage.setItem(`water_intake_${dateKey}`, newWater.toFixed(1));
-      fetchNutritionData(selectedDate, false);
+      dispatch(addWaterLog({ amountMl: 250, dateKey, notes: 'Quick add 1 glass (250 mL)' }));
     } catch (err) {
-      console.error('Failed to sync hydrate to water widget:', err);
+      console.error('Failed to sync hydrate:', err);
     }
   };
 
   useEffect(() => {
     reloadHealthKitData(selectedDate);
   }, [selectedDate]);
-
-  useEffect(() => {
-    const loadHydrateGlasses = async () => {
-      const dateKey = selectedDate
-        ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
-        : new Date().toISOString().split('T')[0];
-      try {
-        const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
-        const currentWater = savedVal ? parseFloat(savedVal) : 0.0;
-        const glasses = Math.round(currentWater / 0.45);
-        setHydrateGlasses(glasses);
-      } catch (err) {
-        setHydrateGlasses(0);
-      }
-    };
-    loadHydrateGlasses();
-  }, [selectedDate, dailySummary]);
 
 
   const fetchNutritionData = useCallback(async (dateToFetch = selectedDate, showLoader = false) => {
@@ -474,6 +484,14 @@ const Dietplan = ({ navigation, route }) => {
       let isMounted = true;
       const now = Date.now();
 
+      const dateKey = selectedDate
+        ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
+        : new Date().toISOString().split('T')[0];
+
+      dispatch(fetchHydrationLogs(dateKey));
+      dispatch(getHydrationTarget());
+      loadHydrateGlasses();
+
       const checkSubscriptionAccess = async () => {
         try {
           const access = await getAccessStatus();
@@ -509,7 +527,7 @@ const Dietplan = ({ navigation, route }) => {
       return () => {
         isMounted = false;
       };
-    }, [navigation, selectedDate, fetchNutritionData])
+    }, [navigation, selectedDate, fetchNutritionData, dispatch, loadHydrateGlasses])
   );
 
   useEffect(() => {
@@ -1072,7 +1090,7 @@ const Dietplan = ({ navigation, route }) => {
             navigation={navigation}
           />
 
-          <DietWaterWidget dailySummary={dailySummary} selectedDate={selectedDate} />
+          <DietWaterWidget dailySummary={dailySummary} selectedDate={selectedDate} onWaterChange={loadHydrateGlasses} />
 
           {/* ── AI Recommendation Banner ── */}
           {(() => {
@@ -1234,10 +1252,14 @@ const Dietplan = ({ navigation, route }) => {
               <View style={styles.rowTextContainer}>
                 <Text style={styles.rowTitle}>Hydrate</Text>
                 <Text style={styles.rowSubtitle}>
-                  {`${hydrateGlasses} of 10 glasses`}
+                  {(() => {
+                    const targetL = (reduxHydration?.targetMl && reduxHydration.targetMl !== 2500) ? reduxHydration.targetMl / 1000 : 4.0;
+                    const maxGlasses = Math.max(1, Math.round(targetL / 0.25));
+                    return `${hydrateGlasses} of ${maxGlasses} glasses`;
+                  })()}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('HydrationTracker')} style={styles.rowActionBtn}>
+              <TouchableOpacity onPress={incrementHydrate} style={styles.rowActionBtn}>
                 <Icon name="add" size={20} color="#FFF" />
               </TouchableOpacity>
             </TouchableOpacity>

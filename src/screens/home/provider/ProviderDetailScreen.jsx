@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, Platform, Linking, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, StatusBar, Dimensions, Platform, Linking, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';

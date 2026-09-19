@@ -165,7 +165,7 @@ export const getProviderDetails = (providerId) => async (dispatch) => {
 
 export const getProviderReviews = (providerId) => async (dispatch) => {
   try {
-    const response = await apiClient.get(`/reviews/provider/${providerId}`);
+    const response = await apiClient.get(`/v1/reviews/provider/${providerId}`);
     return response.data;
   } catch (error) {
     console.error('[ProviderService] Get provider reviews error:', error);
@@ -179,7 +179,7 @@ export const getProviderReviews = (providerId) => async (dispatch) => {
 
 export const submitProviderReview = (reviewData) => async (dispatch) => {
   try {
-    const response = await apiClient.post('/reviews', reviewData);
+    const response = await apiClient.post('/v1/reviews', reviewData);
     return response.data;
   } catch (error) {
     console.error('[ProviderService] Submit review error:', error);

@@ -9,6 +9,11 @@ import {
   Alert,
   StatusBar,
   Platform,
+  Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -22,6 +27,9 @@ import {
   saveCustomWorkoutTemplate,
   getCustomWorkoutTemplates,
   deleteCustomWorkoutFolder,
+  renameCustomWorkoutFolder,
+  resolveExerciseImageUri,
+  getExerciseMuscleFallback,
 } from '../../redux/actions/workoutActions';
 import { CreateFolderModal } from './components/CreateFolderModal';
 import { CustomWorkoutModal } from './components/CustomWorkoutModal';
@@ -131,6 +139,10 @@ const CreateCustomWorkoutScreen = () => {
   const [isWorkoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
   const [reopenModalOnFocus, setReopenModalOnFocus] = useState(false);
+  const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [isRenameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameInputValue, setRenameInputValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const { equipments, muscles } = useSelector(state => state.workout);
 
@@ -229,6 +241,65 @@ const CreateCustomWorkoutScreen = () => {
     );
   };
 
+  const handleOpenRename = () => {
+    if (!activeFolder) return;
+    setRenameInputValue(activeFolder.name || '');
+    setSettingsModalVisible(false);
+    setTimeout(() => {
+      setRenameModalVisible(true);
+    }, 250);
+  };
+
+  const handleConfirmRename = async () => {
+    const trimmed = renameInputValue.trim();
+    if (!trimmed) {
+      Alert.alert('Invalid Name', 'Please enter a valid folder name.');
+      return;
+    }
+    if (!activeFolder) return;
+
+    if (trimmed.toLowerCase() === activeFolder.name.toLowerCase()) {
+      setRenameModalVisible(false);
+      return;
+    }
+
+    try {
+      setIsRenaming(true);
+      const folderIdentifier = activeFolder.id || activeFolder._id || activeFolder.name;
+      const updated = await dispatch(renameCustomWorkoutFolder(folderIdentifier, trimmed));
+
+      const updatedName = updated?.name || trimmed;
+      const updatedFolder = {
+        ...activeFolder,
+        name: updatedName,
+        workouts: updated?.workouts || activeFolder.workouts || [],
+      };
+
+      const updatedFolders = folders.map(f =>
+        (f.id && f.id === activeFolder.id) || f.name === activeFolder.name ? updatedFolder : f
+      );
+
+      setFolders(updatedFolders);
+      setActiveFolder(updatedFolder);
+      await AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(updatedFolders));
+      setRenameModalVisible(false);
+    } catch (err) {
+      console.error('Failed to rename folder:', err);
+      Alert.alert('Error', err.message || 'Failed to rename folder.');
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleOpenDelete = () => {
+    if (!activeFolder) return;
+    const target = activeFolder;
+    setSettingsModalVisible(false);
+    setTimeout(() => {
+      handleDeleteFolder(target);
+    }, 250);
+  };
+
   const handleCreateFolder = (newFolder) => {
     setFolders(prev => {
       const updated = [...prev, newFolder];
@@ -236,6 +307,11 @@ const CreateCustomWorkoutScreen = () => {
       return updated;
     });
     setActiveFolder(newFolder);
+    setEditingWorkout(null);
+    setFolderModalVisible(false);
+    setTimeout(() => {
+      setWorkoutModalVisible(true);
+    }, 250);
   };
 
   const handleBackPress = () => {
@@ -248,18 +324,9 @@ const CreateCustomWorkoutScreen = () => {
 
   const handleCreateWorkoutBtn = () => {
     setEditingWorkout(null);
-    if (!activeFolder) {
-      if (folders.length === 0) {
-        const newFolder = {
-          id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
-          name: 'Morning',
-          workouts: [],
-        };
-        setFolders([newFolder]);
-        setActiveFolder(newFolder);
-      } else {
-        setActiveFolder(folders[0]);
-      }
+    if (!activeFolder || folders.length === 0) {
+      setFolderModalVisible(true);
+      return;
     }
     setWorkoutModalVisible(true);
   };
@@ -395,26 +462,39 @@ const CreateCustomWorkoutScreen = () => {
       >
         {/* Top Navigation Row */}
         <View style={styles.topBar}>
-          <TouchableOpacity
-            onPress={handleBackPress}
-            activeOpacity={0.8}
-            style={{ padding: 4 }}
-          >
-            <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 19L8 12L15 5"
-                stroke="#FFFFFF"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
-          <View style={styles.createWorkoutPill}>
-            <Text style={styles.createWorkoutPillText}>
-              Create a Custom Workout
-            </Text>
+          <View style={styles.topBarLeft}>
+            <TouchableOpacity
+              onPress={handleBackPress}
+              activeOpacity={0.8}
+              style={{ padding: 4 }}
+            >
+              <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M15 19L8 12L15 5"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+            <View style={styles.createWorkoutPill}>
+              <Text style={styles.createWorkoutPillText} numberOfLines={1}>
+                {activeFolder ? activeFolder.name : 'Create a Custom Workout'}
+              </Text>
+            </View>
           </View>
+
+          {activeFolder && (
+            <TouchableOpacity
+              style={styles.folderSettingsBtn}
+              onPress={() => setSettingsModalVisible(true)}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="settings-outline" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Workout Groups Section */}
@@ -445,22 +525,7 @@ const CreateCustomWorkoutScreen = () => {
                   >
                     {folder.name}
                   </Text>
-                  {isActive && (
-                    <TouchableOpacity
-                      style={styles.deleteFolderBtn}
-                      onPress={() => handleDeleteFolder(folder)}
-                    >
-                      <Svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M18 6L6 18M6 6L18 18"
-                          stroke="#FFF"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </Svg>
-                    </TouchableOpacity>
-                  )}
+
                 </TouchableOpacity>
               );
             })}
@@ -488,6 +553,7 @@ const CreateCustomWorkoutScreen = () => {
             </TouchableOpacity>
           </ScrollView>
         </View>
+
 
         {/* Empty State */}
         {(!activeFolder || activeFolder.workouts.length === 0) && (
@@ -592,11 +658,35 @@ const CreateCustomWorkoutScreen = () => {
 
                   {workout.exercises && workout.exercises.length > 0 && (
                     <View style={styles.exercisesListContainer}>
-                      {workout.exercises.map((ex, exIdx) => (
-                        <Text key={ex.id || exIdx} style={styles.exerciseItemText} numberOfLines={1}>
-                          • {ex.name} ({ex.sets} sets)
+                      {workout.exercises.slice(0, 5).map((ex, exIdx) => {
+                        const imgUri = resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl;
+                        const fallback = getExerciseMuscleFallback(ex.bodyPart || ex.target);
+                        return (
+                          <View key={ex.id || exIdx} style={styles.customExCardRow}>
+                            <View style={styles.customExThumbBox}>
+                              <Image
+                                source={imgUri ? { uri: imgUri } : fallback}
+                                defaultSource={fallback}
+                                style={styles.customExThumbImg}
+                                resizeMode="cover"
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.exerciseItemText} numberOfLines={1}>
+                                {ex.name}
+                              </Text>
+                              <Text style={styles.exerciseSubDetailText}>
+                                {ex.sets || 3} sets {ex.target ? `• ${ex.target}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                      {workout.exercises.length > 5 && (
+                        <Text style={styles.moreExercisesText}>
+                          +{workout.exercises.length - 5} more exercises
                         </Text>
-                      ))}
+                      )}
                     </View>
                   )}
 
@@ -640,6 +730,157 @@ const CreateCustomWorkoutScreen = () => {
         editingWorkout={editingWorkout}
         setReopenModalOnFocus={setReopenModalOnFocus}
       />
+
+      {/* Folder Settings / Options Modal */}
+      <Modal
+        visible={isSettingsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSettingsModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSettingsModalVisible(false)}
+        >
+          <View style={styles.settingsModalCard} onStartShouldSetResponder={() => true}>
+            {/* Modal Header */}
+            <View style={styles.settingsModalHeader}>
+              <View style={styles.settingsIconBadge}>
+                <Icon name="folder-open" size={22} color="#EE822A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingsModalFolderTitle} numberOfLines={1}>
+                  {activeFolder?.name}
+                </Text>
+                <Text style={styles.settingsModalFolderSubtitle}>Folder Settings</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.settingsModalCloseBtn}
+                onPress={() => setSettingsModalVisible(false)}
+              >
+                <Icon name="close" size={18} color="#8E8E9A" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.settingsDivider} />
+
+            {/* Options List */}
+            <View style={styles.settingsOptionsList}>
+              {/* Rename Option */}
+              <TouchableOpacity
+                style={styles.settingsOptionItem}
+                onPress={handleOpenRename}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.settingsOptionIconBox, { backgroundColor: 'rgba(238, 130, 42, 0.15)' }]}>
+                  <Icon name="create-outline" size={20} color="#EE822A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsOptionTitle}>Rename Folder</Text>
+                  <Text style={styles.settingsOptionDesc}>Change the folder name</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#6B6B7F" />
+              </TouchableOpacity>
+
+              {/* Delete Option */}
+              <TouchableOpacity
+                style={[styles.settingsOptionItem, { marginTop: 10, borderColor: 'rgba(255, 69, 58, 0.3)' }]}
+                onPress={handleOpenDelete}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.settingsOptionIconBox, { backgroundColor: 'rgba(255, 69, 58, 0.15)' }]}>
+                  <Icon name="trash-outline" size={20} color="#FF453A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingsOptionTitle, { color: '#FF453A' }]}>Delete Folder</Text>
+                  <Text style={styles.settingsOptionDesc}>Permanently remove folder & routines</Text>
+                </View>
+                <Icon name="chevron-forward" size={18} color="#FF453A" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={styles.settingsCancelBtn}
+              onPress={() => setSettingsModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.settingsCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Rename Folder Modal */}
+      <Modal
+        visible={isRenameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isRenaming && setRenameModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => !isRenaming && setRenameModalVisible(false)}
+          />
+          <View style={styles.renameModalCard} onStartShouldSetResponder={() => true}>
+            <View style={styles.renameModalHeader}>
+              <View style={[styles.settingsIconBadge, { backgroundColor: 'rgba(238, 130, 42, 0.15)' }]}>
+                <Icon name="pencil" size={20} color="#EE822A" />
+              </View>
+              <Text style={styles.renameModalTitle}>Rename Folder</Text>
+              <Text style={styles.renameModalSubtitle}>
+                Enter a new name for your custom workout group.
+              </Text>
+            </View>
+
+            <TextInput
+              style={styles.renameInput}
+              value={renameInputValue}
+              onChangeText={setRenameInputValue}
+              placeholder="Folder Name"
+              placeholderTextColor="#6B6B7F"
+              autoFocus
+              maxLength={40}
+              selectTextOnFocus
+              returnKeyType="done"
+              onSubmitEditing={handleConfirmRename}
+            />
+
+            <View style={styles.renameActionsRow}>
+              <TouchableOpacity
+                style={styles.renameCancelBtn}
+                onPress={() => setRenameModalVisible(false)}
+                disabled={isRenaming}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.renameCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.renameSaveBtn}
+                onPress={handleConfirmRename}
+                disabled={isRenaming || !renameInputValue.trim()}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                  style={StyleSheet.absoluteFillObject}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  borderRadius={14}
+                />
+                <Text style={styles.renameSaveBtnText}>
+                  {isRenaming ? 'Saving...' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -653,15 +894,33 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 25,
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
     gap: 10,
+    marginRight: 10,
+  },
+  folderSettingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1E1E2D',
+    borderWidth: 1,
+    borderColor: '#3A3A4A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   createWorkoutPill: {
     backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   createWorkoutPillText: {
     color: '#FFFFFF',
@@ -698,15 +957,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A0548',
     borderColor: '#E9D5FF',
   },
-  deleteFolderBtn: {
-    marginLeft: 8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   folderPillText: {
     color: '#8E8E9A',
     fontSize: 12,
@@ -848,9 +1099,42 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   exerciseItemText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  customExCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 10,
+    padding: 6,
+    gap: 10,
+    marginBottom: 6,
+  },
+  customExThumbBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  customExThumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  exerciseSubDetailText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
     fontWeight: '500',
+    marginTop: 2,
+  },
+  moreExercisesText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 11.5,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
   },
   cardActionsRow: {
     flexDirection: 'row',
@@ -888,6 +1172,170 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  settingsModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#161622',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+    padding: 22,
+  },
+  settingsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingsIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(238, 130, 42, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsModalFolderTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  settingsModalFolderSubtitle: {
+    color: '#8E8E9A',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  settingsModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#20202F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: '#222234',
+    marginVertical: 18,
+  },
+  settingsOptionsList: {
+    gap: 10,
+  },
+  settingsOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E2D',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2A2A3C',
+    gap: 12,
+  },
+  settingsOptionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsOptionTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  settingsOptionDesc: {
+    color: '#8E8E9A',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  settingsCancelBtn: {
+    marginTop: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#20202F',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+  },
+  settingsCancelBtnText: {
+    color: '#C0C0D0',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  renameModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#161622',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+    padding: 22,
+  },
+  renameModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  renameModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  renameModalSubtitle: {
+    color: '#8E8E9A',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 10,
+  },
+  renameInput: {
+    backgroundColor: '#1E1E2D',
+    borderWidth: 1,
+    borderColor: '#3A3A4E',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  renameActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  renameCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#20202F',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+  },
+  renameCancelBtnText: {
+    color: '#C0C0D0',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  renameSaveBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  renameSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 

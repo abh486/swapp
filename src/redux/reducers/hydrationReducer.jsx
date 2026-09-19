@@ -3,7 +3,7 @@ import * as types from '../actionTypes/actionTypes';
 const initialState = {
   logs: [],
   totalMl: 0,
-  targetMl: 2500,
+  targetMl: 4000,
   loading: false,
   error: null,
 };
@@ -25,10 +25,10 @@ const hydrationReducer = (state = initialState, action) => {
       const logs = action.payload.logs || [];
       const formatted = logs.map((item) => ({
         id: item.id || item._id,
-        amount: item.amountMl || item.waterVolumeMl || item.calories || 250,
+        amount: item.amount || item.amountMl || item.waterVolumeMl || item.calories || 250,
         timestamp: item.timestamp || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM'),
       }));
-      const total = formatted.reduce((sum, item) => sum + item.amount, 0);
+      const total = action.payload.totalMl !== undefined ? action.payload.totalMl : formatted.reduce((sum, item) => sum + item.amount, 0);
 
       return {
         ...state,
@@ -66,7 +66,7 @@ const hydrationReducer = (state = initialState, action) => {
     case types.HYDRATION_SET_TARGET_SUCCESS:
       return {
         ...state,
-        targetMl: action.payload,
+        targetMl: action.payload === 2500 ? 4000 : action.payload,
         loading: false,
       };
 

@@ -344,23 +344,39 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
     }
   }, [visible]);
 
+  const selectCustomDuration = (val) => {
+    const numeric = parseInt(val) || 45;
+    const clampedVal = Math.max(15, Math.min(180, Math.round(numeric / 5) * 5));
+    setFolderCustomDuration(String(clampedVal));
+    const index = DURATION_OPTIONS.indexOf(clampedVal);
+    if (index !== -1 && flatListRef.current) {
+      flatListRef.current?.scrollToOffset({ offset: index * 40, animated: true });
+    }
+  };
+
+  const handleStepDuration = (delta) => {
+    const current = parseInt(folderCustomDuration) || 45;
+    selectCustomDuration(current + delta);
+  };
+
   useEffect(() => {
     if (folderDuration === 'Custom') {
-      const val = parseInt(folderCustomDuration) || 75;
+      const val = parseInt(folderCustomDuration) || 45;
       const index = DURATION_OPTIONS.indexOf(val);
       if (index !== -1 && flatListRef.current) {
         setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-        }, 120);
+          flatListRef.current?.scrollToOffset({ offset: index * 40, animated: false });
+        }, 60);
       }
     }
-  }, [folderDuration, folderCustomDuration]);
+  }, [folderDuration]);
 
   const onScrollEnd = (e) => {
     const yOffset = e.nativeEvent.contentOffset.y;
     const index = Math.round(yOffset / 40);
-    if (index >= 0 && index < DURATION_OPTIONS.length) {
-      const selectedVal = DURATION_OPTIONS[index];
+    const clampedIndex = Math.max(0, Math.min(index, DURATION_OPTIONS.length - 1));
+    const selectedVal = DURATION_OPTIONS[clampedIndex];
+    if (selectedVal) {
       setFolderCustomDuration(String(selectedVal));
     }
   };
@@ -570,7 +586,7 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
                     onPress={() => {
                       setFolderDuration('Custom');
                       if (!folderCustomDuration) {
-                        setFolderCustomDuration('75');
+                        setFolderCustomDuration('45');
                       }
                     }}
                   >
@@ -582,38 +598,104 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
                 </View>
 
                 {folderDuration === 'Custom' && (
-                  <Animated.View entering={FadeInDown.duration(250)} style={styles.scrollerOuterContainer}>
-                    <View style={styles.scrollerHighlightFrame} />
-                    <FlatList
-                      ref={flatListRef}
-                      data={DURATION_OPTIONS}
-                      keyExtractor={(item) => item.toString()}
-                      snapToInterval={40}
-                      decelerationRate="fast"
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{
-                        paddingVertical: 40,
-                      }}
-                      getItemLayout={(_, index) => ({
-                        length: 40,
-                        offset: 40 * index,
-                        index,
-                      })}
-                      onMomentumScrollEnd={onScrollEnd}
-                      renderItem={({ item }) => {
-                        const isSelected = String(item) === folderCustomDuration;
+                  <Animated.View entering={FadeInDown.duration(250)} style={styles.customDurationSection}>
+                    {/* Stepper + Wheel Row */}
+                    <View style={styles.wheelWithSteppersRow}>
+                      <TouchableOpacity
+                        style={styles.durationStepBtn}
+                        onPress={() => handleStepDuration(-5)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.durationStepBtnText}>-5</Text>
+                      </TouchableOpacity>
+
+                      <View style={styles.scrollerOuterContainer}>
+                        <View style={styles.scrollerHighlightFrame} pointerEvents="none" />
+                        <FlatList
+                          ref={flatListRef}
+                          data={DURATION_OPTIONS}
+                          keyExtractor={(item) => item.toString()}
+                          snapToInterval={40}
+                          decelerationRate="fast"
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled={true}
+                          contentContainerStyle={{
+                            paddingVertical: 40,
+                          }}
+                          initialScrollIndex={Math.max(0, DURATION_OPTIONS.indexOf(parseInt(folderCustomDuration) || 45))}
+                          onScrollToIndexFailed={(info) => {
+                            setTimeout(() => {
+                              flatListRef.current?.scrollToOffset({ offset: info.index * 40, animated: false });
+                            }, 50);
+                          }}
+                          getItemLayout={(_, index) => ({
+                            length: 40,
+                            offset: 40 * index,
+                            index,
+                          })}
+                          onMomentumScrollEnd={onScrollEnd}
+                          onScrollEndDrag={(e) => {
+                            if (Platform.OS === 'android' || Math.abs(e.nativeEvent.velocity?.y || 0) < 0.1) {
+                              onScrollEnd(e);
+                            }
+                          }}
+                          renderItem={({ item }) => {
+                            const isSelected = String(item) === folderCustomDuration;
+                            return (
+                              <TouchableOpacity
+                                style={styles.scrollerItem}
+                                activeOpacity={0.7}
+                                onPress={() => selectCustomDuration(item)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.scrollerItemText,
+                                    isSelected && styles.scrollerItemTextSelected,
+                                  ]}
+                                >
+                                  {item} min
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          }}
+                        />
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.durationStepBtn}
+                        onPress={() => handleStepDuration(5)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.durationStepBtnText}>+5</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Quick Preset Chips */}
+                    <View style={styles.quickDurationChipsRow}>
+                      {[30, 45, 60, 75, 90].map((preset) => {
+                        const isChipSelected = folderCustomDuration === String(preset);
                         return (
-                          <View style={styles.scrollerItem}>
-                            <Text style={[
-                              styles.scrollerItemText,
-                              isSelected && styles.scrollerItemTextSelected
-                            ]}>
-                              {item} min
+                          <TouchableOpacity
+                            key={preset}
+                            style={[
+                              styles.quickDurationChip,
+                              isChipSelected && styles.quickDurationChipSelected,
+                            ]}
+                            onPress={() => selectCustomDuration(preset)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.quickDurationChipText,
+                                isChipSelected && styles.quickDurationChipTextSelected,
+                              ]}
+                            >
+                              {preset}m
                             </Text>
-                          </View>
+                          </TouchableOpacity>
                         );
-                      }}
-                    />
+                      })}
+                    </View>
                   </Animated.View>
                 )}
               </Animated.View>
@@ -796,14 +878,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
   },
+  customDurationSection: {
+    marginVertical: 14,
+    alignItems: 'center',
+  },
+  wheelWithSteppersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  durationStepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1E1E2D',
+    borderWidth: 1,
+    borderColor: '#3A3A4E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  durationStepBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   scrollerOuterContainer: {
     height: 120,
-    width: 170,
+    width: 150,
     alignSelf: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginVertical: 12,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A3C',
   },
   scrollerHighlightFrame: {
     position: 'absolute',
@@ -813,9 +923,9 @@ const styles = StyleSheet.create({
     height: 40,
     borderTopWidth: 1.5,
     borderBottomWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
+    borderColor: 'rgba(238, 130, 42, 0.5)',
+    backgroundColor: 'rgba(238, 130, 42, 0.12)',
+    borderRadius: 8,
   },
   scrollerItem: {
     height: 40,
@@ -824,13 +934,40 @@ const styles = StyleSheet.create({
   },
   scrollerItemText: {
     color: '#666666',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   scrollerItemTextSelected: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
+  },
+  quickDurationChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    justifyContent: 'center',
+  },
+  quickDurationChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#1E1E2D',
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+  },
+  quickDurationChipSelected: {
+    backgroundColor: 'rgba(238, 130, 42, 0.2)',
+    borderColor: '#EE822A',
+  },
+  quickDurationChipText: {
+    color: '#8E8E9A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  quickDurationChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   modalCreateButton: {
     width: '100%',

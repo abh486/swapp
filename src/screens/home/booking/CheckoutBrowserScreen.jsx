@@ -38,7 +38,7 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
 
   const handleCallbackUrl = (currentUrl) => {
     console.log('[Checkout] Processing web callback URL:', currentUrl);
-    
+
     const isSuccess =
       currentUrl.includes('/checkout-success') ||
       currentUrl.includes('subscription=success') ||
@@ -129,7 +129,7 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
 
     try {
       setStatusText('Contacting App Store...');
-      
+
       const customer = {
         id: user?.id || user?.userProfile?.id || '',
         email: user?.email || user?.userProfile?.email || '',
@@ -138,16 +138,16 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
       };
 
       console.log('[Checkout] Initiating native Chargebee purchase for product ID:', planId);
-      
+
       // Native Chargebee Purchase
       const result = await Chargebee.purchaseProduct(planId, customer);
-      
+
       console.log('[Checkout] Native Chargebee purchase result:', result);
-      
+
       if (result && result.subscriptionId) {
         successHandledRef.current = true;
         console.log('[Checkout] Native purchase successful! Redirecting to processing screen.');
-        
+
         navigation.replace('PaymentProcessing', {
           planName,
           price,
@@ -161,11 +161,11 @@ const CheckoutBrowserScreen = ({ route, navigation }) => {
 
     } catch (error) {
       console.error('[Checkout] Native purchase failed or threw error:', error);
-      
+
       // Check if user cancelled the StoreKit payment sheet explicitly so we don't force open the browser
-      const isUserCancel = 
-        error?.message?.includes('user') || 
-        error?.message?.includes('cancel') || 
+      const isUserCancel =
+        error?.message?.includes('user') ||
+        error?.message?.includes('cancel') ||
         error?.message?.includes('cancelled') ||
         error?.code === 'E_USER_CANCELLED';
 

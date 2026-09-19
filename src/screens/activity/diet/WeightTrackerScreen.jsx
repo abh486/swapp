@@ -21,9 +21,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiClient from '../../api/apiClient';
-import { useAuth } from '../../context/AuthContext';
-import { calculateNutritionTargets, fetchNutritionTargets, getCachedBackendTargets } from '../../utils/nutritionCalculator';
+import apiClient from '../../../api/apiClient';
+import { useAuth } from '../../../context/AuthContext';
+import { calculateNutritionTargets, fetchNutritionTargets, getCachedBackendTargets } from '../../../utils/nutritionCalculator';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -41,7 +41,7 @@ import {
   removeWeightLog,
   fetchWeightTarget,
   saveWeightTarget,
-} from '../../redux/actions/weightActions';
+} from '../../../redux/actions/weightActions';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -310,7 +310,7 @@ const WeightTrackerScreen = ({ navigation }) => {
     const load = async () => {
       try {
         if (!user) return;
-        fetchNutritionTargets().catch(() => {});
+        fetchNutritionTargets().catch(() => { });
         const profile = user?.userProfile || user?.memberProfile || user || {};
 
         // ── 0. Resolve Starting Weight Robustly ─────────────────────────────
@@ -351,8 +351,8 @@ const WeightTrackerScreen = ({ navigation }) => {
           setStartingValue(finalStarting);
           await AsyncStorage.setItem(STARTING_WEIGHT_KEY, finalStarting);
           if (!profile.startingWeight) {
-            apiClient.put('/users/profile', { startingWeight: parseFloat(finalStarting) }).catch(() => {});
-            apiClient.post('/weight/target', { startingValue: parseFloat(finalStarting) }).catch(() => {});
+            apiClient.put('/users/profile', { startingWeight: parseFloat(finalStarting) }).catch(() => { });
+            apiClient.post('/weight/target', { startingValue: parseFloat(finalStarting) }).catch(() => { });
           }
         }
 
@@ -715,7 +715,7 @@ const WeightTrackerScreen = ({ navigation }) => {
       ]);
 
       // 7. Fetch updated nutrition targets from backend
-      await fetchNutritionTargets().catch(() => {});
+      await fetchNutritionTargets().catch(() => { });
 
       // 8. Refresh Auth context across entire app
       if (typeof refreshAuthStatus === 'function') {
@@ -751,7 +751,7 @@ const WeightTrackerScreen = ({ navigation }) => {
       await AsyncStorage.setItem('diet_plan_needs_refresh', 'true');
 
       await apiClient.put('/users/profile', { weight: numW });
-      await fetchNutritionTargets().catch(() => {});
+      await fetchNutritionTargets().catch(() => { });
 
       if (typeof refreshAuthStatus === 'function') {
         await refreshAuthStatus();
@@ -826,7 +826,7 @@ const WeightTrackerScreen = ({ navigation }) => {
         await apiClient.put('/users/profile', { startingWeight: numVInKg });
         await apiClient.post('/weight/target', { startingValue: numVInKg });
         if (typeof refreshAuthStatus === 'function') await refreshAuthStatus();
-      } catch (_) {}
+      } catch (_) { }
     } else if (editCardModal === 'goal') {
       const valStr = numVInKg.toFixed(1);
       const currentW = currentWeightVal > 0 ? currentWeightVal : (parseFloat(startingValue) || 70);
@@ -859,7 +859,7 @@ const WeightTrackerScreen = ({ navigation }) => {
         await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(m));
         await apiClient.put('/users/profile', { height: parseFloat(valStr) });
         if (typeof refreshAuthStatus === 'function') await refreshAuthStatus();
-      } catch (_) {}
+      } catch (_) { }
     } else if (editCardModal === 'current') {
       const ts = Date.now();
       const newLog = { id: String(ts), value: numVInKg, date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }), timestamp: ts, source: 'Manual', photo: null };
@@ -1682,8 +1682,8 @@ const WeightTrackerScreen = ({ navigation }) => {
                             {previewTargets.isMaintenance
                               ? 'Maintenance'
                               : previewTargets.goalType === 'lose'
-                              ? `-${Math.abs(previewTargets.dailyAdjustment)} kcal deficit`
-                              : `+${previewTargets.dailyAdjustment} kcal surplus`}
+                                ? `-${Math.abs(previewTargets.dailyAdjustment)} kcal deficit`
+                                : `+${previewTargets.dailyAdjustment} kcal surplus`}
                           </Text>
                         </View>
                       </View>

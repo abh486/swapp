@@ -1164,11 +1164,11 @@ export const HomeDashboard = ({ navigation }) => {
             <Text style={styles.partnersText}>
               {activeCategory === 'trainer'
                 ? (locationName && locationName !== 'My Location'
-                    ? `100+ Trainers In ${locationName}`
-                    : '100+ Trainers Near You')
+                  ? `100+ Trainers In ${locationName}`
+                  : '100+ Trainers Near You')
                 : (locationName && locationName !== 'My Location'
-                    ? `100+ Partners In ${locationName}`
-                    : '100+ Partners Near You')}
+                  ? `100+ Partners In ${locationName}`
+                  : '100+ Partners Near You')}
             </Text>
             <Icon name="chevron-down" size={14} color="#888" style={{ marginLeft: 4 }} />
           </TouchableOpacity>

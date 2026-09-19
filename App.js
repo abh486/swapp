@@ -9,6 +9,7 @@ import { LogBox, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, ImageSelectionProvider } from './src/context/AuthContext';
 import { LocationProvider } from './src/context/LocationContext';
+import { ActiveWorkoutProvider } from './src/context/ActiveWorkoutContext';
 import store from './src/redux/store/store';
 import GlobalAlert from './src/components/GlobalAlert';
 import { useEffect } from 'react';
@@ -87,8 +88,10 @@ const App = () => {
                 scope={AUTH0_LOGIN_SCOPE}
               >
                 <AuthProvider>
-                  <AppNavigator />
-                  <GlobalAlert />
+                  <ActiveWorkoutProvider>
+                    <AppNavigator />
+                    <GlobalAlert />
+                  </ActiveWorkoutProvider>
                 </AuthProvider>
               </Auth0Provider>
             </ImageSelectionProvider>

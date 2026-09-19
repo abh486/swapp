@@ -9,16 +9,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const fetchHydrationLogs = (dateKey) => async (dispatch) => {
   dispatch({ type: types.HYDRATION_FETCH_LOGS_REQUEST });
   try {
+    const key = dateKey || new Date().toISOString().split('T')[0];
     let logsData = [];
     try {
       const response = await apiClient.get('/hydration/logs', {
-        params: { date: dateKey },
+        params: { date: key },
       });
       logsData = response.data?.data || response.data || [];
     } catch (apiError) {
       // Fallback to active backend endpoint (/diet/logs/date/:date)
       try {
-        const fallbackResponse = await apiClient.get(`/diet/logs/date/${dateKey}`);
+        const fallbackResponse = await apiClient.get(`/diet/logs/date/${key}`);
         const allLogs = fallbackResponse.data?.data || fallbackResponse.data || [];
         if (Array.isArray(allLogs)) {
           logsData = allLogs.filter(
@@ -30,11 +31,41 @@ export const fetchHydrationLogs = (dateKey) => async (dispatch) => {
       }
     }
 
+    const formatted = logsData.map((item) => ({
+      id: item.id || item._id,
+      amount: item.amountMl || item.waterVolumeMl || item.calories || 250,
+      timestamp: item.timestamp || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM'),
+    }));
+    const totalFromLogs = formatted.reduce((sum, item) => sum + item.amount, 0);
+
+    const localVal = await AsyncStorage.getItem(`water_intake_${key}`);
+    const localLiters = localVal ? parseFloat(localVal) : 0;
+    const localMl = Math.round(localLiters * 1000);
+
+    let finalLogs = formatted;
+    let finalTotal = totalFromLogs;
+
+    if (totalFromLogs > 0) {
+      // Sync AsyncStorage to match backend logs
+      const liters = (totalFromLogs / 1000).toFixed(1);
+      await AsyncStorage.setItem(`water_intake_${key}`, liters);
+      finalTotal = totalFromLogs;
+    } else if (localMl > 0) {
+      finalLogs = [{
+        id: 'local_init',
+        amount: localMl,
+        amountMl: localMl,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        notes: 'Water intake',
+      }];
+      finalTotal = localMl;
+    }
+
     dispatch({
       type: types.HYDRATION_FETCH_LOGS_SUCCESS,
-      payload: { logs: logsData, dateKey },
+      payload: { logs: finalLogs, totalMl: finalTotal, dateKey: key },
     });
-    return logsData;
+    return finalLogs;
   } catch (error) {
     dispatch({
       type: types.HYDRATION_FETCH_LOGS_FAILURE,
@@ -47,12 +78,13 @@ export const fetchHydrationLogs = (dateKey) => async (dispatch) => {
 /**
  * Log a new water intake entry to the database and update Redux store.
  */
-export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (dispatch) => {
+export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (dispatch, getState) => {
   dispatch({ type: types.HYDRATION_ADD_LOG_REQUEST });
   try {
+    const key = dateKey || new Date().toISOString().split('T')[0];
     const payload = {
       amountMl: parseInt(amountMl, 10) || 0,
-      date: dateKey || new Date().toISOString().split('T')[0],
+      date: key,
       timestamp: timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       notes: notes || 'Water intake',
     };
@@ -82,13 +114,20 @@ export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (d
       }
     }
 
+    // Sync updated total with AsyncStorage water_intake
+    try {
+      const currentTotal = getState()?.hydration?.totalMl || 0;
+      const newTotal = currentTotal + (parseInt(amountMl, 10) || 0);
+      await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
+    } catch (e) {}
+
     dispatch({
       type: types.HYDRATION_ADD_LOG_SUCCESS,
       payload: {
         id: result?._id || result?.id || Date.now().toString(),
         amount: parseInt(amountMl, 10) || 0,
-        timestamp: timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        dateKey,
+        timestamp: payload.timestamp,
+        dateKey: key,
       },
     });
     return result;
@@ -104,10 +143,11 @@ export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (d
 /**
  * Permanently delete a water log entry and update Redux store.
  */
-export const removeWaterLog = (logId, amountMl, dateKey) => async (dispatch) => {
+export const removeWaterLog = (logId, amountMl, dateKey) => async (dispatch, getState) => {
   dispatch({ type: types.HYDRATION_DELETE_LOG_REQUEST });
   try {
-    if (logId) {
+    const key = dateKey || new Date().toISOString().split('T')[0];
+    if (logId && !String(logId).startsWith('local_')) {
       try {
         await apiClient.delete(`/hydration/logs/${logId}`);
       } catch (apiError) {
@@ -119,9 +159,16 @@ export const removeWaterLog = (logId, amountMl, dateKey) => async (dispatch) => 
       }
     }
 
+    // Sync updated total with AsyncStorage water_intake
+    try {
+      const currentTotal = getState()?.hydration?.totalMl || 0;
+      const newTotal = Math.max(0, currentTotal - (parseInt(amountMl, 10) || 0));
+      await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
+    } catch (e) {}
+
     dispatch({
       type: types.HYDRATION_DELETE_LOG_SUCCESS,
-      payload: { id: logId, amount: amountMl, dateKey },
+      payload: { id: logId, amount: amountMl, dateKey: key },
     });
   } catch (error) {
     dispatch({
@@ -137,13 +184,27 @@ export const removeWaterLog = (logId, amountMl, dateKey) => async (dispatch) => 
 export const getHydrationTarget = () => async (dispatch) => {
   dispatch({ type: types.HYDRATION_FETCH_TARGET_REQUEST });
   try {
-    let targetMl = 2500;
+    let targetMl = 4000;
     try {
       const response = await apiClient.get('/hydration/target');
-      targetMl = response.data?.data?.targetMl || response.data?.targetMl || 2500;
+      const fetched = response.data?.data?.targetMl || response.data?.targetMl;
+      if (fetched && fetched !== 2500) {
+        targetMl = fetched;
+      } else {
+        targetMl = 4000;
+      }
     } catch (apiError) {
       const savedGoal = await AsyncStorage.getItem('water_target_ml');
-      if (savedGoal) targetMl = parseInt(savedGoal, 10) || 2500;
+      if (savedGoal) {
+        const parsed = parseInt(savedGoal, 10);
+        targetMl = (parsed && parsed !== 2500) ? parsed : 4000;
+      }
+    }
+
+    // Auto-migrate AsyncStorage if it had 2500 or nothing
+    const savedGoal = await AsyncStorage.getItem('water_target_ml');
+    if (!savedGoal || savedGoal === '2500') {
+      await AsyncStorage.setItem('water_target_ml', String(targetMl));
     }
 
     dispatch({
@@ -156,7 +217,7 @@ export const getHydrationTarget = () => async (dispatch) => {
       type: types.HYDRATION_FETCH_TARGET_FAILURE,
       payload: error.message,
     });
-    return 2500;
+    return 4000;
   }
 };
 

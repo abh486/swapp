@@ -186,18 +186,41 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
             }
           } else {
             // Existing purchase-first sync logic
-            const resp = await apiClient.post('/subscriptions/sync');
+            const resp = await apiClient.post('/subscriptions/sync', { hostedPageId });
             if (resp.data?.success && resp.data.data) {
               const userObj = resp.data.data.user;
               const subs = userObj?.subscriptions || [];
-              
-              // Check if there is an active subscription on the server
-              const serverActiveSub = subs.find(sub => {
-                const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
-                return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
-              });
+              const pkgs = userObj?.activePackages || [];
+              const ents = userObj?.activeEntitlements || [];
 
-              if (serverActiveSub) {
+              const targetPkgId =
+                pendingSubscription?.packageId ||
+                pendingSubscription?.package?.id ||
+                pendingSubscription?.planId;
+
+              // Check if the specific target subscription is active on the server
+              const isTargetSubActive = targetPkgId
+                ? subs.some(sub => {
+                    const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+                    const isActive = !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+                    if (!isActive) return false;
+                    const sPkgId = sub.packageId || sub.planId || sub.package?.id;
+                    return sPkgId && String(sPkgId) === String(targetPkgId);
+                  }) ||
+                  pkgs.some(p => {
+                    const pPkgId = p.packageId || p.package?.id;
+                    return pPkgId && String(pPkgId) === String(targetPkgId) && String(p.status || '').toUpperCase() === 'ACTIVE';
+                  }) ||
+                  ents.some(e => {
+                    const ePkgId = e.packageId || e.package?.id;
+                    return ePkgId && String(ePkgId) === String(targetPkgId) && String(e.status || '').toUpperCase() === 'ACTIVE';
+                  })
+                : subs.some(sub => {
+                    const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
+                    return !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
+                  });
+
+              if (isTargetSubActive) {
                 // Found active subscription! Stop polling.
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
@@ -253,6 +276,25 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
         if (pollCountLocal >= 12) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
+
+          if (hostedPageId || pendingSubscription) {
+            // The payment succeeded at Chargebee (gateway callback), but backend sync is taking longer.
+            // Proceed to success screen so the user's new subscription is preserved optimistically.
+            setStep2Status('success');
+            setStep3Status('success');
+            setTimeout(async () => {
+              if (!isMounted) return;
+              await refreshAuthStatus?.();
+              navigation.replace('SubscriptionSuccess', {
+                planName,
+                price,
+                pendingSubscription,
+                reservationId,
+                hostedPageId,
+              });
+            }, 600);
+            return;
+          }
 
           Alert.alert(
             'Verification Pending',
