@@ -192,6 +192,7 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
               const subs = userObj?.subscriptions || [];
               const pkgs = userObj?.activePackages || [];
               const ents = userObj?.activeEntitlements || [];
+              const newSubId = resp.data.data.newSubscriptionId;
 
               const targetPkgId =
                 pendingSubscription?.packageId ||
@@ -199,7 +200,11 @@ const PaymentProcessingScreen = ({ route, navigation }) => {
                 pendingSubscription?.planId;
 
               // Check if the specific target subscription is active on the server
-              const isTargetSubActive = targetPkgId
+              const isTargetSubActive = newSubId
+                ? subs.some(sub => sub.chargebeeId === newSubId || sub.chargebeeSubscriptionId === newSubId) ||
+                  pkgs.some(p => p.chargebeeSubscriptionId === newSubId && String(p.status || '').toUpperCase() === 'ACTIVE') ||
+                  ents.some(e => e.paymentReference === newSubId && String(e.status || '').toUpperCase() === 'ACTIVE')
+                : targetPkgId
                 ? subs.some(sub => {
                     const status = String(sub.status || sub.subscriptionStatus || '').toUpperCase();
                     const isActive = !['CANCELED', 'CANCELLED', 'EXPIRED', 'INACTIVE'].includes(status);
