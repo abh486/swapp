@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch, useSelector } from 'react-redux';
-import { addWaterLog } from '../../../../redux/actions/hydrationActions';
+import { addWaterLog, subtractWaterLog } from '../../../../redux/actions/hydrationActions';
 import { useResponsiveMetrics } from '../../../../utils/responsive';
 
 const DietWaterWidget = ({ selectedDate, onWaterChange }) => {
@@ -29,12 +29,16 @@ const DietWaterWidget = ({ selectedDate, onWaterChange }) => {
 
   // Load water volume from Redux or AsyncStorage for the selected date
   useEffect(() => {
-    const loadWaterVolume = async () => {
+    if (reduxHydration.totalMl !== undefined) {
+      const liters = parseFloat((Math.max(0, reduxHydration.totalMl) / 1000).toFixed(1));
+      setWaterVolume(liters);
+    }
+  }, [reduxHydration.totalMl]);
+
+  useEffect(() => {
+    const loadInitialStorage = async () => {
       try {
-        if (reduxHydration.totalMl !== undefined && reduxHydration.totalMl > 0) {
-          const liters = parseFloat((reduxHydration.totalMl / 1000).toFixed(1));
-          setWaterVolume(liters);
-        } else {
+        if (reduxHydration.totalMl === undefined) {
           const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
           if (savedVal !== null) {
             setWaterVolume(parseFloat(savedVal));
@@ -60,36 +64,33 @@ const DietWaterWidget = ({ selectedDate, onWaterChange }) => {
         }
       } catch (err) {
         console.error('Failed to load water volume:', err);
-        setWaterVolume(0.0);
       }
     };
-    loadWaterVolume();
-  }, [dateKey, reduxHydration.totalMl]);
+    loadInitialStorage();
+  }, [dateKey]);
 
-  const handleAddWater = async () => {
-    const newVal = Math.min(8.0, parseFloat((waterVolume + selectedIncrement).toFixed(1)));
-    setWaterVolume(newVal);
-    try {
-      await AsyncStorage.setItem(`water_intake_${dateKey}`, newVal.toFixed(1));
-      const amountMl = Math.round(selectedIncrement * 1000);
-      dispatch(addWaterLog({ amountMl, dateKey, notes: `Added ${selectedIncrement}L` }));
-    } catch (err) {
-      console.error('Failed to save water volume:', err);
-    }
-    if (onWaterChange) onWaterChange(newVal);
+  const handleAddWater = () => {
+    const amountMl = Math.round(selectedIncrement * 1000);
+    const currentMl = (reduxHydration.totalMl !== undefined) ? reduxHydration.totalMl : Math.round(waterVolume * 1000);
+    const newTotal = Math.min(8000, currentMl + amountMl);
+    const newLiters = parseFloat((newTotal / 1000).toFixed(1));
+    setWaterVolume(newLiters);
+    dispatch(addWaterLog({ amountMl, dateKey, notes: `Added ${selectedIncrement}L` }));
+    if (onWaterChange) onWaterChange(newLiters);
   };
 
-  const handleSubtractWater = async () => {
-    const newVal = Math.max(0.0, parseFloat((waterVolume - selectedIncrement).toFixed(1)));
-    setWaterVolume(newVal);
-    try {
-      await AsyncStorage.setItem(`water_intake_${dateKey}`, newVal.toFixed(1));
-    } catch (err) {
-      console.error('Failed to save water volume:', err);
-    }
-    if (onWaterChange) onWaterChange(newVal);
+  const handleSubtractWater = () => {
+    const amountMl = Math.round(selectedIncrement * 1000);
+    const currentMl = (reduxHydration.totalMl !== undefined) ? reduxHydration.totalMl : Math.round(waterVolume * 1000);
+    const newTotal = Math.max(0, currentMl - amountMl);
+    const newLiters = parseFloat((newTotal / 1000).toFixed(1));
+    setWaterVolume(newLiters);
+    dispatch(subtractWaterLog({ amountMl, dateKey }));
+    if (onWaterChange) onWaterChange(newLiters);
   };
 
+  const volumeMl = Math.round(waterVolume * 1000);
+  const formattedVolume = `${volumeMl.toLocaleString('en-US')} ml`;
   const percent = Math.min(100, Math.round((waterVolume / targetVolume) * 100));
   const totalDrops = 7;
   const activeDropsCount = Math.min(totalDrops, Math.round((waterVolume / targetVolume) * totalDrops));
@@ -100,7 +101,7 @@ const DietWaterWidget = ({ selectedDate, onWaterChange }) => {
       <View style={styles.leftBlock}>
         <View style={styles.titleRow}>
           <Text style={[styles.waterBlueTitle, { fontSize: fs(21) }]}>Water </Text>
-          <Text style={[styles.waterWhiteValue, { fontSize: fs(21) }]}>{waterVolume.toFixed(1)}L </Text>
+          <Text style={[styles.waterWhiteValue, { fontSize: fs(21) }]}>{formattedVolume} </Text>
           <Text style={[styles.waterWhitePercent, { fontSize: fs(15) }]}>({percent}%)</Text>
         </View>
         <Text style={[styles.subtext, { fontSize: fs(12) }]}>Daily Target {targetVolume.toFixed(1)}L</Text>

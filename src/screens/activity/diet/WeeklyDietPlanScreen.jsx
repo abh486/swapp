@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   View,
@@ -11,7 +10,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -21,6 +22,7 @@ import { saveDietEntry } from '../../../redux/actions/dietActions';
 import dietAiApi from '../../../api/dietAiApi';
 import { useAuth } from '../../../context/AuthContext';
 import { getTargetsForUser, getCachedBackendTargets } from '../../../utils/nutritionCalculator';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -357,7 +359,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#050505" />
 
       {/* Top Header Row */}
@@ -391,8 +393,7 @@ const WeeklyDietPlanScreen = ({ navigation, route }) => {
 
       {isLoading ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#A3D9C9" />
-          <Text style={styles.loadingText}>{loadingText}</Text>
+          <GlobalLoader size={60} text={loadingText} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -717,7 +718,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 14,
     paddingBottom: 12,
   },
   headerBtn: {

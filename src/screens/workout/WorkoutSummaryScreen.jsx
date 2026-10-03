@@ -1,19 +1,27 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar, Alert, TextInput } from 'react-native';
+import PostedSuccessPopup from '../../components/PostedSuccessPopup';
+import { ImageCropperModal } from '../../components/ImageCropperModal';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, Dimensions, StatusBar, Alert, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   logWorkoutSession,
   updateCustomWorkoutTemplate,
+  getCustomWorkoutTemplates,
   resolveExerciseImageUri,
   getExerciseMuscleFallback,
 } from '../../redux/actions/workoutActions';
+import { recordUsedExercises, recordExercisePerformance } from '../../utils/usedWorkoutsManager';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
+import { useAuth } from '../../context/AuthContext';
+import { useActiveWorkout } from '../../context/ActiveWorkoutContext';
 
 const { width } = Dimensions.get('window');
 const WorkoutSummaryScreen = () => {
@@ -22,6 +30,9 @@ const WorkoutSummaryScreen = () => {
   const dispatch = useDispatch();
 
   const { sessionData, progressPhoto, progressPhotos } = route.params || {};
+  const { user } = useAuth() || {};
+  const { finishWorkout } = useActiveWorkout() || {};
+  const currentUid = user?.id || user?.userId || user?.user_id || sessionData?.userId;
 
   // State for multiple images
   const [selectedImages, setSelectedImages] = useState(
@@ -31,6 +42,10 @@ const WorkoutSummaryScreen = () => {
         ? [progressPhoto]
         : []
   );
+
+  const [cropperVisible, setCropperVisible] = useState(false);
+  const [photoToCrop, setPhotoToCrop] = useState(null);
+  const [uploadingCropImage, setUploadingCropImage] = useState(false);
 
   const exerciseImages = (sessionData?.exercises || sessionData?.templateExercises || [])
     .map(ex => resolveExerciseImageUri(ex?.exercise || ex))
@@ -50,66 +65,123 @@ const WorkoutSummaryScreen = () => {
   );
   const [isSaving, setIsSaving] = useState(false);
 
-  const handlePickImage = () => {
+  // Duration & Calories consideration
+  const [duration, setDuration] = useState(() => {
+    if (sessionData?.duration !== undefined && sessionData?.duration !== null) {
+      return Number(sessionData.duration);
+    }
+    return 60;
+  });
+
+  const [customCalories, setCustomCalories] = useState(null);
+  const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
+  const [isCalorieModalVisible, setIsCalorieModalVisible] = useState(false);
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+  const [tempHours, setTempHours] = useState('0');
+  const [tempMinutes, setTempMinutes] = useState('0');
+  const [tempCaloriesInput, setTempCaloriesInput] = useState('');
+
+  const computedCalories = useMemo(() => {
+    return calculateWorkoutCalories({
+      duration,
+      exercises: sessionData?.exercises || sessionData?.templateExercises || [],
+      volume: sessionData?.volume || 0,
+      totalReps: sessionData?.totalReps || 0,
+      workoutTitle,
+    });
+  }, [duration, workoutTitle, sessionData]);
+
+  const activeCalories = customCalories !== null
+    ? customCalories
+    : (sessionData?.calories && sessionData.calories > 0 && duration === sessionData.duration && workoutTitle === (sessionData.workoutName || sessionData.workoutType)
+        ? sessionData.calories
+        : computedCalories);
+
+  const openTimeEditor = () => {
+    const s = Math.max(0, parseInt(duration, 10) || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    setTempHours(String(h));
+    setTempMinutes(String(m));
+    setIsTimeModalVisible(true);
+  };
+
+  const applyTime = () => {
+    const h = parseInt(tempHours || '0', 10) || 0;
+    const m = parseInt(tempMinutes || '0', 10) || 0;
+    const totalSecs = Math.max(0, h * 3600 + m * 60);
+    setDuration(totalSecs);
+    setCustomCalories(null); // allow auto-recalculation
+    setIsTimeModalVisible(false);
+  };
+
+  const openCalorieEditor = () => {
+    setTempCaloriesInput(String(activeCalories));
+    setIsCalorieModalVisible(true);
+  };
+
+  const applyCalories = () => {
+    const val = parseInt(tempCaloriesInput, 10);
+    if (!isNaN(val) && val >= 0) {
+      setCustomCalories(val);
+    }
+    setIsCalorieModalVisible(false);
+  };
+
+  const openImagePicker = (type = 'library') => {
     if (typeof launchCamera !== 'function' || typeof launchImageLibrary !== 'function') {
       Alert.alert('Module Error', 'Native image picker functions are not loaded. Please rebuild the app.');
       return;
     }
+
+    const options = {
+      mediaType: 'photo',
+      quality: 0.9,
+      saveToPhotos: true,
+      selectionLimit: 1,
+    };
+
+    const handlePickerResponse = response => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        Alert.alert('Image Error', response.errorMessage || `Error code: ${response.errorCode}`);
+        return;
+      }
+      if (response.assets && response.assets.length > 0) {
+        setPhotoToCrop(response.assets[0]);
+        setCropperVisible(true);
+      }
+    };
+
+    if (type === 'camera') {
+      try {
+        launchCamera(options, handlePickerResponse);
+      } catch (err) {
+        Alert.alert('Camera Launch Failed', err.message || String(err));
+      }
+    } else {
+      try {
+        launchImageLibrary(options, handlePickerResponse);
+      } catch (err) {
+        Alert.alert('Gallery Launch Failed', err.message || String(err));
+      }
+    }
+  };
+
+  const handlePickImage = () => {
+    if (selectedImages.length >= 5) {
+      Alert.alert('Photo Limit Reached', 'You can attach up to 5 photos per workout.');
+      return;
+    }
+
     Alert.alert('Add Photo', 'Choose a photo for your workout summary', [
       {
         text: 'Take Photo',
-        onPress: () => {
-          setTimeout(() => {
-            try {
-              launchCamera(
-                {
-                  mediaType: 'photo',
-                  quality: 0.8,
-                  saveToPhotos: true,
-                },
-                response => {
-                  if (response.didCancel) {
-                    console.log('[handlePickImage] User cancelled camera');
-                  } else if (response.errorCode) {
-                    Alert.alert('Camera Error', response.errorMessage || `Error code: ${response.errorCode}`);
-                  } else if (response.assets && response.assets.length > 0) {
-                    setSelectedImages(prev => [...prev, response.assets[0].uri]);
-                  }
-                }
-              );
-            } catch (err) {
-              Alert.alert('Camera Launch Failed', err.message || String(err));
-            }
-          }, 300);
-        },
+        onPress: () => setTimeout(() => openImagePicker('camera'), 200),
       },
       {
         text: 'Choose from Gallery',
-        onPress: () => {
-          setTimeout(() => {
-            try {
-              launchImageLibrary(
-                {
-                  mediaType: 'photo',
-                  quality: 0.8,
-                  selectionLimit: 5 - selectedImages.length,
-                },
-                response => {
-                  if (response.didCancel) {
-                    console.log('[handlePickImage] User cancelled gallery');
-                  } else if (response.errorCode) {
-                    Alert.alert('Gallery Error', response.errorMessage || `Error code: ${response.errorCode}`);
-                  } else if (response.assets && response.assets.length > 0) {
-                    const newUris = response.assets.map(asset => asset.uri);
-                    setSelectedImages(prev => [...prev, ...newUris].slice(0, 5));
-                  }
-                }
-              );
-            } catch (err) {
-              Alert.alert('Gallery Launch Failed', err.message || String(err));
-            }
-          }, 300);
-        },
+        onPress: () => setTimeout(() => openImagePicker('library'), 200),
       },
       {
         text: 'Cancel',
@@ -118,17 +190,34 @@ const WorkoutSummaryScreen = () => {
     ]);
   };
 
+  const handleCropComplete = async ({ cropOptions }) => {
+    if (!photoToCrop) return;
+    setUploadingCropImage(true);
+    try {
+      const uploadedUrl = await uploadToCloudinary(photoToCrop, cropOptions);
+      setSelectedImages(prev => [...prev, uploadedUrl].slice(0, 5));
+      setCropperVisible(false);
+      setPhotoToCrop(null);
+    } catch (error) {
+      Alert.alert('Upload Failed', 'Failed to upload the cropped image. Please try again.');
+    } finally {
+      setUploadingCropImage(false);
+    }
+  };
+
   const formatTime = totalSeconds => {
-    const mins = Math.floor(totalSeconds / 60);
+    const s = Math.max(0, parseInt(totalSeconds, 10) || 0);
+    const hours = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
     return `${mins}min`;
   };
 
   const handleSave = async () => {
-    // 1. Immediately reset navigation back to MainTabs (0ms delay for user)
-    navigation.reset({
-      index: 1,
-      routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
-    });
+    // 1. Show celebratory Posted Success pop up 🎉
+    setIsSuccessModalVisible(true);
 
     // 2. Perform background uploading, caching, and dispatching unblocked
     setTimeout(async () => {
@@ -152,13 +241,19 @@ const WorkoutSummaryScreen = () => {
 
         const finalData = {
           ...sessionData,
+          duration,
+          calories: activeCalories,
           workoutName: workoutTitle.trim() || sessionData?.workoutName || 'Workout',
           notes: workoutNotes.trim() || null,
           imageUrl: finalImageUrl || null,
         };
 
-        AsyncStorage.setItem('latestWorkoutData', JSON.stringify(finalData)).catch(() => { });
+        if (currentUid) {
+          AsyncStorage.setItem(`latestWorkoutData_${currentUid}`, JSON.stringify(finalData)).catch(() => { });
+        }
 
+        recordUsedExercises(finalData.exercises || finalData.templateExercises || []);
+        recordExercisePerformance(finalData.exercises || finalData.templateExercises || []);
         dispatch(logWorkoutSession(finalData));
 
         if (
@@ -173,8 +268,8 @@ const WorkoutSummaryScreen = () => {
             ),
           ).then(() => {
             dispatch(getCustomWorkoutTemplates()).then(backendFolders => {
-              if (backendFolders) {
-                AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(backendFolders)).catch(() => { });
+              if (backendFolders && currentUid) {
+                AsyncStorage.setItem(`@cached_custom_workout_folders_${currentUid}`, JSON.stringify(backendFolders)).catch(() => { });
               }
             }).catch(() => { });
           }).catch(() => { });
@@ -191,6 +286,17 @@ const WorkoutSummaryScreen = () => {
       0,
     ) || 0;
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -200,6 +306,14 @@ const WorkoutSummaryScreen = () => {
       >
         {/* Header Texts */}
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Icon name="chevron-back" size={26} color="#FFF" />
+          </TouchableOpacity>
           <Text style={styles.title}>Share Your Workout</Text>
           <Text style={styles.subtitle}>
             Nice work! Let's keep the momentum going.
@@ -276,17 +390,24 @@ const WorkoutSummaryScreen = () => {
             <Text style={styles.cardTitle}>{workoutTitle || 'Workout'}{'\n'}Complete!</Text>
 
             <View style={styles.statsContainer}>
-              <View style={styles.statRow}>
+              <TouchableOpacity
+                style={styles.statRow}
+                onPress={openTimeEditor}
+                activeOpacity={0.7}
+              >
                 <View style={styles.statIcon}>
                   <Icon name="time-outline" size={14} color="#111" />
                 </View>
                 <View>
-                  <Text style={styles.statLabel}>DURATION</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Text style={styles.statLabel}>DURATION</Text>
+                    <Icon name="pencil" size={8} color="#666" />
+                  </View>
                   <Text style={styles.statVal}>
-                    {formatTime(sessionData?.duration || 60)}
+                    {formatTime(duration)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.statRow}>
                 <View style={styles.statIcon}>
@@ -310,17 +431,24 @@ const WorkoutSummaryScreen = () => {
                 </View>
               </View>
 
-              <View style={styles.statRow}>
+              <TouchableOpacity
+                style={styles.statRow}
+                onPress={openCalorieEditor}
+                activeOpacity={0.7}
+              >
                 <View style={styles.statIcon}>
                   <Icon name="flame-outline" size={14} color="#111" />
                 </View>
                 <View>
-                  <Text style={styles.statLabel}>CALORIES</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Text style={styles.statLabel}>CALORIES</Text>
+                    <Icon name="pencil" size={8} color="#666" />
+                  </View>
                   <Text style={styles.statVal}>
-                    {sessionData?.calories || 0} kcal
+                    {activeCalories} kcal
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.usernameText}>@workout_complete</Text>
@@ -500,6 +628,188 @@ const WorkoutSummaryScreen = () => {
           )}
         </TouchableOpacity>
       </View>
+      {/* Time Editor Modal */}
+      <Modal
+        visible={isTimeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTimeModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsTimeModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.timeEditorCard}>
+                <Text style={styles.timeModalTitle}>Edit Workout Time</Text>
+                <Text style={styles.timeModalSubtitle}>Adjust duration; calories will auto-recalculate</Text>
+
+                <View style={styles.timeInputsRow}>
+                  <View style={styles.timeInputCol}>
+                    <TextInput
+                      style={styles.timeInputBox}
+                      value={tempHours}
+                      onChangeText={setTempHours}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                    />
+                    <Text style={styles.timeInputLabel}>Hours</Text>
+                  </View>
+                  <Text style={styles.timeInputColon}>:</Text>
+                  <View style={styles.timeInputCol}>
+                    <TextInput
+                      style={styles.timeInputBox}
+                      value={tempMinutes}
+                      onChangeText={setTempMinutes}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                    />
+                    <Text style={styles.timeInputLabel}>Minutes</Text>
+                  </View>
+                </View>
+
+                {/* Quick Presets */}
+                <View style={styles.quickChipsRow}>
+                  {[15, 30, 45, 60, 90].map(mins => (
+                    <TouchableOpacity
+                      key={mins}
+                      style={styles.quickChip}
+                      onPress={() => {
+                        const h = Math.floor(mins / 60);
+                        const m = mins % 60;
+                        setTempHours(String(h));
+                        setTempMinutes(String(m));
+                      }}
+                    >
+                      <Text style={styles.quickChipText}>{mins}m</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={() => setIsTimeModalVisible(false)}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalSaveBtn}
+                    onPress={applyTime}
+                  >
+                    <LinearGradient
+                      colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      borderRadius={12}
+                    />
+                    <Text style={styles.modalSaveText}>Apply Time</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Calorie Editor Modal */}
+      <Modal
+        visible={isCalorieModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCalorieModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsCalorieModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.timeEditorCard}>
+                <Text style={styles.timeModalTitle}>Adjust Calories</Text>
+                <Text style={styles.timeModalSubtitle}>Estimated based on time ({formatTime(duration)}) and workout</Text>
+
+                <View style={[styles.timeInputsRow, { marginVertical: 15 }]}>
+                  <View style={[styles.timeInputCol, { width: 140 }]}>
+                    <TextInput
+                      style={[styles.timeInputBox, { width: 140, fontSize: 24 }]}
+                      value={tempCaloriesInput}
+                      onChangeText={setTempCaloriesInput}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                    <Text style={styles.timeInputLabel}>kcal</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.autoCalcBtn}
+                  onPress={() => {
+                    setTempCaloriesInput(String(computedCalories));
+                    setCustomCalories(null);
+                  }}
+                >
+                  <Icon name="refresh" size={14} color="#EE822A" style={{ marginRight: 6 }} />
+                  <Text style={styles.autoCalcText}>Reset to Auto ({computedCalories} kcal)</Text>
+                </TouchableOpacity>
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={() => setIsCalorieModalVisible(false)}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalSaveBtn}
+                    onPress={applyCalories}
+                  >
+                    <LinearGradient
+                      colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      borderRadius={12}
+                    />
+                    <Text style={styles.modalSaveText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Posted Success Pop Up 🎉 (Automatically vanishes after 3 seconds) */}
+      <PostedSuccessPopup
+        visible={isSuccessModalVisible}
+        title="Posted Successfully! 🎉"
+        message={`Your workout "${workoutTitle}" has been shared!`}
+        duration={3000}
+        onDismiss={() => {
+          setIsSuccessModalVisible(false);
+          finishWorkout?.();
+          try {
+            navigation.reset({
+              index: 1,
+              routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+            });
+          } catch (e) {
+            navigation.navigate('Workouts');
+          }
+        }}
+      />
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        visible={cropperVisible}
+        image={photoToCrop}
+        onClose={() => {
+          if (!uploadingCropImage) {
+            setCropperVisible(false);
+            setPhotoToCrop(null);
+          }
+        }}
+        onCrop={handleCropComplete}
+        onPickAnother={handlePickImage}
+        isUploading={uploadingCropImage}
+      />
     </SafeAreaView>
   );
 };
@@ -513,20 +823,35 @@ const styles = StyleSheet.create({
     paddingBottom: 150,
   },
   header: {
+    position: 'relative',
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    marginTop: 14,
     marginBottom: 20,
+    paddingHorizontal: 48,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    top: -2,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   title: {
     color: '#FFF',
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'BRLNSR',
+    textAlign: 'center',
   },
   subtitle: {
     color: '#888',
     fontSize: 14,
     marginTop: 6,
+    textAlign: 'center',
   },
   cardContainer: {
     width: width - 40,
@@ -760,6 +1085,241 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 2,
     fontFamily: 'BRLNSR',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  timeEditorCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 22,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  timeModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  timeModalSubtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  timeInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+    gap: 8,
+  },
+  timeInputCol: {
+    alignItems: 'center',
+  },
+  timeInputBox: {
+    width: 75,
+    height: 56,
+    backgroundColor: '#121214',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  timeInputColon: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  timeInputLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  quickChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 12,
+  },
+  quickChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  quickChipText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#2C2C2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalSaveBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSaveText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  autoCalcBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(238, 130, 42, 0.1)',
+    marginVertical: 6,
+  },
+  autoCalcText: {
+    color: '#EE822A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  successModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#EE822A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  celebrationCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#2A2A2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#EE822A',
+  },
+  successTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '800',
+    fontFamily: 'BRLNSR',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  successStatsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    backgroundColor: '#121214',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 22,
+  },
+  successStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  successStatVal: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  successStatLbl: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+  },
+  successStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  viewInCommunityBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  viewInCommunityBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  doneDismissBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  doneDismissBtnText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

@@ -79,64 +79,56 @@ export const fetchHydrationLogs = (dateKey) => async (dispatch) => {
  * Log a new water intake entry to the database and update Redux store.
  */
 export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (dispatch, getState) => {
-  dispatch({ type: types.HYDRATION_ADD_LOG_REQUEST });
+  const key = dateKey || new Date().toISOString().split('T')[0];
+  const ml = parseInt(amountMl, 10) || 0;
+  const time = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const localId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  // 1. Immediately update AsyncStorage and Redux store optimistically
   try {
-    const key = dateKey || new Date().toISOString().split('T')[0];
+    const currentTotal = getState()?.hydration?.totalMl || 0;
+    const newTotal = currentTotal + ml;
+    await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
+  } catch (e) {}
+
+  dispatch({
+    type: types.HYDRATION_ADD_LOG_SUCCESS,
+    payload: {
+      id: localId,
+      amount: ml,
+      timestamp: time,
+      dateKey: key,
+    },
+  });
+
+  // 2. Persist to backend in background
+  try {
     const payload = {
-      amountMl: parseInt(amountMl, 10) || 0,
+      amountMl: ml,
       date: key,
-      timestamp: timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: time,
       notes: notes || 'Water intake',
     };
-
     let result = null;
     try {
       const response = await apiClient.post('/hydration/logs', payload);
       result = response.data?.data || response.data;
     } catch (apiError) {
-      // Fallback to active backend endpoint (/diet/logs)
       try {
         const dietFallback = await apiClient.post('/diet/logs', {
           mealName: 'Water',
           mealType: 'water',
           calories: 0,
-          waterVolumeMl: parseInt(amountMl, 10) || 0,
+          waterVolumeMl: ml,
           date: payload.date,
           notes: payload.notes,
         });
         result = dietFallback.data?.data || dietFallback.data;
-      } catch (fallbackError) {
-        console.warn('[HydrationActions] Offline fallback log created:', fallbackError.message);
-        result = {
-          id: Date.now().toString(),
-          amountMl: parseInt(amountMl, 10) || 0,
-        };
-      }
+      } catch (fallbackError) {}
     }
-
-    // Sync updated total with AsyncStorage water_intake
-    try {
-      const currentTotal = getState()?.hydration?.totalMl || 0;
-      const newTotal = currentTotal + (parseInt(amountMl, 10) || 0);
-      await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
-    } catch (e) {}
-
-    dispatch({
-      type: types.HYDRATION_ADD_LOG_SUCCESS,
-      payload: {
-        id: result?._id || result?.id || Date.now().toString(),
-        amount: parseInt(amountMl, 10) || 0,
-        timestamp: payload.timestamp,
-        dateKey: key,
-      },
-    });
     return result;
   } catch (error) {
-    dispatch({
-      type: types.HYDRATION_ADD_LOG_FAILURE,
-      payload: error.message,
-    });
-    throw error;
+    console.warn('[HydrationActions] Background add sync error:', error.message);
   }
 };
 
@@ -144,37 +136,142 @@ export const addWaterLog = ({ amountMl, dateKey, timestamp, notes }) => async (d
  * Permanently delete a water log entry and update Redux store.
  */
 export const removeWaterLog = (logId, amountMl, dateKey) => async (dispatch, getState) => {
-  dispatch({ type: types.HYDRATION_DELETE_LOG_REQUEST });
+  const key = dateKey || new Date().toISOString().split('T')[0];
+
+  // Sync updated total with AsyncStorage water_intake
+  try {
+    const currentTotal = getState()?.hydration?.totalMl || 0;
+    const newTotal = Math.max(0, currentTotal - (parseInt(amountMl, 10) || 0));
+    await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
+  } catch (e) {}
+
+  dispatch({
+    type: types.HYDRATION_DELETE_LOG_SUCCESS,
+    payload: { id: logId, amount: amountMl, dateKey: key },
+  });
+
+  if (logId && !String(logId).startsWith('local_')) {
+    try {
+      await apiClient.delete(`/hydration/logs/${logId}`);
+    } catch (apiError) {
+      try {
+        await apiClient.delete(`/diet/logs/${logId}`);
+      } catch (fallbackError) {}
+    }
+  }
+};
+
+/**
+ * Subtract water intake: deletes matching or latest log(s) and updates Redux store & AsyncStorage optimistically.
+ */
+export const subtractWaterLog = ({ amountMl, dateKey }) => async (dispatch, getState) => {
   try {
     const key = dateKey || new Date().toISOString().split('T')[0];
-    if (logId && !String(logId).startsWith('local_')) {
-      try {
-        await apiClient.delete(`/hydration/logs/${logId}`);
-      } catch (apiError) {
-        try {
-          await apiClient.delete(`/diet/logs/${logId}`);
-        } catch (fallbackError) {
-          // Ignore fallback error if already deleted/offline
-        }
-      }
+    const state = getState()?.hydration || {};
+    const currentTotal = state.totalMl || 0;
+    const logs = [...(state.logs || [])];
+    const amountToSub = Math.min(currentTotal, parseInt(amountMl, 10) || 0);
+
+    if (amountToSub <= 0 && currentTotal <= 0) {
+      await AsyncStorage.setItem(`water_intake_${key}`, '0.0');
+      dispatch({
+        type: types.HYDRATION_FETCH_LOGS_SUCCESS,
+        payload: { logs: [], totalMl: 0, dateKey: key },
+      });
+      return;
     }
 
-    // Sync updated total with AsyncStorage water_intake
-    try {
-      const currentTotal = getState()?.hydration?.totalMl || 0;
-      const newTotal = Math.max(0, currentTotal - (parseInt(amountMl, 10) || 0));
-      await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
-    } catch (e) {}
+    const newTotal = Math.max(0, currentTotal - amountToSub);
+    await AsyncStorage.setItem(`water_intake_${key}`, (newTotal / 1000).toFixed(1));
 
-    dispatch({
-      type: types.HYDRATION_DELETE_LOG_SUCCESS,
-      payload: { id: logId, amount: amountMl, dateKey: key },
-    });
+    if (newTotal === 0) {
+      const logsToDelete = [...logs];
+      // Optimistically clear Redux immediately
+      dispatch({
+        type: types.HYDRATION_FETCH_LOGS_SUCCESS,
+        payload: { logs: [], totalMl: 0, dateKey: key },
+      });
+      // Delete in background
+      (async () => {
+        for (const log of logsToDelete) {
+          if (log.id && !String(log.id).startsWith('local_')) {
+            try { await apiClient.delete(`/hydration/logs/${log.id}`); } catch (e) {
+              try { await apiClient.delete(`/diet/logs/${log.id}`); } catch (e2) {}
+            }
+          }
+        }
+      })();
+      return;
+    }
+
+    // Try finding an exact match
+    const exactIdx = logs.findIndex((item) => item.amount === amountToSub);
+    if (exactIdx !== -1) {
+      const logToDelete = logs[exactIdx];
+      logs.splice(exactIdx, 1);
+      // Optimistically delete from Redux immediately
+      dispatch({
+        type: types.HYDRATION_DELETE_LOG_SUCCESS,
+        payload: { id: logToDelete.id, amount: amountToSub, dateKey: key },
+      });
+      // Delete in background
+      if (logToDelete.id && !String(logToDelete.id).startsWith('local_')) {
+        apiClient.delete(`/hydration/logs/${logToDelete.id}`).catch(() => {
+          apiClient.delete(`/diet/logs/${logToDelete.id}`).catch(() => {});
+        });
+      }
+      return;
+    }
+
+    // If no exact match, delete or reduce latest log
+    if (logs.length > 0) {
+      const latestLog = logs[0];
+      if (latestLog.amount <= amountToSub) {
+        logs.shift();
+        // Optimistically delete from Redux immediately
+        dispatch({
+          type: types.HYDRATION_DELETE_LOG_SUCCESS,
+          payload: { id: latestLog.id, amount: latestLog.amount, dateKey: key },
+        });
+        // Delete in background
+        if (latestLog.id && !String(latestLog.id).startsWith('local_')) {
+          apiClient.delete(`/hydration/logs/${latestLog.id}`).catch(() => {
+            apiClient.delete(`/diet/logs/${latestLog.id}`).catch(() => {});
+          });
+        }
+      } else {
+        const updatedAmount = latestLog.amount - amountToSub;
+        logs[0] = { ...latestLog, amount: updatedAmount };
+        // Optimistically update Redux immediately
+        dispatch({
+          type: types.HYDRATION_FETCH_LOGS_SUCCESS,
+          payload: { logs, totalMl: newTotal, dateKey: key },
+        });
+        // Update in background
+        (async () => {
+          if (latestLog.id && !String(latestLog.id).startsWith('local_')) {
+            try { await apiClient.delete(`/hydration/logs/${latestLog.id}`); } catch (e) {
+              try { await apiClient.delete(`/diet/logs/${latestLog.id}`); } catch (e2) {}
+            }
+          }
+          try {
+            await apiClient.post('/hydration/logs', {
+              amountMl: updatedAmount,
+              date: key,
+              timestamp: latestLog.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              notes: 'Adjusted water intake',
+            });
+          } catch (e) {}
+        })();
+      }
+    } else {
+      dispatch({
+        type: types.HYDRATION_DELETE_LOG_SUCCESS,
+        payload: { id: null, amount: amountToSub, dateKey: key },
+      });
+    }
   } catch (error) {
-    dispatch({
-      type: types.HYDRATION_DELETE_LOG_FAILURE,
-      payload: error.message,
-    });
+    console.error('[HydrationActions] subtractWaterLog error:', error);
   }
 };
 

@@ -1,4 +1,4 @@
-import notifee, { TriggerType } from '@notifee/react-native';
+import notifee, { TriggerType, RepeatFrequency } from '@notifee/react-native';
 
 export const syncLocalNotifications = async (reminders) => {
   try {
@@ -11,7 +11,7 @@ export const syncLocalNotifications = async (reminders) => {
     // 2. Loop through all reminders and schedule enabled ones
     for (const key of Object.keys(reminders)) {
       const item = reminders[key];
-      if (item.enabled) {
+      if (item && item.enabled) {
         await scheduleLocalNotification(key, item);
       }
     }
@@ -28,17 +28,11 @@ const scheduleLocalNotification = async (mealType, item) => {
       console.warn(`[LocalNotifications] Notification permission is DENIED. Reminders will not display.`);
     }
 
-    const date = new Date();
     let targetHour = Number(item.hour);
     const targetMin = Number(item.minute);
-    
+
     if (item.ampm === 'PM' && targetHour < 12) targetHour += 12;
     if (item.ampm === 'AM' && targetHour === 12) targetHour = 0;
-
-    date.setHours(targetHour);
-    date.setMinutes(targetMin);
-    date.setSeconds(0);
-    date.setMilliseconds(0);
 
     if (mealType === 'Water') {
       // Create high importance channel for Android
@@ -50,22 +44,24 @@ const scheduleLocalNotification = async (mealType, item) => {
       });
 
       // Schedule 24 hourly reminders starting from the set time
-      // Spacing it out to 24 separate daily recurring triggers ensures high reliability on iOS and Android,
-      // and respects the exact start time.
       for (let i = 0; i < 24; i++) {
         const waterHour = (targetHour + i) % 24;
+        const waterDate = new Date();
+        waterDate.setHours(waterHour, targetMin, 0, 0);
+
+        if (waterDate.getTime() <= Date.now() + 1000) {
+          waterDate.setDate(waterDate.getDate() + 1);
+        }
 
         const trigger = {
-          type: TriggerType.CALENDAR,
-          date: {
-            hour: waterHour,
-            minute: targetMin,
-          },
+          type: TriggerType.TIMESTAMP,
+          timestamp: waterDate.getTime(),
+          repeatFrequency: RepeatFrequency.DAILY,
         };
 
         await notifee.createTriggerNotification(
           {
-            id: `Water_${i}`, // Unique ID per hour
+            id: `Water_${i}`,
             title: `Water Reminder! ⏰`,
             body: `Time to drink some water and stay hydrated! 💧`,
             android: {
@@ -90,26 +86,6 @@ const scheduleLocalNotification = async (mealType, item) => {
       }
       console.log(`[LocalNotifications] Scheduled 24 hourly Water reminders starting at ${targetHour}:${targetMin} ${item.ampm}`);
     } else {
-      let trigger;
-      if (item.repeat) {
-        trigger = {
-          type: TriggerType.CALENDAR,
-          date: {
-            hour: targetHour,
-            minute: targetMin,
-          },
-        };
-      } else {
-        // If scheduled time has already passed today, set for tomorrow
-        if (date.getTime() <= Date.now() + 10000) {
-          date.setDate(date.getDate() + 1);
-        }
-        trigger = {
-          type: TriggerType.TIMESTAMP,
-          timestamp: date.getTime(),
-        };
-      }
-
       // Create high importance channel for Android
       const channelId = await notifee.createChannel({
         id: 'reminders',
@@ -118,31 +94,90 @@ const scheduleLocalNotification = async (mealType, item) => {
         sound: 'default',
       });
 
-      await notifee.createTriggerNotification(
-        {
-          id: mealType, // Unique ID per meal type (Breakfast, Lunch, etc.)
-          title: `${mealType} Reminder! ⏰`,
-          body: `Time to log your ${mealType.toLowerCase()}! Stay on track with your goals. 🥗`,
-          android: {
-            channelId,
-            pressAction: {
-              id: 'default',
+      const hasSpecificDays = item.repeat && Array.isArray(item.days) && item.days.length > 0 && item.days.length < 7;
+
+      if (hasSpecificDays) {
+        for (const dayIndex of item.days) {
+          const dayDate = new Date();
+          dayDate.setHours(targetHour, targetMin, 0, 0);
+          const currentDay = dayDate.getDay();
+          let daysDiff = (dayIndex - currentDay + 7) % 7;
+          if (daysDiff === 0 && dayDate.getTime() <= Date.now() + 1000) {
+            daysDiff = 7;
+          }
+          dayDate.setDate(dayDate.getDate() + daysDiff);
+
+          const trigger = {
+            type: TriggerType.TIMESTAMP,
+            timestamp: dayDate.getTime(),
+            repeatFrequency: RepeatFrequency.WEEKLY,
+          };
+
+          await notifee.createTriggerNotification(
+            {
+              id: `${mealType}_day_${dayIndex}`,
+              title: `${mealType} Reminder! ⏰`,
+              body: `Time to log your ${mealType.toLowerCase()}! Stay on track with your goals. 🥗`,
+              android: {
+                channelId,
+                pressAction: {
+                  id: 'default',
+                },
+              },
+              ios: {
+                sound: 'default',
+                foregroundPresentationOptions: {
+                  alert: true,
+                  badge: true,
+                  sound: true,
+                  banner: true,
+                  list: true,
+                },
+              },
+            },
+            trigger,
+          );
+        }
+        console.log(`[LocalNotifications] Scheduled weekly ${mealType} on days [${item.days.join(',')}] at ${targetHour}:${targetMin} ${item.ampm}`);
+      } else {
+        const nextDate = new Date();
+        nextDate.setHours(targetHour, targetMin, 0, 0);
+        if (nextDate.getTime() <= Date.now() + 1000) {
+          nextDate.setDate(nextDate.getDate() + 1);
+        }
+
+        const trigger = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: nextDate.getTime(),
+          ...(item.repeat ? { repeatFrequency: RepeatFrequency.DAILY } : {}),
+        };
+
+        await notifee.createTriggerNotification(
+          {
+            id: mealType,
+            title: `${mealType} Reminder! ⏰`,
+            body: `Time to log your ${mealType.toLowerCase()}! Stay on track with your goals. 🥗`,
+            android: {
+              channelId,
+              pressAction: {
+                id: 'default',
+              },
+            },
+            ios: {
+              sound: 'default',
+              foregroundPresentationOptions: {
+                alert: true,
+                badge: true,
+                sound: true,
+                banner: true,
+                list: true,
+              },
             },
           },
-          ios: {
-            sound: 'default',
-            foregroundPresentationOptions: {
-              alert: true,
-              badge: true,
-              sound: true,
-              banner: true,
-              list: true,
-            },
-          },
-        },
-        trigger,
-      );
-      console.log(`[LocalNotifications] Scheduled ${mealType} at ${targetHour}:${targetMin} ${item.ampm}`);
+          trigger,
+        );
+        console.log(`[LocalNotifications] Scheduled ${mealType} at ${targetHour}:${targetMin} ${item.ampm}${item.repeat ? ' (Daily)' : ''}`);
+      }
     }
   } catch (err) {
     console.error(`[LocalNotifications] Failed to schedule ${mealType}:`, err);

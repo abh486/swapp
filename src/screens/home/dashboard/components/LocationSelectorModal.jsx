@@ -14,6 +14,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useResponsiveMetrics } from '../../../../utils/responsive';
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 
 const POPULAR_CITIES = [
   { id: '1', name: 'Bangalore', latitude: 12.9716, longitude: 77.5946, icon: 'business' },
@@ -281,7 +282,7 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
               autoCorrect={false}
             />
             {isLoadingPredictions && (
-              <ActivityIndicator size="small" color="#e74c3c" style={{ marginRight: 8 }} />
+              <GlobalLoader size={20} style={{ marginRight: 8 }} />
             )}
             {searchQuery.length > 0 && !isLoadingPredictions && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
@@ -308,10 +309,7 @@ export const LocationSelectorModal = ({ visible, onClose, onSelect, actions, act
 
           {isSelectingPlace ? (
             <View style={styles.selectingPlaceContainer}>
-              <ActivityIndicator size="large" color="#e74c3c" />
-              <Text style={[styles.emptyText, { fontSize: fs(12), marginTop: sp(12) }]}>
-                Loading place details...
-              </Text>
+              <GlobalLoader size={50} text="Loading place details..." />
             </View>
           ) : (
             <>

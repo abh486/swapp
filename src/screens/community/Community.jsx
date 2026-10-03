@@ -1,18 +1,22 @@
 import { GlobalLoader } from '../../components/GlobalLoader';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView, FlatList, Image, TextInput, ScrollView, Alert, ImageBackground, Platform, Share, Linking, Modal, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView, FlatList, Image, TextInput, ScrollView, Alert, ImageBackground, Platform, Share, Linking, Modal, TouchableWithoutFeedback, ActivityIndicator, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
-import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
+import { useDispatch } from 'react-redux';
+import { resolveExerciseImageUri, getExerciseMuscleFallback, deleteWorkoutSession } from '../../redux/actions/workoutActions';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
+import EditWorkoutPostModal from '../../components/EditWorkoutPostModal';
+import PostedSuccessPopup from '../../components/PostedSuccessPopup';
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
-  return name || user?.name || user?.username || '';
+  return name || user?.name || user?.userProfile?.name || user?.username || user?.userProfile?.username || '';
 };
 
 const getInitials = user => {
@@ -72,10 +76,10 @@ const formatDuration = value => {
   const s = totalSecs % 60;
 
   if (h > 0) {
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
   }
   if (m > 0) {
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    return s > 0 ? `${m}min ${s}s` : `${m}min`;
   }
   return `${s}s`;
 };
@@ -125,7 +129,18 @@ const PostItem = React.memo(({
   const [failedImages, setFailedImages] = useState({});
   const duration = item.stats?.duration || item.duration || 0;
   const volume = item.stats?.volume || 0;
-  const calories = item.stats?.calories || item.calories || 0;
+  const workoutTitle = item.workoutName || item.workoutType || 'Workout';
+  const rawCalories = item.stats?.calories || item.calories || 0;
+  const calories = rawCalories > 0
+    ? rawCalories
+    : (duration > 0
+        ? calculateWorkoutCalories({
+            duration,
+            workoutTitle,
+            volume,
+            exercises: item.logs || item.exercises || [],
+          })
+        : 0);
   const sets = item.stats?.sets || 0;
   const likesCount = item.likesCount ?? item.likes ?? 0;
   const commentsCount = item.commentsCount ?? item.comments ?? 0;
@@ -138,7 +153,6 @@ const PostItem = React.memo(({
   );
 
   const formattedDate = getFormattedDate(item.date || item.createdAt);
-  const workoutTitle = item.workoutName || item.workoutType || 'Workout';
   const cardWidth = width;
 
   return (
@@ -150,8 +164,8 @@ const PostItem = React.memo(({
         {/* 1. Header (User Info & Date) */}
         <View style={styles.postHeader}>
           <TouchableOpacity onPress={() => onPressUser && onPressUser(item.userId || item.user?.id || item.user?._id || item.user?.userId, item.user)} activeOpacity={0.8}>
-            {item.user?.avatar ? (
-              <Image source={{ uri: item.user.avatar }} style={styles.postAvatar} />
+            {item.user?.avatar || item.user?.profileImage || item.user?.userProfile?.profileImage ? (
+              <Image source={{ uri: item.user.avatar || item.user.profileImage || item.user.userProfile?.profileImage }} style={styles.postAvatar} />
             ) : (
               <View style={[styles.postAvatar, styles.initialsAvatar]}>
                 <Text style={[styles.initialsText, { fontSize: fs(15) }]}>{userInitials}</Text>
@@ -178,6 +192,14 @@ const PostItem = React.memo(({
               <Text style={[styles.postDateText, { fontSize: fs(12) }]}>{formattedDate}</Text>
             ) : null}
           </View>
+          <TouchableOpacity
+            style={styles.postOptionsBtn}
+            onPress={() => onShowOptions && onShowOptions(item)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Icon name="ellipsis-horizontal" size={20} color="#8E8E93" />
+          </TouchableOpacity>
         </View>
 
         {/* Clickable Area for post navigation */}
@@ -512,6 +534,7 @@ const PostItem = React.memo(({
 const Community = ({ navigation }) => {
   const { width, height: screenHeight, sp, ms, fs } = useResponsiveMetrics();
   const { user } = useAuth();
+  const dispatch = useDispatch();
   const profileData = user?.userProfile || user?.memberProfile || user || {};
   const loggedInUserAvatar =
     profileData.profileImage ||
@@ -538,6 +561,11 @@ const Community = ({ navigation }) => {
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [postToShare, setPostToShare] = useState(null);
+
+  const [editingPost, setEditingPost] = useState(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successPopupTitle, setSuccessPopupTitle] = useState('Post Updated! 🎉');
 
   const handleOpenShareModal = (post) => {
     setPostToShare(post);
@@ -728,15 +756,7 @@ const Community = ({ navigation }) => {
     return Array.from(map.values());
   }, [searchQuery, apiUsers, allLocalUsers, suggestedUsers]);
 
-  const handleToggleFollowUser = async (targetUser) => {
-    const userId = targetUser.id || targetUser._id;
-    if (!userId) return;
-
-    const currentlyFollowing = Boolean(
-      followedUserIds[userId] !== undefined
-        ? followedUserIds[userId]
-        : targetUser.isFollowing
-    );
+  const performToggleFollowUser = async (userId, currentlyFollowing) => {
     const nextState = !currentlyFollowing;
 
     setFollowedUserIds(prev => ({ ...prev, [userId]: nextState }));
@@ -754,6 +774,38 @@ const Community = ({ navigation }) => {
         current.map(u => (u.id || u._id) === userId ? { ...u, isFollowing: currentlyFollowing } : u)
       );
     }
+  };
+
+  const handleToggleFollowUser = (targetUser) => {
+    const userId = targetUser.id || targetUser._id;
+    if (!userId) return;
+
+    const currentlyFollowing = Boolean(
+      followedUserIds[userId] !== undefined
+        ? followedUserIds[userId]
+        : targetUser.isFollowing
+    );
+
+    if (currentlyFollowing) {
+      const targetName =
+        getDisplayName(targetUser) || targetUser.name || targetUser.username || 'this user';
+      Alert.alert(
+        `Unfollow ${targetName}?`,
+        `Are you sure you want to unfollow ${targetName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: () => performToggleFollowUser(userId, currentlyFollowing),
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    performToggleFollowUser(userId, currentlyFollowing);
   };
 
   const listData = React.useMemo(() => {
@@ -809,9 +861,7 @@ const Community = ({ navigation }) => {
     }
   }, []);
 
-  const handleFollowSuggestion = async (suggestedUser) => {
-    const userId = suggestedUser.id || suggestedUser._id;
-    const isCurrentlyFollowing = Boolean(suggestedUser.isFollowing);
+  const performFollowSuggestion = async (userId, isCurrentlyFollowing) => {
     setSuggestedUsers(current =>
       current.map(u => (u.id || u._id) === userId ? { ...u, isFollowing: !isCurrentlyFollowing } : u)
     );
@@ -825,14 +875,40 @@ const Community = ({ navigation }) => {
     }
   };
 
+  const handleFollowSuggestion = (suggestedUser) => {
+    const userId = suggestedUser.id || suggestedUser._id;
+    if (!userId) return;
+    const isCurrentlyFollowing = Boolean(suggestedUser.isFollowing);
+
+    if (isCurrentlyFollowing) {
+      const targetName =
+        suggestedUser.name || suggestedUser.username || 'this user';
+      Alert.alert(
+        `Unfollow ${targetName}?`,
+        `Are you sure you want to unfollow ${targetName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: () => performFollowSuggestion(userId, isCurrentlyFollowing),
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    performFollowSuggestion(userId, isCurrentlyFollowing);
+  };
+
   const handleRemoveSuggestion = (userId) => {
     setSuggestedUsers(current => current.filter(u => u.id !== userId));
   };
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const fetchPosts = useCallback(async (tab = activeTab) => {
-    if (posts.length === 0) {
-      setIsLoading(true);
-    }
     setFetchError(null);
     try {
       const response = await apiClient.get('/workouts/sessions/community', {
@@ -853,13 +929,23 @@ const Community = ({ navigation }) => {
         'Failed to fetch community workouts',
         error?.response?.data || error.message,
       );
-      if (posts.length === 0) {
-        setFetchError('Could not fetch community posts.');
-      }
+      setFetchError('Could not fetch community posts.');
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, posts.length]);
+  }, [activeTab]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchPosts(activeTab),
+        fetchSuggestions(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeTab, fetchPosts, fetchSuggestions]);
 
   useEffect(() => {
     const loadCachedCommunityPosts = async () => {
@@ -877,10 +963,13 @@ const Community = ({ navigation }) => {
     loadCachedCommunityPosts();
   }, []);
 
-  useEffect(() => {
-    fetchPosts(activeTab);
-    fetchSuggestions();
-  }, [activeTab, fetchPosts, fetchSuggestions]);
+  // Fetch whenever screen gains focus (e.g. returning to Feed tab after posting)
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts(activeTab);
+      fetchSuggestions();
+    }, [activeTab, fetchPosts, fetchSuggestions])
+  );
 
   const updatePost = (postId, updater) => {
     setPosts(currentPosts =>
@@ -924,11 +1013,7 @@ const Community = ({ navigation }) => {
     }
   };
 
-  const handleToggleFollow = async post => {
-    const targetUserId = post.user?.id || post.userId;
-    if (post.isOwnPost) return;
-
-    const wasFollowing = Boolean(post.isFollowing);
+  const performPostFollowToggle = async (post, targetUserId, wasFollowing) => {
     if (!targetUserId) {
       updatePost(post.id, item => ({ ...item, isFollowing: !wasFollowing }));
       return;
@@ -966,6 +1051,37 @@ const Community = ({ navigation }) => {
         }),
       );
     }
+  };
+
+  const handleToggleFollow = post => {
+    const targetUserId = post.user?.id || post.userId;
+    if (post.isOwnPost) return;
+
+    const wasFollowing = Boolean(post.isFollowing);
+
+    if (wasFollowing) {
+      const targetName =
+        post.user?.name ||
+        post.user?.username ||
+        post.user?.userProfile?.name ||
+        'this user';
+      Alert.alert(
+        `Unfollow ${targetName}?`,
+        `Are you sure you want to unfollow ${targetName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: () => performPostFollowToggle(post, targetUserId, wasFollowing),
+          },
+        ],
+        { cancelable: true },
+      );
+      return;
+    }
+
+    performPostFollowToggle(post, targetUserId, wasFollowing);
   };
 
   const openComments = post => {
@@ -1014,6 +1130,8 @@ const Community = ({ navigation }) => {
 
   const renderUserProfileItem = ({ item }) => {
     const userId = item.id || item._id;
+    const currentUserId = user?.id || user?._id || user?.userId || user?.userProfile?.id;
+    const isMe = Boolean(currentUserId && userId && String(currentUserId) === String(userId));
     const displayName = getDisplayName(item) || item.name || item.username || 'Swapp Athlete';
     const username = item.username || '';
     const avatar = item.avatar || item.profileImage || item.profilePicture || item.profilePhoto;
@@ -1066,27 +1184,67 @@ const Community = ({ navigation }) => {
           ) : null}
         </View>
 
-        {/* Follow / Following Button */}
-        <TouchableOpacity
-          style={[
-            styles.userProfileFollowBtn,
-            isFollowing && styles.userProfileFollowingBtn
-          ]}
-          onPress={() => handleToggleFollowUser(item)}
-          activeOpacity={0.8}
-        >
-          <Text style={[
-            styles.userProfileFollowBtnText,
-            isFollowing && styles.userProfileFollowingBtnText
-          ]}>
-            {isFollowing ? 'Following' : 'Follow'}
-          </Text>
-        </TouchableOpacity>
+        {/* Follow / Following Button OR View */}
+        {isMe ? (
+          <TouchableOpacity
+            style={[styles.userProfileFollowBtn, styles.userProfileSelfBtn]}
+            onPress={() => handlePressUser(userId, item)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.userProfileFollowBtnText}>View</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.userProfileFollowBtn,
+              isFollowing && styles.userProfileFollowingBtn
+            ]}
+            onPress={() => handleToggleFollowUser(item)}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.userProfileFollowBtnText,
+              isFollowing && styles.userProfileFollowingBtnText
+            ]}>
+              {isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
 
   const handleShowPostOptions = (post) => {
+    const loggedInId = user?.id || user?._id || user?.userId;
+    const postUserId = post?.userId || post?.user?.id || post?.user?._id || post?.user?.userId;
+    const isMyPost = Boolean(loggedInId && postUserId && String(loggedInId) === String(postUserId));
+
+    if (isMyPost) {
+      Alert.alert(
+        'Workout Post Options',
+        'Manage your workout post',
+        [
+          {
+            text: 'Edit Post',
+            onPress: () => {
+              setEditingPost(post);
+              setIsEditModalVisible(true);
+            },
+          },
+          {
+            text: 'Delete Post',
+            style: 'destructive',
+            onPress: () => handleDeletePost(post),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       'Workout Options',
       'Choose an action for this content.',
@@ -1105,6 +1263,73 @@ const Community = ({ navigation }) => {
         }
       ]
     );
+  };
+
+  const handleDeletePost = (post) => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this workout post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteWorkoutSession(post.id));
+              setPosts(prev => prev.filter(p => p.id !== post.id));
+              setSuccessPopupTitle('Post Deleted! 🗑️');
+              setShowSuccessPopup(true);
+            } catch (err) {
+              Alert.alert('Error', err.message || 'Failed to delete post.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditPostSuccess = (updatedPost) => {
+    setPosts(prev =>
+      prev.map(p => {
+        if (p.id === updatedPost.id) {
+          const mergedUser = {
+            ...(p.user || {}),
+            ...(updatedPost.user || {}),
+            avatar:
+              updatedPost.user?.avatar ||
+              updatedPost.user?.profileImage ||
+              updatedPost.user?.userProfile?.profileImage ||
+              p.user?.avatar ||
+              p.user?.profileImage ||
+              p.user?.userProfile?.profileImage ||
+              null,
+            name:
+              updatedPost.user?.name ||
+              updatedPost.user?.userProfile?.name ||
+              p.user?.name ||
+              p.user?.userProfile?.name ||
+              null,
+            username:
+              updatedPost.user?.username ||
+              updatedPost.user?.userProfile?.username ||
+              p.user?.username ||
+              p.user?.userProfile?.username ||
+              null,
+            firstName: updatedPost.user?.firstName || p.user?.firstName || null,
+            lastName: updatedPost.user?.lastName || p.user?.lastName || null,
+          };
+          return {
+            ...p,
+            ...updatedPost,
+            user: mergedUser,
+          };
+        }
+        return p;
+      })
+    );
+    setSuccessPopupTitle('Post Updated! 🎉');
+    setShowSuccessPopup(true);
   };
 
   const handleReportPost = (post) => {
@@ -1478,7 +1703,7 @@ const Community = ({ navigation }) => {
                     : `ATHLETES (${displayedUserProfiles.length})`}
                 </Text>
                 {isSearchingUsers && (
-                  <ActivityIndicator size="small" color="#007AFF" style={{ marginLeft: 8 }} />
+                  <GlobalLoader size={20} style={{ marginLeft: 8 }} />
                 )}
               </View>
             }
@@ -1495,7 +1720,7 @@ const Community = ({ navigation }) => {
                 </View>
               ) : (
                 <View style={[styles.searchEmptyContainer, { paddingTop: 40 }]}>
-                  <ActivityIndicator size="large" color="#007AFF" />
+                  <GlobalLoader size={50} />
                   <Text style={[styles.searchEmptySubtitle, { marginTop: 14 }]}>
                     Searching athlete profiles...
                   </Text>
@@ -1573,6 +1798,14 @@ const Community = ({ navigation }) => {
             }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.listContent, { paddingBottom: 0 }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor="#EE822A"
+                colors={['#EE822A']}
+              />
+            }
           />
         )}
       </View>
@@ -1680,6 +1913,27 @@ const Community = ({ navigation }) => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Edit Workout Post Modal */}
+      <EditWorkoutPostModal
+        visible={isEditModalVisible}
+        post={editingPost}
+        onClose={() => {
+          setIsEditModalVisible(false);
+          setTimeout(() => {
+            setEditingPost(null);
+          }, 450);
+        }}
+        onSaveSuccess={handleEditPostSuccess}
+      />
+
+      {/* Posted Success Pop Up 🎉 (Auto-vanishes in 3 seconds) */}
+      <PostedSuccessPopup
+        visible={showSuccessPopup}
+        title={successPopupTitle}
+        duration={3000}
+        onDismiss={() => setShowSuccessPopup(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1811,6 +2065,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
   emptyText: {
     color: 'rgba(255,255,255,0.65)',
     fontSize: 15,
@@ -1824,6 +2094,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  postOptionsBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   postAvatar: {
     width: 42,
@@ -2516,6 +2792,37 @@ const styles = StyleSheet.create({
   },
   userProfileFollowingBtnText: {
     color: '#AEAEB2',
+  },
+  userProfileSelfBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerProfileBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#5E5CE6',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1E1E24',
+  },
+  headerProfileAvatar: {
+    width: 33,
+    height: 33,
+    borderRadius: 16.5,
+  },
+  headerProfileInitials: {
+    backgroundColor: '#3A3A3C',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileInitialsText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   searchEmptyContainer: {
     alignItems: 'center',

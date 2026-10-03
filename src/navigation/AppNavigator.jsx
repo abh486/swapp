@@ -286,7 +286,7 @@ const AppNavigator = () => {
                 />
                 <Stack.Screen name="FollowList" component={FollowListScreen} />
                 <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Profile" component={ProfileDashboard} options={{ headerShown: false }} />
+                <Stack.Screen name="Profile" component={UserProfileScreen} initialParams={{ fromHomeScreen: true }} options={{ headerShown: false }} />
                 <Stack.Screen name="Comparison" component={ComparisonScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="LikesList" component={LikesListScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PostDetails" component={PostDetailsScreen} options={{ headerShown: false }} />

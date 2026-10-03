@@ -43,3 +43,14 @@ allprojects {
         }
     }
 }
+
+gradle.projectsEvaluated {
+    subprojects { project ->
+        project.tasks.matching { it.name.contains("SourcesJar") }.configureEach { task ->
+            def codegen = project.tasks.findByName("generateCodegenArtifactsFromSchema")
+            if (codegen != null) {
+                task.dependsOn(codegen)
+            }
+        }
+    }
+}

@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,13 +7,209 @@ import {
   View,
   StatusBar,
   Dimensions,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../api/apiClient';
 import { syncLocalNotifications } from '../../utils/localNotifications';
 
 const { width } = Dimensions.get('window');
+
+const ITEM_HEIGHT = 40;
+const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
+const formatNumber = (num) => (num !== undefined && num !== null ? num.toString().padStart(2, '0') : '00');
+
+// ─── Interactive Scrollable Time Wheel ──────────────────────────────────────────
+const ScrollTimeWheel = ({
+  items,
+  value,
+  onChange,
+  onScrollStart,
+  onScrollEnd,
+  repetitions = 5,
+}) => {
+  const scrollRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const activeIndexRef = useRef(-1);
+  const middleRepetitionIndex = Math.floor(repetitions / 2);
+
+  // Generate repeated data list for seamless infinite loop feel
+  const repeatedData = useMemo(() => {
+    const list = [];
+    for (let r = 0; r < repetitions; r++) {
+      for (let i = 0; i < items.length; i++) {
+        list.push({ val: items[i], key: `${r}-${items[i]}` });
+      }
+    }
+    return list;
+  }, [items, repetitions]);
+
+  const snapOffsets = useMemo(() => {
+    return repeatedData.map((_, i) => i * ITEM_HEIGHT);
+  }, [repeatedData]);
+
+  const initialIndex = useMemo(() => {
+    const baseIdx = items.indexOf(value);
+    return middleRepetitionIndex * items.length + (baseIdx >= 0 ? baseIdx : 0);
+  }, [value, items, middleRepetitionIndex]);
+
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
+
+  useEffect(() => {
+    activeIndexRef.current = initialIndex;
+    setActiveIndex(initialIndex);
+  }, [initialIndex]);
+
+  // Initial scroll alignment on mount / value change
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    const baseIdx = items.indexOf(value);
+    if (baseIdx === -1) return;
+    const targetIdx = middleRepetitionIndex * items.length + baseIdx;
+
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: targetIdx * ITEM_HEIGHT,
+        animated: false,
+      });
+    }, 25);
+    return () => clearTimeout(timer);
+  }, [value, items, middleRepetitionIndex]);
+
+  const checkRecenter = useCallback(
+    (offsetY) => {
+      const idx = Math.round(offsetY / ITEM_HEIGHT);
+      const len = items.length;
+      if (idx < len || idx >= (repetitions - 1) * len) {
+        const positiveModulo = ((idx % len) + len) % len;
+        const normalizedIdx = middleRepetitionIndex * len + positiveModulo;
+        activeIndexRef.current = normalizedIdx;
+        setActiveIndex(normalizedIdx);
+        scrollRef.current?.scrollTo({
+          y: normalizedIdx * ITEM_HEIGHT,
+          animated: false,
+        });
+      }
+    },
+    [items.length, repetitions, middleRepetitionIndex]
+  );
+
+  const handleScroll = (e) => {
+    const offsetY = e.nativeEvent.contentOffset.y;
+    const idx = Math.round(offsetY / ITEM_HEIGHT);
+    if (idx >= 0 && idx < repeatedData.length) {
+      if (idx !== activeIndexRef.current) {
+        activeIndexRef.current = idx;
+        setActiveIndex(idx);
+        const selectedVal = repeatedData[idx].val;
+        onChange?.(selectedVal);
+      }
+    }
+  };
+
+  const handleScrollBeginDrag = () => {
+    isDraggingRef.current = true;
+    onScrollStart?.();
+  };
+
+  const handleScrollEndDrag = (e) => {
+    isDraggingRef.current = false;
+    const velocity = e.nativeEvent.velocity?.y || 0;
+    if (Math.abs(velocity) < 0.05) {
+      checkRecenter(e.nativeEvent.contentOffset.y);
+      onScrollEnd?.();
+    }
+  };
+
+  const handleMomentumScrollEnd = (e) => {
+    isDraggingRef.current = false;
+    checkRecenter(e.nativeEvent.contentOffset.y);
+    onScrollEnd?.();
+  };
+
+  const handleItemPress = (index) => {
+    isDraggingRef.current = true;
+    activeIndexRef.current = index;
+    setActiveIndex(index);
+    onChange?.(repeatedData[index].val);
+    scrollRef.current?.scrollTo({
+      y: index * ITEM_HEIGHT,
+      animated: true,
+    });
+    setTimeout(() => {
+      isDraggingRef.current = false;
+      checkRecenter(index * ITEM_HEIGHT);
+      onScrollEnd?.();
+    }, 320);
+  };
+
+  return (
+    <View style={styles.wheelViewport}>
+      {/* Active center highlight selection frame */}
+      <View style={styles.wheelSelectionBox} pointerEvents="none" />
+
+      {/* Top subtle vignette fade */}
+      <LinearGradient
+        colors={['#070709', 'rgba(7, 7, 9, 0)']}
+        style={styles.wheelFadeTop}
+        pointerEvents="none"
+      />
+      {/* Bottom subtle vignette fade */}
+      <LinearGradient
+        colors={['rgba(7, 7, 9, 0)', '#070709']}
+        style={styles.wheelFadeBottom}
+        pointerEvents="none"
+      />
+
+      <ScrollView
+        ref={scrollRef}
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={false}
+        snapToOffsets={snapOffsets}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        contentContainerStyle={{
+          paddingTop: ITEM_HEIGHT,
+          paddingBottom: ITEM_HEIGHT,
+        }}
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        onTouchStart={onScrollStart}
+        onTouchEnd={onScrollEnd}
+      >
+        {repeatedData.map((item, index) => {
+          const isSelected = index === activeIndex;
+          return (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.wheelItem}
+              onPress={() => handleItemPress(index)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={
+                  isSelected
+                    ? styles.wheelNumberActive
+                    : styles.wheelNumberInactive
+                }
+              >
+                {formatNumber(item.val)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
 
 const RemindersScreen = ({ navigation }) => {
   // Main reminders state
@@ -34,6 +229,21 @@ const RemindersScreen = ({ navigation }) => {
   const [tempEnabled, setTempEnabled] = useState(true);
   const [tempRepeat, setTempRepeat] = useState(true);
   const [tempRepeatDays, setTempRepeatDays] = useState([0, 1, 2, 3, 4, 5, 6]);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const scrollUnlockTimerRef = useRef(null);
+
+  const handleWheelScrollStart = useCallback(() => {
+    if (scrollUnlockTimerRef.current) clearTimeout(scrollUnlockTimerRef.current);
+    setScrollEnabled(false);
+    scrollUnlockTimerRef.current = setTimeout(() => {
+      setScrollEnabled(true);
+    }, 2500);
+  }, []);
+
+  const handleWheelScrollEnd = useCallback(() => {
+    if (scrollUnlockTimerRef.current) clearTimeout(scrollUnlockTimerRef.current);
+    setScrollEnabled(true);
+  }, []);
 
   // Load reminders on mount
   useEffect(() => {
@@ -112,22 +322,25 @@ const RemindersScreen = ({ navigation }) => {
     setTempRepeatDays(r.days || []);
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleCancel = () => {
     setEditingId(null);
   };
 
-  const handleDone = async (id) => {
-    const updated = {
-      ...reminders,
-      [id]: {
+  const handleSaveAll = async () => {
+    setSaving(true);
+    let updated = { ...reminders };
+    if (editingId && reminders[editingId]) {
+      updated[editingId] = {
         enabled: tempEnabled,
         hour: tempHour,
         minute: tempMin,
         ampm: tempAmpm,
         repeat: tempRepeat,
         days: tempRepeatDays,
-      },
-    };
+      };
+    }
     setReminders(updated);
     setEditingId(null);
     try {
@@ -136,7 +349,13 @@ const RemindersScreen = ({ navigation }) => {
       await apiClient.put('/users/reminders', updated);
     } catch (err) {
       console.error('Failed to save reminders:', err);
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleDone = async () => {
+    await handleSaveAll();
   };
 
   const handleToggleSwitch = async (id) => {
@@ -158,12 +377,6 @@ const RemindersScreen = ({ navigation }) => {
     }
   };
 
-  // Time Wheel Helpers
-  const formatNumber = (num) => num.toString().padStart(2, '0');
-  const getPrevHour = (h) => (h === 1 ? 12 : h - 1);
-  const getNextHour = (h) => (h === 12 ? 1 : h + 1);
-  const getPrevMin = (m) => (m === 0 ? 59 : m - 1);
-  const getNextMin = (m) => (m === 59 ? 0 : m + 1);
 
   const toggleRepeatDay = (dayIndex) => {
     if (tempRepeatDays.includes(dayIndex)) {
@@ -176,21 +389,44 @@ const RemindersScreen = ({ navigation }) => {
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reminders</Text>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Icon name="add" size={24} color="#FFF" />
+        <TouchableOpacity
+          style={styles.saveHeaderBtn}
+          onPress={handleSaveAll}
+          activeOpacity={0.8}
+          disabled={saving}
+        >
+          <LinearGradient
+            colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          />
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.saveHeaderText}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
+      >
         {Object.keys(reminders).map((key) => {
           const item = reminders[key];
           const isEditing = editingId === key;
@@ -222,35 +458,31 @@ const RemindersScreen = ({ navigation }) => {
                   </View>
                 </View>
 
-                {/* Time selection wheel UI */}
+                {/* Time selection scrollable wheel UI */}
                 <View style={styles.timePickerContainer}>
-                  {/* Hours selector */}
-                  <View style={styles.wheelColumn}>
-                    <TouchableOpacity onPress={() => setTempHour(getPrevHour(tempHour))}>
-                      <Text style={styles.wheelNumberInactive}>{formatNumber(getPrevHour(tempHour))}</Text>
-                    </TouchableOpacity>
-                    <View style={styles.wheelNumberActiveContainer}>
-                      <Text style={styles.wheelNumberActive}>{formatNumber(tempHour)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setTempHour(getNextHour(tempHour))}>
-                      <Text style={styles.wheelNumberInactive}>{formatNumber(getNextHour(tempHour))}</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Hours scrollable wheel */}
+                  <ScrollTimeWheel
+                    key={`${key}-hour`}
+                    items={HOURS}
+                    value={tempHour}
+                    onChange={setTempHour}
+                    repetitions={5}
+                    onScrollStart={handleWheelScrollStart}
+                    onScrollEnd={handleWheelScrollEnd}
+                  />
 
                   <Text style={styles.timeSeparator}>:</Text>
 
-                  {/* Minutes selector */}
-                  <View style={styles.wheelColumn}>
-                    <TouchableOpacity onPress={() => setTempMin(getPrevMin(tempMin))}>
-                      <Text style={styles.wheelNumberInactive}>{formatNumber(getPrevMin(tempMin))}</Text>
-                    </TouchableOpacity>
-                    <View style={styles.wheelNumberActiveContainer}>
-                      <Text style={styles.wheelNumberActive}>{formatNumber(tempMin)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setTempMin(getNextMin(tempMin))}>
-                      <Text style={styles.wheelNumberInactive}>{formatNumber(getNextMin(tempMin))}</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Minutes scrollable wheel */}
+                  <ScrollTimeWheel
+                    key={`${key}-min`}
+                    items={MINUTES}
+                    value={tempMin}
+                    onChange={setTempMin}
+                    repetitions={3}
+                    onScrollStart={handleWheelScrollStart}
+                    onScrollEnd={handleWheelScrollEnd}
+                  />
 
                   {/* AM/PM toggle pill */}
                   <View style={styles.ampmContainer}>
@@ -340,12 +572,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   headerBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveHeaderBtn: {
+    paddingHorizontal: 18,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 68,
+  },
+  saveHeaderText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   headerTitle: {
     color: '#FFF',
@@ -393,7 +646,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addText: {
-    color: '#D500F9',
+    color: '#EE822A',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -412,12 +665,12 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   cancelText: {
-    color: '#D500F9',
+    color: '#8A8496',
     fontSize: 15,
     fontWeight: '600',
   },
   doneText: {
-    color: '#D500F9',
+    color: '#EE822A',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -429,7 +682,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   switchOn: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#EE822A',
   },
   switchOff: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -450,26 +703,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 24,
+    marginVertical: 20,
   },
-  wheelColumn: {
-    alignItems: 'center',
+  wheelViewport: {
     width: 60,
+    height: 120,
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelSelectionBox: {
+    position: 'absolute',
+    top: 40,
+    left: 2,
+    right: 2,
+    height: 40,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    zIndex: 1,
+  },
+  wheelFadeTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 28,
+    zIndex: 2,
+  },
+  wheelFadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 28,
+    zIndex: 2,
+  },
+  wheelItem: {
+    height: 40,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   wheelNumberInactive: {
     color: 'rgba(255, 255, 255, 0.25)',
     fontSize: 16,
-    marginVertical: 4,
     fontWeight: '500',
-  },
-  wheelNumberActiveContainer: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginVertical: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   wheelNumberActive: {
     color: '#FFF',
@@ -494,7 +775,7 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     padding: 2,
-    marginLeft: 24,
+    marginLeft: 20,
   },
   ampmBtn: {
     flex: 1,
@@ -504,7 +785,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   ampmBtnActive: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#EE822A',
   },
   ampmText: {
     color: 'rgba(255,255,255,0.4)',
@@ -530,8 +811,8 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   repeatCheckboxChecked: {
-    borderColor: '#7C4DFF',
-    backgroundColor: '#7C4DFF',
+    borderColor: '#EE822A',
+    backgroundColor: '#EE822A',
   },
   repeatLabel: {
     color: '#FFF',
@@ -553,7 +834,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayCircleActive: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#EE822A',
   },
   dayCircleText: {
     color: '#8e8e93',

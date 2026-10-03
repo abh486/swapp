@@ -23,6 +23,11 @@ import { GlobalLoader } from '../../../components/GlobalLoader';
 import { EquipmentModal } from '../../../components/EquipmentModal';
 import { MuscleModal } from '../../../components/MuscleModal';
 import { fetchExercises } from '../../../redux/actions/workoutActions';
+import {
+  sortExercisesByAlreadyUsed,
+  isExerciseUsed,
+  recordUsedExercises,
+} from '../../../utils/usedWorkoutsManager';
 
 export const CustomWorkoutModal = ({
   visible,
@@ -119,6 +124,7 @@ export const CustomWorkoutModal = ({
       Alert.alert('Error', 'Please select at least one exercise for your custom workout.');
       return;
     }
+    recordUsedExercises(selectedExercises);
     onSaveWorkout({
       workoutNameInput,
       selectedExercises,
@@ -127,11 +133,14 @@ export const CustomWorkoutModal = ({
     });
   };
 
-  const displayedExercises = (exercises || []).filter(ex =>
-    (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayedExercises = React.useMemo(() => {
+    const list = (exercises || []).filter(ex =>
+      (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return sortExercisesByAlreadyUsed(list);
+  }, [exercises, searchQuery]);
 
   const formatDisplayName = (str) => {
     if (!str) return '';
@@ -149,6 +158,7 @@ export const CustomWorkoutModal = ({
     const rawImg = item.imageUrl || item.gifUrl;
     const imageSource = rawImg ? { uri: rawImg } : null;
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
+    const usedInfo = item.isAlreadyUsed ? { isUsed: true } : isExerciseUsed(item);
 
     return (
       <View style={[styles.exerciseCardCustom, isSelected && styles.exerciseCardSelectedCustom]}>
@@ -162,6 +172,11 @@ export const CustomWorkoutModal = ({
             <View style={[styles.exerciseInfoCustom, { flex: 1, marginLeft: 12 }]}>
               <Text style={styles.exerciseNameCustom}>{item.name}</Text>
               <View style={styles.badgeRowCustom}>
+                {usedInfo?.isUsed ? (
+                  <View style={styles.recentBadgeCustom}>
+                    <Text style={styles.recentBadgeTextCustom}>RECENT</Text>
+                  </View>
+                ) : null}
                 {target ? (
                   <View style={styles.muscleBadgeCustom}>
                     <Text style={styles.badgeTextCustom}>{target}</Text>
@@ -526,6 +541,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     marginTop: 4,
+  },
+  recentBadgeCustom: {
+    backgroundColor: 'rgba(238, 130, 42, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EE822A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  recentBadgeTextCustom: {
+    color: '#EE822A',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   muscleBadgeCustom: {
     backgroundColor: '#EE822A',

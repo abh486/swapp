@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { analyzeMealWithAI, saveDietEntry } from '../../../../redux/actions/dietActions';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { GlobalLoader } from '../../../../components/GlobalLoader';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -155,7 +156,7 @@ const DietMealModal = ({
 
                 {aiLoading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 15 }} />
+                    <GlobalLoader size={60} style={{ marginBottom: 15 }} />
                     <Text style={styles.loadingText}>AI is analyzing your food... 🤖</Text>
                     <Text style={styles.loadingSubtext}>Connecting to AI service...</Text>
                   </View>

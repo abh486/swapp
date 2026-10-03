@@ -20,6 +20,11 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { EquipmentModal } from '../../../components/EquipmentModal';
 import { MuscleModal } from '../../../components/MuscleModal';
+import {
+  sortExercisesByAlreadyUsed,
+  isExerciseUsed,
+  recordUsedExercises,
+} from '../../../utils/usedWorkoutsManager';
 
 export const SearchExercisesModal = ({
   visible,
@@ -46,12 +51,17 @@ export const SearchExercisesModal = ({
 }) => {
   const navigation = useNavigation();
 
+  const sortedDisplayedExercises = React.useMemo(() => {
+    return sortExercisesByAlreadyUsed(displayedExercises || []);
+  }, [displayedExercises]);
+
   const renderExerciseItem = ({ item }) => {
     const target = item.target || (item.targetMuscles && item.targetMuscles[0]) || '';
     const equipment = item.equipment || (item.equipments && item.equipments[0]) || '';
     const rawImg = item.imageUrl || item.gifUrl;
     const imageSource = rawImg ? { uri: rawImg } : null;
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
+    const usedInfo = item.isAlreadyUsed ? { isUsed: true } : isExerciseUsed(item);
 
     return (
       <View style={[styles.exerciseCardCustom, isSelected && styles.exerciseCardSelectedCustom]}>
@@ -65,6 +75,11 @@ export const SearchExercisesModal = ({
             <View style={[styles.exerciseInfoCustom, { flex: 1, marginLeft: 12 }]}>
               <Text style={styles.exerciseNameCustom}>{item.name}</Text>
               <View style={styles.badgeRowCustom}>
+                {usedInfo?.isUsed ? (
+                  <View style={[styles.badgeCustom, styles.recentBadgeCustom]}>
+                    <Text style={[styles.badgeTextCustom, styles.recentBadgeTextCustom]}>RECENT</Text>
+                  </View>
+                ) : null}
                 {target ? (
                   <View style={styles.badgeCustom}>
                     <Text style={styles.badgeTextCustom}>{target.toUpperCase()}</Text>
@@ -217,7 +232,7 @@ export const SearchExercisesModal = ({
             </View>
           ) : (
             <FlatList
-              data={displayedExercises}
+              data={sortedDisplayedExercises}
               keyExtractor={(item, index) => item.id || index.toString()}
               renderItem={renderExerciseItem}
               contentContainerStyle={styles.listContentContainer}
@@ -230,7 +245,10 @@ export const SearchExercisesModal = ({
           {selectedExercises.length > 0 ? (
             <TouchableOpacity
               style={styles.addSelectedButtonCustom}
-              onPress={handleSaveSelectedExercises}
+              onPress={() => {
+                recordUsedExercises(selectedExercises);
+                handleSaveSelectedExercises();
+              }}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -429,6 +447,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+  },
+  recentBadgeCustom: {
+    backgroundColor: 'rgba(238, 130, 42, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EE822A',
+  },
+  recentBadgeTextCustom: {
+    color: '#EE822A',
+    fontWeight: '800',
   },
   badgeTextCustom: {
     color: '#FFFFFF',

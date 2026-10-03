@@ -46,18 +46,20 @@ const DietMacros = ({ dailySummary, selectedDate, handleTrackWithCamera, handleP
         </TouchableOpacity>
         <View style={styles.trackFoodActions}>
           <TouchableOpacity 
-            style={[styles.actionBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+            style={[styles.actionBtn, { paddingHorizontal: sp(10), height: ms(34), borderRadius: ms(17) }]} 
             onPress={handleTrackWithCamera} 
             activeOpacity={0.7}
           >
-            <Icon name="camera" size={ms(18)} color="#FFF" />
+            <Icon name="camera" size={ms(15)} color="#FFF" style={{ marginRight: sp(5) }} />
+            <Text style={[styles.actionBtnText, { fontSize: fs(12) }]}>Take photo</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.actionBtn, { width: ms(36), height: ms(36), borderRadius: ms(18) }]} 
+            style={[styles.actionBtn, { paddingHorizontal: sp(10), height: ms(34), borderRadius: ms(17) }]} 
             onPress={handlePlusButtonPress} 
             activeOpacity={0.7}
           >
-            <Icon name="add" size={ms(20)} color="#FFF" />
+            <Icon name="add" size={ms(17)} color="#FFF" style={{ marginRight: sp(3) }} />
+            <Text style={[styles.actionBtnText, { fontSize: fs(12) }]}>Add food</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -142,17 +144,19 @@ const styles = StyleSheet.create({
   trackFoodActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  actionBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
   },
   gridRow: {
     flexDirection: 'row',

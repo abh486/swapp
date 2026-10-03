@@ -5,9 +5,10 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
+import { getExerciseMuscleFallback, isExerciseUsed, fetchExercises, initUsedWorkouts } from '../../redux/actions/workoutActions';
 import { PRESET_ROUTINES } from '../../utils/presetRoutinesData';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { useAuth } from '../../context/AuthContext';
 
 const FAST_WORKOUT_IMG = 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=300&auto=format&fit=crop';
 const CUSTOM_WORKOUT_IMG = 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=300&auto=format&fit=crop';
@@ -202,6 +203,14 @@ const WorkoutsScreen = ({ navigation }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showAllRoutines, setShowAllRoutines] = useState(false);
 
+  const { user } = useAuth() || {};
+
+  useEffect(() => {
+    if (user?.id) {
+      initUsedWorkouts(user.id);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     if (selectedEquipmentLocal === 'GYM') {
       setSelectedCategory('Gym');
@@ -299,6 +308,12 @@ const WorkoutsScreen = ({ navigation }) => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [failedImages, setFailedImages] = useState({});
 
+  useEffect(() => {
+    if (!exercises || exercises.length === 0) {
+      dispatch(fetchExercises({ limit: 50 }));
+    }
+  }, [dispatch, exercises]);
+
   const hasActiveFilters = selectedGoal !== '' || selectedEquipmentLocal !== '';
 
   const activeFiltersCount =
@@ -373,7 +388,7 @@ const WorkoutsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.actionCard, { height: Math.min(ms(72), hp(9.5)) }]}
           activeOpacity={0.75}
-          onPress={() => navigation?.navigate?.('FastWorkoutActive', { source: 'fast_workout', isCustomWorkout: false })}
+          onPress={() => navigation?.navigate?.('CreateFastWorkoutScreen')}
         >
           <ImageBackground
             source={{ uri: FAST_WORKOUT_IMG }}
@@ -567,6 +582,8 @@ const WorkoutsScreen = ({ navigation }) => {
     const formattedEquipment = exercise.equipment || (exercise.equipments && exercise.equipments[0]) || 'Gym Equipment';
     const capitalizedEquipment = formattedEquipment.charAt(0).toUpperCase() + formattedEquipment.slice(1);
 
+    const usedInfo = exercise.isAlreadyUsed ? { isUsed: true } : isExerciseUsed(exercise);
+
     return (
       <TouchableOpacity
         style={styles.exerciseCardLarge}
@@ -592,9 +609,16 @@ const WorkoutsScreen = ({ navigation }) => {
           <Text style={styles.cardRightTitle} numberOfLines={2}>
             {exercise.name}
           </Text>
-          <Text style={styles.cardRightSubtitle}>
-            {formattedLevel} • {capitalizedEquipment}
-          </Text>
+          <View style={styles.cardSubtitleRow}>
+            {usedInfo?.isUsed ? (
+              <View style={styles.recentBadgeSmall}>
+                <Text style={styles.recentBadgeTextSmall}>RECENT</Text>
+              </View>
+            ) : null}
+            <Text style={styles.cardRightSubtitle}>
+              {formattedLevel} • {capitalizedEquipment}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -1041,6 +1065,25 @@ const styles = StyleSheet.create({
     color: '#8E8E9A',
     fontSize: 12,
     fontWeight: '500',
+  },
+  cardSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recentBadgeSmall: {
+    backgroundColor: 'rgba(238, 130, 42, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EE822A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  recentBadgeTextSmall: {
+    color: '#EE822A',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   actionOverlay: {
     ...StyleSheet.absoluteFillObject,

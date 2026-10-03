@@ -99,3 +99,74 @@ export const addSupportReply = (ticketId, body) => async (dispatch) => {
     return { success: false, message: errorMsg };
   }
 };
+
+export const cancelSupportTicket = (ticketId, reason) => async (dispatch, getState) => {
+  dispatch({ type: SUPPORT_RESOLVE_TICKET_REQUEST });
+  try {
+    let updatedTicket = null;
+    try {
+      const res = await apiClient.patch(`/v1/support/tickets/${ticketId}/cancel`, { reason });
+      if (res.data?.success || res.data?.data) {
+        updatedTicket = res.data.data || res.data;
+      }
+    } catch (e) {
+      // Endpoint fallback
+    }
+
+    if (!updatedTicket) {
+      try {
+        const res = await apiClient.patch(`/v1/support/tickets/${ticketId}`, {
+          status: 'CANCELLED',
+          cancellationReason: reason,
+        });
+        if (res.data?.success || res.data?.data) {
+          updatedTicket = res.data.data || res.data;
+        }
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    if (!updatedTicket) {
+      try {
+        const res = await apiClient.patch(`/v1/support/tickets/${ticketId}/resolve`, {
+          status: 'CANCELLED',
+          reason,
+        });
+        if (res.data?.success || res.data?.data) {
+          updatedTicket = res.data.data || res.data;
+        }
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    try {
+      await apiClient.post(`/v1/support/tickets/${ticketId}/reply`, {
+        body: `Ticket cancelled by user. Reason: ${reason}`,
+      });
+    } catch (e) {
+      // reply error ignore
+    }
+
+    const currentTicket = normalizeTickets(getState().support?.tickets).find(
+      t => t.id === ticketId || t._id === ticketId
+    );
+    const finalTicket = {
+      ...(currentTicket || {}),
+      ...(updatedTicket || {}),
+      id: ticketId,
+      _id: ticketId,
+      status: 'CANCELLED',
+      cancellationReason: reason,
+      updatedAt: new Date().toISOString(),
+    };
+
+    dispatch({ type: SUPPORT_RESOLVE_TICKET_SUCCESS, payload: finalTicket });
+    return { success: true, data: finalTicket };
+  } catch (error) {
+    const errorMsg = error.response?.data?.message || error.message;
+    dispatch({ type: SUPPORT_RESOLVE_TICKET_FAILURE, payload: errorMsg });
+    return { success: false, message: errorMsg };
+  }
+};

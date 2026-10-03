@@ -4,14 +4,16 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
-  StatusBar
+  StatusBar,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { getSubscriptionDetails, cancelSubscription } from '../services/aiDieticianService';
+import { FullScreenLoader } from '../../../components/GlobalLoader';
 
 const AIDieticianSubscriptionScreen = ({ navigation }) => {
   const [subDetails, setSubDetails] = useState(null);
@@ -78,27 +80,27 @@ const AIDieticianSubscriptionScreen = ({ navigation }) => {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#e74c3c" />
-      </View>
-    );
+    return <FullScreenLoader />;
   }
 
   const isNonRenewing = subDetails?.status === 'non_renewing';
   const showCancelBtn = subDetails && subDetails.accessSource === 'SUBSCRIPTION' && !isNonRenewing;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage AI Subscription</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -182,12 +184,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   headerBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: '#FFF',

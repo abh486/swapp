@@ -6,15 +6,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   Image,
   Platform,
   Modal,
   Alert,
   ScrollView,
   Switch,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -461,11 +462,17 @@ const SleepDetailsScreen = ({ route, navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor="#0A1128" />
+
       {/* Top Header */}
       <View style={styles.topHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.headerDateDropdown}>
@@ -473,7 +480,7 @@ const SleepDetailsScreen = ({ route, navigation }) => {
           <Icon name="caret-down" size={14} color="#FFF" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
 
-        <View style={{ width: 40 }} />
+        <View style={{ width: 40, height: 40 }} />
       </View>
 
       {showDatePicker && Platform.OS === 'ios' && (
@@ -1185,11 +1192,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
   },
   backBtn: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },

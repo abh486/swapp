@@ -66,6 +66,7 @@ export const ActiveWorkoutExerciseList = ({
   handleMarkAllSets,
   triggerAddExerciseModal,
   closeWorkout,
+  personalBests,
 }) => {
   if (exercises.length === 0) {
     return (
@@ -217,6 +218,7 @@ export const ActiveWorkoutExerciseList = ({
                 toggleSetCompletion={toggleSetCompletion}
                 onDeleteSet={(setId) => handleDeleteSet(exercise.id, setId)}
                 openEditSetModal={openEditSetModal}
+                personalBests={personalBests}
               />
             ),
           )}

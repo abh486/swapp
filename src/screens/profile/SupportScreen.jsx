@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   TextInput,
   Modal,
@@ -17,6 +16,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
@@ -25,8 +25,17 @@ import {
   fetchSupportTickets,
   createSupportTicket,
   resolveSupportTicket,
+  cancelSupportTicket,
   addSupportReply,
 } from '../../redux/actions/supportActions';
+
+const CANCEL_REASONS = [
+  'Issue resolved by myself',
+  'Created by mistake',
+  'No longer need assistance',
+  'Found another solution',
+  'Other',
+];
 
 const FAQS = [
   {
@@ -67,6 +76,13 @@ export const SupportScreen = ({ navigation, route }) => {
   const [replyBody, setReplyBody] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Cancellation State
+  const [ticketToCancel, setTicketToCancel] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedCancelReason, setSelectedCancelReason] = useState('');
+  const [customCancelReason, setCustomCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -109,6 +125,53 @@ export const SupportScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleOpenCancelModal = (ticket) => {
+    setTicketToCancel(ticket);
+    setSelectedCancelReason('');
+    setCustomCancelReason('');
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    let finalReason = selectedCancelReason;
+    if (selectedCancelReason === 'Other') {
+      finalReason = customCancelReason.trim();
+    } else if (customCancelReason.trim()) {
+      finalReason = selectedCancelReason
+        ? `${selectedCancelReason} (${customCancelReason.trim()})`
+        : customCancelReason.trim();
+    }
+
+    if (!finalReason || !finalReason.trim()) {
+      Alert.alert('Reason Required', 'Please select or enter a reason for cancelling this ticket.');
+      return;
+    }
+
+    if (!ticketToCancel) return;
+
+    setCancelling(true);
+    const targetId = ticketToCancel.id || ticketToCancel._id;
+    const res = await dispatch(cancelSupportTicket(targetId, finalReason.trim()));
+    setCancelling(false);
+
+    if (res?.success) {
+      Alert.alert('Ticket Cancelled', 'Your support ticket has been cancelled.');
+      setShowCancelModal(false);
+      setTicketToCancel(null);
+      setSelectedCancelReason('');
+      setCustomCancelReason('');
+      if (detailTicket && (detailTicket.id === targetId || detailTicket._id === targetId)) {
+        setDetailTicket(prev => ({
+          ...prev,
+          status: 'CANCELLED',
+          cancellationReason: finalReason.trim(),
+        }));
+      }
+    } else {
+      Alert.alert('Error', res?.message || 'Failed to cancel support ticket.');
+    }
+  };
+
   const handleSendReply = async () => {
     if (!replyBody.trim()) return;
     setSendingReply(true);
@@ -126,8 +189,68 @@ export const SupportScreen = ({ navigation, route }) => {
     setSendingReply(false);
   };
 
+  const handleOpenWhatsApp = async () => {
+    const phoneNumber = '919061611166';
+    const message = 'Hello Swapp Support, I need assistance.';
+    const appUrl = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+    const webUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+
+    try {
+      // Direct deep link to WhatsApp app
+      await Linking.openURL(appUrl);
+    } catch (err) {
+      // Fallback to web WhatsApp if native app is not installed
+      try {
+        await Linking.openURL(webUrl);
+      } catch (fallbackErr) {
+        Alert.alert(
+          'WhatsApp Support',
+          'Could not open WhatsApp. Please ensure WhatsApp is installed or contact us at +91 90616 11166.',
+        );
+      }
+    }
+  };
+
+  const handleOpenEmail = async () => {
+    const email = 'support@swapp.fit';
+    const subject = encodeURIComponent('Swapp Support Request');
+    const mailtoUrl = `mailto:${email}?subject=${subject}`;
+    const gmailWebUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+        return;
+      }
+      await Linking.openURL(mailtoUrl);
+    } catch (err) {
+      // Native mail client unavailable or not configured on device/simulator
+      Alert.alert(
+        'Email Support',
+        `No default mail client is configured on this device.\n\nEmail: ${email}\n\nYou can open webmail or raise a ticket directly in the app.`,
+        [
+          {
+            text: 'Open Webmail',
+            onPress: () => {
+              Linking.openURL(gmailWebUrl).catch(() => {});
+            },
+          },
+          {
+            text: 'Raise Ticket',
+            onPress: () => setShowCreateModal(true),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ],
+      );
+    }
+  };
+
   const openCount = ticketList.filter(
-    t => t.status !== 'RESOLVED' && t.status !== 'CLOSED',
+    t => t.status !== 'RESOLVED' && t.status !== 'CLOSED' && t.status !== 'CANCELLED',
   ).length;
 
   const getPriorityColor = priority => {
@@ -148,6 +271,8 @@ export const SupportScreen = ({ navigation, route }) => {
         return '#2ecc71';
       case 'CLOSED':
         return '#7f8c8d';
+      case 'CANCELLED':
+        return '#e74c3c';
       case 'IN_PROGRESS':
         return '#3498db';
       case 'OPEN':
@@ -157,7 +282,10 @@ export const SupportScreen = ({ navigation, route }) => {
   };
 
   const renderTicketItem = ({ item }) => {
-    const isResolved = item.status === 'RESOLVED' || item.status === 'CLOSED';
+    const isClosedOrResolved = item.status === 'RESOLVED' || item.status === 'CLOSED';
+    const isCancelled = item.status === 'CANCELLED';
+    const canCancel = !isClosedOrResolved && !isCancelled;
+
     return (
       <TouchableOpacity
         style={styles.ticketCard}
@@ -177,29 +305,64 @@ export const SupportScreen = ({ navigation, route }) => {
         </View>
         <Text style={styles.ticketSubject} numberOfLines={1}>{item.subject}</Text>
         <Text style={styles.ticketDesc} numberOfLines={2}>{item.description}</Text>
+
+        {isCancelled && item.cancellationReason ? (
+          <View style={styles.cardCancellationBanner}>
+            <Icon name="information-circle-outline" size={14} color="#e74c3c" />
+            <Text style={styles.cardCancellationText} numberOfLines={2}>
+              Cancelled: {item.cancellationReason}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.ticketCardFooter}>
           <Text style={styles.ticketDate}>
-            Updated: {new Date(item.updatedAt).toLocaleDateString()}
+            Updated: {new Date(item.updatedAt || item.createdAt || Date.now()).toLocaleDateString()}
           </Text>
-          <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+          <View style={styles.ticketCardActions}>
+            {canCancel && (
+              <TouchableOpacity
+                style={styles.cardCancelBtn}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  handleOpenCancelModal(item);
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon name="close-circle-outline" size={14} color="#e74c3c" />
+                <Text style={styles.cardCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Support</Text>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => setShowCreateModal(true)}>
-          <Icon name="add-circle-outline" size={24} color="#FFF" />
-        </TouchableOpacity>
+        <Text
+          style={[
+            styles.headerTitle,
+            activeTab === 'faq' && { fontSize: 16 }
+          ]}
+          numberOfLines={1}
+        >
+          {activeTab === 'faq' ? 'Frequently Asked Questions' : 'Support'}
+        </Text>
+        <View style={{ width: 38 }} />
       </View>
 
       {/* Contact Cards Row */}
@@ -207,20 +370,22 @@ export const SupportScreen = ({ navigation, route }) => {
         <View style={styles.contactRow}>
           <TouchableOpacity
             style={styles.contactCard}
-            onPress={() => Linking.openURL('mailto:support@swappfit.com')}
+            onPress={handleOpenEmail}
+            activeOpacity={0.8}
           >
             <Icon name="mail-outline" size={24} color="#FFF" />
             <Text style={styles.contactLabel}>Email Support</Text>
-            <Text style={styles.contactValue}>support@swappfit.com</Text>
+            <Text style={styles.contactValue}>support@swapp.fit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.contactCard}
-            onPress={() => Linking.openURL('https://wa.me/919000000000')}
+            onPress={handleOpenWhatsApp}
+            activeOpacity={0.8}
           >
             <Icon name="logo-whatsapp" size={24} color="#2ecc71" />
             <Text style={styles.contactLabel}>WhatsApp Support</Text>
-            <Text style={styles.contactValue}>+91 9000000000</Text>
+            <Text style={styles.contactValue}>+91 90616 11166</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -283,6 +448,15 @@ export const SupportScreen = ({ navigation, route }) => {
                 tintColor="transparent"
                 colors={['transparent']}
               />
+            }
+            ListFooterComponent={
+              <TouchableOpacity
+                style={[styles.createBtn, { alignSelf: 'center', marginTop: 16, marginBottom: 32 }]}
+                onPress={() => setShowCreateModal(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.createBtnText}>Raise a Ticket</Text>
+              </TouchableOpacity>
             }
           />
         )
@@ -404,14 +578,36 @@ export const SupportScreen = ({ navigation, route }) => {
                       <Text style={styles.statusLabel}>Priority: <Text style={{ color: getPriorityColor(detailTicket.priority), fontWeight: 'bold' }}>{detailTicket.priority?.toUpperCase()}</Text></Text>
                       <Text style={styles.statusLabel}>Status: <Text style={{ color: getStatusColor(detailTicket.status), fontWeight: 'bold' }}>{detailTicket.status?.replace('_', ' ')}</Text></Text>
                     </View>
-                    {detailTicket.status !== 'RESOLVED' && detailTicket.status !== 'CLOSED' && (
-                      <TouchableOpacity
-                        style={styles.resolveBtn}
-                        onPress={() => handleResolveTicket(detailTicket.id)}
-                      >
-                        <Icon name="checkmark-circle-outline" size={16} color="#FFF" />
-                        <Text style={styles.resolveBtnText}>Mark Resolved</Text>
-                      </TouchableOpacity>
+                    {detailTicket.status === 'CANCELLED' && (
+                      <View style={styles.detailCancellationBox}>
+                        <Icon name="close-circle" size={18} color="#e74c3c" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.detailCancellationTitle}>Ticket Cancelled</Text>
+                          {detailTicket.cancellationReason ? (
+                            <Text style={styles.detailCancellationReason}>
+                              Reason: {detailTicket.cancellationReason}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    )}
+                    {detailTicket.status !== 'RESOLVED' && detailTicket.status !== 'CLOSED' && detailTicket.status !== 'CANCELLED' && (
+                      <View style={styles.detailActionRow}>
+                        <TouchableOpacity
+                          style={styles.resolveBtn}
+                          onPress={() => handleResolveTicket(detailTicket.id || detailTicket._id)}
+                        >
+                          <Icon name="checkmark-circle-outline" size={16} color="#FFF" />
+                          <Text style={styles.resolveBtnText}>Mark Resolved</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.cancelTicketDetailBtn}
+                          onPress={() => handleOpenCancelModal(detailTicket)}
+                        >
+                          <Icon name="close-circle-outline" size={16} color="#e74c3c" />
+                          <Text style={styles.cancelTicketDetailBtnText}>Cancel Ticket</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                     <View style={styles.divider} />
                   </View>
@@ -432,7 +628,7 @@ export const SupportScreen = ({ navigation, route }) => {
                 contentContainerStyle={styles.chatScrollContent}
               />
 
-              {detailTicket.status !== 'RESOLVED' && detailTicket.status !== 'CLOSED' && (
+              {detailTicket.status !== 'RESOLVED' && detailTicket.status !== 'CLOSED' && detailTicket.status !== 'CANCELLED' ? (
                 <View style={styles.replyInputContainer}>
                   <TextInput
                     style={styles.replyInput}
@@ -450,11 +646,134 @@ export const SupportScreen = ({ navigation, route }) => {
                     {sendingReply ? <GlobalLoader size={20} /> : <Icon name="send" size={18} color="#FFF" />}
                   </TouchableOpacity>
                 </View>
+              ) : (
+                <View style={styles.ticketClosedBanner}>
+                  <Icon
+                    name={detailTicket.status === 'CANCELLED' ? "close-circle-outline" : "checkmark-circle-outline"}
+                    size={16}
+                    color={detailTicket.status === 'CANCELLED' ? "#e74c3c" : "#2ecc71"}
+                  />
+                  <Text style={styles.ticketClosedText}>
+                    {detailTicket.status === 'CANCELLED'
+                      ? 'This ticket has been cancelled.'
+                      : 'This ticket has been marked as resolved.'}
+                  </Text>
+                </View>
               )}
             </KeyboardAvoidingView>
           </View>
         </Modal>
       )}
+
+      {/* Cancel Ticket Modal */}
+      <Modal visible={showCancelModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.cancelModalContainer}
+          >
+            <View style={styles.cancelModalContent}>
+              <View style={styles.cancelModalHeader}>
+                <View style={styles.cancelIconWrap}>
+                  <Icon name="close-circle" size={24} color="#e74c3c" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cancelModalTitle}>Cancel Support Ticket</Text>
+                  <Text style={styles.cancelModalSubtitle}>
+                    #{ticketToCancel?.id?.substring(0, 8) || ticketToCancel?._id?.substring(0, 8) || ''} - {ticketToCancel?.subject || ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!cancelling) setShowCancelModal(false);
+                  }}
+                  style={styles.cancelModalCloseBtn}
+                  disabled={cancelling}
+                >
+                  <Icon name="close" size={20} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.cancelSectionTitle}>Reason for cancellation</Text>
+              <Text style={styles.cancelSectionHint}>Please select why you wish to cancel this ticket:</Text>
+
+              {/* Predefined reason options */}
+              <View style={styles.reasonsContainer}>
+                {CANCEL_REASONS.map((reason) => {
+                  const isSelected = selectedCancelReason === reason;
+                  return (
+                    <TouchableOpacity
+                      key={reason}
+                      style={[
+                        styles.reasonOption,
+                        isSelected && styles.reasonOptionSelected,
+                      ]}
+                      onPress={() => setSelectedCancelReason(reason)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.reasonRadio, isSelected && styles.reasonRadioSelected]}>
+                        {isSelected && <View style={styles.reasonRadioDot} />}
+                      </View>
+                      <Text style={[styles.reasonOptionText, isSelected && styles.reasonOptionTextSelected]}>
+                        {reason}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Additional comments or custom reason */}
+              <Text style={styles.cancelNotesLabel}>
+                {selectedCancelReason === 'Other' ? 'Please specify reason *' : 'Additional comments (optional)'}
+              </Text>
+              <TextInput
+                style={styles.cancelTextInput}
+                placeholder={
+                  selectedCancelReason === 'Other'
+                    ? 'Enter your reason here...'
+                    : 'Provide more details if needed...'
+                }
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                multiline
+                numberOfLines={3}
+                value={customCancelReason}
+                onChangeText={setCustomCancelReason}
+                editable={!cancelling}
+              />
+
+              {/* Buttons */}
+              <View style={styles.cancelModalActions}>
+                <TouchableOpacity
+                  style={styles.cancelModalBackBtn}
+                  onPress={() => setShowCancelModal(false)}
+                  disabled={cancelling}
+                >
+                  <Text style={styles.cancelModalBackText}>Keep Ticket</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.cancelModalConfirmBtn,
+                    (!selectedCancelReason && !customCancelReason.trim()) && styles.disabledCancelConfirmBtn,
+                    cancelling && styles.disabledCancelConfirmBtn,
+                  ]}
+                  onPress={handleConfirmCancel}
+                  disabled={(!selectedCancelReason && !customCancelReason.trim()) || cancelling}
+                >
+                  {cancelling ? (
+                    <GlobalLoader size={18} />
+                  ) : (
+                    <>
+                      <Icon name="close-circle-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.cancelModalConfirmText}>Confirm Cancel</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -469,17 +788,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
   headerBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
   contactRow: {
     flexDirection: 'row',
@@ -522,7 +850,7 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     borderBottomWidth: 2,
-    borderColor: '#7C41A5',
+    borderColor: '#EE822A',
   },
   tabText: {
     color: 'rgba(255,255,255,0.4)',
@@ -552,7 +880,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   createBtn: {
-    backgroundColor: '#7C41A5',
+    backgroundColor: '#EE822A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -608,6 +936,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 12,
   },
+  cardCancellationBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: 'rgba(231, 76, 60, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.25)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 10,
+  },
+  cardCancellationText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
   ticketCardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -616,6 +961,27 @@ const styles = StyleSheet.create({
   ticketDate: {
     color: 'rgba(255,255,255,0.3)',
     fontSize: 11,
+  },
+  ticketCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardCancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.4)',
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+  },
+  cardCancelBtnText: {
+    color: '#e74c3c',
+    fontSize: 11,
+    fontWeight: '600',
   },
   faqContent: {
     padding: 16,
@@ -708,7 +1074,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   submitBtn: {
-    backgroundColor: '#7C41A5',
+    backgroundColor: '#EE822A',
     borderRadius: 8,
     height: 50,
     justifyContent: 'center',
@@ -764,19 +1130,80 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
   },
+  detailCancellationBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  detailCancellationTitle: {
+    color: '#e74c3c',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  detailCancellationReason: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  detailActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
   resolveBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#e74c3c',
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: '#2ecc71',
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   resolveBtnText: {
     color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  cancelTicketDetailBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(231, 76, 60, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.4)',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  cancelTicketDetailBtnText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  ticketClosedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0a0a0a',
+  },
+  ticketClosedText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontWeight: '500',
   },
   chatScrollContent: {
     paddingBottom: 20,
@@ -789,7 +1216,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   replyUser: {
-    backgroundColor: '#7C41A5',
+    backgroundColor: '#EE822A',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 2,
   },
@@ -842,13 +1269,168 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#7C41A5',
+    backgroundColor: '#EE822A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   disabledSendBtn: {
     backgroundColor: '#333',
     opacity: 0.5,
+  },
+  cancelModalContainer: {
+    width: '100%',
+  },
+  cancelModalContent: {
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  cancelModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 16,
+  },
+  cancelIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(231, 76, 60, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelModalTitle: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  cancelModalSubtitle: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cancelModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelSectionTitle: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  cancelSectionHint: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginBottom: 14,
+  },
+  reasonsContainer: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  reasonOptionSelected: {
+    borderColor: '#EE822A',
+    backgroundColor: 'rgba(238, 130, 42, 0.1)',
+  },
+  reasonRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  reasonRadioSelected: {
+    borderColor: '#EE822A',
+  },
+  reasonRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EE822A',
+  },
+  reasonOptionText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+  },
+  reasonOptionTextSelected: {
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  cancelNotesLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  cancelTextInput: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    color: '#FFF',
+    padding: 12,
+    fontSize: 13,
+    minHeight: 65,
+    textAlignVertical: 'top',
+    marginBottom: 18,
+  },
+  cancelModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelModalBackBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelModalBackText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelModalConfirmBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: '#e74c3c',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledCancelConfirmBtn: {
+    opacity: 0.4,
+  },
+  cancelModalConfirmText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

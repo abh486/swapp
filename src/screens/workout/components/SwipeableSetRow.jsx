@@ -8,6 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { getPreviousForExercise } from '../../../utils/usedWorkoutsManager';
 
 export const SwipeableSetRow = ({
   set,
@@ -19,6 +20,7 @@ export const SwipeableSetRow = ({
   toggleSetCompletion,
   onDeleteSet,
   openEditSetModal,
+  personalBests,
 }) => {
   const swipeAnim = useRef(new Animated.Value(0)).current;
   const isSwipedOpen = useRef(false);
@@ -90,15 +92,13 @@ export const SwipeableSetRow = ({
       >
         <Text style={styles.setNumText}>{idx + 1}</Text>
         <Text style={styles.setPrevText}>
-          {(() => {
-            const prevReps = exercise.reps !== undefined && exercise.reps !== null ? Number(exercise.reps) : 0;
-            const prevWeight = exercise.weight !== undefined && exercise.weight !== null ? parseFloat(exercise.weight) || 0 : 0;
-            if (prevReps === 0 && prevWeight === 0) return '—';
-            if (isTimeBasedExercise(exercise)) {
-              return `${prevWeight}s`;
-            }
-            return `${prevWeight}kg x ${prevReps}`;
-          })()}
+          {getPreviousForExercise(
+            exercise,
+            idx,
+            set,
+            typeof isTimeBasedExercise === 'function' ? isTimeBasedExercise(exercise) : false,
+            personalBests
+          )}
         </Text>
 
         {/* Touchable Reps Picker Input */}
@@ -107,8 +107,8 @@ export const SwipeableSetRow = ({
           onPress={() => openEditSetModal && openEditSetModal(exercise.id, set.id, set.reps, set.weight)}
           activeOpacity={0.7}
         >
-          <Text style={{ color: set.reps !== undefined && set.reps !== 0 ? '#FFFFFF' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: '600' }}>
-            {set.reps !== undefined && set.reps !== 0 ? set.reps.toString() : '0'}
+          <Text style={{ color: set.reps !== undefined && (set.reps !== 0 || set.isSet) ? '#FFFFFF' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: '600' }}>
+            {set.reps !== undefined && (set.reps !== 0 || set.isSet) ? set.reps.toString() : '0'}
           </Text>
         </TouchableOpacity>
 
@@ -156,8 +156,8 @@ export const SwipeableSetRow = ({
             onPress={() => openEditSetModal && openEditSetModal(exercise.id, set.id, set.reps, set.weight)}
             activeOpacity={0.7}
           >
-            <Text style={{ color: set.weight !== undefined && parseFloat(set.weight) !== 0 ? '#FFFFFF' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: '600' }}>
-              {set.weight !== undefined && parseFloat(set.weight) !== 0 ? set.weight.toString() : '0.0'}
+            <Text style={{ color: (set.weight !== undefined && parseFloat(set.weight) !== 0) || set.isSet ? '#FFFFFF' : 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: '600' }}>
+              {(set.weight !== undefined && parseFloat(set.weight) !== 0) || set.isSet ? set.weight.toString() : '0.0'}
             </Text>
           </TouchableOpacity>
         )}

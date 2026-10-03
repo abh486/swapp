@@ -42,7 +42,19 @@ export const getExercises = async (params = {}) => {
     if (muscleList.length > 0) {
       filtered = filtered.filter((ex) =>
         (ex.targetMuscles || []).some(tm => muscleList.includes(tm.toLowerCase())) ||
-        (ex.bodyParts || []).some(bp => muscleList.includes(bp.toLowerCase()))
+        (ex.target && muscleList.includes(ex.target.toLowerCase()))
+      );
+    }
+
+    // Filter by body parts
+    const rawBodyParts = params.bodyParts || [];
+    const bodyPartList = (Array.isArray(rawBodyParts) ? rawBodyParts : String(rawBodyParts).split(','))
+      .map(b => b.trim().toLowerCase())
+      .filter(b => b && !b.includes('all body'));
+    if (bodyPartList.length > 0) {
+      filtered = filtered.filter((ex) =>
+        (ex.bodyParts || []).some(bp => bodyPartList.includes(bp.toLowerCase())) ||
+        (ex.bodyPart && bodyPartList.includes(ex.bodyPart.toLowerCase()))
       );
     }
 

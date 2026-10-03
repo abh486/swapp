@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useResponsiveMetrics } from '../utils/responsive';
+import { GlobalLoader } from '../components/GlobalLoader';
 
 const ForgotPasswordScreen = () => {
   const navigation = useNavigation();
@@ -159,7 +160,7 @@ const ForgotPasswordScreen = () => {
               activeOpacity={0.8}
             >
               {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
+                <GlobalLoader size={20} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {isSent ? 'Resend Reset Link' : 'Send Reset Link'}

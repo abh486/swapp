@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   View,
@@ -9,7 +8,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,7 @@ import {
   getSleepDurationToday,
 } from '../../utils/healthKit';
 import { fetchSleepLogs } from '../../redux/actions/sleepActions';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -122,27 +124,26 @@ const HealthKitDataScreen = ({ navigation }) => {
   }, [data.steps, data.distance]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.75}>
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Health Sync</Text>
           <Text style={styles.headerSubtitle}>Real-time sensor logs from Apple Health</Text>
         </View>
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchRealHealthData} disabled={loading}>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchRealHealthData} disabled={loading} activeOpacity={0.75}>
           <Icon name="refresh" size={20} color="#FFF" style={loading && { opacity: 0.5 }} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#7C4DFF" />
-          <Text style={styles.loadingText}>Fetching native health database...</Text>
+          <GlobalLoader size={60} text="Fetching native health database..." />
         </View>
       ) : !isConnected ? (
         <View style={styles.centerContainer}>
@@ -348,14 +349,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   backButton: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
+  },
+  refreshButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitleContainer: {
     flex: 1,

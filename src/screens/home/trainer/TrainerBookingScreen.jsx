@@ -18,6 +18,7 @@ import { useDispatch } from 'react-redux';
 import { createCheckoutSession } from '../../../redux/actions/subscriptionActions';
 import { parseApiFailure } from '../../../api/apiUtils';
 import apiClient from '../../../api/apiClient';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 import { useResponsiveMetrics } from '../../../utils/responsive';
 import { useAuth } from '../../../context/AuthContext';
 import LinearGradient from 'react-native-linear-gradient';
@@ -636,8 +637,7 @@ const TrainerBookingScreen = ({ route, navigation }) => {
           </View>
         ) : isLoadingSlots ? (
           <View style={styles.emptyState}>
-            <ActivityIndicator color="#FFF" />
-            <Text style={styles.emptyStateText}>Loading availability...</Text>
+            <GlobalLoader size={50} text="Loading availability..." />
           </View>
         ) : slotError ? (
           <View style={styles.emptyState}>

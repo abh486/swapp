@@ -214,8 +214,9 @@ const ProfileDashboard = () => {
           // Show all logged workouts (both EVERYONE and PRIVATE) in the user's profile
           setWorkouts(response.data);
         } else {
-          // If no workouts from backend, check AsyncStorage for a fallback
-          const storedDataStr = await AsyncStorage.getItem('latestWorkoutData');
+          // If no workouts from backend, check AsyncStorage for this user's fallback
+          const userWorkoutKey = user?.id ? `latestWorkoutData_${user.id}` : null;
+          const storedDataStr = userWorkoutKey ? await AsyncStorage.getItem(userWorkoutKey) : null;
           if (storedDataStr) {
             const storedData = JSON.parse(storedDataStr);
             const fallbackWorkouts = [
@@ -236,7 +237,8 @@ const ProfileDashboard = () => {
         console.error('Failed to fetch workouts', error);
         // Fallback on error
         try {
-          const storedDataStr = await AsyncStorage.getItem('latestWorkoutData');
+          const userWorkoutKey = user?.id ? `latestWorkoutData_${user.id}` : null;
+          const storedDataStr = userWorkoutKey ? await AsyncStorage.getItem(userWorkoutKey) : null;
           if (storedDataStr) {
             const storedData = JSON.parse(storedDataStr);
             const fallbackWorkouts = [
@@ -383,7 +385,11 @@ const ProfileDashboard = () => {
   };
 
   const openFollowList = type => {
-    navigation.navigate('FollowList', { type });
+    navigation.navigate('FollowList', {
+      type,
+      userId: user?.id || user?._id || user?.userId || profileData?.userId,
+      username: profileData?.name || user?.name
+    });
   };
 
   // Dynamic calculations based on screen width
@@ -798,7 +804,7 @@ const ProfileDashboard = () => {
 
         {/* App Version Footer */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>App Version 1.0.4</Text>
+          <Text style={styles.versionText}>App Version 1.0.5</Text>
         </View>
 
         <View style={{ height: 100 }} />

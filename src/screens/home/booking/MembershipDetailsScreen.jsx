@@ -19,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AccessSourceCard from '../../../components/marketplace/AccessSourceCard';
 import Svg, { Path } from 'react-native-svg';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 import {
   Camera,
@@ -1031,7 +1032,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
           disabled={isAccessModeLoading || isUpgradeOnlyPackage || isCheckingOut || (isOpenAccess ? (!currentCheckedInBooking && false) : false)}
         >
           {isCheckingOut ? (
-            <ActivityIndicator color="#FFF" size="small" />
+            <GlobalLoader size={20} />
           ) : (
             <Icon
               name={
@@ -1069,7 +1070,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.upcomingKicker}>UPCOMING BOOKINGS</Text>
             {isLoadingHistory ? (
               <View style={styles.historyLoadingRow}>
-                <ActivityIndicator color="#FFF" />
+                <GlobalLoader size={24} style={{ marginRight: 8 }} />
                 <Text style={styles.historyLoadingText}>Loading bookings...</Text>
               </View>
             ) : upcomingBookings.length === 0 ? (
@@ -1102,7 +1103,7 @@ const MembershipDetailsScreen = ({ route, navigation }) => {
                       activeOpacity={0.8}
                     >
                       {isGeneratingQr ? (
-                        <ActivityIndicator size="small" color="#FFF" />
+                        <GlobalLoader size={20} />
                       ) : (
                         <Icon name="qr-code" size={22} color="#FFF" />
                       )}

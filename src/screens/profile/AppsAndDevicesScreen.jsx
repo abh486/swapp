@@ -4,12 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   StatusBar,
   Image,
   ScrollView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useResponsiveMetrics } from '../../utils/responsive';
@@ -63,7 +64,7 @@ const AppsAndDevicesScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Decorative Purple Glow at top-left background */}
@@ -71,12 +72,16 @@ const AppsAndDevicesScreen = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Apps and Devices</Text>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Icon name="add" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.headerBtn} activeOpacity={0.75}>
+          <Icon name="add" size={22} color="#FFF" />
         </TouchableOpacity>
       </View>
 
@@ -167,11 +172,15 @@ const createStyles = ({ wp, hp, ms, fs, sp }) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: sp(16),
-      paddingVertical: sp(12),
+      paddingTop: Platform.OS === 'android' ? sp(24) : sp(16),
+      paddingBottom: sp(12),
     },
     headerBtn: {
-      padding: sp(4),
-      width: sp(36),
+      width: sp(38),
+      height: sp(38),
+      borderRadius: sp(19),
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      justifyContent: 'center',
       alignItems: 'center',
     },
     headerTitle: {

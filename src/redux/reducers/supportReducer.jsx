@@ -70,15 +70,18 @@ export const supportReducer = (state = initialState, action) => {
         submitting: true,
         error: null,
       };
-    case SUPPORT_RESOLVE_TICKET_SUCCESS:
+    case SUPPORT_RESOLVE_TICKET_SUCCESS: {
+      const targetId = action.payload?.id || action.payload?._id;
       return {
         ...state,
         submitting: false,
-        tickets: ensureArray(state.tickets).map(t =>
-          (t.id === action.payload.id || t._id === action.payload._id) ? action.payload : t
-        ),
+        tickets: ensureArray(state.tickets).map(t => {
+          const tId = t.id || t._id;
+          return (tId && targetId && tId === targetId) ? { ...t, ...action.payload } : t;
+        }),
         error: null,
       };
+    }
     case SUPPORT_RESOLVE_TICKET_FAILURE:
       return {
         ...state,

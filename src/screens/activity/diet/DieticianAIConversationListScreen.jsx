@@ -6,13 +6,15 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   Dimensions,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { getConversations } from '../../../services/aiDieticianService';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -97,13 +99,13 @@ const DieticianAIConversationListScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.75}>
+          <Icon name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Icon name="sparkles" size={18} color="#9333EA" style={styles.headerIcon} />
@@ -121,8 +123,7 @@ const DieticianAIConversationListScreen = () => {
       {/* Content */}
       {loading && conversations.length === 0 ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#9333EA" />
-          <Text style={styles.loadingText}>Loading conversations...</Text>
+          <GlobalLoader size={60} text="Loading conversations..." />
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
@@ -157,14 +158,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1E1E1E',
     backgroundColor: '#111111',
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitleContainer: {
     flexDirection: 'row',

@@ -9,26 +9,45 @@ import {
   FlatList,
   Image,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { GlobalLoader } from '../../components/GlobalLoader';
 import apiClient from '../../api/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 const getDisplayName = user => {
-  const profile = user?.user || user?.profile || user;
-  const name = [profile?.firstName, profile?.lastName]
+  const target = user?.following || user?.follower || user?.user || user;
+  const p = target?.profile || target?.userProfile || user?.profile || user?.userProfile;
+  const u = target;
+  const fullName = [p?.firstName || u?.firstName, p?.lastName || u?.lastName]
     .filter(Boolean)
     .join(' ');
-  return name || profile?.name || profile?.username || 'Swapp member';
+  return (
+    fullName ||
+    p?.name ||
+    u?.name ||
+    p?.displayName ||
+    u?.displayName ||
+    p?.username ||
+    u?.username ||
+    'Swapp member'
+  );
 };
 
 const getAvatar = user => {
-  const profile = user?.user || user?.profile || user;
+  const target = user?.following || user?.follower || user?.user || user;
+  const p = target?.profile || target?.userProfile || user?.profile || user?.userProfile;
+  const u = target;
   return (
-    profile?.avatar ||
-    profile?.profileImage ||
-    profile?.profilePicture ||
-    profile?.profilePhoto
+    p?.avatar ||
+    p?.profileImage ||
+    p?.profilePicture ||
+    p?.profilePhoto ||
+    u?.avatar ||
+    u?.profileImage ||
+    u?.profilePicture ||
+    u?.profilePhoto
   );
 };
 
@@ -51,13 +70,57 @@ const unwrapUsers = (payload, type) => {
     body,
   ];
 
-  return candidates.find(Array.isArray) || [];
+  const rawList = candidates.find(Array.isArray) || [];
+  return rawList
+    .map((item, index) => {
+      if (!item) return null;
+      const targetUser = item?.following || item?.follower || item?.user || item;
+      const profile =
+        targetUser?.profile ||
+        targetUser?.userProfile ||
+        item?.profile ||
+        item?.userProfile ||
+        {};
+      const id =
+        targetUser?.id ||
+        targetUser?._id ||
+        targetUser?.userId ||
+        item?.userId ||
+        item?.id ||
+        item?._id;
+
+      return {
+        ...targetUser,
+        id: id ? String(id) : `user-${index}`,
+        user: targetUser,
+        profile,
+        raw: item,
+      };
+    })
+    .filter(Boolean);
 };
 
 const FollowListScreen = ({ navigation, route }) => {
   const initialTab =
     route?.params?.type === 'following' ? 'following' : 'followers';
+  const targetUserId =
+    route?.params?.userId ||
+    route?.params?.targetUserId ||
+    route?.params?.user?.id ||
+    route?.params?.user?._id ||
+    route?.params?.user?.userId;
+  const targetUsername =
+    route?.params?.username ||
+    route?.params?.user?.username ||
+    route?.params?.name;
   const [activeTab, setActiveTab] = useState(initialTab);
+  const { user: currentUser } = useAuth();
+  const currentUserId =
+    currentUser?.id || currentUser?._id || currentUser?.userId;
+  const isOwnList =
+    !targetUserId || (currentUserId && String(targetUserId) === String(currentUserId));
+  const [followingStatus, setFollowingStatus] = useState({});
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,8 +136,17 @@ const FollowListScreen = ({ navigation, route }) => {
       setError(null);
 
       try {
-        const response = await apiClient.get(`/users/${activeTab}`);
-        setUsers(unwrapUsers(response.data, activeTab));
+        let response = null;
+        if (targetUserId) {
+          try {
+            response = await apiClient.get(`/users/${activeTab}/${targetUserId}`);
+          } catch (pathErr) {
+            response = await apiClient.get(`/users/${activeTab}?userId=${targetUserId}`);
+          }
+        } else {
+          response = await apiClient.get(`/users/${activeTab}`);
+        }
+        setUsers(unwrapUsers(response?.data, activeTab));
       } catch (fetchError) {
         console.log(
           `Failed to fetch ${activeTab}`,
@@ -87,21 +159,89 @@ const FollowListScreen = ({ navigation, route }) => {
         setRefreshing(false);
       }
     },
-    [activeTab],
+    [activeTab, targetUserId],
   );
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
+  const handleToggleFollowInList = item => {
+    const userId = item?.id || item?.user?.id || item?._id;
+    if (!userId) return;
+
+    const isCurrentlyFollowing =
+      followingStatus[userId] !== undefined
+        ? followingStatus[userId]
+        : (activeTab === 'following' && isOwnList);
+
+    const displayName = getDisplayName(item);
+
+    if (isCurrentlyFollowing) {
+      Alert.alert(
+        `Unfollow ${displayName}?`,
+        `Are you sure you want to unfollow ${displayName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: async () => {
+              setFollowingStatus(prev => ({ ...prev, [userId]: false }));
+              try {
+                await apiClient.post(`/users/follow/${userId}`);
+              } catch (err) {
+                console.error('Error unfollowing user:', err);
+                setFollowingStatus(prev => ({ ...prev, [userId]: true }));
+              }
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+      return;
+    }
+
+    setFollowingStatus(prev => ({ ...prev, [userId]: true }));
+    apiClient.post(`/users/follow/${userId}`).catch(err => {
+      console.error('Error following user:', err);
+      setFollowingStatus(prev => ({ ...prev, [userId]: false }));
+    });
+  };
+
   const renderUser = ({ item }) => {
     const avatar = getAvatar(item);
     const displayName = getDisplayName(item);
-    const username =
-      item?.user?.username || item?.profile?.username || item?.username;
+    const target = item?.following || item?.follower || item?.user || item;
+    const rawUsername =
+      target?.username ||
+      target?.userProfile?.username ||
+      target?.profile?.username ||
+      item?.username ||
+      item?.profile?.username;
+    const showHandle =
+      rawUsername &&
+      rawUsername.toLowerCase() !== displayName.toLowerCase();
+
+    const profileUserId = item?.id || target?.id || target?._id || target?.userId || item?._id;
+    const isFollowingUser =
+      followingStatus[profileUserId] !== undefined
+        ? followingStatus[profileUserId]
+        : (activeTab === 'following' && isOwnList);
 
     return (
-      <View style={styles.userRow}>
+      <TouchableOpacity
+        style={styles.userRow}
+        activeOpacity={0.7}
+        onPress={() => {
+          if (profileUserId) {
+            navigation.navigate('UserProfile', {
+              userId: profileUserId,
+              user: target || item?.user || item?.profile || item,
+            });
+          }
+        }}
+      >
         {avatar ? (
           <Image source={{ uri: avatar }} style={styles.avatar} />
         ) : (
@@ -113,13 +253,37 @@ const FollowListScreen = ({ navigation, route }) => {
           <Text style={styles.userName} numberOfLines={1}>
             {displayName}
           </Text>
-          {username ? (
+          {showHandle ? (
             <Text style={styles.userHandle} numberOfLines={1}>
-              @{username}
+              @{rawUsername}
             </Text>
           ) : null}
         </View>
-      </View>
+
+        {isOwnList && activeTab === 'following' ? (
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              isFollowingUser ? styles.followingBtn : styles.followBtn,
+            ]}
+            onPress={() => handleToggleFollowInList(item)}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.actionBtnText,
+                isFollowingUser
+                  ? styles.followingBtnText
+                  : styles.followBtnText,
+              ]}
+            >
+              {isFollowingUser ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Icon name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -135,7 +299,14 @@ const FollowListScreen = ({ navigation, route }) => {
         >
           <Icon name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {targetUsername || title}
+          </Text>
+          {targetUsername ? (
+            <Text style={styles.headerSubtitle}>{title}</Text>
+          ) : null}
+        </View>
         <View style={styles.headerBtn} />
       </View>
 
@@ -164,7 +335,7 @@ const FollowListScreen = ({ navigation, route }) => {
         <FlatList
           data={users}
           keyExtractor={(item, index) =>
-            String(item?.user?.id || item?.profile?.id || item?.id || index)
+            String(item?.id || item?.user?.id || item?.following?.id || item?.follower?.id || item?.profile?.id || index)
           }
           renderItem={renderUser}
           contentContainerStyle={[
@@ -208,10 +379,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerTitleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     color: '#FFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
   tabs: {
     flexDirection: 'row',
@@ -293,6 +474,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     fontSize: 15,
     textAlign: 'center',
+  },
+  actionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  followingBtn: {
+    backgroundColor: '#1E1E1E',
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  followBtn: {
+    backgroundColor: '#FFF',
+    borderColor: '#FFF',
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  followingBtnText: {
+    color: '#FFF',
+  },
+  followBtnText: {
+    color: '#000',
   },
 });
 

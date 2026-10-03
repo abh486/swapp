@@ -27,6 +27,7 @@ import { AUTH_CONFIG } from '../config/config';
 import { registerFcmToken, initNotificationListeners } from '../utils/notifications';
 import { syncLocalNotifications } from '../utils/localNotifications';
 import { fetchNutritionTargets, setCachedBackendTargets } from '../utils/nutritionCalculator';
+import { initUsedWorkouts, clearUserWorkouts } from '../utils/usedWorkoutsManager';
 
 // Initialize Auth0
 const auth0 = new Auth0({
@@ -282,6 +283,18 @@ export const AuthProvider = ({ children }) => {
                 if (userObject.userProfile) userObject.userProfile.fitnessGoal = localM.fitnessGoal;
               }
 
+              if (localM.focusAreas) {
+                userObject.focusAreas = localM.focusAreas;
+                if (userObject.userProfile) userObject.userProfile.focusAreas = localM.focusAreas;
+                if (userObject.memberProfile) userObject.memberProfile.focusAreas = localM.focusAreas;
+              }
+
+              if (localM.interests) {
+                userObject.interests = localM.interests;
+                if (userObject.userProfile) userObject.userProfile.interests = localM.interests;
+                if (userObject.memberProfile) userObject.memberProfile.interests = localM.interests;
+              }
+
               if (localM.startingWeight) {
                 const numSW = parseFloat(localM.startingWeight);
                 userObject.startingWeight = numSW;
@@ -308,6 +321,10 @@ export const AuthProvider = ({ children }) => {
 
           setUserProfile(userObject);
           setIsAuthenticated(true);
+          const activeUid = userObject?.id || userObject?.userId || userObject?.user_id;
+          if (activeUid) {
+            initUsedWorkouts(activeUid);
+          }
           fetchNutritionTargets().catch(() => {});
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObject));
 
@@ -374,6 +391,10 @@ export const AuthProvider = ({ children }) => {
           const userObject = JSON.parse(cached);
           setUserProfile(userObject);
           setIsAuthenticated(true);
+          const activeUid = userObject?.id || userObject?.userId || userObject?.user_id;
+          if (activeUid) {
+            initUsedWorkouts(activeUid);
+          }
           setHasProfile(
             (userObject.userProfile && userObject.userProfile.name) ||
               (userObject.memberProfile && userObject.memberProfile.name)
@@ -652,6 +673,10 @@ export const AuthProvider = ({ children }) => {
           await AsyncStorage.setItem('userProfile', JSON.stringify(userObj));
           setUserProfile(userObj);
           setIsAuthenticated(true);
+          const activeUid = userObj?.id || userObj?.userId || userObj?.user_id;
+          if (activeUid) {
+            initUsedWorkouts(activeUid);
+          }
           setHasProfile((userObj.userProfile && userObj.userProfile.name) ? true : false);
           return { accessToken: token };
         }
@@ -877,6 +902,7 @@ export const AuthProvider = ({ children }) => {
       try {
         await auth0.credentialsManager.clearCredentials();
       } catch (_) {}
+      clearUserWorkouts();
       await AsyncStorage.clear();
       store.dispatch({ type: 'USER_LOGOUT' });
     } catch (e) {

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   Image,
   Alert,
   ScrollView,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { G, Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Text as TextSvg } from 'react-native-svg';
+import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../../../context/AuthContext';
 import { useResponsiveMetrics } from '../../../../utils/responsive';
 
@@ -100,16 +103,25 @@ const DietHeader = ({
     fetchNutritionData(newDate, true);
   };
 
-  useEffect(() => {
+  const scrollToActiveDay = useCallback((animated = true) => {
     const activeIdx = calendarDays.findIndex(d => d.active);
-    if (activeIdx !== -1) {
-      const capsuleWidth = 60; // capsule layout item width
-      calendarScrollViewRef.current?.scrollTo({
-        x: activeIdx * capsuleWidth - width / 2 + capsuleWidth / 2,
-        animated: true,
+    if (activeIdx !== -1 && calendarScrollViewRef.current) {
+      const itemStep = capsuleWidth + 8;
+      const targetX = activeIdx * itemStep;
+      calendarScrollViewRef.current.scrollTo({
+        x: targetX,
+        animated,
       });
     }
-  }, [selectedDate, calendarDays]);
+  }, [calendarDays, capsuleWidth]);
+
+  useEffect(() => {
+    scrollToActiveDay(true);
+    const timer = setTimeout(() => {
+      scrollToActiveDay(false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [selectedDate, calendarDays, scrollToActiveDay]);
 
   // SVG parameters for 270-degree partial arcs
   const burnCirc = 2 * Math.PI * 80;
@@ -121,20 +133,19 @@ const DietHeader = ({
   const foodCirc = 2 * Math.PI * 40;
   const foodArcLen = foodCirc * 0.75;
 
-  const getProgressEndCoords = (radius, progress) => {
-    const angleDeg = 135 + (progress * 270);
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const x = 100 + radius * Math.cos(angleRad);
-    const y = 100 + radius * Math.sin(angleRad);
-    return { x, y };
-  };
 
-  const burnEnd = getProgressEndCoords(80, burnProgress);
-  const sleepEnd = getProgressEndCoords(60, sleepProgress);
-  const foodEnd = getProgressEndCoords(40, foodProgress);
+
+
+  // Robust safe-area inset fallback for iOS (notch/dynamic island) & Android
+  const minIosTop = 48;
+  const statusBarHeight = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
+  const effectiveTop = Platform.OS === 'ios'
+    ? Math.max(insets.top || 0, minIosTop)
+    : Math.max(insets.top || 0, statusBarHeight);
+  const headerTopPadding = effectiveTop + (Platform.OS === 'android' ? 16 : 14);
 
   return (
-    <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 10) }]}>
+    <View style={[styles.headerContainer, { paddingTop: headerTopPadding }]}>
       {/* Top Profile + Streak Row */}
       <View style={styles.topRow}>
         <View style={styles.profileCapsule}>
@@ -146,19 +157,33 @@ const DietHeader = ({
             </View>
           )}
           <View style={styles.profileTextContainer}>
-            <Text style={styles.profileName}>{userName}</Text>
+            <Text style={styles.profileName} numberOfLines={1} ellipsizeMode="tail">{userName}</Text>
             <Text style={styles.profileStatus}>Premium User</Text>
           </View>
         </View>
 
         <View style={styles.headerActions}>
           <TouchableOpacity 
-            style={styles.aiBtn} 
             onPress={() => navigation.navigate('WeeklyDietPlan', { recommendation })}
             activeOpacity={0.8}
+            style={styles.aiBtn}
           >
-            <Icon name="sparkles" size={14} color="#7C4DFF" style={{ marginRight: 6 }} />
-            <Text style={styles.aiBtnText}>AI Diet</Text>
+            <LinearGradient
+              colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.aiBtnContent}>
+              <Icon name="sparkles" size={12} color="#FFF" style={styles.aiBtnIcon} />
+              <Text
+                style={styles.aiBtnText}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
+                AI Diet
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -180,7 +205,12 @@ const DietHeader = ({
           ref={calendarScrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.calendarScrollWrapper}
+          contentContainerStyle={[
+            styles.calendarScrollWrapper,
+            { paddingHorizontal: Math.max(16, (width - capsuleWidth) / 2 - 4) },
+          ]}
+          onLayout={() => scrollToActiveDay(false)}
+          onContentSizeChange={() => scrollToActiveDay(false)}
         >
           {calendarDays.map((day, idx) => {
             const isActive = day.active;
@@ -197,9 +227,14 @@ const DietHeader = ({
               >
                 {isActive ? (
                   <>
-                    <View style={styles.activeDayCircle}>
+                    <LinearGradient
+                      colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.activeDayCircle}
+                    >
                       <Text style={styles.activeDayNumber}>{day.date}</Text>
-                    </View>
+                    </LinearGradient>
                     <Text style={styles.activeMonthLabel}>{day.label}</Text>
                   </>
                 ) : (
@@ -221,16 +256,16 @@ const DietHeader = ({
           <Svg width={svgSize} height={svgSize} viewBox="0 0 200 200">
             <Defs>
               <SvgLinearGradient id="burnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#BD93F9" />
-                <Stop offset="100%" stopColor="#7C4DFF" />
+                <Stop offset="0%" stopColor="#FFA048" />
+                <Stop offset="100%" stopColor="#EE822A" />
               </SvgLinearGradient>
               <SvgLinearGradient id="sleepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#FF8E8E" />
-                <Stop offset="100%" stopColor="#FF5E62" />
+                <Stop offset="0%" stopColor="#B388BC" />
+                <Stop offset="100%" stopColor="#8F5D98" />
               </SvgLinearGradient>
               <SvgLinearGradient id="foodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <Stop offset="0%" stopColor="#50B0FF" />
-                <Stop offset="100%" stopColor="#3B72FF" />
+                <Stop offset="0%" stopColor="#5E82E8" />
+                <Stop offset="100%" stopColor="#2E4D9F" />
               </SvgLinearGradient>
             </Defs>
 
@@ -241,7 +276,7 @@ const DietHeader = ({
                 cx="100"
                 cy="100"
                 r="80"
-                stroke="rgba(124, 77, 255, 0.08)"
+                stroke="rgba(238, 130, 42, 0.12)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${burnArcLen} ${burnCirc}`}
@@ -264,7 +299,7 @@ const DietHeader = ({
                 cx="100"
                 cy="100"
                 r="60"
-                stroke="rgba(255, 142, 142, 0.08)"
+                stroke="rgba(143, 93, 152, 0.12)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${sleepArcLen} ${sleepCirc}`}
@@ -287,7 +322,7 @@ const DietHeader = ({
                 cx="100"
                 cy="100"
                 r="40"
-                stroke="rgba(59, 114, 255, 0.08)"
+                stroke="rgba(46, 77, 159, 0.12)"
                 strokeWidth="10"
                 fill="transparent"
                 strokeDasharray={`${foodArcLen} ${foodCirc}`}
@@ -306,16 +341,27 @@ const DietHeader = ({
               />
             </G>
 
-            {/* Tip Percentage Labels */}
-            <TextSvg x={burnEnd.x} y={burnEnd.y + 4} fill="#BD93F9" fontSize="8" fontWeight="bold" textAnchor="middle">
-              {Math.round(burnProgress * 100)}%
-            </TextSvg>
-            <TextSvg x={sleepEnd.x} y={sleepEnd.y + 4} fill="#FF8E8E" fontSize="8" fontWeight="bold" textAnchor="middle">
-              {Math.round(sleepProgress * 100)}%
-            </TextSvg>
-            <TextSvg x={foodEnd.x} y={foodEnd.y + 4} fill="#3B72FF" fontSize="8" fontWeight="bold" textAnchor="middle">
-              {Math.round(foodProgress * 100)}%
-            </TextSvg>
+
+            {/* Center Metrics (Stacked, Perfectly Aligned & High Contrast) */}
+            <G>
+              {/* Burn (Outer Ring) */}
+              <Circle cx="82" cy="79" r="3.5" fill="#EE822A" />
+              <TextSvg x="92" y="79" fill="#FFA048" fontSize="13" fontWeight="bold" textAnchor="start" alignmentBaseline="central">
+                {Math.round(burnProgress * 100)}
+              </TextSvg>
+
+              {/* Sleep (Middle Ring) */}
+              <Circle cx="82" cy="100" r="3.5" fill="#8F5D98" />
+              <TextSvg x="92" y="100" fill="#C084FC" fontSize="13" fontWeight="bold" textAnchor="start" alignmentBaseline="central">
+                {Math.round(sleepProgress * 100)}
+              </TextSvg>
+
+              {/* Food Intake (Inner Ring) */}
+              <Circle cx="82" cy="121" r="3.5" fill="#2E4D9F" />
+              <TextSvg x="92" y="121" fill="#38BDF8" fontSize="13" fontWeight="bold" textAnchor="start" alignmentBaseline="central">
+                {Math.round(foodProgress * 100)}
+              </TextSvg>
+            </G>
           </Svg>
         </View>
 
@@ -323,14 +369,14 @@ const DietHeader = ({
         <View style={styles.legendContainer}>
           {/* Burn Info */}
           <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { backgroundColor: '#7C4DFF' }]} />
+            <View style={[styles.legendBox, { backgroundColor: '#EE822A' }]} />
             <View style={styles.legendTextCol}>
               <Text style={styles.legendLabel}>Burn</Text>
               <Text style={styles.legendSubtext}>Calories Burned</Text>
             </View>
             <View style={styles.legendValueCol}>
               <Text style={styles.legendValText}>
-                <Text style={{ color: '#00E676', fontWeight: 'bold' }}>{burnedCals}</Text>
+                <Text style={{ color: '#EE822A', fontWeight: 'bold' }}>{burnedCals}</Text>
                 <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetBurn}</Text>
               </Text>
               <Text style={styles.legendUnit}>kcal</Text>
@@ -346,14 +392,14 @@ const DietHeader = ({
             })}
             activeOpacity={0.7}
           >
-            <View style={[styles.legendBox, { backgroundColor: '#FF8E8E' }]} />
+            <View style={[styles.legendBox, { backgroundColor: '#8F5D98' }]} />
             <View style={styles.legendTextCol}>
               <Text style={styles.legendLabel}>Sleep</Text>
               <Text style={styles.legendSubtext}>Hours Slept</Text>
             </View>
             <View style={styles.legendValueCol}>
               <Text style={styles.legendValText}>
-                <Text style={{ color: '#BD93F9', fontWeight: 'bold' }}>
+                <Text style={{ color: '#8F5D98', fontWeight: 'bold' }}>
                   {(() => {
                     const num = Number(sleptHours);
                     if (isNaN(num)) return sleptHours;
@@ -368,14 +414,14 @@ const DietHeader = ({
 
           {/* Food Intake Info */}
           <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { backgroundColor: '#3B72FF' }]} />
+            <View style={[styles.legendBox, { backgroundColor: '#2E4D9F' }]} />
             <View style={styles.legendTextCol}>
               <Text style={styles.legendLabel}>Food Intake</Text>
               <Text style={styles.legendSubtext}>Calories Intake</Text>
             </View>
             <View style={styles.legendValueCol}>
               <Text style={styles.legendValText}>
-                <Text style={{ color: '#00E5FF', fontWeight: 'bold' }}>{consumedCals}</Text>
+                <Text style={{ color: '#2E4D9F', fontWeight: 'bold' }}>{consumedCals}</Text>
                 <Text style={{ color: '#FFF', fontWeight: 'bold' }}>/{targetCals}</Text>
               </Text>
               <Text style={styles.legendUnit}>kcal</Text>
@@ -412,23 +458,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 15,
+    marginTop: Platform.OS === 'android' ? 6 : 8,
   },
   profileCapsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(124, 77, 255, 0.12)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(238, 130, 42, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 24,
+    maxWidth: '58%',
+    flexShrink: 1,
   },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    flexShrink: 0,
   },
   profileTextContainer: {
     marginLeft: 10,
+    flexShrink: 1,
   },
   profileName: {
     color: '#FFF',
@@ -444,6 +494,9 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    marginLeft: 8,
   },
   streakBadge: {
     paddingHorizontal: 12,
@@ -460,19 +513,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   aiBtn: {
+    height: 30,
+    minWidth: 80,
+    paddingHorizontal: 11,
+    borderRadius: 15,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#8F5D98',
+  },
+  aiBtnContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(124, 77, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 77, 255, 0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    justifyContent: 'center',
+  },
+  aiBtnIcon: {
+    marginRight: 4,
   },
   aiBtnText: {
     color: '#FFF',
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 15,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   monthNavRow: {
     flexDirection: 'row',
@@ -493,14 +558,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginHorizontal: 20,
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   calendarRow: {
-    paddingHorizontal: 12,
+    width: '100%',
     marginTop: 16,
     marginBottom: 16,
   },
   calendarScrollWrapper: {
-    paddingRight: 20,
+    alignItems: 'center',
   },
   calendarCapsule: {
     width: 52,
@@ -522,7 +588,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#7C4DFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -531,22 +596,28 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   activeMonthLabel: {
-    color: '#7C4DFF',
+    color: '#EE822A',
     fontSize: 10,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   inactiveMonthLabel: {
     color: 'rgba(255, 255, 255, 0.35)',
     fontSize: 9,
     fontWeight: '700',
     marginBottom: 4,
+    textAlign: 'center',
   },
   inactiveDayNumber: {
     color: '#FFF',
     fontSize: 15,
     fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   ringsContainerRow: {
     flexDirection: 'row',

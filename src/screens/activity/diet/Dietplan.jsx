@@ -38,6 +38,7 @@ import DietMacros from './components/DietMacros';
 import DietWaterWidget from './components/DietWaterWidget';
 import DietCameraModal from './components/DietCameraModal';
 import DietDatePickerModal from './components/DietDatePickerModal';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 import DietMealModal from './components/DietMealModal';
 import DietMealSelectionModal from './components/DietMealSelectionModal';
 import { useResponsiveMetrics } from '../../../utils/responsive';
@@ -287,13 +288,20 @@ const Dietplan = ({ navigation, route }) => {
     }
   };
 
+  useEffect(() => {
+    if (reduxHydration?.totalMl !== undefined) {
+      const glasses = Math.round((Math.max(0, reduxHydration.totalMl) / 1000) / 0.25);
+      setHydrateGlasses(glasses);
+    }
+  }, [reduxHydration?.totalMl]);
+
   const loadHydrateGlasses = useCallback(async () => {
     const dateKey = selectedDate
       ? (selectedDate instanceof Date ? selectedDate.toISOString().split('T')[0] : String(selectedDate).split('T')[0])
       : new Date().toISOString().split('T')[0];
     try {
-      if (reduxHydration?.totalMl !== undefined && reduxHydration.totalMl > 0) {
-        const glasses = Math.round((reduxHydration.totalMl / 1000) / 0.25);
+      if (reduxHydration?.totalMl !== undefined) {
+        const glasses = Math.round((Math.max(0, reduxHydration.totalMl) / 1000) / 0.25);
         setHydrateGlasses(glasses);
       } else {
         const savedVal = await AsyncStorage.getItem(`water_intake_${dateKey}`);
@@ -304,11 +312,11 @@ const Dietplan = ({ navigation, route }) => {
     } catch (err) {
       setHydrateGlasses(0);
     }
-  }, [selectedDate, reduxHydration?.totalMl]);
+  }, [selectedDate]);
 
   useEffect(() => {
     loadHydrateGlasses();
-  }, [loadHydrateGlasses, selectedDate, dailySummary]);
+  }, [selectedDate]);
 
   const incrementHydrate = async () => {
     const targetWaterVolume = (reduxHydration?.targetMl && reduxHydration.targetMl !== 2500) ? reduxHydration.targetMl / 1000 : 4.0;
@@ -527,7 +535,7 @@ const Dietplan = ({ navigation, route }) => {
       return () => {
         isMounted = false;
       };
-    }, [navigation, selectedDate, fetchNutritionData, dispatch, loadHydrateGlasses])
+    }, [navigation, selectedDate, fetchNutritionData, dispatch])
   );
 
   useEffect(() => {
@@ -1025,9 +1033,7 @@ const Dietplan = ({ navigation, route }) => {
 
       {checkingAccess ? (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#e74c3c" />
-          <Text style={styles.loadingText}>Verifying subscription...</Text>
-          <Text style={styles.loadingSubtext}>Please wait a moment...</Text>
+          <GlobalLoader size={60} text="Verifying subscription..." subtext="Please wait a moment..." />
         </View>
       ) : !hasAccess ? (
         <View style={styles.lockedContainer}>
@@ -1056,9 +1062,7 @@ const Dietplan = ({ navigation, route }) => {
         </View>
       ) : isNutritionLoading ? (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#e74c3c" />
-          <Text style={styles.loadingText}>Loading nutrition details...</Text>
-          <Text style={styles.loadingSubtext}>Please wait a moment...</Text>
+          <GlobalLoader size={60} text="Loading nutrition details..." subtext="Please wait a moment..." />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>

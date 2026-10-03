@@ -17,6 +17,7 @@ import apiClient from '../../../api/apiClient';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../../context/AuthContext';
 import { getTargetsForUser, fetchNutritionTargets, getCachedBackendTargets } from '../../../utils/nutritionCalculator';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -141,7 +142,7 @@ const AlmostDoneClocheScreen = ({ navigation }) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
-          <ActivityIndicator size="large" color="#A3D9C9" />
+          <GlobalLoader size={70} />
           <Text style={styles.loadingTitle}>Creating your AI Diet Plan...</Text>
           <Text style={styles.loadingSubtitle}>
             Our AI is designing a customized 7-day nutritional program starting from today. This usually takes around 30-45 seconds.

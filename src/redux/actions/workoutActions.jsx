@@ -1,6 +1,14 @@
 import apiClient from '../../api/apiClient';
 import exerciseApi from './exerciseActions';
 import * as types from '../actionTypes/actionTypes';
+import {
+  sortExercisesByAlreadyUsed,
+  recordUsedExercises,
+  recordExercisePerformance,
+  isExerciseUsed,
+  initUsedWorkouts,
+  clearUserWorkouts,
+} from '../../utils/usedWorkoutsManager';
 
 const normalizeFilterList = value => {
   if (!value) return [];
@@ -25,16 +33,17 @@ const mapNameToMuscleAndEquipment = (name, displayName) => {
 
   let target = 'abs';
   if (searchStr.includes('sit-up') || searchStr.includes('crunch') || searchStr.includes('ab_') || searchStr.includes('abdominal') || searchStr.includes('oblique') || searchStr.includes('heel touch')) target = 'abs';
-  else if (searchStr.includes('bicep') || searchStr.includes('curl')) target = 'biceps';
+  else if (searchStr.includes('bicep') || (searchStr.includes('curl') && !searchStr.includes('leg') && !searchStr.includes('hamstring') && !searchStr.includes('wrist'))) target = 'biceps';
   else if (searchStr.includes('calf') || searchStr.includes('calves')) target = 'calves';
   else if (searchStr.includes('squat') || searchStr.includes('lunge') || searchStr.includes('leg') || searchStr.includes('quad') || searchStr.includes('hamstring') || searchStr.includes('glute')) target = 'quads';
   else if (searchStr.includes('push-up') || searchStr.includes('chest') || searchStr.includes('press') || searchStr.includes('bench') || searchStr.includes('pec')) target = 'pectorals';
-  else if (searchStr.includes('back') || searchStr.includes('row') || searchStr.includes('chin-up') || searchStr.includes('pull-up') || searchStr.includes('lat')) target = 'lats';
   else if (searchStr.includes('shoulder') || searchStr.includes('raise') || searchStr.includes('delt')) target = 'delts';
+  else if (searchStr.includes('pulldown') || searchStr.includes('chin-up') || searchStr.includes('pull-up') || searchStr.includes('latissimus') || (searchStr.includes('lat') && !searchStr.includes('lateral') && !searchStr.includes('flat') && !searchStr.includes('platform')) || (searchStr.includes('row') && !searchStr.includes('upright row'))) target = 'lats';
   else if (searchStr.includes('tricep') || searchStr.includes('kickback')) target = 'triceps';
   else if (searchStr.includes('neck')) target = 'neck';
-  else if (searchStr.includes('forearm')) target = 'forearms';
-  else if (searchStr.includes('trap')) target = 'traps';
+  else if (searchStr.includes('forearm') || searchStr.includes('wrist')) target = 'forearms';
+  else if (searchStr.includes('trap') || searchStr.includes('shrug')) target = 'traps';
+  else if (searchStr.includes('back')) target = 'lats';
 
   let equipment = 'body weight';
   if (searchStr.includes('dumbbell')) equipment = 'dumbbell';
@@ -295,18 +304,18 @@ export const normalizeApiExercise = (ex, index = 0) => {
 const muscleSynonyms = {
   abdominals: ['abdominals', 'abs', 'obliques', 'waist', 'core', 'rectus abdominis', 'stomach'],
   abs: ['abdominals', 'abs', 'obliques', 'waist', 'core'],
-  biceps: ['biceps', 'bicep', 'brachialis', 'brachioradialis', 'arms'],
-  chest: ['chest', 'pectoral', 'pectorals', 'upper chest', 'lower chest', 'serratus', 'pecs'],
+  biceps: ['biceps', 'bicep', 'biceps brachii', 'brachialis'],
+  chest: ['chest', 'pectoral', 'pectorals', 'upper chest', 'lower chest', 'serratus', 'pecs', 'serratus anterior'],
   pectorals: ['chest', 'pectoral', 'pectorals', 'upper chest', 'lower chest'],
   forearms: ['forearms', 'forearm', 'wrist flexors', 'wrist extensors', 'brachioradialis'],
-  lats: ['lats', 'latissimus', 'latissimus dorsi', 'back', 'mid back'],
-  'lower back': ['lower back', 'erector spinae', 'back', 'lumbar'],
-  neck: ['neck', 'sternocleidomastoid'],
+  lats: ['lats', 'latissimus', 'latissimus dorsi'],
+  'lower back': ['lower back', 'erector spinae', 'back', 'lumbar', 'spine'],
+  neck: ['neck', 'sternocleidomastoid', 'levator scapulae'],
   shoulders: ['shoulders', 'shoulder', 'deltoids', 'delts', 'anterior deltoid', 'lateral deltoid', 'posterior deltoid'],
   delts: ['shoulders', 'shoulder', 'deltoids', 'delts'],
-  traps: ['traps', 'trapezius', 'upper back'],
-  triceps: ['triceps', 'tricep', 'arms'],
-  'upper back': ['upper back', 'rhomboids', 'infraspinatus', 'teres major', 'back'],
+  traps: ['traps', 'trapezius'],
+  triceps: ['triceps', 'tricep'],
+  'upper back': ['upper back', 'rhomboids', 'infraspinatus', 'teres major'],
   abductors: ['abductors', 'abductor', 'hip abductors', 'gluteus medius', 'tensor fasciae latae'],
   adductors: ['adductors', 'adductor', 'inner thigh', 'groin'],
   calves: ['calves', 'calf', 'gastrocnemius', 'soleus', 'lower leg'],
@@ -314,23 +323,63 @@ const muscleSynonyms = {
   hamstrings: ['hamstrings', 'hamstring', 'biceps femoris', 'semitendinosus'],
   quadriceps: ['quadriceps', 'quads', 'quad', 'rectus femoris', 'thighs'],
   quads: ['quadriceps', 'quads', 'quad', 'rectus femoris', 'thighs'],
-  cardio: ['cardio', 'running', 'jogging', 'jump', 'aerobic'],
+  cardio: ['cardio', 'cardiovascular system', 'running', 'jogging', 'jump', 'aerobic'],
   'full body': ['full body', 'compound', 'functional', 'bodyweight'],
-  back: ['back', 'lats', 'latissimus', 'traps', 'trapezius', 'rhomboids', 'lower back', 'upper back'],
-  legs: ['quads', 'quadriceps', 'hamstrings', 'calves', 'glutes', 'thighs'],
+  back: ['back', 'lats', 'latissimus', 'traps', 'trapezius', 'rhomboids', 'lower back', 'upper back', 'spine'],
+  legs: ['quads', 'quadriceps', 'hamstrings', 'calves', 'glutes', 'thighs', 'upper legs', 'lower legs'],
+  arms: ['biceps', 'triceps', 'forearms', 'upper arms', 'lower arms'],
 };
+
+const BODY_PART_TERMS = new Set([
+  'upper arms', 'lower arms', 'arms',
+  'upper legs', 'lower legs', 'legs',
+  'back', 'chest', 'waist', 'shoulders', 'neck', 'cardio'
+]);
 
 const isMuscleMatch = (exMuscle, filterM) => {
   const m1 = String(exMuscle || '').toLowerCase().trim();
   const m2 = String(filterM || '').toLowerCase().trim();
   if (!m1 || !m2) return false;
-  if (m1.includes(m2) || m2.includes(m1)) return true;
+  if (m1 === m2) return true;
+
+  // Protect against false match between "biceps femoris" (hamstrings) and arm "biceps"
+  if (
+    (m1.includes('biceps femoris') && (m2 === 'biceps' || m2 === 'bicep' || m2.includes('biceps brachii'))) ||
+    (m2.includes('biceps femoris') && (m1 === 'biceps' || m1 === 'bicep' || m1.includes('biceps brachii')))
+  ) {
+    return false;
+  }
+
+  // Protect against false match between "lateral" / "flat" / "platform" and "lat" / "lats"
+  if (
+    ((m1.includes('lateral') || m1.includes('flat') || m1.includes('platform') || m1.includes('unilateral')) && (m2 === 'lats' || m2 === 'lat')) ||
+    ((m2.includes('lateral') || m2.includes('flat') || m2.includes('platform') || m2.includes('unilateral')) && (m1 === 'lats' || m1 === 'lat'))
+  ) {
+    return false;
+  }
 
   const synonyms1 = muscleSynonyms[m2] || [];
-  if (synonyms1.some(syn => m1.includes(syn) || syn.includes(m1))) return true;
+  if (synonyms1.includes(m1)) return true;
 
   const synonyms2 = muscleSynonyms[m1] || [];
-  if (synonyms2.some(syn => m2.includes(syn) || syn.includes(m2))) return true;
+  if (synonyms2.includes(m2)) return true;
+
+  if (m1.includes(m2) || m2.includes(m1)) {
+    if (
+      (m1.includes('biceps femoris') || m2.includes('biceps femoris')) &&
+      (m1 === 'biceps' || m2 === 'biceps' || m1 === 'bicep' || m2 === 'bicep')
+    ) {
+      return false;
+    }
+    // Prevent "lat" or "lats" from matching words like "lateral", "flat", "platform"
+    if (m2 === 'lat' || m2 === 'lats') {
+      return /\b(lat|lats|latissimus)\b/i.test(m1);
+    }
+    if (m1 === 'lat' || m1 === 'lats') {
+      return /\b(lat|lats|latissimus)\b/i.test(m2);
+    }
+    return true;
+  }
 
   return false;
 };
@@ -361,13 +410,22 @@ const isEquipmentMatch = (exEquipment, filterEq) => {
 export const fetchExercises = (params = {}) => async (dispatch) => {
   dispatch({ type: types.WORKOUT_GET_EXERCISES_REQUEST, payload: { isLoadMore: params.isLoadMore } });
   try {
-    // Filter by muscles / body parts
+    // Target muscles filter
     const filterMuscles = [];
-    const rawMuscles = params.targetMuscles || params.muscles || params.bodyParts || params.muscle || [];
+    const rawMuscles = params.targetMuscles || params.muscles || params.muscle || [];
     const muscleList = Array.isArray(rawMuscles) ? rawMuscles : String(rawMuscles).split(',');
     muscleList.forEach(tm => {
       const cleaned = tm.trim().toLowerCase();
       if (cleaned && !cleaned.includes('all muscle')) filterMuscles.push(cleaned);
+    });
+
+    // Body parts filter (if explicitly passed, e.g. for level body parts)
+    const filterBodyParts = [];
+    const rawBodyParts = params.bodyParts || [];
+    const bodyPartList = Array.isArray(rawBodyParts) ? rawBodyParts : String(rawBodyParts).split(',');
+    bodyPartList.forEach(bp => {
+      const cleaned = bp.trim().toLowerCase();
+      if (cleaned && !cleaned.includes('all body')) filterBodyParts.push(cleaned);
     });
 
     // Filter by equipment
@@ -389,14 +447,25 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
 
     // Apply search query filtering across name, target, body parts, and equipments
     if (searchQuery) {
-      filteredList = filteredList.filter(ex =>
-        (ex.name || '').toLowerCase().includes(searchQuery) ||
-        (ex.target || '').toLowerCase().includes(searchQuery) ||
-        (ex.equipment || '').toLowerCase().includes(searchQuery) ||
-        (ex.targetMuscles || []).some(m => m.toLowerCase().includes(searchQuery)) ||
-        (ex.bodyParts || []).some(bp => bp.toLowerCase().includes(searchQuery)) ||
-        (ex.equipments || []).some(eq => eq.toLowerCase().includes(searchQuery))
-      );
+      const isLatQuery = searchQuery === 'lat' || searchQuery === 'lats';
+      filteredList = filteredList.filter(ex => {
+        if (isLatQuery) {
+          const latRegex = /\b(lat|lats|latissimus)\b/i;
+          return (
+            latRegex.test(ex.name || '') ||
+            latRegex.test(ex.target || '') ||
+            (ex.targetMuscles || []).some(m => latRegex.test(m))
+          );
+        }
+        return (
+          (ex.name || '').toLowerCase().includes(searchQuery) ||
+          (ex.target || '').toLowerCase().includes(searchQuery) ||
+          (ex.equipment || '').toLowerCase().includes(searchQuery) ||
+          (ex.targetMuscles || []).some(m => m.toLowerCase().includes(searchQuery)) ||
+          (ex.bodyParts || []).some(bp => bp.toLowerCase().includes(searchQuery)) ||
+          (ex.equipments || []).some(eq => eq.toLowerCase().includes(searchQuery))
+        );
+      });
     }
 
     // Apply equipment filtering
@@ -407,15 +476,38 @@ export const fetchExercises = (params = {}) => async (dispatch) => {
       );
     }
 
-    // Apply muscle filtering
+    // Apply target muscle filtering
     if (filterMuscles.length > 0) {
+      filteredList = filteredList.filter(ex => {
+        // Direct target muscle match
+        const matchesTarget =
+          (ex.targetMuscles || []).some(m => filterMuscles.some(filterM => isMuscleMatch(m, filterM))) ||
+          (ex.target && filterMuscles.some(filterM => isMuscleMatch(ex.target, filterM)));
+        if (matchesTarget) return true;
+
+        // If the filter term is a recognized broader body part term (e.g. 'arms', 'legs', 'back'), check bodyParts
+        const matchesBodyPart = filterMuscles.some(filterM => {
+          const fLower = filterM.toLowerCase().trim();
+          if (!BODY_PART_TERMS.has(fLower)) return false;
+          return (
+            (ex.bodyParts || []).some(bp => isMuscleMatch(bp, fLower)) ||
+            (ex.bodyPart && isMuscleMatch(ex.bodyPart, fLower))
+          );
+        });
+        return matchesBodyPart;
+      });
+    }
+
+    // Apply explicit body part filtering (when specifically passed in params)
+    if (filterBodyParts.length > 0) {
       filteredList = filteredList.filter(ex =>
-        (ex.targetMuscles || []).some(m => filterMuscles.some(filterM => isMuscleMatch(m, filterM))) ||
-        (ex.bodyParts || []).some(bp => filterMuscles.some(filterM => isMuscleMatch(bp, filterM))) ||
-        (ex.target && filterMuscles.some(filterM => isMuscleMatch(ex.target, filterM))) ||
-        (ex.bodyPart && filterMuscles.some(filterM => isMuscleMatch(ex.bodyPart, filterM)))
+        (ex.bodyParts || []).some(bp => filterBodyParts.some(filterBp => isMuscleMatch(bp, filterBp))) ||
+        (ex.bodyPart && filterBodyParts.some(filterBp => isMuscleMatch(ex.bodyPart, filterBp)))
       );
     }
+
+    // Prioritize already used workouts/exercises at the very beginning (even when filtered by muscles)
+    filteredList = sortExercisesByAlreadyUsed(filteredList);
 
     const totalCount = filteredList.length;
     let paginatedList = filteredList;
@@ -478,7 +570,8 @@ export const fetchBodyParts = () => async (dispatch) => {
 const mapRawMuscleToCleanName = (rawName) => {
   if (!rawName) return '';
   const s = String(rawName).toLowerCase().trim();
-  if (s.includes('bicep') || s.includes('brachialis') || s.includes('brachioradialis')) return 'Biceps';
+  if (s.includes('hamstring') || s.includes('biceps femoris') || s.includes('semitendinosus')) return 'Hamstrings';
+  if (s.includes('bicep') || s.includes('brachialis')) return 'Biceps';
   if (s.includes('tricep')) return 'Triceps';
   if (s.includes('deltoid')) return 'Shoulders';
   if (s.includes('pectoral') || s.includes('pec ')) return 'Chest';
@@ -489,11 +582,10 @@ const mapRawMuscleToCleanName = (rawName) => {
   if (s.includes('abdomin') || s.includes('oblique') || s.includes('rectus')) return 'Abdominals';
   if (s.includes('glute')) return 'Glutes';
   if (s.includes('quadriceps') || s.includes('rectus femoris')) return 'Quadriceps';
-  if (s.includes('hamstring') || s.includes('biceps femoris') || s.includes('semitendinosus')) return 'Hamstrings';
   if (s.includes('gastrocnemius') || s.includes('soleus') || s.includes('calf') || s.includes('calves')) return 'Calves';
   if (s.includes('adductor') || s.includes('pectineus') || s.includes('gracilis')) return 'Adductors';
   if (s.includes('abductor') || s.includes('tensor fasciae')) return 'Abductors';
-  if (s.includes('forearm') || s.includes('flexor') || s.includes('extensor')) return 'Forearms';
+  if (s.includes('forearm') || s.includes('flexor') || s.includes('extensor') || s.includes('brachioradialis')) return 'Forearms';
   if (s.includes('neck') || s.includes('sternocleidomastoid')) return 'Neck';
   return s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 };
@@ -585,6 +677,10 @@ export const logWorkoutSession = (sessionData) => async (dispatch) => {
   dispatch({ type: types.WORKOUT_LOG_SESSION_REQUEST });
   try {
     const response = await apiClient.post('/workouts/sessions', sessionData);
+    if (sessionData?.exercises || sessionData?.templateExercises) {
+      recordUsedExercises(sessionData.exercises || sessionData.templateExercises);
+      recordExercisePerformance(sessionData.exercises || sessionData.templateExercises);
+    }
     dispatch({
       type: types.WORKOUT_LOG_SESSION_SUCCESS,
       payload: response.data.data,
@@ -617,6 +713,27 @@ export const deleteWorkoutSession = (sessionId) => async (dispatch) => {
       type: types.WORKOUT_DELETE_SESSION_FAILURE,
       payload: errorMessage,
     });
+    throw errorMessage;
+  }
+};
+
+export const updateWorkoutSession = (sessionId, updateData) => async (dispatch) => {
+  try {
+    const response = await apiClient.put(`/workouts/sessions/${sessionId}`, updateData);
+    const data = response.data?.data || response.data;
+    if (data && data.user) {
+      const userProfile = data.user.userProfile;
+      data.user = {
+        ...data.user,
+        name: data.user.name || userProfile?.name || [data.user.firstName, data.user.lastName].filter(Boolean).join(' ') || userProfile?.username || null,
+        username: data.user.username || userProfile?.username || (data.user.email ? data.user.email.split('@')[0] : null),
+        avatar: data.user.avatar || userProfile?.profileImage || null,
+      };
+    }
+    return data;
+  } catch (error) {
+    console.error('API Error in updateWorkoutSession:', error);
+    const errorMessage = error.response?.data || new Error('Server error updating workout session.');
     throw errorMessage;
   }
 };
@@ -678,6 +795,9 @@ export const saveCustomWorkoutTemplate = (folderName, workouts) => async (dispat
       })),
     }));
     const response = await apiClient.post('/workouts/sessions/custom-templates', { folderName, workouts: formattedWorkouts });
+    (workouts || []).forEach(wk => {
+      if (wk.exercises) recordUsedExercises(wk.exercises);
+    });
     return response.data.data;
   } catch (error) {
     console.error('API Error:', error);
@@ -690,6 +810,14 @@ export const getCustomWorkoutTemplates = () => async (dispatch) => {
     const response = await apiClient.get('/workouts/sessions/custom-templates');
     const data = response.data.data;
     if (Array.isArray(data)) {
+      data.forEach(folder => {
+        (folder.workouts || []).forEach(wk => {
+          const exList = wk.exercises || wk.workoutExercises || [];
+          if (Array.isArray(exList) && exList.length > 0) {
+            recordUsedExercises(exList);
+          }
+        });
+      });
       return data.map(folder => ({
         ...folder,
         workouts: (folder.workouts || []).map(wk => ({
@@ -711,6 +839,9 @@ export const getCustomWorkoutTemplates = () => async (dispatch) => {
 
 export const updateCustomWorkoutTemplate = (templateId, exercises) => async (dispatch) => {
   try {
+    if (Array.isArray(exercises) && exercises.length > 0) {
+      recordUsedExercises(exercises);
+    }
     const formattedExercises = (exercises || []).map(ex => ({
       ...ex,
       imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || ex.gifUrl || null,
@@ -750,6 +881,21 @@ export const fetchWorkoutHistory = (params = {}) => async (dispatch) => {
     const queryParams = new URLSearchParams(params).toString();
     const url = `/workouts/sessions${queryParams ? `?${queryParams}` : ''}`;
     const response = await apiClient.get(url);
+    const sessions = response.data?.data || response.data || [];
+    if (Array.isArray(sessions)) {
+      sessions.forEach(sess => {
+        const dateMs = sess.date ? new Date(sess.date).getTime() : Date.now();
+        if (Array.isArray(sess.logs)) recordExercisePerformance(sess.logs, dateMs);
+        if (Array.isArray(sess.exercises)) recordExercisePerformance(sess.exercises, dateMs);
+        (sess.logs || []).forEach(l => {
+          if (l.exercise) recordUsedExercises([l.exercise], dateMs);
+          else if (l.exerciseId) recordUsedExercises([{ id: l.exerciseId, name: l.exerciseName || '' }], dateMs);
+        });
+        if (Array.isArray(sess.exercises)) {
+          recordUsedExercises(sess.exercises, dateMs);
+        }
+      });
+    }
     dispatch({
       type: types.WORKOUT_GET_HISTORY_SUCCESS,
       payload: response.data,
@@ -763,4 +909,12 @@ export const fetchWorkoutHistory = (params = {}) => async (dispatch) => {
     });
     throw error.response?.data || new Error('Server error.');
   }
+};
+
+export {
+  sortExercisesByAlreadyUsed,
+  recordUsedExercises,
+  isExerciseUsed,
+  initUsedWorkouts,
+  clearUserWorkouts,
 };

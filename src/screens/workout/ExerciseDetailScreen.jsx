@@ -5,12 +5,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   Dimensions,
   ActivityIndicator,
-  Image
+  Image,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Video from 'react-native-video';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -21,6 +22,7 @@ import {
   resolveExerciseAnimationUri,
   getExerciseMuscleFallback
 } from '../../redux/actions/workoutActions';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const isVideoMedia = (url) => {
   if (!url || typeof url !== 'string') return false;
@@ -76,10 +78,10 @@ const ExerciseDetailScreen = () => {
 
   if (!exercise) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor="#0F0F12" />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()} activeOpacity={0.75}>
             <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <Path d="M15 19L8 12L15 5" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -88,8 +90,7 @@ const ExerciseDetailScreen = () => {
           <View style={{ width: 40 }} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#7C3AED" />
-          <Text style={{ color: '#FFFFFF', marginTop: 12 }}>Loading exercise details...</Text>
+          <GlobalLoader size={60} text="Loading exercise details..." />
         </View>
       </SafeAreaView>
     );
@@ -116,12 +117,12 @@ const ExerciseDetailScreen = () => {
   const hasAnimatedGif = !!animatedGifUri && !imageError;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#0F0F12" />
 
       {/* Header Row */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()} activeOpacity={0.75}>
           <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <Path d="M15 19L8 12L15 5" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
@@ -305,7 +306,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     backgroundColor: '#0F0F12',
     borderBottomWidth: 1,
     borderBottomColor: '#1E1E24'
@@ -316,7 +318,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
-    backgroundColor: '#1E1E24'
+    backgroundColor: 'rgba(255, 255, 255, 0.1)'
   },
   headerTitle: {
     color: '#FFFFFF',

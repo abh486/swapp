@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Chargebee from '@chargebee/react-native-chargebee';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -23,6 +23,7 @@ import {
   getSubscriptionDetails as getAIDietSubscription,
   cancelSubscription as cancelAIDietSubscription,
 } from '../../services/aiDieticianService';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -88,7 +89,7 @@ const SmallActionBtn = ({ label, icon, onPress, variant = 'ghost', loading = fal
       activeOpacity={0.7}
     >
       {loading
-        ? <ActivityIndicator size="small" color={c.text} />
+        ? <GlobalLoader size={16} />
         : <>
           {icon ? <Icon name={icon} size={13} color={c.text} style={{ marginRight: 5 }} /> : null}
           <Text style={[styles.smallBtnText, { color: c.text }]}>{label}</Text>
@@ -473,26 +474,34 @@ const ManageSubscriptionsScreen = ({ navigation }) => {
   const totalActive = gymSubs.length + (aiSub ? 1 : 0);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Icon name="chevron-back" size={24} color="#FFF" />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginLeft: 6 }}>
           <Text style={styles.headerTitle}>Subscriptions</Text>
           {!loading && <Text style={styles.headerCount}>{totalActive} active plan{totalActive !== 1 ? 's' : ''}</Text>}
         </View>
-        <TouchableOpacity onPress={() => loadData(true)} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Icon name="refresh-outline" size={20} color="#888" />
+        <TouchableOpacity
+          onPress={() => loadData(true)}
+          style={styles.headerBtn}
+          activeOpacity={0.75}
+        >
+          <Icon name="refresh-outline" size={20} color="rgba(255, 255, 255, 0.7)" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color="#e74c3c" />
+          <GlobalLoader size={60} />
         </View>
       ) : (
         <ScrollView
@@ -546,13 +555,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: Platform.OS === 'android' ? 26 : 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  headerBtn: { padding: 4 },
-  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', marginLeft: 8 },
-  headerCount: { color: '#555', fontSize: 11, marginLeft: 8, marginTop: 1 },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  headerCount: { color: '#888', fontSize: 11, marginTop: 1 },
 
   loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

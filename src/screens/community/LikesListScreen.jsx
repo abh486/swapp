@@ -14,6 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import apiClient from '../../api/apiClient';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const LikesListScreen = () => {
   const navigation = useNavigation();
@@ -108,7 +109,7 @@ const LikesListScreen = () => {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#5E5CE6" />
+          <GlobalLoader size={60} />
         </View>
       ) : (
         <FlatList

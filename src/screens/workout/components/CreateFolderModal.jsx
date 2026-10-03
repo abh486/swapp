@@ -11,6 +11,7 @@ import {
   ScrollView,
   FlatList,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -146,8 +147,6 @@ const AnimatedTextInputField = ({ value, onChangeText, placeholder }) => {
     );
   };
 
-  const characters = value ? value.split('') : [];
-
   return (
     <Animated.View
       style={[
@@ -156,33 +155,15 @@ const AnimatedTextInputField = ({ value, onChangeText, placeholder }) => {
         containerStyle,
       ]}
     >
-      <View style={styles.animatedTextOverlay} pointerEvents="none">
-        {characters.length === 0 ? (
-          <Text style={styles.placeholderText}>{placeholder}</Text>
-        ) : (
-          <View style={styles.charRow}>
-            {characters.map((char, index) => (
-              <Animated.Text
-                key={`${index}-${char}`}
-                entering={FadeInDown.duration(180).springify().stiffness(220)}
-                style={styles.animatedCharText}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </Animated.Text>
-            ))}
-          </View>
-        )}
-      </View>
-
       <TextInput
-        style={styles.hiddenTextInput}
-        placeholder=""
+        style={styles.folderTextInput}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(255, 255, 255, 0.3)"
         value={value}
         onChangeText={handleChangeText}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        caretHidden={false}
-        selectionColor="rgba(255,255,255,0.6)"
+        selectionColor="rgba(255, 255, 255, 0.6)"
       />
 
       {value.length > 0 && (
@@ -332,6 +313,20 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
   const [folderCustomDuration, setFolderCustomDuration] = useState('');
 
   const flatListRef = useRef(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -341,6 +336,7 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
       setFolderEquipment('');
       setFolderDuration('');
       setFolderCustomDuration('');
+      setIsKeyboardVisible(false);
     }
   }, [visible]);
 
@@ -414,12 +410,16 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
     >
       <View style={styles.modalOverlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 160 : 0}
           style={styles.modalKeyboardAvoiding}
         >
           <Animated.View
             entering={ZoomIn.duration(280).springify()}
-            style={styles.modalContentLarge}
+            style={[
+              styles.modalContentLarge,
+              isKeyboardVisible && { maxHeight: '80%' }
+            ]}
           >
             <Animated.View entering={FadeInDown.delay(50).duration(280)} style={styles.modalHeader}>
               <View>
@@ -443,7 +443,11 @@ export const CreateFolderModal = ({ visible, onClose, onCreateFolder }) => {
               </TouchableOpacity>
             </Animated.View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: hp(62) }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: isKeyboardVisible ? hp(38) : hp(62) }}
+              keyboardShouldPersistTaps="handled"
+            >
               <Animated.View entering={FadeInDown.delay(80).duration(300)} style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>FOLDER NAME</Text>
                 <AnimatedTextInputField
@@ -719,6 +723,7 @@ const styles = StyleSheet.create({
   modalKeyboardAvoiding: {
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalContentLarge: {
     width: '92%',
@@ -789,32 +794,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.35)',
     backgroundColor: 'rgba(12, 12, 20, 0.7)',
   },
-  animatedTextOverlay: {
-    position: 'absolute',
-    left: 16,
-    right: 40,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  charRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'nowrap',
-  },
-  animatedCharText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  hiddenTextInput: {
+  folderTextInput: {
     flex: 1,
-    color: 'transparent',
+    color: '#FFFFFF',
     paddingHorizontal: 16,
     fontSize: 15,
     fontWeight: '600',

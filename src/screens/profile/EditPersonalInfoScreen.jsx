@@ -6,16 +6,107 @@ import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, Scro
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { ImageCropperModal } from '../../components/ImageCropperModal';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import * as Clarity from '../../utils/clarity';
 
+const GOAL_OPTIONS = [
+  'Lose Weight',
+  'Build muscle',
+  'Strength & Muscle',
+  'Endurance',
+  'Mobility',
+  'Flexibility',
+  'Boost energy',
+  'Stress relief',
+  'Sports performance',
+];
+
+const FOCUS_AREA_OPTIONS = [
+  'Shoulders',
+  'Arms',
+  'Legs',
+  'Core',
+  'Back',
+  'Chest',
+  'Full Body',
+];
+
+const INTEREST_OPTIONS = [
+  'Gym Workouts',
+  'Running',
+  'Yoga',
+  'Cycling',
+  'Swimming',
+  'HIIT',
+  'Pilates',
+  'Hiking',
+  'Football',
+  'Basketball',
+  'Meditation',
+  'Boxing',
+];
+
+const ACTIVITY_LEVEL_OPTIONS = [
+  { label: 'Sedentary (Little or no exercise)', code: 'sedentary' },
+  { label: 'Light (1-3 days / week)', code: 'light' },
+  { label: 'Moderate (3-5 days / week)', code: 'moderate' },
+  { label: 'Active (6-7 days / week)', code: 'active' },
+  { label: 'Very Active (Athlete / 2x daily)', code: 'very_active' },
+];
+
+const getActivityLevelLabel = (code) => {
+  if (!code) return 'Select Activity Level';
+  const found = ACTIVITY_LEVEL_OPTIONS.find(o => o.code === code || o.label === code);
+  if (found) return found.label;
+  return String(code).charAt(0).toUpperCase() + String(code).slice(1);
+};
+
+const normalizeMultiSelectItem = (item) => {
+  if (typeof item !== 'string') return item;
+  const trimmed = item.trim();
+  if (trimmed.toLowerCase() === 'abs') return 'Core';
+
+  const matchedFocus = FOCUS_AREA_OPTIONS.find(o => o.toLowerCase() === trimmed.toLowerCase());
+  if (matchedFocus) return matchedFocus;
+
+  const matchedGoal = GOAL_OPTIONS.find(o => o.toLowerCase() === trimmed.toLowerCase());
+  if (matchedGoal) return matchedGoal;
+
+  const matchedInterest = INTEREST_OPTIONS.find(o => o.toLowerCase() === trimmed.toLowerCase());
+  if (matchedInterest) return matchedInterest;
+
+  return trimmed;
+};
+
+const parseMultiSelect = (val) => {
+  if (!val) return [];
+  let items = [];
+  if (Array.isArray(val)) {
+    items = val.filter(Boolean);
+  } else if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) items = parsed.filter(Boolean);
+    } catch {}
+    if (items.length === 0) {
+      items = val.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  return items.map(normalizeMultiSelectItem);
+};
+
 const OPTION_FIELDS = {
   gender: ['Male', 'Female', 'Other'],
   foodPreference: ['veg', 'non-veg', 'vegan'],
   fitnessLevel: ['Beginner', 'Intermediate', 'Advanced', 'Professional'],
+  activityLevel: ACTIVITY_LEVEL_OPTIONS,
+  fitnessGoal: GOAL_OPTIONS,
+  focusAreas: FOCUS_AREA_OPTIONS,
+  interests: INTEREST_OPTIONS,
 };
 
 const COUNTRY_CODES = [
@@ -157,6 +248,19 @@ const COUNTRY_CODES = [
   { label: '🇿🇲 +260 (Zambia)', code: '+260' },
   { label: '🇿🇼 +263 (Zimbabwe)', code: '+263' },
 ];
+
+const COUNTRY_OPTIONS = COUNTRY_CODES.map(c => {
+  const match = c.label.match(/\(([^)]+)\)/);
+  const countryName = match ? match[1] : c.label;
+  const flag = c.label.split(' ')[0] || '';
+  return {
+    label: `${flag}  ${countryName}`,
+    countryName: countryName,
+    code: countryName,
+    countryCode: c.code,
+    flag: flag,
+  };
+}).sort((a, b) => a.countryName.localeCompare(b.countryName));
 
 const getValue = (profile, keys, fallback = '') => {
   for (const key of keys) {
@@ -434,6 +538,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
 
   const [saving, setSaving] = useState(false);
   const [pickerField, setPickerField] = useState(null);
+  const [pickerSearchQuery, setPickerSearchQuery] = useState('');
 
   const toastAnim = useRef(new Animated.Value(-100)).current;
   const [toastState, setToastState] = useState({
@@ -470,7 +575,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     return parsePhoneAndCountryCode({ phone: phoneVal, countryCode: countryCodeVal });
   }, [profile, user]);
 
-  const rawInitialEmail = user?.email || user?.user?.email || getValue(profile, ['email', 'emailAddress'], user?.userProfile?.email || user?.memberProfile?.email || '');
+    const rawInitialEmail = user?.email || user?.user?.email || getValue(profile, ['email', 'emailAddress'], user?.userProfile?.email || user?.memberProfile?.email || '');
   const initialEmail = filterApplePrivateRelayEmail(rawInitialEmail);
 
   const [form, setForm] = useState({
@@ -482,8 +587,37 @@ const EditPersonalInfoScreen = ({ navigation }) => {
       getValue(profile, ['dateOfBirth', 'dob', 'birthDate'], '') ||
       getValue(user, ['dateOfBirth', 'dob', 'birthDate'], '')
     ),
+    age: String(profile?.age || user?.age || ''),
+    height: getMetricValue(profile, 'height') || getMetricValue(user, 'height') || '',
+    weight: getMetricValue(profile, 'weight') || getMetricValue(user, 'weight') || '',
+    heightUnit: profile?.height?.unit || user?.height?.unit || 'CM',
+    weightUnit: profile?.weight?.unit || user?.weight?.unit || 'KG',
+    fitnessGoal: parseMultiSelect(profile?.fitnessGoal || user?.fitnessGoal || profile?.goals || user?.goals),
+    focusAreas: parseMultiSelect(
+      profile?.focusAreas ||
+      user?.focusAreas ||
+      profile?.focusArea ||
+      user?.focusArea ||
+      profile?.focus_areas ||
+      user?.focus_areas ||
+      profile?.targetAreas ||
+      user?.targetAreas ||
+      profile?.focus ||
+      user?.focus ||
+      user?.userProfile?.focusAreas ||
+      user?.memberProfile?.focusAreas
+    ),
+    interests: parseMultiSelect(
+      profile?.interests ||
+      profile?.healthConditions ||
+      user?.interests ||
+      user?.healthConditions ||
+      user?.userProfile?.interests ||
+      user?.memberProfile?.interests
+    ),
+    activityLevel: getValue(profile, ['activityLevel'], user?.activityLevel || ''),
     foodPreference: getValue(profile, ['foodPreference', 'dietPreference'], '') || getValue(user, ['foodPreference', 'dietPreference'], ''),
-    fitnessLevel: getValue(profile, ['fitnessLevel', 'level', 'activityLevel'], '') || getValue(user, ['fitnessLevel', 'level', 'activityLevel'], ''),
+    fitnessLevel: getValue(profile, ['fitnessLevel', 'level'], '') || getValue(user, ['fitnessLevel', 'level'], ''),
     countryCode: parsedPhone.countryCode,
     phone: parsedPhone.phone,
     email: initialEmail,
@@ -491,6 +625,18 @@ const EditPersonalInfoScreen = ({ navigation }) => {
   });
 
   const phoneMaxLength = useMemo(() => getCountryPhoneDigitLimit(form.countryCode), [form.countryCode]);
+
+  const toggleArrayItem = (field, item) => {
+    setForm(prev => {
+      const current = Array.isArray(prev[field]) ? prev[field] : [];
+      const itemLower = String(item).toLowerCase();
+      const exists = current.some(x => String(x).toLowerCase() === itemLower);
+      const updated = exists
+          ? current.filter(x => String(x).toLowerCase() !== itemLower)
+          : [...current, item];
+      return { ...prev, [field]: updated };
+    });
+  };
 
   const completionInfo = useMemo(() => {
     const fields = [
@@ -500,6 +646,10 @@ const EditPersonalInfoScreen = ({ navigation }) => {
       { label: 'Bio', isFilled: Boolean(form.bio && form.bio.trim().length > 0) },
       { label: 'Gender', isFilled: Boolean(form.gender && form.gender.trim().length > 0) },
       { label: 'Date of Birth', isFilled: Boolean(form.dateOfBirth && form.dateOfBirth.trim().length > 0) },
+      { label: 'Height', isFilled: Boolean(form.height && String(form.height).trim().length > 0) },
+      { label: 'Weight', isFilled: Boolean(form.weight && String(form.weight).trim().length > 0) },
+      { label: 'Activity Level', isFilled: Boolean(form.activityLevel && form.activityLevel.trim().length > 0) },
+      { label: 'Fitness Goals', isFilled: Boolean(form.fitnessGoal && form.fitnessGoal.length > 0) },
       { label: 'Food Preference', isFilled: Boolean(form.foodPreference && form.foodPreference.trim().length > 0) },
       { label: 'Fitness Level', isFilled: Boolean(form.fitnessLevel && form.fitnessLevel.trim().length > 0) },
       { label: 'Phone Number', isFilled: Boolean(form.phone && form.phone.trim().length >= (phoneMaxLength || 10)) },
@@ -550,6 +700,112 @@ const EditPersonalInfoScreen = ({ navigation }) => {
   }, [user]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadProfileData = async () => {
+      // 1. Try local caches first (instant UI populate)
+      try {
+        const cachedMetricsStr = await AsyncStorage.getItem('member_profile_metrics');
+        if (cachedMetricsStr && isMounted) {
+          const parsed = JSON.parse(cachedMetricsStr);
+          const cachedFocus = parsed.focusAreas || parsed.focusArea || parsed.focus_areas || parsed.targetAreas || parsed.focus;
+          const cachedInterests = parsed.interests || parsed.healthConditions;
+          setForm(prev => ({
+            ...prev,
+            height: prev.height || parsed.height || '',
+            weight: prev.weight || parsed.weight || '',
+            activityLevel: prev.activityLevel || parsed.activityLevel || '',
+            fitnessGoal: prev.fitnessGoal && prev.fitnessGoal.length > 0 ? prev.fitnessGoal : parseMultiSelect(parsed.fitnessGoal),
+            focusAreas: prev.focusAreas && prev.focusAreas.length > 0 ? prev.focusAreas : parseMultiSelect(cachedFocus),
+            interests: prev.interests && prev.interests.length > 0 ? prev.interests : parseMultiSelect(cachedInterests),
+            age: prev.age || parsed.age || '',
+          }));
+        }
+
+        const userProfileStr = await AsyncStorage.getItem('userProfile');
+        if (userProfileStr && isMounted) {
+          const u = JSON.parse(userProfileStr);
+          const p = u?.userProfile || u?.memberProfile || u;
+          const savedFocus = p?.focusAreas || p?.focusArea || p?.focus_areas || p?.targetAreas || u?.focusAreas || u?.focus_areas;
+          const savedInterests = p?.interests || p?.healthConditions || u?.interests || u?.healthConditions;
+          const savedGoals = p?.fitnessGoal || p?.goals || u?.fitnessGoal;
+          setForm(prev => ({
+            ...prev,
+            focusAreas: prev.focusAreas && prev.focusAreas.length > 0 ? prev.focusAreas : parseMultiSelect(savedFocus),
+            interests: prev.interests && prev.interests.length > 0 ? prev.interests : parseMultiSelect(savedInterests),
+            fitnessGoal: prev.fitnessGoal && prev.fitnessGoal.length > 0 ? prev.fitnessGoal : parseMultiSelect(savedGoals),
+          }));
+        }
+      } catch (e) {
+        console.log('[EditPersonalInfoScreen] Local cache load error:', e);
+      }
+
+      // 2. Fetch authoritative profile from backend
+      const getEndpoints = ['/users/profile', '/profile', '/v1/auth/user-profile'];
+      for (const endpoint of getEndpoints) {
+        try {
+          const resp = await apiClient.get(endpoint);
+          const raw = resp.data?.data || resp.data;
+          const fullData = raw?.userProfile || raw?.memberProfile || raw?.user || raw?.profile || raw;
+          if (fullData && isMounted) {
+            console.log('[EditPersonalInfoScreen] Authoritative profile fetched from', endpoint);
+            const apiFocus = fullData.focusAreas || fullData.focusArea || fullData.focus_areas || fullData.targetAreas || fullData.focus;
+            const apiGoals = fullData.fitnessGoal || fullData.fitnessGoals || fullData.goals;
+            const apiInterests = fullData.interests || fullData.healthConditions || fullData.activities;
+            const apiFood = fullData.foodPreference || fullData.dietPreference;
+            const apiFitnessLevel = fullData.fitnessLevel || fullData.level;
+            const apiActivityLevel = fullData.activityLevel;
+            const apiHeight = getMetricValue(fullData, 'height');
+            const apiWeight = getMetricValue(fullData, 'weight');
+            const apiDob = fullData.dateOfBirth || fullData.dob || fullData.birthDate;
+
+            const parsedFocus = parseMultiSelect(apiFocus);
+            const parsedGoals = parseMultiSelect(apiGoals);
+            const parsedInterests = parseMultiSelect(apiInterests);
+
+            setForm(prev => ({
+              ...prev,
+              name: prev.name || fullData.name || fullData.firstName || '',
+              username: prev.username || fullData.username || '',
+              bio: prev.bio || fullData.bio || fullData.about || fullData.otherInfo || '',
+              gender: prev.gender || fullData.gender || '',
+              dateOfBirth: prev.dateOfBirth || (apiDob ? formatDateForDisplay(apiDob) : ''),
+              height: prev.height || (apiHeight ? String(apiHeight) : ''),
+              weight: prev.weight || (apiWeight ? String(apiWeight) : ''),
+              fitnessGoal: parsedGoals.length > 0 ? parsedGoals : prev.fitnessGoal,
+              focusAreas: parsedFocus.length > 0 ? parsedFocus : prev.focusAreas,
+              interests: parsedInterests.length > 0 ? parsedInterests : prev.interests,
+              activityLevel: prev.activityLevel || apiActivityLevel || '',
+              foodPreference: prev.foodPreference || apiFood || '',
+              fitnessLevel: prev.fitnessLevel || apiFitnessLevel || '',
+              country: prev.country || fullData.country || fullData.countryOfResidence || '',
+            }));
+
+            // Sync into local cache so future screen openings immediately have it
+            try {
+              const currentCache = await AsyncStorage.getItem('member_profile_metrics');
+              const parsedCache = currentCache ? JSON.parse(currentCache) : {};
+              await AsyncStorage.setItem('member_profile_metrics', JSON.stringify({
+                ...parsedCache,
+                focusAreas: parsedFocus.length > 0 ? parsedFocus.join(', ') : parsedCache.focusAreas,
+                interests: parsedInterests.length > 0 ? parsedInterests.join(', ') : parsedCache.interests,
+                fitnessGoal: parsedGoals.length > 0 ? parsedGoals.join(', ') : parsedCache.fitnessGoal,
+              }));
+            } catch (err) {}
+
+            break; // Stop after first successful fetch
+          }
+        } catch (err) {
+          // Fall through to next endpoint
+        }
+      }
+    };
+
+    loadProfileData();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
     const detected = detectUserLocationCountry();
     setForm(prev => {
       const hasSavedCountry = Boolean(profile.country || user.country);
@@ -568,37 +824,76 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     profile.profileImage || profile.profilePicture || profile.profilePhoto || profile.avatar || user?.profileImage || user?.avatar || user?.picture || ''
   );
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [cropperVisible, setCropperVisible] = useState(false);
+  const [photoToCrop, setPhotoToCrop] = useState(null);
+
+  const openImagePicker = (type = 'library') => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: false,
+      quality: 0.9,
+      selectionLimit: 1,
+    };
+
+    const handlePickerResponse = (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        Alert.alert('Image Error', response.errorMessage || 'Could not pick image.');
+        return;
+      }
+      if (response.assets && response.assets.length > 0) {
+        setPhotoToCrop(response.assets[0]);
+        setCropperVisible(true);
+      }
+    };
+
+    if (type === 'camera') {
+      try {
+        launchCamera(options, handlePickerResponse);
+      } catch (err) {
+        Alert.alert('Camera Launch Failed', err.message || String(err));
+      }
+    } else {
+      try {
+        launchImageLibrary(options, handlePickerResponse);
+      } catch (err) {
+        Alert.alert('Gallery Launch Failed', err.message || String(err));
+      }
+    }
+  };
 
   const handlePickImage = () => {
-    launchImageLibrary(
-      {
-        mediaType: 'photo',
-        includeBase64: false,
-        maxHeight: 600,
-        maxWidth: 600,
-        quality: 0.8,
-        selectionLimit: 1,
-      },
-      async (response) => {
-        if (response.didCancel) return;
-        if (response.errorCode) {
-          Alert.alert('Image Error', response.errorMessage || 'Could not pick image.');
-          return;
-        }
-        if (response.assets && response.assets.length > 0) {
-          const selectedImage = response.assets[0];
-          setUploadingImage(true);
-          try {
-            const uploadedUrl = await uploadToCloudinary(selectedImage);
-            setProfileImage(uploadedUrl);
-          } catch (error) {
-            Alert.alert('Upload Failed', 'Failed to upload the image. Please try again.');
-          } finally {
-            setUploadingImage(false);
-          }
-        }
-      }
+    Alert.alert(
+      'Profile Photo',
+      'Choose how you would like to select your photo',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => setTimeout(() => openImagePicker('camera'), 200),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => setTimeout(() => openImagePicker('library'), 200),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
+  };
+
+  const handleCropComplete = async ({ cropOptions }) => {
+    if (!photoToCrop) return;
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadToCloudinary(photoToCrop, cropOptions);
+      setProfileImage(uploadedUrl);
+      setCropperVisible(false);
+      setPhotoToCrop(null);
+    } catch (error) {
+      Alert.alert('Upload Failed', 'Failed to upload the cropped image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const updateField = (field, value) => {
@@ -629,7 +924,22 @@ const EditPersonalInfoScreen = ({ navigation }) => {
   const buildPayload = () => {
     const combinedPhone = `${form.countryCode.trim()}${form.phone.trim()}`;
     const isoDate = formatDateToISO(form.dateOfBirth.trim());
-    const calculatedAge = calculateAge(form.dateOfBirth.trim());
+    const calculatedAge = calculateAge(form.dateOfBirth.trim()) || (form.age ? Number(form.age) : undefined);
+
+    const rawHeightNum = parseFloat(form.height);
+    const rawWeightNum = parseFloat(form.weight);
+
+    const goalsString = Array.isArray(form.fitnessGoal)
+      ? form.fitnessGoal.join(', ')
+      : String(form.fitnessGoal || '');
+
+    const focusAreasString = Array.isArray(form.focusAreas)
+      ? form.focusAreas.join(', ')
+      : String(form.focusAreas || '');
+
+    const interestsString = Array.isArray(form.interests)
+      ? form.interests.join(', ')
+      : String(form.interests || '');
 
     const data = {
       name: form.name.trim(),
@@ -641,10 +951,16 @@ const EditPersonalInfoScreen = ({ navigation }) => {
       dob: isoDate || form.dateOfBirth.trim(),
       birthDate: isoDate || form.dateOfBirth.trim(),
       age: calculatedAge,
+      height: !isNaN(rawHeightNum) ? { value: rawHeightNum, unit: form.heightUnit || 'CM' } : undefined,
+      weight: !isNaN(rawWeightNum) ? { value: rawWeightNum, unit: form.weightUnit || 'KG' } : undefined,
+      fitnessGoal: goalsString,
+      focusAreas: focusAreasString,
+      interests: interestsString,
+      healthConditions: interestsString || 'None',
+      activityLevel: form.activityLevel || form.fitnessLevel || 'moderate',
       foodPreference: form.foodPreference,
       dietPreference: form.foodPreference,
       fitnessLevel: form.fitnessLevel,
-      activityLevel: form.fitnessLevel,
       countryCode: form.countryCode.trim(),
       phone: form.phone.trim(),
       phoneNumber: form.phone.trim(),
@@ -727,6 +1043,26 @@ const EditPersonalInfoScreen = ({ navigation }) => {
       } catch (e) {
         console.error('[Clarity] Failed to send profile_updated:', e);
       }
+
+      try {
+        const rawHeightNum = parseFloat(form.height);
+        const rawWeightNum = parseFloat(form.weight);
+        const calculatedAge = calculateAge(form.dateOfBirth.trim()) || (form.age ? Number(form.age) : undefined);
+        const metricsToCache = {
+          weight: !isNaN(rawWeightNum) ? String(rawWeightNum) : '',
+          height: !isNaN(rawHeightNum) ? String(rawHeightNum) : '',
+          fitnessGoal: Array.isArray(form.fitnessGoal) ? form.fitnessGoal.join(', ') : '',
+          focusAreas: Array.isArray(form.focusAreas) ? form.focusAreas.join(', ') : '',
+          interests: Array.isArray(form.interests) ? form.interests.join(', ') : '',
+          activityLevel: form.activityLevel || 'moderate',
+          gender: form.gender,
+          age: String(calculatedAge || ''),
+        };
+        await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(metricsToCache));
+      } catch (e) {
+        console.log('Error caching updated metrics:', e);
+      }
+
       if (completionInfo.isComplete) {
         showNavbarToast('Profile 100% completed', true);
         setTimeout(() => {
@@ -749,7 +1085,24 @@ const EditPersonalInfoScreen = ({ navigation }) => {
     }
   };
 
-  const pickerOptions = pickerField ? (pickerField === 'countryCode' ? COUNTRY_CODES : OPTION_FIELDS[pickerField] || []) : [];
+  const pickerOptions = useMemo(() => {
+    if (!pickerField) return [];
+    if (pickerField === 'countryCode') return COUNTRY_CODES;
+    if (pickerField === 'country') return COUNTRY_OPTIONS;
+    return OPTION_FIELDS[pickerField] || [];
+  }, [pickerField]);
+
+  const filteredPickerOptions = useMemo(() => {
+    if (!pickerSearchQuery.trim()) return pickerOptions;
+    const q = pickerSearchQuery.toLowerCase().trim();
+    return pickerOptions.filter(option => {
+      const isObj = typeof option === 'object';
+      const label = (isObj ? option.label : String(option)).toLowerCase();
+      const code = (isObj && option.code ? String(option.code) : '').toLowerCase();
+      const countryName = (isObj && option.countryName ? String(option.countryName) : '').toLowerCase();
+      return label.includes(q) || code.includes(q) || countryName.includes(q);
+    });
+  }, [pickerOptions, pickerSearchQuery]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -763,13 +1116,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
             <Icon name="chevron-back" size={26} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.title}>Edit Personal info</Text>
-          <TouchableOpacity style={styles.iconButton} onPress={handleSave} disabled={saving}>
-            {saving ? (
-              <GlobalLoader size={30} />
-            ) : (
-              <Icon name="settings-sharp" size={24} color="#FFF" />
-            )}
-          </TouchableOpacity>
+          <View style={{ width: 42 }} />
         </View>
 
         {/* SMALL NAVBAR RECORD POPUP TOAST */}
@@ -786,7 +1133,7 @@ const EditPersonalInfoScreen = ({ navigation }) => {
               style={styles.navbarToastContent}
             >
               <LinearGradient
-                colors={toastState.isComplete ? ['#10B981', '#059669'] : ['#0055FF', '#2563EB']}
+                colors={toastState.isComplete ? ['#10B981', '#059669'] : ['#EE822A', '#8F5D98', '#2E4D9F']}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -831,11 +1178,13 @@ const EditPersonalInfoScreen = ({ navigation }) => {
               </View>
               {/* Camera Icon edit badge overlay */}
               <View style={styles.editBadge}>
-                <Icon name="camera" size={16} color="#0055FF" />
+                <Icon name="camera" size={16} color="#EE822A" />
               </View>
             </TouchableOpacity>
           </View>
 
+          {/* Basic Info */}
+          <Text style={styles.groupHeading}>Basic Information</Text>
           <Field label="Name" value={form.name} onChangeText={value => updateField('name', value)} />
           <Field
             label="Bio"
@@ -857,15 +1206,85 @@ const EditPersonalInfoScreen = ({ navigation }) => {
             />
           </View>
 
+          {/* Body Measurements */}
+          <Text style={styles.groupHeading}>Body Measurements</Text>
+          <View style={styles.twoColumnRow}>
+            <Field
+              label={`Height (${form.heightUnit || 'cm'})`}
+              value={form.height}
+              placeholder="176"
+              keyboardType="numeric"
+              maxLength={5}
+              onChangeText={value => updateField('height', value.replace(/[^0-9.]/g, ''))}
+            />
+            <Field
+              label={`Weight (${form.weightUnit || 'kg'})`}
+              value={form.weight}
+              placeholder="70"
+              keyboardType="numeric"
+              maxLength={5}
+              onChangeText={value => updateField('weight', value.replace(/[^0-9.]/g, ''))}
+            />
+          </View>
 
-          <SelectField label="Food Preference" value={form.foodPreference} onPress={() => setPickerField('foodPreference')} />
-          <SelectField label="Fitness Level" value={form.fitnessLevel} onPress={() => setPickerField('fitnessLevel')} />
+          {/* Fitness & Lifestyle */}
+          <Text style={styles.groupHeading}>Fitness & Nutrition</Text>
+          <SelectField
+            label="Activity Level"
+            value={getActivityLevelLabel(form.activityLevel)}
+            onPress={() => setPickerField('activityLevel')}
+          />
+          <SelectField
+            label="Food Preference"
+            value={form.foodPreference}
+            onPress={() => setPickerField('foodPreference')}
+          />
+          <SelectField
+            label="Fitness Level"
+            value={form.fitnessLevel}
+            onPress={() => setPickerField('fitnessLevel')}
+          />
 
-          <Text style={styles.sectionLabel}>Contact Info</Text>
+          {/* Goals & Preferences */}
+          <Text style={styles.groupHeading}>Goals & Preferences</Text>
+          <SelectField
+            label="Fitness Goals"
+            value={form.fitnessGoal && form.fitnessGoal.length > 0 ? form.fitnessGoal.join(', ') : ''}
+            placeholder="Select Fitness Goals"
+            onPress={() => {
+              setPickerSearchQuery('');
+              setPickerField('fitnessGoal');
+            }}
+          />
+
+          <SelectField
+            label="Focus Areas"
+            value={form.focusAreas && form.focusAreas.length > 0 ? form.focusAreas.join(', ') : ''}
+            placeholder="Select Focus Areas"
+            onPress={() => {
+              setPickerSearchQuery('');
+              setPickerField('focusAreas');
+            }}
+          />
+
+          <SelectField
+            label="Interests & Activities"
+            value={form.interests && form.interests.length > 0 ? form.interests.join(', ') : ''}
+            placeholder="Select Interests & Activities"
+            onPress={() => {
+              setPickerSearchQuery('');
+              setPickerField('interests');
+            }}
+          />
+
+          <Text style={styles.groupHeading}>Contact Info</Text>
           <View style={styles.phoneRow}>
             <TouchableOpacity
               style={styles.countryCodePickerBtn}
-              onPress={() => setPickerField('countryCode')}
+              onPress={() => {
+                setPickerSearchQuery('');
+                setPickerField('countryCode');
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.countryCodeText}>{form.countryCode || '+91'}</Text>
@@ -904,49 +1323,183 @@ const EditPersonalInfoScreen = ({ navigation }) => {
               updateField('username', sanitized);
             }}
           />
-          <UnderlineField label="Country" value={form.country} onChangeText={value => updateField('country', value)} />
+          <UnderlineSelectField
+            label="Country"
+            value={form.country}
+            placeholder="Select Country"
+            onPress={() => {
+              setPickerSearchQuery('');
+              setPickerField('country');
+            }}
+          />
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-            {saving ? <GlobalLoader size={50} /> : <Text style={styles.saveText}>Save Changes</Text>}
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            />
+            {saving ? <GlobalLoader size={30} /> : <Text style={styles.saveText}>Save Changes</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <Modal visible={Boolean(pickerField)} transparent animationType="slide">
-        <Pressable style={styles.modalBackdrop} onPress={() => setPickerField(null)}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => {
+            setPickerField(null);
+            setPickerSearchQuery('');
+          }}
+        >
           <View style={styles.optionSheet} onStartShouldSetResponder={() => true}>
             <View style={styles.modalGrabHandle} />
-            <ScrollView style={{ maxHeight: 450 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
-              {pickerOptions.map(option => {
-                const isObj = typeof option === 'object';
-                const label = isObj ? option.label : option;
-                const val = isObj ? option.code : option;
-                const isSelected = form[pickerField] === val;
-
-                return (
-                  <TouchableOpacity
-                    key={label}
-                    style={styles.optionRow}
-                    onPress={() => {
-                      updateField(pickerField, val);
-                      if (pickerField === 'countryCode') {
-                        const limit = getCountryPhoneDigitLimit(val);
-                        if (form.phone && form.phone.length > limit) {
-                          updateField('phone', form.phone.slice(0, limit));
-                        }
-                      }
-                      setPickerField(null);
-                    }}
-                  >
-                    <Text style={styles.optionText}>{label}</Text>
-                    {isSelected && <Icon name="checkmark" size={20} color="#0055FF" />}
+            <Text style={styles.modalTitle}>
+              {pickerField === 'country'
+                ? 'Select Country'
+                : pickerField === 'countryCode'
+                ? 'Select Country Code'
+                : pickerField === 'gender'
+                ? 'Select Gender'
+                : pickerField === 'activityLevel'
+                ? 'Select Activity Level'
+                : pickerField === 'foodPreference'
+                ? 'Select Food Preference'
+                : pickerField === 'fitnessLevel'
+                ? 'Select Fitness Level'
+                : pickerField === 'fitnessGoal'
+                ? 'Select Fitness Goals'
+                : pickerField === 'focusAreas'
+                ? 'Select Focus Areas'
+                : pickerField === 'interests'
+                ? 'Select Interests & Activities'
+                : 'Select Option'}
+            </Text>
+            {['fitnessGoal', 'focusAreas', 'interests'].includes(pickerField) && (
+              <Text style={styles.modalSubtitle}>Select all that apply</Text>
+            )}
+            {(pickerField === 'country' || pickerField === 'countryCode') && (
+              <View style={styles.modalSearchContainer}>
+                <Icon name="search" size={18} color="#8A8496" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.modalSearchInput}
+                  placeholder={pickerField === 'country' ? 'Search country...' : 'Search country or code...'}
+                  placeholderTextColor="#8A8496"
+                  value={pickerSearchQuery}
+                  onChangeText={setPickerSearchQuery}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  clearButtonMode="while-editing"
+                />
+                {pickerSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setPickerSearchQuery('')}>
+                    <Icon name="close-circle" size={16} color="#8A8496" />
                   </TouchableOpacity>
-                );
-              })}
+                )}
+              </View>
+            )}
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredPickerOptions.length === 0 ? (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <Text style={{ color: '#8A8496', fontSize: 14 }}>No matching results</Text>
+                </View>
+              ) : (
+                filteredPickerOptions.map(option => {
+                  const isObj = typeof option === 'object';
+                  const label = isObj ? option.label : option;
+                  const val = isObj ? option.code : option;
+                  const isMulti = ['fitnessGoal', 'focusAreas', 'interests'].includes(pickerField);
+                  const isSelected = isMulti
+                    ? Array.isArray(form[pickerField]) && form[pickerField].some(x => String(x).toLowerCase() === String(val).toLowerCase())
+                    : form[pickerField] === val;
+
+                  return (
+                    <TouchableOpacity
+                      key={label}
+                      style={[styles.optionRow, isSelected && isMulti && styles.optionRowSelected]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        if (isMulti) {
+                          toggleArrayItem(pickerField, val);
+                        } else {
+                          updateField(pickerField, val);
+                          if (pickerField === 'countryCode') {
+                            const limit = getCountryPhoneDigitLimit(val);
+                            if (form.phone && form.phone.length > limit) {
+                              updateField('phone', form.phone.slice(0, limit));
+                            }
+                          }
+                          setPickerField(null);
+                          setPickerSearchQuery('');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                        {label}
+                      </Text>
+                      {isMulti ? (
+                        <View style={[styles.multiCheckCircle, isSelected && styles.multiCheckCircleActive]}>
+                          {isSelected && <Icon name="checkmark" size={14} color="#FFF" />}
+                        </View>
+                      ) : (
+                        isSelected && <Icon name="checkmark" size={20} color="#EE822A" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
+            {['fitnessGoal', 'focusAreas', 'interests'].includes(pickerField) && (
+              <View style={styles.modalDoneWrap}>
+                <TouchableOpacity
+                  style={styles.modalDoneBtn}
+                  onPress={() => {
+                    setPickerField(null);
+                    setPickerSearchQuery('');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+                  <Text style={styles.modalDoneText}>
+                    Done {Array.isArray(form[pickerField]) && form[pickerField].length > 0 ? `(${form[pickerField].length} selected)` : ''}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </Pressable>
       </Modal>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        visible={cropperVisible}
+        image={photoToCrop}
+        initialShape="circle"
+        onClose={() => {
+          if (!uploadingImage) {
+            setCropperVisible(false);
+            setPhotoToCrop(null);
+          }
+        }}
+        onCrop={handleCropComplete}
+        onPickAnother={handlePickImage}
+        isUploading={uploadingImage}
+      />
     </SafeAreaView>
   );
 };
@@ -963,11 +1516,13 @@ const Field = ({ label, multiline, style, ...props }) => (
   </View>
 );
 
-const SelectField = ({ label, value, onPress }) => (
+const SelectField = ({ label, value, placeholder = 'Select', onPress }) => (
   <View style={styles.fieldWrap}>
     <Text style={styles.label}>{label}</Text>
     <TouchableOpacity style={styles.input} onPress={onPress} activeOpacity={0.8}>
-      <Text style={[styles.inputText, !value && styles.placeholderText]}>{value || 'Select'}</Text>
+      <Text style={[styles.inputText, !value && styles.placeholderText]} numberOfLines={1}>
+        {value || placeholder}
+      </Text>
       <Icon name="chevron-down" size={18} color="#8A8496" />
     </TouchableOpacity>
   </View>
@@ -977,6 +1532,22 @@ const UnderlineField = ({ label, style, ...props }) => (
   <View style={styles.underlineWrap}>
     <Text style={styles.sectionLabel}>{label}</Text>
     <TextInput {...props} style={[styles.underlineInput, style]} placeholderTextColor="#8A8496" />
+  </View>
+);
+
+const UnderlineSelectField = ({ label, value, placeholder = 'Select', onPress }) => (
+  <View style={styles.underlineWrap}>
+    <Text style={styles.sectionLabel}>{label}</Text>
+    <TouchableOpacity
+      style={styles.underlineSelectBtn}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.underlineSelectText, !value && styles.placeholderText]}>
+        {value || placeholder}
+      </Text>
+      <Icon name="chevron-down" size={16} color="#8A8496" />
+    </TouchableOpacity>
   </View>
 );
 
@@ -1057,8 +1628,8 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 85, 255, 0.3)',
-    shadowColor: '#0055FF',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -1075,9 +1646,9 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: 'rgba(0, 85, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 85, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1222,6 +1793,8 @@ const styles = StyleSheet.create({
   inputText: {
     color: '#FFF',
     fontSize: 16,
+    flex: 1,
+    marginRight: 8,
   },
   placeholderText: {
     color: '#8A8496',
@@ -1258,6 +1831,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 4,
   },
+  underlineSelectBtn: {
+    minHeight: 42,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DADADA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  underlineSelectText: {
+    color: '#FFF',
+    fontSize: 16,
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  modalSubtitle: {
+    color: '#8A8496',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  modalSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A22',
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#2C2832',
+  },
+  modalSearchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  groupHeading: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 20,
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
   countryCodeInput: {
     width: 48,
     textAlign: 'center',
@@ -1283,13 +1909,13 @@ const styles = StyleSheet.create({
   saveButton: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: '#FFF',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
   },
   saveText: {
-    color: '#000',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1324,10 +1950,48 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
+  optionRowSelected: {
+    backgroundColor: 'rgba(238, 130, 42, 0.12)',
+  },
   optionText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
+  },
+  optionTextSelected: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  multiCheckCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#4B4855',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  multiCheckCircleActive: {
+    backgroundColor: '#EE822A',
+    borderColor: '#EE822A',
+  },
+  modalDoneWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  modalDoneBtn: {
+    height: 48,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalDoneText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   avatarContainer: {
     alignItems: 'center',

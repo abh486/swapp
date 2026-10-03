@@ -21,6 +21,8 @@ import {
   resolveExerciseImageUri,
   getExerciseMuscleFallback,
 } from '../../redux/actions/workoutActions';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -184,7 +186,7 @@ const RoutineDetailScreen = ({ route, navigation }) => {
           activeOpacity={0.7}
         >
           {savingFolder ? (
-            <ActivityIndicator size="small" color="#EE822A" />
+            <GlobalLoader size={20} />
           ) : (
             <>
               <BookmarkIcon />
@@ -238,8 +240,14 @@ const RoutineDetailScreen = ({ route, navigation }) => {
 
         {(program.workouts || []).map((workout, index) => {
           const workoutDuration = workout.duration || 45;
-          const workoutCalories = Math.round(workoutDuration * 5.5);
           const exercisesList = workout.exercises || [];
+          const workoutCalories = calculateWorkoutCalories({
+            duration: workoutDuration,
+            isMinutes: true,
+            workoutTitle: workout.dayName || program?.name,
+            exercises: exercisesList,
+            completedSetsCount: exercisesList.length * 3,
+          });
 
           return (
             <View key={index} style={styles.workoutCard}>

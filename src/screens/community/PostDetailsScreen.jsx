@@ -24,12 +24,17 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
-import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
+import { useDispatch } from 'react-redux';
+import { resolveExerciseImageUri, getExerciseMuscleFallback, deleteWorkoutSession } from '../../redux/actions/workoutActions';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
+import PostedSuccessPopup from '../../components/PostedSuccessPopup';
+import EditWorkoutPostModal from '../../components/EditWorkoutPostModal';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
-  return name || user?.name || user?.username || '';
+  return name || user?.name || user?.userProfile?.name || user?.username || user?.userProfile?.username || '';
 };
 
 const getInitials = user => {
@@ -87,10 +92,10 @@ const formatDuration = value => {
   const s = totalSecs % 60;
 
   if (h > 0) {
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
   }
   if (m > 0) {
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    return s > 0 ? `${m}min ${s}s` : `${m}min`;
   }
   return `${s}s`;
 };
@@ -218,6 +223,10 @@ const PostDetailsScreen = ({ route, navigation }) => {
   const [failedImages, setFailedImages] = useState({});
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [successPopupTitle, setSuccessPopupTitle] = useState('Comment Posted! 🎉');
+  const dispatch = useDispatch();
 
   const getShareTextAndUrl = (targetPost) => {
     if (!targetPost) return { text: '', url: 'https://swapp.fit' };
@@ -297,7 +306,6 @@ const PostDetailsScreen = ({ route, navigation }) => {
   const isLiked = Boolean(post.isLiked || post.likedByMe || post.hasLiked || post.userLiked);
   const duration = post.stats?.duration || post.duration || 0;
   const volume = post.stats?.volume || 0;
-  const calories = post.stats?.calories || post.calories || 0;
 
   // Determine exercises list from logs or props
   let exercises = [];
@@ -312,6 +320,18 @@ const PostDetailsScreen = ({ route, navigation }) => {
   }
   const exercisesToRender = exercises;
 
+  const rawCalories = post.stats?.calories || post.calories || 0;
+  const calories = rawCalories > 0
+    ? rawCalories
+    : (duration > 0
+        ? calculateWorkoutCalories({
+            duration,
+            workoutTitle,
+            volume,
+            exercises: exercisesToRender,
+          })
+        : 0);
+
   // Calculate muscle split
   const rawMuscleSplit = calculateMuscleSplit(exercisesToRender);
   const muscleSplit = rawMuscleSplit.length > 0 ? rawMuscleSplit : [
@@ -320,7 +340,9 @@ const PostDetailsScreen = ({ route, navigation }) => {
     { muscle: 'Shoulders', percentage: 25 }
   ];
 
-  const isOwnPost = post.userId === user?.id || post.user?.id === user?.id;
+  const loggedInId = user?.id || user?._id || user?.userId;
+  const postUserId = post.userId || post.user?.id || post.user?._id || post.user?.userId;
+  const isOwnPost = Boolean(loggedInId && postUserId && String(loggedInId) === String(postUserId));
 
   // Parse multiple images list
   let imagesList = [];
@@ -392,6 +414,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
           ...prev,
           commentsCount: (prev.commentsCount || 0) + 1
         }));
+        setShowSuccessPopup(true);
       }
     } catch (error) {
       console.log('Failed to submit comment', error);
@@ -433,19 +456,98 @@ const PostDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleEditWorkout = () => {
-    Alert.alert('Edit Workout', 'Would you like to edit this workout session?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Edit',
-        onPress: () => {
-          if (post.templateId) {
-            navigation.navigate('WorkoutEditorScreen', { templateId: post.templateId });
-          } else {
-            Alert.alert('Info', 'This is a finished workout session and cannot be modified.');
-          }
-        }
-      }
-    ]);
+    setIsEditModalVisible(true);
+  };
+
+  const handleEditPostSuccess = (updatedPost) => {
+    setPost(prev => {
+      const mergedUser = {
+        ...(prev.user || {}),
+        ...(updatedPost.user || {}),
+        avatar:
+          updatedPost.user?.avatar ||
+          updatedPost.user?.profileImage ||
+          updatedPost.user?.userProfile?.profileImage ||
+          prev.user?.avatar ||
+          prev.user?.profileImage ||
+          prev.user?.userProfile?.profileImage ||
+          null,
+        name:
+          updatedPost.user?.name ||
+          updatedPost.user?.userProfile?.name ||
+          prev.user?.name ||
+          prev.user?.userProfile?.name ||
+          null,
+        username:
+          updatedPost.user?.username ||
+          updatedPost.user?.userProfile?.username ||
+          prev.user?.username ||
+          prev.user?.userProfile?.username ||
+          null,
+        firstName: updatedPost.user?.firstName || prev.user?.firstName || null,
+        lastName: updatedPost.user?.lastName || prev.user?.lastName || null,
+      };
+      return {
+        ...prev,
+        ...updatedPost,
+        user: mergedUser,
+        workoutName: updatedPost.workoutName,
+        notes: updatedPost.notes,
+        caption: updatedPost.notes,
+        visibility: updatedPost.visibility,
+        duration: updatedPost.duration,
+        calories: updatedPost.calories,
+        stats: {
+          ...(prev.stats || {}),
+          duration: updatedPost.duration,
+          calories: updatedPost.calories,
+        },
+      };
+    });
+    setSuccessPopupTitle('Post Updated! 🎉');
+    setShowSuccessPopup(true);
+  };
+
+  const handleShowPostOptions = () => {
+    Alert.alert(
+      'Workout Post Options',
+      'Manage your workout post',
+      [
+        {
+          text: 'Edit Post',
+          onPress: () => setIsEditModalVisible(true),
+        },
+        {
+          text: 'Delete Post',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Workout Post',
+              'Are you sure you want to delete this workout post? This action cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await dispatch(deleteWorkoutSession(post.id));
+                      navigation.goBack();
+                    } catch (err) {
+                      Alert.alert('Error', err.message || 'Failed to delete post.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   const renderPostHeader = () => {
@@ -459,8 +561,8 @@ const PostDetailsScreen = ({ route, navigation }) => {
               onPress={() => navigation.navigate('UserProfile', { userId: post.userId || post.user?.id, user: post.user })}
               activeOpacity={0.8}
             >
-              {post.user?.avatar ? (
-                <Image source={{ uri: post.user.avatar }} style={styles.authorAvatar} />
+              {post.user?.avatar || post.user?.profileImage || post.user?.userProfile?.profileImage ? (
+                <Image source={{ uri: post.user.avatar || post.user.profileImage || post.user.userProfile?.profileImage }} style={styles.authorAvatar} />
               ) : (
                 <View style={[styles.authorAvatar, styles.initialsAvatar]}>
                   <Text style={styles.authorInitialsText}>{postUserInitials}</Text>
@@ -471,6 +573,17 @@ const PostDetailsScreen = ({ route, navigation }) => {
                 <Text style={styles.postDate}>{postFormattedDate}</Text>
               </View>
             </TouchableOpacity>
+
+            {isOwnPost && (
+              <TouchableOpacity
+                style={styles.postOptionsBtn}
+                onPress={handleShowPostOptions}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Icon name="ellipsis-horizontal" size={20} color="#8E8E93" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Workout Title */}
@@ -856,7 +969,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
           )}
           ListEmptyComponent={
             isLoadingComments ? (
-              <ActivityIndicator size="large" color="#5E5CE6" style={{ marginTop: 40 }} />
+              <GlobalLoader size={50} style={{ marginTop: 40 }} />
             ) : (
               <Text style={styles.emptyText}>No comments yet. Be the first to reply!</Text>
             )
@@ -1020,6 +1133,22 @@ const PostDetailsScreen = ({ route, navigation }) => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Edit Workout Post Modal */}
+      <EditWorkoutPostModal
+        visible={isEditModalVisible}
+        post={post}
+        onClose={() => setIsEditModalVisible(false)}
+        onSaveSuccess={handleEditPostSuccess}
+      />
+
+      {/* Posted Success Pop Up 🎉 (Automatically vanishes after 3 seconds) */}
+      <PostedSuccessPopup
+        visible={showSuccessPopup}
+        title={successPopupTitle}
+        duration={3000}
+        onDismiss={() => setShowSuccessPopup(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1131,6 +1260,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  postOptionsBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   authorRow: {
     flexDirection: 'row',

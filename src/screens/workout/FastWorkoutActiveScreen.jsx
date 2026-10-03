@@ -28,13 +28,23 @@ import {
   usePhotoOutput,
 } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { ImageCropperModal } from '../../components/ImageCropperModal';
+import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import { updateCustomWorkoutTemplate, getCustomWorkoutTemplates, fetchExercises, fetchEquipments, fetchMuscles, resolveExerciseImageUri, resolveExerciseAnimationUri } from '../../redux/actions/workoutActions';
+import {
+  sortExercisesByAlreadyUsed,
+  recordUsedExercises,
+  recordExercisePerformance,
+  recordPersonalBests,
+  getExercisePerformanceHistory,
+} from '../../utils/usedWorkoutsManager';
 import WorkoutCameraModal from './components/WorkoutCameraModal';
 import { ActiveWorkoutExerciseList } from './components/ActiveWorkoutExerciseList';
 import { AddSetPickerModal } from './components/AddSetPickerModal';
 import { SaveWorkoutSummaryModal } from './components/SaveWorkoutSummaryModal';
 import { SearchExercisesModal } from './components/SearchExercisesModal';
 import { useActiveWorkout } from '../../context/ActiveWorkoutContext';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
 
 const isTimeBasedExercise = (exercise) => {
   if (!exercise) return false;
@@ -102,7 +112,8 @@ const FastWorkoutActiveScreen = () => {
     finishWorkout,
   } = useActiveWorkout();
 
-  const { exercises: initialExercises, duration, level, workoutName, folderName, isSetupMode, source, isCustomWorkout: isCustomWorkoutParam } = route.params || {};
+  const { exercises: paramExercises, addedExercises: paramAddedExercises, duration, level, workoutName, folderName, isSetupMode, source, isCustomWorkout: isCustomWorkoutParam } = route.params || {};
+  const initialExercises = (paramExercises && paramExercises.length > 0) ? paramExercises : (paramAddedExercises || []);
   const isCustomWorkout = Boolean(isCustomWorkoutParam || source === 'custom_workout' || folderName);
 
   const [localSeconds, setLocalSeconds] = useState(0);
@@ -130,31 +141,55 @@ const FastWorkoutActiveScreen = () => {
     return () => clearInterval(interval);
   }, [activeTimerSetIds]);
 
+  const isResuming = route.params?.resumeActive === true;
+  const rawExercises = (initialExercises && initialExercises.length > 0)
+    ? initialExercises
+    : (route.params?.addedExercises || []);
+
   const [exercises, setExercises] = useState(() => {
-    if (activeWorkout && activeWorkout.isActive && Array.isArray(activeWorkout.exercises) && activeWorkout.exercises.length > 0) {
+    // 1. If explicitly resuming an ongoing workout from MiniBar
+    if (isResuming && activeWorkout && activeWorkout.isActive && Array.isArray(activeWorkout.exercises) && activeWorkout.exercises.length > 0) {
       return activeWorkout.exercises;
     }
-    return (initialExercises || []).map((ex, index) => {
+    // 2. If no new exercises were passed in route params, fallback to active workout if present
+    if (rawExercises.length === 0 && activeWorkout && activeWorkout.isActive && Array.isArray(activeWorkout.exercises) && activeWorkout.exercises.length > 0) {
+      return activeWorkout.exercises;
+    }
+    return (rawExercises || []).map((ex, index) => {
       const prePopulatedSets = [];
+      const prevHistory = getExercisePerformanceHistory(ex);
       if (ex.setsArray && Array.isArray(ex.setsArray) && ex.setsArray.length > 0) {
         ex.setsArray.forEach((s, sIdx) => {
+          const prevSet = prevHistory?.sets?.[sIdx] || prevHistory?.lastSet;
+          const sReps = s.reps !== undefined && s.reps !== null ? Number(s.reps) : 0;
+          const sWeight = s.weight !== undefined && s.weight !== null ? parseFloat(s.weight) : 0;
           prePopulatedSets.push({
             id: `set-${Date.now()}-${sIdx}-${Math.random()}`,
-            reps: s.reps !== undefined && s.reps !== null ? Number(s.reps) : 0,
-            weight: s.weight !== undefined && s.weight !== null ? parseFloat(s.weight) : 0,
-            completed: false
+            reps: sReps,
+            weight: sWeight,
+            prevReps: prevSet?.reps !== undefined ? prevSet.reps : null,
+            prevWeight: prevSet?.weight !== undefined ? prevSet.weight : null,
+            completed: Boolean(s.completed),
+            isSet: Boolean(s.completed || (sReps > 0 && sWeight > 0)),
           });
         });
       } else {
         const setsCount = typeof ex.sets === 'number' ? ex.sets : (Array.isArray(ex.sets) ? ex.sets.length : 0);
-        if (setsCount > 0) {
-          for (let i = 0; i < setsCount; i++) {
-            const s = Array.isArray(ex.sets) ? ex.sets[i] : {};
+        const actualCount = setsCount > 0 ? setsCount : (prevHistory?.sets?.length || 3);
+        if (actualCount > 0) {
+          for (let i = 0; i < actualCount; i++) {
+            const s = Array.isArray(ex.sets) ? (ex.sets[i] || {}) : {};
+            const prevSet = prevHistory?.sets?.[i] || prevHistory?.lastSet;
+            const sReps = s?.reps !== undefined && s?.reps !== null ? Number(s.reps) : 0;
+            const sWeight = s?.weight !== undefined && s?.weight !== null ? parseFloat(s.weight) : 0;
             prePopulatedSets.push({
               id: `set-${Date.now()}-${i}-${Math.random()}`,
-              reps: s.reps !== undefined && s.reps !== null ? Number(s.reps) : 0,
-              weight: s.weight !== undefined && s.weight !== null ? parseFloat(s.weight) : 0,
-              completed: false
+              reps: sReps,
+              weight: sWeight,
+              prevReps: prevSet?.reps !== undefined ? prevSet.reps : null,
+              prevWeight: prevSet?.weight !== undefined ? prevSet.weight : null,
+              completed: Boolean(s?.completed),
+              isSet: Boolean(s?.completed || (sReps > 0 && sWeight > 0)),
             });
           }
         }
@@ -165,6 +200,7 @@ const FastWorkoutActiveScreen = () => {
         imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
         gifUrl: ex.gifUrl || resolveExerciseImageUri(ex) || ex.imageUrl || null,
         sets: prePopulatedSets.length > 0 ? prePopulatedSets : [],
+        previousSets: prevHistory?.sets || ex.previousSets || null,
       };
     });
   });
@@ -176,23 +212,47 @@ const FastWorkoutActiveScreen = () => {
     }, 0);
   }, [exercises]);
 
+  const totalSetsCount = useMemo(() => {
+    return exercises.reduce((acc, ex) => {
+      const validSets = Array.isArray(ex.sets) ? ex.sets : [];
+      return acc + validSets.length;
+    }, 0);
+  }, [exercises]);
+
+  const isEveryExerciseCompleted = useMemo(() => {
+    if (!exercises || exercises.length === 0) return false;
+    return exercises.every(ex => {
+      const validSets = Array.isArray(ex.sets) ? ex.sets : [];
+      return validSets.length > 0 && validSets.every(s => Boolean(s.completed));
+    });
+  }, [exercises]);
+
   const addedExercises = route.params?.addedExercises;
   useEffect(() => {
     if (addedExercises && addedExercises.length > 0) {
       setExercises(prev => {
         const newExercises = [...prev];
         addedExercises.forEach(ex => {
-          if (!newExercises.some(existing => existing.id === ex.id)) {
+          const exId = ex.id || ex._id || ex.exerciseId;
+          if (!newExercises.some(existing => (existing.id || existing._id || existing.exerciseId) === exId)) {
+            const prevHistory = getExercisePerformanceHistory(ex);
             const setsCount = typeof ex.sets === 'number' ? ex.sets : (Array.isArray(ex.sets) ? ex.sets.length : 0);
+            const actualCount = setsCount > 0 ? setsCount : (prevHistory?.sets?.length || 3);
             const prePopulatedSets = [];
-            if (setsCount > 0) {
-              for (let i = 0; i < setsCount; i++) {
-                const s = Array.isArray(ex.sets) ? ex.sets[i] : {};
+            if (actualCount > 0) {
+              for (let i = 0; i < actualCount; i++) {
+                const s = Array.isArray(ex.sets) ? (ex.sets[i] || {}) : {};
+                const prevSet = prevHistory?.sets?.[i] || prevHistory?.lastSet;
+                const sReps = s?.reps !== undefined && s?.reps !== null ? Number(s.reps) : 0;
+                const sWeight = s?.weight !== undefined && s?.weight !== null ? parseFloat(s.weight) : 0;
                 prePopulatedSets.push({
                   id: `set-${Date.now()}-${i}-${Math.random()}`,
-                  reps: s.reps !== undefined && s.reps !== null ? Number(s.reps) : 0,
-                  weight: s.weight !== undefined && s.weight !== null ? parseFloat(s.weight) : 0,
-                  completed: false
+                  reps: sReps,
+                  weight: sWeight,
+                  prevReps: prevSet?.reps !== undefined ? prevSet.reps : null,
+                  prevWeight: prevSet?.weight !== undefined ? prevSet.weight : null,
+                  completed: false,
+                  isSet: false,
                 });
               }
             }
@@ -202,6 +262,7 @@ const FastWorkoutActiveScreen = () => {
               imageUrl: resolveExerciseImageUri(ex) || ex.imageUrl || null,
               gifUrl: ex.gifUrl || resolveExerciseImageUri(ex) || ex.imageUrl || null,
               sets: prePopulatedSets.length > 0 ? prePopulatedSets : [],
+              previousSets: prevHistory?.sets || ex.previousSets || null,
             });
           }
         });
@@ -225,24 +286,30 @@ const FastWorkoutActiveScreen = () => {
   }, [exercises]);
 
   // ── Realistic Exercise Science Calorie Burn Formula ──
-  // 1. Base Active Duration: ~3.5 METs active rate (~3.5 kcal/min)
-  // 2. Work Done / Volume Lifted: ~0.018 kcal per kg of volume moved
-  // 3. Completed Sets Energy: ~3.0 kcal per completed set (activation + recovery)
+  // Considers Time (duration) and Workout (exercises, volume, sets, intensity, workout focus)
   const calories = useMemo(() => {
-    // If no sets have been ticked/completed yet, no exercise calories have been burned
-    if (!completedSetsCount || completedSetsCount === 0) {
+    if (completedSetsCount === 0 && volume === 0) {
       return 0;
     }
-    const baseActiveBurn = (seconds / 60) * 3.5;
-    const volumeBurn = volume * 0.018;
-    const setsBurn = completedSetsCount * 3;
-    return Math.round(baseActiveBurn + volumeBurn + setsBurn);
-  }, [seconds, volume, completedSetsCount]);
+    return calculateWorkoutCalories({
+      duration: seconds,
+      exercises,
+      volume,
+      completedSetsCount,
+      workoutTitle,
+    });
+  }, [seconds, volume, completedSetsCount, exercises, workoutTitle]);
 
   const [progressPhotos, setProgressPhotos] = useState([]);
+  const [cropperVisible, setCropperVisible] = useState(false);
+  const [cropPhoto, setCropPhoto] = useState(null);
+  const [uploadingCropPhoto, setUploadingCropPhoto] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [workoutTitle, setWorkoutTitle] = useState(() => {
-    if (activeWorkout && activeWorkout.isActive && activeWorkout.workoutTitle) {
+    if (isResuming && activeWorkout && activeWorkout.isActive && activeWorkout.workoutTitle) {
+      return activeWorkout.workoutTitle;
+    }
+    if (rawExercises.length === 0 && activeWorkout && activeWorkout.isActive && activeWorkout.workoutTitle) {
       return activeWorkout.workoutTitle;
     }
     return folderName
@@ -252,9 +319,9 @@ const FastWorkoutActiveScreen = () => {
       : (workoutName || ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()]);
   });
 
-  // On mount: if no active workout session, start it
+  // On mount: if no active workout session, or starting a new workout session with new exercises, start it
   useEffect(() => {
-    if (!activeWorkout || !activeWorkout.isActive) {
+    if (!activeWorkout || !activeWorkout.isActive || (!isResuming && rawExercises.length > 0)) {
       startWorkout({
         workoutTitle,
         workoutNotes: '',
@@ -337,11 +404,14 @@ const FastWorkoutActiveScreen = () => {
     }
   }, [isAddExerciseModalVisible, selectedEquipment, selectedMuscles, searchQuery, dispatch]);
 
-  const displayedExercises = (apiExercises || []).filter(ex =>
-    (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayedExercises = useMemo(() => {
+    const list = (apiExercises || []).filter(ex =>
+      (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return sortExercisesByAlreadyUsed(list);
+  }, [apiExercises, searchQuery]);
 
   const toggleExerciseSelection = (exercise) => {
     setSelectedExercises(prev => {
@@ -370,30 +440,43 @@ const FastWorkoutActiveScreen = () => {
   };
 
   const handleSaveSelectedExercises = async () => {
+    if (selectedExercises && selectedExercises.length > 0) {
+      recordUsedExercises(selectedExercises);
+    }
     let nextExercises = [];
     setExercises(prev => {
       const updatedExercises = [];
       selectedExercises.forEach(selectedEx => {
-        const existingEx = prev.find(ex => ex.id === selectedEx.id);
+        const exId = selectedEx.id || selectedEx._id || selectedEx.exerciseId;
+        const existingEx = prev.find(ex => (ex.id || ex._id || ex.exerciseId) === exId);
         if (existingEx) {
+          // Exercise is already in the workout, preserve its current state and sets
           updatedExercises.push(existingEx);
         } else {
-          const setsCount = 3;
+          // This is a newly added exercise! Build its pre-populated sets from previous history
+          const isTimeBased = isTimeBasedExercise(selectedEx);
+          const prevHistory = getExercisePerformanceHistory(selectedEx);
+          const setsCount = prevHistory?.sets?.length ? Math.max(3, prevHistory.sets.length) : 3;
           const prePopulatedSets = [];
           for (let i = 0; i < setsCount; i++) {
+            const prevSet = prevHistory?.sets?.[i] || prevHistory?.lastSet;
             prePopulatedSets.push({
               id: `set-${Date.now()}-${i}-${Math.random()}`,
               reps: 0,
               weight: 0,
-              completed: false
+              prevReps: prevSet?.reps !== undefined ? prevSet.reps : null,
+              prevWeight: prevSet?.weight !== undefined ? prevSet.weight : null,
+              completed: false,
+              isSet: false,
             });
           }
           const newlyAdded = {
             ...selectedEx,
-            id: selectedEx.id || selectedEx._id || `ex-${Date.now()}-${Math.random()}`,
+            id: exId || `ex-${Date.now()}-${Math.random()}`,
             imageUrl: resolveExerciseImageUri(selectedEx) || selectedEx.imageUrl || null,
             gifUrl: resolveExerciseAnimationUri(selectedEx) || selectedEx.gifUrl || null,
             sets: prePopulatedSets,
+            previousSets: prevHistory?.sets || null,
           };
           updatedExercises.push(newlyAdded);
         }
@@ -437,6 +520,7 @@ const FastWorkoutActiveScreen = () => {
           const names = exercises.map(ex => ex.name).join(',');
           const response = await apiClient.get(`/workouts/sessions/personal-bests?exerciseNames=${encodeURIComponent(names)}`);
           if (response.data && response.data.success) {
+            recordPersonalBests(response.data.data);
             setPersonalBests(prev => {
               const merged = {
                 ...response.data.data,
@@ -584,6 +668,19 @@ const FastWorkoutActiveScreen = () => {
     }
   }, [isRestTimerVisible, isSaveWorkoutModalVisible, activeWorkout?.isActive, updateWorkout]);
 
+  const wasNavigatedToSummaryRef = useRef(false);
+
+  // Automatically reopen the save workout modal when returning from WorkoutSummaryScreen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (wasNavigatedToSummaryRef.current) {
+        wasNavigatedToSummaryRef.current = false;
+        setSaveWorkoutModalVisible(true);
+      }
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const activeExercise = exercises.find(e => e.id === activeExerciseId);
   const isTimeBased = activeExercise ? isTimeBasedExercise(activeExercise) : false;
 
@@ -643,11 +740,11 @@ const FastWorkoutActiveScreen = () => {
         const imagePath = photo.filePath.startsWith('file://')
           ? photo.filePath
           : 'file://' + photo.filePath;
-        setProgressPhotos(prev => [...prev, imagePath]);
         setShowCameraOverlay(false);
         setTimeout(() => {
-          setSaveWorkoutModalVisible(true);
-        }, 400);
+          setCropPhoto({ uri: imagePath });
+          setCropperVisible(true);
+        }, 300);
       } else {
         throw new Error('Captured photo had no file path.');
       }
@@ -664,16 +761,17 @@ const FastWorkoutActiveScreen = () => {
     setShowCameraOverlay(false);
     setTimeout(() => {
       try {
-        launchImageLibrary({ mediaType: 'photo', quality: 0.8, selectionLimit: 5 }, response => {
+        launchImageLibrary({ mediaType: 'photo', quality: 0.9, selectionLimit: 1 }, response => {
           if (
             !response.didCancel &&
             !response.errorCode &&
             response.assets && response.assets.length > 0
           ) {
-            const uris = response.assets.map(a => a.uri);
-            setProgressPhotos(prev => [...prev, ...uris].slice(0, 5));
+            setCropPhoto(response.assets[0]);
+            setCropperVisible(true);
+          } else {
+            setSaveWorkoutModalVisible(true);
           }
-          setSaveWorkoutModalVisible(true);
         });
       } catch (err) {
         Alert.alert('Gallery Launch Failed', err.message || String(err));
@@ -682,11 +780,71 @@ const FastWorkoutActiveScreen = () => {
     }, 450);
   }, []);
 
-  const handleLogWorkout = () => {
+  const handlePressFinishWorkout = () => {
+    if (!exercises || exercises.length === 0) {
+      Alert.alert(
+        'No Exercises',
+        'Please add at least one exercise and complete all sets before finishing.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const incompleteExercises = exercises.filter(ex => {
+      const validSets = Array.isArray(ex.sets) ? ex.sets : [];
+      return validSets.length === 0 || !validSets.every(s => Boolean(s.completed));
+    });
+
+    if (incompleteExercises.length > 0) {
+      const names = incompleteExercises.map(ex => ex.name).slice(0, 3).join(', ');
+      const extra = incompleteExercises.length > 3 ? ` and ${incompleteExercises.length - 3} more` : '';
+      Alert.alert(
+        'Complete All Exercises',
+        `You cannot finish the workout yet. Please mark all sets green for every exercise before finishing.\n\nIncomplete exercises:\n• ${names}${extra}`,
+        [{ text: 'Got it' }]
+      );
+      return;
+    }
+
+    setSaveWorkoutModalVisible(true);
+  };
+
+  const handleLogWorkout = (customDuration, customCalories) => {
+    // Strictly verify every exercise and set is completed (marked green)
+    const incompleteExercises = exercises.filter(ex => {
+      const validSets = Array.isArray(ex.sets) ? ex.sets : [];
+      return validSets.length === 0 || !validSets.every(s => Boolean(s.completed));
+    });
+
+    if (incompleteExercises.length > 0 || exercises.length === 0) {
+      const names = incompleteExercises.map(ex => ex.name).slice(0, 3).join(', ');
+      const extra = incompleteExercises.length > 3 ? ` and ${incompleteExercises.length - 3} more` : '';
+      Alert.alert(
+        'Complete All Exercises',
+        `Please mark all sets green for every exercise before finishing and posting your workout.${incompleteExercises.length > 0 ? `\n\nIncomplete:\n• ${names}${extra}` : ''}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const finalDuration = typeof customDuration === 'number' && customDuration >= 0
+      ? customDuration
+      : seconds;
+
+    const finalCalories = typeof customCalories === 'number' && customCalories >= 0
+      ? customCalories
+      : calculateWorkoutCalories({
+          duration: finalDuration,
+          exercises,
+          volume,
+          completedSetsCount,
+          workoutTitle,
+        });
+
     const sessionData = {
       level,
-      duration: seconds,
-      calories,
+      duration: finalDuration,
+      calories: finalCalories,
       volume,
       visibility,
       workoutName: workoutTitle.trim() || 'Workout',
@@ -694,21 +852,17 @@ const FastWorkoutActiveScreen = () => {
       templateId: route.params?.templateId || null,
       exercises: exercises
         .filter(ex => ex.sets && ex.sets.length > 0)
-        .map(ex => {
-          const completedSets = ex.sets.filter(s => s.completed);
-          const finalSets = completedSets.length > 0 ? completedSets : ex.sets.map(s => ({ ...s, completed: true }));
-          return {
-            exerciseId: ex.exerciseId || ex.id,
-            name: ex.name,
-            imageUrl: ex.imageUrl || ex.gifUrl || resolveExerciseImageUri(ex) || null,
-            gifUrl: ex.gifUrl || ex.imageUrl || resolveExerciseAnimationUri(ex) || null,
-            imageUrls: ex.imageUrls || null,
-            target: ex.target || null,
-            bodyPart: ex.bodyPart || null,
-            equipment: ex.equipment || null,
-            sets: finalSets,
-          };
-        }),
+        .map(ex => ({
+          exerciseId: ex.exerciseId || ex.id,
+          name: ex.name,
+          imageUrl: ex.imageUrl || ex.gifUrl || resolveExerciseImageUri(ex) || null,
+          gifUrl: ex.gifUrl || ex.imageUrl || resolveExerciseAnimationUri(ex) || null,
+          imageUrls: ex.imageUrls || null,
+          target: ex.target || null,
+          bodyPart: ex.bodyPart || null,
+          equipment: ex.equipment || null,
+          sets: ex.sets.filter(s => s.completed),
+        })),
       templateExercises: exercises.map(ex => {
         const completedSets = Array.isArray(ex.sets) ? ex.sets.filter(s => s.completed) : [];
         const firstSet = Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets[0] : {};
@@ -729,7 +883,9 @@ const FastWorkoutActiveScreen = () => {
         };
       }),
     };
-    finishWorkout();
+    recordUsedExercises(exercises);
+    recordExercisePerformance(exercises);
+    wasNavigatedToSummaryRef.current = true;
     setSaveWorkoutModalVisible(false);
     navigation.navigate('WorkoutSummary', { sessionData, progressPhotos });
   };
@@ -750,6 +906,7 @@ const FastWorkoutActiveScreen = () => {
       });
 
       await dispatch(updateCustomWorkoutTemplate(route.params?.templateId, templateExercises));
+      recordExercisePerformance(exercises);
       finishWorkout();
       Alert.alert('Success', 'Workout template saved successfully!');
       navigation.goBack();
@@ -823,15 +980,21 @@ const FastWorkoutActiveScreen = () => {
                 launchImageLibrary(
                   {
                     mediaType: 'photo',
-                    quality: 0.8,
-                    selectionLimit: 5,
+                    quality: 0.9,
+                    selectionLimit: 1,
                   },
                   response => {
-                    if (!response.didCancel && !response.errorCode && response.assets && response.assets.length > 0) {
-                      const uris = response.assets.map(a => a.uri);
-                      setProgressPhotos(prev => [...prev, ...uris].slice(0, 5));
+                    if (
+                      !response.didCancel &&
+                      !response.errorCode &&
+                      response.assets &&
+                      response.assets.length > 0
+                    ) {
+                      setCropPhoto(response.assets[0]);
+                      setCropperVisible(true);
+                    } else {
+                      setSaveWorkoutModalVisible(true);
                     }
-                    setSaveWorkoutModalVisible(true);
                   }
                 );
               } catch (err) {
@@ -852,6 +1015,23 @@ const FastWorkoutActiveScreen = () => {
     }, 450);
   };
 
+  const handleCropComplete = async ({ cropOptions }) => {
+    if (!cropPhoto) return;
+    setUploadingCropPhoto(true);
+    try {
+      const uploadedUrl = await uploadToCloudinary(cropPhoto, cropOptions);
+      setProgressPhotos(prev => [...prev, uploadedUrl].slice(0, 5));
+      setCropperVisible(false);
+      setCropPhoto(null);
+      setSaveWorkoutModalVisible(true);
+    } catch (error) {
+      Alert.alert('Upload Failed', 'Failed to upload the cropped image. Please try again.');
+      setSaveWorkoutModalVisible(true);
+    } finally {
+      setUploadingCropPhoto(false);
+    }
+  };
+
   const openAddSetModal = exerciseId => {
     setActiveExerciseId(exerciseId);
     setEditingSetId(null);
@@ -860,11 +1040,19 @@ const FastWorkoutActiveScreen = () => {
     const timeBased = exercise ? isTimeBasedExercise(exercise) : false;
     if (exercise && exercise.sets && exercise.sets.length > 0) {
       const lastSet = exercise.sets[exercise.sets.length - 1];
-      setTempReps(lastSet.reps !== undefined ? Number(lastSet.reps) : 12);
-      setTempWeight(lastSet.weight !== undefined ? parseFloat(lastSet.weight) || (timeBased ? 30.0 : 4.0) : (timeBased ? 30.0 : 4.0));
+      const parsedReps = parseInt(lastSet.reps, 10);
+      const parsedWeight = parseFloat(lastSet.weight);
+      setTempReps(!isNaN(parsedReps) && parsedReps > 0 ? parsedReps : 15);
+      setTempWeight(!isNaN(parsedWeight) && parsedWeight > 0 ? parsedWeight : (timeBased ? 30.0 : 15.0));
     } else {
-      setTempReps(12);
-      setTempWeight(timeBased ? 30.0 : 4.0);
+      const prev = getExercisePerformanceHistory(exercise);
+      if (prev && prev.lastSet) {
+        setTempReps(prev.lastSet.reps || (timeBased ? 0 : 15));
+        setTempWeight(prev.lastSet.weight || (timeBased ? 30.0 : 15.0));
+      } else {
+        setTempReps(timeBased ? 0 : 15);
+        setTempWeight(timeBased ? 30.0 : 15.0);
+      }
     }
 
     setSetModalVisible(true);
@@ -873,8 +1061,25 @@ const FastWorkoutActiveScreen = () => {
   const openEditSetModal = (exerciseId, setId, currentReps, currentWeight) => {
     setActiveExerciseId(exerciseId);
     setEditingSetId(setId);
-    const r = currentReps !== undefined && currentReps !== null ? parseInt(currentReps) || 0 : 0;
-    const w = currentWeight !== undefined && currentWeight !== null ? parseFloat(currentWeight) || 0.0 : 0.0;
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    const timeBased = exercise ? isTimeBasedExercise(exercise) : false;
+    const parsedReps = parseInt(currentReps, 10);
+    const parsedWeight = parseFloat(currentWeight);
+    let r = !isNaN(parsedReps) && parsedReps > 0 ? parsedReps : 0;
+    let w = !isNaN(parsedWeight) && parsedWeight > 0 ? parsedWeight : 0;
+
+    if (r === 0 || w === 0) {
+      const prev = getExercisePerformanceHistory(exercise);
+      const setIdx = exercise?.sets?.findIndex(s => s.id === setId);
+      const prevSet = (setIdx >= 0 && prev?.sets?.[setIdx]) || prev?.lastSet;
+      if (r === 0) {
+        r = prevSet?.reps && Number(prevSet.reps) > 0 ? Number(prevSet.reps) : (timeBased ? 0 : 15);
+      }
+      if (w === 0) {
+        w = prevSet?.weight && parseFloat(prevSet.weight) > 0 ? parseFloat(prevSet.weight) : (timeBased ? 30.0 : 15.0);
+      }
+    }
+
     setTempReps(r);
     setTempWeight(w);
     setSetModalVisible(true);
@@ -884,6 +1089,7 @@ const FastWorkoutActiveScreen = () => {
     const { activeExerciseId, tempReps, tempWeight } = stateRef.current;
     if (editingSetId) {
       const exercise = exercises.find(ex => ex.id === activeExerciseId);
+
       setExercises(prev =>
         prev.map(ex => {
           if (ex.id === activeExerciseId) {
@@ -895,6 +1101,7 @@ const FastWorkoutActiveScreen = () => {
                     ...s,
                     reps: tempReps,
                     weight: tempWeight,
+                    isSet: true,
                   };
                 }
                 return s;
@@ -984,6 +1191,8 @@ const FastWorkoutActiveScreen = () => {
 
   const handleAddSet = () => {
     const { activeExerciseId, tempReps, tempWeight } = stateRef.current;
+    const exercise = exercises.find(ex => ex.id === activeExerciseId);
+    const newSetId = Date.now().toString();
 
     setExercises(prev =>
       prev.map(ex => {
@@ -993,9 +1202,10 @@ const FastWorkoutActiveScreen = () => {
             sets: [
               ...(Array.isArray(ex.sets) ? ex.sets : []),
               {
-                id: Date.now().toString(),
+                id: newSetId,
                 reps: tempReps,
                 weight: tempWeight,
+                isSet: true,
                 completed: true,
               },
             ],
@@ -1004,6 +1214,24 @@ const FastWorkoutActiveScreen = () => {
         return ex;
       }),
     );
+
+    if (exercise) {
+      checkAndTriggerPR(exercise.name, tempWeight, tempReps, newSetId);
+      recordExercisePerformance({
+        ...exercise,
+        sets: [
+          ...(Array.isArray(exercise.sets) ? exercise.sets : []),
+          {
+            id: newSetId,
+            reps: tempReps,
+            weight: tempWeight,
+            isSet: true,
+            completed: true,
+          },
+        ],
+      });
+    }
+
     setSetModalVisible(false);
   };
 
@@ -1014,12 +1242,45 @@ const FastWorkoutActiveScreen = () => {
     const set = exercise.sets.find(s => s.id === setId);
     if (!set) return;
 
-    const willBeCompleted = !set.completed;
-
-    if (willBeCompleted) {
-      checkAndTriggerPR(exercise.name, set.weight, set.reps, set.id);
-      setActiveTimerSetIds(prev => prev.filter(id => id !== setId));
+    if (set.completed) {
+      setExercises(prev =>
+        prev.map(ex => {
+          if (ex.id === exerciseId) {
+            return {
+              ...ex,
+              sets: ex.sets.map(s =>
+                s.id === setId ? { ...s, completed: false } : s,
+              ),
+            };
+          }
+          return ex;
+        }),
+      );
+      return;
     }
+
+    const timeBased = isTimeBasedExercise(exercise);
+    const hasReps = Number(set.reps) > 0;
+    const hasWeight = parseFloat(set.weight) > 0;
+    const eq = String(exercise?.equipment || (exercise?.equipments && exercise.equipments[0]) || '').toLowerCase();
+    const isBodyWeight = eq.includes('none') || eq.includes('body weight') || eq.includes('body only') || eq.includes('equipment-free');
+    const isConfigured = timeBased ? (hasWeight || set.isSet) : (hasReps && (hasWeight || isBodyWeight || set.isSet));
+
+    if (!isConfigured) {
+      Alert.alert(
+        'Set Incomplete',
+        'Please set reps and weight first before giving the green tick.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    checkAndTriggerPR(exercise.name, set.weight, set.reps, set.id);
+    setActiveTimerSetIds(prev => prev.filter(id => id !== setId));
+    recordExercisePerformance({
+      ...exercise,
+      sets: exercise.sets.map(s => s.id === setId ? { ...s, completed: true, isSet: true } : s),
+    });
 
     setExercises(prev =>
       prev.map(ex => {
@@ -1027,7 +1288,7 @@ const FastWorkoutActiveScreen = () => {
           return {
             ...ex,
             sets: ex.sets.map(s =>
-              s.id === setId ? { ...s, completed: !s.completed } : s,
+              s.id === setId ? { ...s, completed: true, isSet: true } : s,
             ),
           };
         }
@@ -1043,6 +1304,26 @@ const FastWorkoutActiveScreen = () => {
     const allCompleted = exercise.sets.every(s => s.completed);
     const targetStatus = !allCompleted;
 
+    if (targetStatus) {
+      const timeBased = isTimeBasedExercise(exercise);
+      const eq = String(exercise?.equipment || (exercise?.equipments && exercise.equipments[0]) || '').toLowerCase();
+      const isBodyWeight = eq.includes('none') || eq.includes('body weight') || eq.includes('body only') || eq.includes('equipment-free');
+      const hasUnset = exercise.sets.some(s => {
+        const hasReps = Number(s.reps) > 0;
+        const hasWeight = parseFloat(s.weight) > 0;
+        return !(timeBased ? (hasWeight || s.isSet) : (hasReps && (hasWeight || isBodyWeight || s.isSet)));
+      });
+
+      if (hasUnset) {
+        Alert.alert(
+          'Incomplete Sets',
+          'Please set reps and weight for all sets first before marking all sets complete.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+
     setExercises(prev =>
       prev.map(ex => {
         if (ex.id === exerciseId) {
@@ -1052,7 +1333,7 @@ const FastWorkoutActiveScreen = () => {
               if (targetStatus && !s.completed) {
                 checkAndTriggerPR(ex.name, s.weight, s.reps, s.id);
               }
-              return { ...s, completed: targetStatus };
+              return { ...s, completed: targetStatus, isSet: targetStatus ? true : s.isSet };
             }),
           };
         }
@@ -1063,6 +1344,10 @@ const FastWorkoutActiveScreen = () => {
     if (targetStatus) {
       const setIds = exercise.sets.map(s => s.id);
       setActiveTimerSetIds(prev => prev.filter(id => !setIds.includes(id)));
+      recordExercisePerformance({
+        ...exercise,
+        sets: exercise.sets.map(s => ({ ...s, completed: true, isSet: true })),
+      });
     }
   };
 
@@ -1086,11 +1371,17 @@ const FastWorkoutActiveScreen = () => {
     exercises.find(e => e.id === activeExerciseId)?.name || '';
 
   const totalReps = exercises.reduce((acc, ex) => {
+    if (isTimeBasedExercise(ex)) return acc;
     const validSets = Array.isArray(ex.sets) ? ex.sets : [];
-    return acc + validSets.reduce((setAcc, set) => setAcc + (set.reps || 0), 0);
+    return acc + validSets.reduce((setAcc, set) => {
+      if (set.completed) {
+        return setAcc + (Number(set.reps) || 0);
+      }
+      return setAcc;
+    }, 0);
   }, 0);
   const completedExercisesCount = exercises.filter(
-    ex => Array.isArray(ex.sets) && ex.sets.length > 0,
+    ex => Array.isArray(ex.sets) && ex.sets.length > 0 && ex.sets.every(s => Boolean(s.completed)),
   ).length;
 
   const handleDiscardWorkout = () => {
@@ -1104,14 +1395,10 @@ const FastWorkoutActiveScreen = () => {
           style: 'destructive',
           onPress: () => {
             discardWorkout();
-            if (navigation.canGoBack()) {
-              navigation.goBack();
-            } else {
-              navigation.reset({
-                index: 1,
-                routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
-              });
-            }
+            navigation.reset({
+              index: 1,
+              routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+            });
           },
         },
       ]
@@ -1119,14 +1406,10 @@ const FastWorkoutActiveScreen = () => {
   };
 
   const closeWorkout = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.reset({
-        index: 1,
-        routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
-      });
-    }
+    navigation.reset({
+      index: 1,
+      routes: [{ name: 'MainTabs' }, { name: 'Workouts' }],
+    });
   };
 
   return (
@@ -1255,6 +1538,7 @@ const FastWorkoutActiveScreen = () => {
             handleMarkAllSets={handleMarkAllSets}
             triggerAddExerciseModal={triggerAddExerciseModal}
             closeWorkout={closeWorkout}
+            personalBests={personalBests}
           />
 
           {/* Finish Button at the very bottom of the workout */}
@@ -1276,8 +1560,11 @@ const FastWorkoutActiveScreen = () => {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={styles.saveTemplateBtn}
-                  onPress={() => setSaveWorkoutModalVisible(true)}
+                  style={[
+                    styles.saveTemplateBtn,
+                    !isEveryExerciseCompleted && { opacity: 0.65 }
+                  ]}
+                  onPress={handlePressFinishWorkout}
                   activeOpacity={0.8}
                 >
                   <LinearGradient
@@ -1286,7 +1573,9 @@ const FastWorkoutActiveScreen = () => {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   />
-                  <Text style={styles.saveTemplateBtnText}>Finish Workout</Text>
+                  <Text style={styles.saveTemplateBtnText}>
+                    Finish Workout
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1391,6 +1680,8 @@ const FastWorkoutActiveScreen = () => {
           totalReps={totalReps}
           calories={calories}
           handleLogWorkout={handleLogWorkout}
+          isEveryExerciseCompleted={isEveryExerciseCompleted}
+          exercises={exercises}
         />
 
         {/* Camera Modal */}
@@ -1403,6 +1694,22 @@ const FastWorkoutActiveScreen = () => {
           hasPermission={hasPermission}
           requestPermission={requestPermission}
           photoOutput={photoOutput}
+        />
+
+        {/* Image Cropper Modal */}
+        <ImageCropperModal
+          visible={cropperVisible}
+          image={cropPhoto}
+          onClose={() => {
+            if (!uploadingCropPhoto) {
+              setCropperVisible(false);
+              setCropPhoto(null);
+              setSaveWorkoutModalVisible(true);
+            }
+          }}
+          onCrop={handleCropComplete}
+          onPickAnother={handlePickImage}
+          isUploading={uploadingCropPhoto}
         />
 
         {/* PR Notification Banner */}

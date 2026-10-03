@@ -19,7 +19,8 @@ const MUSCLE_LIST = [
   { id: 'biceps', name: 'Biceps', category: 'Front' },
   { id: 'obliques', name: 'Obliques', category: 'Front' },
   { id: 'quads', name: 'Quadriceps', category: 'Front' },
-  { id: 'lats', name: 'Lats (Upper Back)', category: 'Back' },
+  { id: 'lats', name: 'Lats', category: 'Back' },
+  { id: 'upper_back', name: 'Upper Back', category: 'Back' },
   { id: 'lower_back', name: 'Lower Back', category: 'Back' },
   { id: 'traps', name: 'Traps', category: 'Back' },
   { id: 'triceps', name: 'Triceps', category: 'Back' },
@@ -36,17 +37,19 @@ const normalizeInitial = (arr) => {
     if (str.includes('ab') || str.includes('waist')) return 'abs';
     if (str.includes('chest')) return 'chest';
     if (str.includes('shoulder')) return 'shoulders';
-    if (str.includes('bicep') || str.includes('upper arm')) return 'biceps';
+    if (str.includes('hamstring') || str.includes('biceps femoris')) return 'hamstrings';
     if (str.includes('tricep')) return 'triceps';
-    if (str.includes('lat') || str.includes('back')) return 'lats';
+    if (str.includes('bicep')) return 'biceps';
     if (str.includes('lower') || str.includes('lumbar')) return 'lower_back';
+    if (str.includes('upper back') || str.includes('upper_back') || str.includes('rhomboid')) return 'upper_back';
+    if (str.includes('latissimus') || str.includes('lats') || (str.includes('lat') && !str.includes('lateral') && !str.includes('flat') && !str.includes('platform'))) return 'lats';
     if (str.includes('quad') || str.includes('upper leg')) return 'quads';
-    if (str.includes('hamstring')) return 'hamstrings';
     if (str.includes('glute')) return 'glutes';
     if (str.includes('calf') || str.includes('calves') || str.includes('lower leg')) return 'calves';
     if (str.includes('forearm') || str.includes('lower arm')) return 'forearms';
     if (str.includes('oblique')) return 'obliques';
     if (str.includes('trap') || str.includes('neck')) return 'traps';
+    if (str.includes('back')) return 'upper_back';
     return str;
   });
 };
@@ -57,12 +60,13 @@ export const MuscleSelectionScreen = ({ navigation, route }) => {
   );
   const [viewMode, setViewMode] = useState('both'); // 'both' | 'front' | 'back'
 
-  const toggleMuscle = (muscleId) => {
+  const toggleMuscle = (rawId) => {
+    const normalized = normalizeInitial([rawId])[0] || rawId;
     setSelectedMuscles((prev) => {
-      if (prev.includes(muscleId)) {
-        return prev.filter((id) => id !== muscleId);
+      if (prev.includes(normalized)) {
+        return prev.filter((id) => id !== normalized);
       } else {
-        return [...prev, muscleId];
+        return [...prev, normalized];
       }
     });
   };

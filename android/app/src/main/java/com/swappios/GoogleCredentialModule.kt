@@ -15,6 +15,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.credentials.CustomCredential
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.CoroutineScope
@@ -65,10 +66,24 @@ class GoogleCredentialModule(reactContext: ReactApplicationContext) :
 
         mainScope.launch {
             try {
-                val result = credentialManager.getCredential(
-                    context = activity,
-                    request = request
-                )
+                val result = try {
+                    credentialManager.getCredential(
+                        context = activity,
+                        request = request
+                    )
+                } catch (e: NoCredentialException) {
+                    Log.i("GoogleCredentialModule", "GetGoogleIdOption returned NoCredentialException, retrying with GetSignInWithGoogleOption")
+                    val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(clientId)
+                        .setNonce(hashedNonce)
+                        .build()
+                    val fallbackRequest = GetCredentialRequest.Builder()
+                        .addCredentialOption(signInWithGoogleOption)
+                        .build()
+                    credentialManager.getCredential(
+                        context = activity,
+                        request = fallbackRequest
+                    )
+                }
                 val credential = result.credential
                 if (credential is CustomCredential && 
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -99,12 +114,14 @@ class GoogleCredentialModule(reactContext: ReactApplicationContext) :
                     else -> "CREDENTIAL_ERROR"
                 }
                 if (errorCode != "SIGN_IN_CANCELLED") {
-                    Log.e("GoogleCredentialModule", "Credential Manager error: ${e.message}")
+                    Log.e("GoogleCredentialModule", "Credential Manager error [${e.javaClass.simpleName}]: ${e.message}")
                 }
-                promise.reject(errorCode, e.message, e)
+                val errorMsg = e.message ?: e.javaClass.simpleName
+                promise.reject(errorCode, errorMsg, e)
             } catch (e: Exception) {
-                Log.e("GoogleCredentialModule", "Unknown Exception in signIn: ${e.message}")
-                promise.reject("UNKNOWN_ERROR", e.message, e)
+                Log.e("GoogleCredentialModule", "Unknown Exception in signIn [${e.javaClass.simpleName}]: ${e.message}")
+                val errorMsg = e.message ?: e.javaClass.simpleName
+                promise.reject("UNKNOWN_ERROR", errorMsg, e)
             }
         }
     }

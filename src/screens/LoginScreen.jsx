@@ -92,6 +92,13 @@ const LoginScreen = () => {
     }
   }, []);
 
+  // Clear validation errors whenever switching between login and signup modes
+  useEffect(() => {
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+  }, [mode]);
+
 
 
   // Real-time validations
@@ -193,14 +200,23 @@ const LoginScreen = () => {
       setEmailError('Email cannot be empty.');
       return;
     }
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regex.test(emailTrimmed)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
     if (!password) {
       setPasswordError('Password cannot be empty.');
       return;
     }
-    if (emailError || passwordError) {
-      Alert.alert('Validation Error', 'Please resolve all errors before submitting.');
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
       return;
     }
+
+    // Clear any stale errors before submitting
+    setEmailError('');
+    setPasswordError('');
 
     operationInProgress.current = true;
     try {
@@ -301,7 +317,15 @@ const LoginScreen = () => {
           'Email Already Registered',
           'An account with this email address already exists.\n\nPlease switch to the Login tab to sign in, or reset your password if needed.',
           [
-            { text: 'Switch to Login', onPress: () => setMode('login') },
+            {
+              text: 'Switch to Login',
+              onPress: () => {
+                setMode('login');
+                setEmailError('');
+                setPasswordError('');
+                setConfirmPasswordError('');
+              },
+            },
             { text: 'OK', style: 'cancel' },
           ]
         );
@@ -341,13 +365,46 @@ const LoginScreen = () => {
       let idToken;
       if (Platform.OS === 'android') {
         const { GoogleCredentialManager } = NativeModules;
-        if (!GoogleCredentialManager) {
-          throw new Error('GoogleCredentialManager native module is not registered.');
+        let credSuccess = false;
+
+        if (GoogleCredentialManager) {
+          try {
+            await GoogleCredentialManager.configure(AUTH_CONFIG.googleWebClientId);
+            const userInfo = await GoogleCredentialManager.signIn(hashedNonce);
+            idToken = userInfo?.idToken;
+            if (idToken) {
+              credSuccess = true;
+            }
+          } catch (credErr) {
+            const isCancel =
+              credErr.code === 'SIGN_IN_CANCELLED' ||
+              credErr.code === statusCodes.SIGN_IN_CANCELLED ||
+              credErr.message === 'Sign in action cancelled' ||
+              credErr.message?.toLowerCase().includes('cancel');
+
+            if (isCancel) {
+              throw credErr;
+            }
+
+            console.warn('[LoginScreen] Android CredentialManager failed, falling back to GoogleSignin:', credErr.message || credErr);
+          }
         }
 
-        await GoogleCredentialManager.configure(AUTH_CONFIG.googleWebClientId);
-        const userInfo = await GoogleCredentialManager.signIn(hashedNonce);
-        idToken = userInfo.idToken;
+        if (!credSuccess || !idToken) {
+          await GoogleSignin.hasPlayServices();
+
+          try {
+            await GoogleSignin.signOut();
+          } catch (signOutError) {
+            // ignore
+          }
+
+          const userInfo = await GoogleSignin.signIn({
+            nonce: hashedNonce,
+          });
+
+          idToken = userInfo.data?.idToken || userInfo.idToken;
+        }
       } else {
         await GoogleSignin.hasPlayServices();
 
@@ -372,8 +429,15 @@ const LoginScreen = () => {
       await loginWithGoogle(idToken, rawNonce);
     } catch (err) {
       console.error('Google Native Login failed:', err.message || err);
-      const isCancel = err.code === statusCodes.SIGN_IN_CANCELLED || err.message === 'Sign in action cancelled' || err.code === 'SIGN_IN_CANCELLED';
-      const isInProgress = err.code === statusCodes.IN_PROGRESS || err.message?.includes('Sign-in in progress') || err.message?.includes('in progress');
+      const isCancel =
+        err.code === statusCodes.SIGN_IN_CANCELLED ||
+        err.code === 'SIGN_IN_CANCELLED' ||
+        err.message === 'Sign in action cancelled' ||
+        err.message?.toLowerCase().includes('cancel');
+      const isInProgress =
+        err.code === statusCodes.IN_PROGRESS ||
+        err.message?.includes('Sign-in in progress') ||
+        err.message?.includes('in progress');
 
       if (!isCancel && !isInProgress) {
         askFallbackAfterFailure('Google Login', err.message || 'Could not authenticate with Google.');
@@ -458,7 +522,7 @@ const LoginScreen = () => {
                   <Icon name="mail-outline" size={18} color="rgba(255, 255, 255, 0.6)" style={styles.inputIcon} />
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Support@swappfit.com"
+                    placeholder="Support@swapp.fit"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     keyboardType="email-address"
                     autoCapitalize="none"

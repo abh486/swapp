@@ -20,6 +20,7 @@ import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '../../../utils/clarity';
 import apiClient from '../../../api/apiClient';
 import { getAccessStatus } from '../../../services/aiDieticianService';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 const PENDING_SUBSCRIPTION_KEY = '@pending_active_subscription';
 
@@ -409,7 +410,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
           )}
           <TouchableOpacity style={styles.letsStartBtn} onPress={handleStart} disabled={activationStatus === 'activating'}>
             {activationStatus === 'activating' ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <GlobalLoader size={20} />
             ) : (
               <Text style={styles.letsStartBtnText}>Let's Start</Text>
             )}
@@ -428,7 +429,7 @@ const SubscriptionSuccessScreen = ({ route, navigation }) => {
             disabled={downloading}
           >
             {downloading ? (
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+              <GlobalLoader size={20} />
             ) : (
               <Text style={styles.downloadBtnText}>Download Receipt</Text>
             )}

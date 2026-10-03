@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   TextInput,
   BackHandler,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -371,18 +371,23 @@ const DietPreferences = ({ navigation, route }) => {
 
   const handleSelectPreference = async (title) => {
     setPreference(title);
-    setShowPreferenceSelect(false);
-    if (isFlowMode) {
-      if (title === 'Selective Non-Veg' || title === 'No Restriction') {
-        setShowNonVegDaysSelect(true);
-      } else {
-        setShowSkipDaysSelect(true);
-      }
-    }
     try {
       await AsyncStorage.setItem('diet_preference', title);
     } catch (err) {
       console.error('Failed to save preference:', err);
+    }
+
+    if (isFlowMode) {
+      setTimeout(() => {
+        setShowPreferenceSelect(false);
+        if (title === 'Selective Non-Veg' || title === 'No Restriction') {
+          setShowNonVegDaysSelect(true);
+        } else {
+          setShowSkipDaysSelect(true);
+        }
+      }, 180);
+    } else {
+      setShowPreferenceSelect(false);
     }
   };
 
@@ -550,7 +555,7 @@ const DietPreferences = ({ navigation, route }) => {
     }
   };
 
-  // RENDER SELECTOR VIEW (Grid of Dietary Preferences)
+  // RENDER SELECTOR VIEW (Dietary Preferences Selection)
   if (showPreferenceSelect) {
     return (
       <SafeAreaView style={styles.container}>
@@ -582,56 +587,56 @@ const DietPreferences = ({ navigation, route }) => {
             <View style={styles.headerSpacer} />
           )}
           {isFlowMode ? (
-            <TouchableOpacity onPress={() => { setShowPreferenceSelect(false); setShowSkipDaysSelect(true); }}>
-              <Text style={styles.skipBtnText}>Skip</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowPreferenceSelect(false);
+                if (preference === 'Selective Non-Veg' || preference === 'No Restriction') {
+                  setShowNonVegDaysSelect(true);
+                } else {
+                  setShowSkipDaysSelect(true);
+                }
+              }}
+            >
+              <Text style={styles.skipBtnText}>Next</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.headerSpacer} />
           )}
         </View>
 
-        <View style={styles.selectorWrapper}>
-          <Text style={styles.selectorTitle}>what's your dietary preference?</Text>
+        <ScrollView contentContainerStyle={styles.listScrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.listTitle}>what's your dietary preference?</Text>
 
-          {/* Grid Selection */}
-          <View style={styles.gridContainer}>
-            {preferencesOptions.map((opt) => {
-              const isSelected = preference === opt.title;
-              return (
-                <TouchableOpacity
-                  key={opt.title}
-                  style={[styles.gridCard, isSelected && styles.gridCardSelected]}
-                  onPress={() => handleSelectPreference(opt.title)}
-                  activeOpacity={0.8}
-                >
-                  {/* Upper section with checkered background */}
-                  <View style={styles.gridCardUpper}>
-                    {opt.image ? (
-                      <Image
-                        source={{ uri: opt.image }}
-                        style={styles.checkerboard}
-                        resizeMode="cover"
-                      />
-                    ) : null}
+          {preferencesOptions.map((opt) => {
+            const isSelected = preference === opt.title;
+            return (
+              <TouchableOpacity
+                key={opt.title}
+                style={[styles.dayCard, isSelected && styles.dayCardSelected]}
+                onPress={() => handleSelectPreference(opt.title)}
+                activeOpacity={0.8}
+              >
+                {/* Left side: image */}
+                {opt.image ? (
+                  <Image source={{ uri: opt.image }} style={styles.mealCardImage} />
+                ) : (
+                  <View style={styles.dayCardLeft} />
+                )}
 
-                    {/* Radio circle in top right */}
-                    <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                      {isSelected && <View style={styles.radioDot} />}
-                    </View>
+                {/* Middle: Title & Subtext */}
+                <View style={styles.dayCardMiddle}>
+                  <Text style={styles.dayCardTitle}>{opt.title}</Text>
+                  {opt.desc ? <Text style={styles.dayCardDesc}>{opt.desc}</Text> : null}
+                </View>
 
-                    {/* Centered description */}
-                    <Text style={styles.gridCardDesc}>{opt.desc}</Text>
-                  </View>
-
-                  {/* Bottom section with solid white background */}
-                  <View style={styles.gridCardLower}>
-                    <Text style={styles.gridCardTitle}>{opt.title}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+                {/* Right side: Checkbox */}
+                <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                  {isSelected && <Icon name="checkmark" size={14} color="#000" />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1674,7 +1679,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 12,
-    height: 72,
+    minHeight: 72,
   },
   dayCardSelected: {
     borderColor: 'rgba(255, 255, 255, 0.3)',

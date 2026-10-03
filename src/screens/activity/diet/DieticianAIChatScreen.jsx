@@ -8,13 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getConversationMessages, sendDieticianMessage } from '../../../services/aiDieticianService';
+import { GlobalLoader } from '../../../components/GlobalLoader';
 
 export const DieticianAIChatScreen = () => {
   const navigation = useNavigation();
@@ -189,13 +190,13 @@ export const DieticianAIChatScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.75}>
+          <Icon name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={styles.headerIconContainer}>
@@ -226,7 +227,7 @@ export const DieticianAIChatScreen = () => {
       >
         {loading && !sending ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#9333EA" />
+            <GlobalLoader size={60} />
           </View>
         ) : messages.length === 0 && !loading && !sending ? (
           <View style={styles.emptyStateContainer}>
@@ -248,7 +249,7 @@ export const DieticianAIChatScreen = () => {
         {/* Thinking Indicator */}
         {(sending || isBackendProcessing) && (
           <View style={styles.thinkingContainer}>
-            <ActivityIndicator size="small" color="#9333EA" style={{ marginRight: 8 }} />
+            <GlobalLoader size={20} style={{ marginRight: 8 }} />
             <Text style={styles.thinkingText}>{thinkingMessage}</Text>
           </View>
         )}
@@ -287,14 +288,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#111111',
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingBottom: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#222222',
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerInfo: {
     flex: 1,

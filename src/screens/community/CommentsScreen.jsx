@@ -16,6 +16,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import PostedSuccessPopup from '../../components/PostedSuccessPopup';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
@@ -78,6 +80,7 @@ const CommentsScreen = ({ route, navigation }) => {
   const [commentText, setCommentText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const postUserDisplayName = getDisplayName(post.user);
   const postUserInitials = getInitials(post.user);
@@ -128,6 +131,7 @@ const CommentsScreen = ({ route, navigation }) => {
       if (newComment) {
         setComments(currentComments => [...currentComments, newComment]);
         setCommentText('');
+        setShowSuccessPopup(true);
       }
     } catch (error) {
       console.log('Failed to submit comment', error);
@@ -315,7 +319,7 @@ const CommentsScreen = ({ route, navigation }) => {
           )}
           ListEmptyComponent={
             isLoading ? (
-              <ActivityIndicator size="large" color="#5E5CE6" style={{ marginTop: 40 }} />
+              <GlobalLoader size={50} style={{ marginTop: 40 }} />
             ) : (
               <Text style={styles.emptyText}>No comments yet.</Text>
             )
@@ -372,6 +376,14 @@ const CommentsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Posted Success Pop Up 🎉 (Automatically vanishes after 3 seconds) */}
+      <PostedSuccessPopup
+        visible={showSuccessPopup}
+        title="Comment Posted! 🎉"
+        duration={3000}
+        onDismiss={() => setShowSuccessPopup(false)}
+      />
     </SafeAreaView>
   );
 };

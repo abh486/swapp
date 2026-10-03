@@ -13,9 +13,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
+  StatusBar,
   PanResponder,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   FadeInRight,
   FadeOutLeft,
@@ -39,12 +40,13 @@ import Animated, {
   interpolateColor,
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 import * as Clarity from '../utils/clarity';
 import { useResponsiveMetrics } from '../utils/responsive';
 import HealthKit from 'react-native-health';
@@ -132,7 +134,7 @@ const AnimatedChar = ({ char, index, isPlaceholder, fs }) => {
       entering={ZoomIn.duration(180).springify().damping(11)}
       exiting={ZoomOut.duration(140)}
       style={{
-        fontSize: fs(54),
+        fontSize: fs(46),
         fontWeight: '700',
         color: isPlaceholder ? '#444444' : '#FFFFFF',
         letterSpacing: -0.5,
@@ -154,6 +156,8 @@ const HeroMinimalTypingDisplay = ({
   autoCapitalize = 'none',
   autoFocus = true,
   maxLength = 30,
+  returnKeyType = 'done',
+  onSubmitEditing,
 }) => {
   const { sp, fs } = useResponsiveMetrics();
   const cursorOpacity = useSharedValue(1);
@@ -203,7 +207,7 @@ const HeroMinimalTypingDisplay = ({
       onPress={() => inputRef.current?.focus()}
       style={{
         width: '100%',
-        paddingVertical: sp(25),
+        paddingVertical: sp(14),
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -218,11 +222,13 @@ const HeroMinimalTypingDisplay = ({
         autoCorrect={false}
         autoFocus={autoFocus}
         maxLength={maxLength}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
       />
 
       <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }, textAnimatedStyle]}>
         {prefix ? (
-          <Text style={{ fontSize: fs(42), color: '#888888', fontWeight: '600', marginRight: sp(4) }}>
+          <Text style={{ fontSize: fs(36), color: '#888888', fontWeight: '600', marginRight: sp(4) }}>
             {prefix}
           </Text>
         ) : null}
@@ -243,7 +249,7 @@ const HeroMinimalTypingDisplay = ({
           style={[
             {
               width: sp(2.5),
-              height: sp(40),
+              height: sp(34),
               backgroundColor: '#FFFFFF',
               borderRadius: sp(1.5),
               marginHorizontal: sp(6),
@@ -332,12 +338,15 @@ const AgeRuler = ({ value, onChange }) => {
 };
 
 // ─── Reanimated Interactive Slider ───────────────────────────────────────────
-// ─── Reanimated Interactive Slider ───────────────────────────────────────────
 const ReanimatedSlider = ({ min, max, value, onChange }) => {
   const { sp, width: screenWidth } = useResponsiveMetrics();
-  const trackWidth = screenWidth - sp(110);
-  const containerPageX = useRef(0);
+  const [trackLayoutWidth, setTrackLayoutWidth] = useState(0);
+  const trackWidth = trackLayoutWidth || (screenWidth - sp(130));
+
   const sliderRef = useRef(null);
+  const startValRef = useRef(Number(value) || min);
+  const startRatioRef = useRef(0);
+  const isDraggingRef = useRef(false);
 
   const numVal = Math.min(Math.max(Number(value) || min, min), max);
   const ratio = (numVal - min) / (max - min);
@@ -346,19 +355,12 @@ const ReanimatedSlider = ({ min, max, value, onChange }) => {
   const animatedRatio = useSharedValue(ratio);
 
   useEffect(() => {
-    animatedRatio.value = withTiming(ratio, { duration: 60 });
-  }, [ratio]);
-
-  const updateFromPageX = (pageX) => {
-    const relativeX = pageX - containerPageX.current;
-    const clampedX = Math.min(Math.max(relativeX, 0), trackWidth);
-    const newRatio = clampedX / trackWidth;
-    const rawVal = min + newRatio * (max - min);
-    const roundedVal = Math.round(rawVal);
-    if (String(roundedVal) !== String(value)) {
-      onChange(String(roundedVal));
+    if (isDraggingRef.current) {
+      animatedRatio.value = ratio;
+    } else {
+      animatedRatio.value = withSpring(ratio, { damping: 18, stiffness: 220 });
     }
-  };
+  }, [ratio]);
 
   const handleStepChange = (delta) => {
     const nextVal = Math.min(Math.max(numVal + delta, min), max);
@@ -368,19 +370,55 @@ const ReanimatedSlider = ({ min, max, value, onChange }) => {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+
       onPanResponderGrant: (evt, gestureState) => {
-        thumbScale.value = withSpring(1.3, { damping: 12, stiffness: 260 });
-        sliderRef.current?.measure((x, y, width, height, pageX) => {
-          containerPageX.current = pageX;
-          updateFromPageX(gestureState.moveX || evt.nativeEvent.pageX);
-        });
+        isDraggingRef.current = true;
+        thumbScale.value = withSpring(1.25, { damping: 12, stiffness: 260 });
+
+        const currentNum = Math.min(Math.max(Number(value) || min, min), max);
+        startValRef.current = currentNum;
+        startRatioRef.current = (currentNum - min) / (max - min);
+
+        // Tap-to-jump on track:
+        const locX = evt.nativeEvent.locationX;
+        const width = trackLayoutWidth || (screenWidth - sp(130));
+        if (typeof locX === 'number' && width > 0) {
+          const tapRatio = Math.min(Math.max(locX / width, 0), 1);
+          // If tap is more than 15px away from current thumb, snap to tap position:
+          if (Math.abs(tapRatio - startRatioRef.current) * width > sp(15)) {
+            startRatioRef.current = tapRatio;
+            const tappedVal = Math.round(min + tapRatio * (max - min));
+            onChange(String(tappedVal));
+          }
+        }
       },
+
       onPanResponderMove: (evt, gestureState) => {
-        updateFromPageX(gestureState.moveX || evt.nativeEvent.pageX);
+        const width = trackLayoutWidth || (screenWidth - sp(130));
+        if (width <= 0) return;
+
+        // Delta-based drag: 100% reliable on Android and iOS
+        const deltaRatio = gestureState.dx / width;
+        const nextRatio = Math.min(Math.max(startRatioRef.current + deltaRatio, 0), 1);
+        const nextVal = Math.round(min + nextRatio * (max - min));
+        if (String(nextVal) !== String(value)) {
+          onChange(String(nextVal));
+        }
       },
+
       onPanResponderRelease: () => {
         thumbScale.value = withSpring(1, { damping: 14, stiffness: 200 });
+        isDraggingRef.current = false;
+      },
+
+      onPanResponderTerminate: () => {
+        thumbScale.value = withSpring(1, { damping: 14, stiffness: 200 });
+        isDraggingRef.current = false;
       },
     })
   ).current;
@@ -421,20 +459,22 @@ const ReanimatedSlider = ({ min, max, value, onChange }) => {
         {/* Interactive Slider Track */}
         <View
           ref={sliderRef}
-          onLayout={() => {
-            sliderRef.current?.measure((x, y, width, height, pageX) => {
-              containerPageX.current = pageX;
-            });
+          collapsable={false}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w > 0) setTrackLayoutWidth(w);
           }}
           {...panResponder.panHandlers}
           style={{
-            width: trackWidth,
+            flex: 1,
+            marginHorizontal: sp(14),
             height: sp(50),
             justifyContent: 'center',
             position: 'relative',
           }}
         >
           <View
+            pointerEvents="none"
             style={{
               width: '100%',
               height: sp(8),
@@ -444,6 +484,7 @@ const ReanimatedSlider = ({ min, max, value, onChange }) => {
           />
 
           <Animated.View
+            pointerEvents="none"
             style={[
               {
                 position: 'absolute',
@@ -457,6 +498,7 @@ const ReanimatedSlider = ({ min, max, value, onChange }) => {
           />
 
           <Animated.View
+            pointerEvents="none"
             style={[
               {
                 position: 'absolute',
@@ -782,17 +824,20 @@ const MemberProfile = () => {
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [cropperVisible, setCropperVisible] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const navigation = useNavigation();
   const { refreshAuthStatus } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [stepDirection, setStepDirection] = useState('next');
 
   const isIOS = Platform.OS === 'ios';
-  const TOTAL_STEPS = isIOS ? 12 : 11;
+  const TOTAL_STEPS = isIOS ? 11 : 10;
   const LAST_STEP = TOTAL_STEPS - 1;
-  const SUBMIT_LOADING_STEP = 12;
+  const SUBMIT_LOADING_STEP = 11;
 
   const { wp, hp, ms, mvs, sp, fs, width: screenWidth, height: screenHeight } = useResponsiveMetrics();
+  const isSmallScreen = screenHeight < 700;
   const styles = useMemo(
     () => createStyles({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }),
     [wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight]
@@ -807,7 +852,6 @@ const MemberProfile = () => {
     weight: '70',
     fitnessGoal: [],
     interests: [],
-    simpleGoals: [],
     activityLevel: '',
     focusAreas: [],
   });
@@ -927,37 +971,66 @@ const MemberProfile = () => {
     transform: [{ translateX: inputShake.value }],
   }));
 
-  // ── Image Picker ────────────────────────────────────────────────────────────
-  const handlePickImage = () => {
-    launchImageLibrary(
-      {
-        mediaType: 'photo',
-        includeBase64: false,
-        maxHeight: 600,
-        maxWidth: 600,
-        quality: 0.8,
-        selectionLimit: 1,
-      },
-      async (response) => {
-        if (response.didCancel) return;
-        if (response.errorCode) {
-          Alert.alert('Image Error', response.errorMessage || 'Could not pick image.');
-          return;
-        }
-        if (response.assets && response.assets.length > 0) {
-          const selectedImage = response.assets[0];
-          setUploadingImage(true);
-          try {
-            const uploadedUrl = await uploadToCloudinary(selectedImage);
-            setProfileImage(uploadedUrl);
-          } catch (error) {
-            Alert.alert('Upload Failed', 'Failed to upload the image. Please try again.');
-          } finally {
-            setUploadingImage(false);
-          }
-        }
+  // ── Image Picker & Crop ─────────────────────────────────────────────────────
+  const openImagePicker = (type = 'library') => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: false,
+      quality: 0.9,
+      selectionLimit: 1,
+    };
+
+    const handlePickerResponse = (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        Alert.alert('Image Error', response.errorMessage || 'Could not pick image.');
+        return;
       }
+      if (response.assets && response.assets.length > 0) {
+        setSelectedPhoto(response.assets[0]);
+        setCropperVisible(true);
+      }
+    };
+
+    if (type === 'camera') {
+      launchCamera(options, handlePickerResponse);
+    } else {
+      launchImageLibrary(options, handlePickerResponse);
+    }
+  };
+
+  const handlePickImage = () => {
+    Alert.alert(
+      'Profile Photo',
+      'Choose how you would like to select your photo',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => setTimeout(() => openImagePicker('camera'), 200),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => setTimeout(() => openImagePicker('library'), 200),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
+  };
+
+  const handleCropComplete = async ({ cropOptions }) => {
+    if (!selectedPhoto) return;
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadToCloudinary(selectedPhoto, cropOptions);
+      setProfileImage(uploadedUrl);
+      setCropperVisible(false);
+      setSelectedPhoto(null);
+    } catch (error) {
+      Alert.alert('Upload Failed', 'Failed to upload the cropped image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -997,11 +1070,7 @@ const MemberProfile = () => {
       Alert.alert('Required Field', 'Please select at least one interest.');
       return false;
     }
-    if (currentStep === 8 && formData.simpleGoals.length === 0) {
-      Alert.alert('Required Field', 'Please select at least one goal.');
-      return false;
-    }
-    if (currentStep === 9 && !formData.activityLevel) {
+    if (currentStep === 8 && !formData.activityLevel) {
       Alert.alert('Required Field', 'Please select your activity level.');
       return false;
     }
@@ -1011,7 +1080,7 @@ const MemberProfile = () => {
   const isLastStep = currentStep === LAST_STEP;
 
   const handleNext = () => {
-    if (isIOS && currentStep === 11) {
+    if (isIOS && currentStep === 10) {
       // Apple Health step — Authorize button triggers HealthKit permission
       handleHealthAuthorize();
       return;
@@ -1072,7 +1141,7 @@ const MemberProfile = () => {
     setCurrentStep(SUBMIT_LOADING_STEP);
     try {
       const cleanUsername = (formData.username || '').trim().toLowerCase();
-      const allGoals = [...formData.fitnessGoal, ...formData.simpleGoals].filter(Boolean);
+      const allGoals = [...formData.fitnessGoal].filter(Boolean);
       const uniqueGoals = Array.from(new Set(allGoals)).join(', ');
 
       const rawWeightKg = Number(formData.weight) || 70;
@@ -1111,6 +1180,8 @@ const MemberProfile = () => {
           activityLevel: formData.activityLevel || 'moderate',
           gender: formData.gender,
           age: String(formData.age),
+          focusAreas: formData.focusAreas.join(', '),
+          interests: formData.interests.join(', '),
         };
         await AsyncStorage.setItem('member_profile_metrics', JSON.stringify(metricsToCache));
       } catch (e) {
@@ -1170,11 +1241,17 @@ const MemberProfile = () => {
       case 0:
         return (
           <ScrollView
-            contentContainerStyle={{ alignItems: 'center', paddingTop: sp(85), paddingBottom: sp(20) }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              paddingTop: isSmallScreen ? sp(32) : sp(48),
+              paddingBottom: sp(24),
+            }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(36) }}>
+            <Animated.View entering={ZoomIn.duration(400).springify()} style={{ alignItems: 'center', marginBottom: sp(16) }}>
               <TouchableOpacity onPress={handlePickImage} activeOpacity={0.85}>
                 <View style={styles.avatarCircle}>
                   {uploadingImage ? (
@@ -1211,6 +1288,8 @@ const MemberProfile = () => {
                 placeholder="Name"
                 autoCapitalize="words"
                 autoFocus={true}
+                returnKeyType="next"
+                onSubmitEditing={handleNext}
               />
             </Animated.View>
           </ScrollView>
@@ -1220,7 +1299,7 @@ const MemberProfile = () => {
       case 1:
         return (
           <ScrollView
-            contentContainerStyle={{ paddingVertical: sp(20) }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start', paddingTop: sp(24), paddingBottom: sp(24) }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -1228,7 +1307,7 @@ const MemberProfile = () => {
               {"Choose your\nUsername"}
             </Animated.Text>
 
-            <Animated.View entering={FadeInUp.delay(120).duration(300)} style={[{ marginTop: sp(10) }, animatedShakeStyle]}>
+            <Animated.View entering={FadeInUp.delay(120).duration(300)} style={[{ marginTop: sp(14) }, animatedShakeStyle]}>
               <HeroMinimalTypingDisplay
                 value={formData.username}
                 onChangeText={(text) => {
@@ -1239,6 +1318,8 @@ const MemberProfile = () => {
                 placeholder="username"
                 autoCapitalize="none"
                 autoFocus={true}
+                returnKeyType="next"
+                onSubmitEditing={handleNext}
               />
 
               <View style={{ marginTop: sp(12), paddingHorizontal: sp(4), alignItems: 'center' }}>
@@ -1271,7 +1352,7 @@ const MemberProfile = () => {
       case 2:
         return (
           <ScrollView
-            contentContainerStyle={{ paddingVertical: sp(20) }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: sp(20) }}
             showsVerticalScrollIndicator={false}
           >
             <Animated.Text entering={FadeInDown.duration(300).springify()} style={styles.stepHeading}>
@@ -1324,12 +1405,16 @@ const MemberProfile = () => {
       // ── Step 3: Age ─────────────────────────────────────────────────────────
       case 3:
         return (
-          <View style={{ width: '100%', alignItems: 'center', paddingVertical: sp(20), flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: sp(28), paddingBottom: sp(24) }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { textAlign: 'center' }]}>
               Your age
             </Animated.Text>
 
-            <Animated.View entering={ZoomIn.delay(150).duration(350).springify()} style={{ width: '100%', marginTop: sp(30) }}>
+            <Animated.View entering={ZoomIn.delay(150).duration(350).springify()} style={{ width: '100%', marginTop: sp(20) }}>
               <HeroMinimalTypingDisplay
                 value={formData.age}
                 onChangeText={(v) => {
@@ -1341,9 +1426,11 @@ const MemberProfile = () => {
                 keyboardType="numeric"
                 maxLength={3}
                 autoFocus={true}
+                returnKeyType="done"
+                onSubmitEditing={handleNext}
               />
             </Animated.View>
-          </View>
+          </ScrollView>
         );
 
       // ── Step 4: Your height ─────────────────────────────────────────────────
@@ -1361,7 +1448,7 @@ const MemberProfile = () => {
         }
 
         return (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: sp(10) }}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: sp(20) }}>
             <Animated.View entering={FadeInDown.duration(300).springify()} style={{ width: '100%', alignItems: 'center' }}>
               <Text style={styles.screenMainTitle}>Your height</Text>
 
@@ -1401,7 +1488,7 @@ const MemberProfile = () => {
         }
 
         return (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: sp(10) }}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: sp(20) }}>
             <Animated.View entering={FadeInDown.duration(300).springify()} style={{ width: '100%', alignItems: 'center' }}>
               <Text style={styles.screenMainTitle}>Your weight</Text>
 
@@ -1431,10 +1518,20 @@ const MemberProfile = () => {
 
       // ── Step 6: Fitness Goals ────────────────────────────────────────────────
       case 6: {
-        const goals = ['Lose Weight', 'Build muscle', 'Boost energy', 'Stress relief', 'Sports performance', 'Flexibility'];
+        const goals = [
+          'Lose Weight',
+          'Build muscle',
+          'Strength & Muscle',
+          'Endurance',
+          'Mobility',
+          'Flexibility',
+          'Boost energy',
+          'Stress relief',
+          'Sports performance',
+        ];
         return (
           <ScrollView
-            contentContainerStyle={{ paddingVertical: sp(20) }}
+            contentContainerStyle={{ paddingVertical: sp(20), flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
           >
             <Animated.Text entering={FadeInDown.duration(300).springify()} style={styles.stepHeading}>
@@ -1443,13 +1540,13 @@ const MemberProfile = () => {
             <Animated.Text entering={FadeInDown.delay(80).duration(300)} style={styles.stepSubtitle}>
               Select all that apply
             </Animated.Text>
-            <View style={{ marginTop: sp(20), gap: sp(14) }}>
+            <View style={{ marginTop: sp(10), gap: sp(14), paddingBottom: sp(20) }}>
               {goals.map((g, idx) => {
                 const isSelected = formData.fitnessGoal.includes(g);
                 return (
                   <Animated.View
                     key={g}
-                    entering={FadeInDown.delay(idx * 110).duration(350).springify()}
+                    entering={FadeInDown.delay(idx * 40).duration(350).springify()}
                   >
                     <TouchableOpacity
                       onPress={() => toggleGoal(g)}
@@ -1478,7 +1575,7 @@ const MemberProfile = () => {
         ];
         return (
           <ScrollView
-            contentContainerStyle={{ paddingVertical: sp(20) }}
+            contentContainerStyle={{ paddingVertical: sp(20), flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
           >
             <Animated.Text entering={FadeInDown.duration(300).springify()} style={styles.stepHeading}>
@@ -1487,13 +1584,13 @@ const MemberProfile = () => {
             <Animated.Text entering={FadeInDown.delay(80).duration(300)} style={styles.stepSubtitle}>
               Tap all that interest you
             </Animated.Text>
-            <View style={{ marginTop: sp(20), gap: sp(14) }}>
+            <View style={{ marginTop: sp(10), gap: sp(14), paddingBottom: sp(20) }}>
               {interests.map((item, idx) => {
                 const isSelected = formData.interests.includes(item);
                 return (
                   <Animated.View
                     key={item}
-                    entering={FadeInDown.delay(idx * 80).duration(350).springify()}
+                    entering={FadeInDown.delay(idx * 40).duration(350).springify()}
                   >
                     <TouchableOpacity
                       onPress={() => toggleInterest(item)}
@@ -1513,39 +1610,8 @@ const MemberProfile = () => {
         );
       }
 
-      // ── Step 8: Your Goals (simple) ──────────────────────────────────────────────
+      // ── Step 8: Activity Level ────────────────────────────────────────────────
       case 8: {
-        const simpleGoalOptions = ['Weight Loss', 'Strength & Muscle', 'Endurance', 'Mobility'];
-        return (
-          <ScrollView contentContainerStyle={{ paddingVertical: sp(40) }} showsVerticalScrollIndicator={false}>
-            <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { textAlign: 'center', marginBottom: sp(40) }]}>
-              Your goals
-            </Animated.Text>
-            <View style={{ gap: sp(14) }}>
-              {simpleGoalOptions.map((g) => {
-                const isSelected = formData.simpleGoals.includes(g);
-                return (
-                  <TouchableOpacity
-                    key={g}
-                    onPress={() => {
-                      const current = formData.simpleGoals;
-                      setFormData({ ...formData, simpleGoals: isSelected ? current.filter(x => x !== g) : [...current, g] });
-                    }}
-                    style={[styles.simpleGoalRow, isSelected && styles.simpleGoalRowActive]}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.simpleGoalText, isSelected && { color: '#FFFFFF' }]}>{g}</Text>
-                    {isSelected && <Feather name="check" size={sp(18)} color="#FFFFFF" />}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-        );
-      }
-
-      // ── Step 9: Activity Level ────────────────────────────────────────────────
-      case 9: {
         const activityOptions = [
           { key: 'sedentary', label: 'Sedentary', sub: 'Little or no exercise', icon: 'human-wheelchair' },
           { key: 'light', label: 'Light', sub: '1-3 days / week', icon: 'walk' },
@@ -1554,8 +1620,11 @@ const MemberProfile = () => {
           { key: 'very_active', label: 'Very Active', sub: 'Athlete / 2x daily', icon: 'bike' },
         ];
         return (
-          <ScrollView contentContainerStyle={{ paddingVertical: sp(40) }} showsVerticalScrollIndicator={false}>
-            <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { textAlign: 'center', marginBottom: sp(40) }]}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: sp(20) }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { textAlign: 'center', marginBottom: sp(24) }]}>
               Activity level
             </Animated.Text>
             <View style={{ gap: sp(12) }}>
@@ -1588,29 +1657,83 @@ const MemberProfile = () => {
         );
       }
 
-      // ── Step 10: Focus Areas ──────────────────────────────────────────────────
-      case 10: {
-        const focusOptions = ['Shoulders', 'Arms', 'Legs', 'Core', 'Back', 'Chest', 'Full Body'];
+      // ── Step 9: Focus Areas ──────────────────────────────────────────────────
+      case 9: {
+        const focusOptions = ['full body', 'Arms', 'Legs', 'Core', 'Back', 'Chest', 'Shoulders'];
+        const isFullBodySelected = formData.focusAreas.some(
+          x => String(x).toLowerCase() === 'full body'
+        );
+
         return (
-          <ScrollView contentContainerStyle={{ paddingVertical: sp(40) }} showsVerticalScrollIndicator={false}>
-            <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { textAlign: 'center', marginBottom: sp(40) }]}>
+          <ScrollView
+            contentContainerStyle={{ paddingVertical: sp(20), flexGrow: 1 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text entering={FadeInDown.duration(300).springify()} style={[styles.stepHeading, { marginBottom: sp(16) }]}>
               Focus areas
             </Animated.Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: sp(12) }}>
-              {focusOptions.map((area) => {
-                const isSelected = formData.focusAreas.includes(area);
+            <View style={{ gap: sp(14), paddingBottom: sp(20) }}>
+              {focusOptions.map((area, idx) => {
+                const isFullBody = area.toLowerCase() === 'full body';
+                const isSelected = formData.focusAreas.some(
+                  x => String(x).toLowerCase() === area.toLowerCase()
+                );
+                const isDisabled = isFullBodySelected && !isFullBody;
+
                 return (
-                  <TouchableOpacity
+                  <Animated.View
                     key={area}
-                    onPress={() => {
-                      const current = formData.focusAreas;
-                      setFormData({ ...formData, focusAreas: isSelected ? current.filter(x => x !== area) : [...current, area] });
-                    }}
-                    style={[styles.focusChip, isSelected && styles.focusChipActive]}
-                    activeOpacity={0.75}
+                    entering={FadeInDown.delay(idx * 40).duration(350).springify()}
                   >
-                    <Text style={[styles.focusChipText, isSelected && { color: '#FFFFFF' }]}>{area}</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={isDisabled}
+                      onPress={() => {
+                        const current = formData.focusAreas;
+                        if (isFullBody) {
+                          // Toggle Full Body: clears balance focus areas when selecting Full Body
+                          setFormData({
+                            ...formData,
+                            focusAreas: isSelected ? [] : ['Full Body'],
+                          });
+                        } else {
+                          // Balance focus area: remove Full Body and toggle area
+                          const withoutFullBody = current.filter(
+                            x => String(x).toLowerCase() !== 'full body'
+                          );
+                          const exists = withoutFullBody.some(
+                            x => String(x).toLowerCase() === area.toLowerCase()
+                          );
+                          setFormData({
+                            ...formData,
+                            focusAreas: exists
+                              ? withoutFullBody.filter(
+                                  x => String(x).toLowerCase() !== area.toLowerCase()
+                                )
+                              : [...withoutFullBody, area],
+                          });
+                        }
+                      }}
+                      style={[
+                        styles.simpleGoalRow,
+                        isSelected && styles.simpleGoalRowActive,
+                        isDisabled && { opacity: 0.35, borderColor: '#1F1F1F' },
+                      ]}
+                      activeOpacity={isDisabled ? 1 : 0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.simpleGoalText,
+                          isSelected && { color: '#FFFFFF' },
+                          isDisabled && { color: '#555555' },
+                        ]}
+                      >
+                        {area}
+                      </Text>
+                      {isSelected && (
+                        <Feather name="check-circle" size={sp(20)} color="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+                  </Animated.View>
                 );
               })}
             </View>
@@ -1618,8 +1741,8 @@ const MemberProfile = () => {
         );
       }
 
-      // ── Step 11: Connect Apple Health ─────────────────────────────────────────
-      case 11:
+      // ── Step 10: Connect Apple Health ─────────────────────────────────────────
+      case 10:
         if (!isIOS) return null;
         return (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: sp(20) }}>
@@ -1674,13 +1797,14 @@ const MemberProfile = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={false} />
       <AmbientMotionBackground sp={sp} />
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={{ paddingHorizontal: sp(20), paddingVertical: sp(14) }}>
+        <View style={{ paddingHorizontal: sp(20), paddingTop: sp(26), paddingBottom: sp(14) }}>
           <SegmentedStepHeader currentStep={currentStep} totalSteps={TOTAL_STEPS} sp={sp} />
         </View>
 
@@ -1714,14 +1838,30 @@ const MemberProfile = () => {
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={styles.continuePillText}>
-                  {isIOS && currentStep === 11 ? '✦ Authorize' : 'Continue'}
+                  {isIOS && currentStep === 10 ? '✦ Authorize' : 'Continue'}
                 </Text>
-                {(!isIOS || currentStep !== 11) && <Feather name="arrow-right" size={sp(20)} color="#000000" style={{ marginLeft: sp(8) }} />}
+                {(!isIOS || currentStep !== 10) && <Feather name="arrow-right" size={sp(20)} color="#000000" style={{ marginLeft: sp(8) }} />}
               </View>
             )}
           </AnimatedButton>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        visible={cropperVisible}
+        image={selectedPhoto}
+        initialShape="circle"
+        onClose={() => {
+          if (!uploadingImage) {
+            setCropperVisible(false);
+            setSelectedPhoto(null);
+          }
+        }}
+        onCrop={handleCropComplete}
+        onPickAnother={handlePickImage}
+        isUploading={uploadingImage}
+      />
     </SafeAreaView>
   );
 };
@@ -1747,8 +1887,8 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: sp(20),
-      paddingBottom: Platform.OS === 'ios' ? sp(30) : sp(20),
-      paddingTop: sp(10),
+      paddingBottom: Platform.OS === 'ios' ? sp(16) : sp(14),
+      paddingTop: sp(8),
       gap: sp(14),
     },
     circularBackButton: {
@@ -1839,10 +1979,10 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
 
     // Step 0 — Avatar
     avatarCircle: {
-      width: sp(90),
-      height: sp(90),
-      borderRadius: sp(45),
-      borderWidth: 2.5,
+      width: sp(80),
+      height: sp(80),
+      borderRadius: sp(40),
+      borderWidth: 2,
       borderColor: '#FFFFFF',
       justifyContent: 'center',
       alignItems: 'center',
@@ -1850,25 +1990,25 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       overflow: 'hidden',
     },
     avatarImage: {
-      width: sp(90),
-      height: sp(90),
-      borderRadius: sp(45),
+      width: sp(80),
+      height: sp(80),
+      borderRadius: sp(40),
     },
     avatarPlaceholder: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarHead: {
-      width: sp(30),
-      height: sp(30),
-      borderRadius: sp(15),
+      width: sp(26),
+      height: sp(26),
+      borderRadius: sp(13),
       backgroundColor: '#3A3A3A',
-      marginBottom: sp(4),
+      marginBottom: sp(3),
     },
     avatarBody: {
-      width: sp(46),
-      height: sp(24),
-      borderRadius: sp(23),
+      width: sp(40),
+      height: sp(20),
+      borderRadius: sp(20),
       backgroundColor: '#3A3A3A',
     },
     editBadge: {
@@ -1876,9 +2016,9 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       bottom: 0,
       right: 0,
       backgroundColor: '#FFF',
-      width: sp(28),
-      height: sp(28),
-      borderRadius: sp(14),
+      width: sp(26),
+      height: sp(26),
+      borderRadius: sp(13),
       justifyContent: 'center',
       alignItems: 'center',
       shadowColor: '#000',
@@ -1889,14 +2029,14 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
     addProfileLabel: {
       color: '#AAAAAA',
       fontSize: fs(14),
-      marginTop: sp(10),
+      marginTop: sp(8),
       letterSpacing: 0.3,
     },
     stepTitle: {
       color: '#FFF',
       fontSize: fs(20),
       textAlign: 'center',
-      marginBottom: sp(20),
+      marginBottom: sp(12),
     },
 
     // Inputs
@@ -2122,26 +2262,7 @@ const createStyles = ({ wp, hp, ms, mvs, sp, fs, screenWidth, screenHeight }) =>
       alignItems: 'center',
     },
 
-    // Step 10 — Focus Areas
-    focusChip: {
-      paddingVertical: sp(14),
-      paddingHorizontal: sp(20),
-      borderRadius: sp(30),
-      borderWidth: 1,
-      borderColor: '#2A2A2A',
-      backgroundColor: '#0D0D0D',
-    },
-    focusChipActive: {
-      borderColor: '#FFFFFF',
-      backgroundColor: '#141414',
-    },
-    focusChipText: {
-      color: '#888888',
-      fontSize: fs(15),
-      fontWeight: '500',
-    },
-
-    // Step 11 — Apple Health
+    // Step 10 — Apple Health
     healthAppIcon: {
       width: sp(80),
       height: sp(80),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,19 +17,25 @@ import {
   TouchableWithoutFeedback
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
-import { resolveExerciseImageUri, getExerciseMuscleFallback } from '../../redux/actions/workoutActions';
+import { useDispatch } from 'react-redux';
+import { resolveExerciseImageUri, getExerciseMuscleFallback, deleteWorkoutSession } from '../../redux/actions/workoutActions';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
+import EditWorkoutPostModal from '../../components/EditWorkoutPostModal';
+import PostedSuccessPopup from '../../components/PostedSuccessPopup';
+import LinearGradient from 'react-native-linear-gradient';
+import { FullScreenLoader } from '../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
 // --- Helper Functions ---
 const getDisplayName = user => {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
-  return name || user?.name || user?.username || '';
+  return name || user?.name || user?.userProfile?.name || user?.username || user?.userProfile?.username || '';
 };
 
 const getUsername = (user, defaultName = 'User') => {
@@ -77,14 +83,30 @@ const getFormattedDate = dateString => {
   return `${weekday}, ${month} ${day}, ${year}`;
 };
 
-const formatDuration = mins => {
-  if (!mins) return '0min';
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+const formatDuration = value => {
+  if (!value) return '0s';
+  const str = String(value).trim().toLowerCase();
+
+  // If it's already pre-formatted with time unit strings, return as is
+  if (str.includes('min') || str.includes('h') || str.includes('m') || str.includes('s')) {
+    return str;
+  }
+
+  // Otherwise, treat as seconds and format cleanly
+  const totalSecs = parseInt(str, 10) || 0;
+  if (totalSecs <= 0) return '0s';
+
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+
   if (h > 0) {
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
   }
-  return `${m}min`;
+  if (m > 0) {
+    return s > 0 ? `${m}min ${s}s` : `${m}min`;
+  }
+  return `${s}s`;
 };
 
 const formatVolume = vol => {
@@ -94,6 +116,122 @@ const formatVolume = vol => {
     maximumFractionDigits: 1
   });
   return `${formatted} kg`;
+};
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const getChartTimeframeData = (timeframe) => {
+  const points = [];
+  const now = new Date();
+
+  if (timeframe === 'day') {
+    const count = 7;
+    for (let i = count - 1; i >= 0; i--) {
+      const start = new Date(now);
+      start.setDate(now.getDate() - i);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+
+      const isToday = i === 0;
+      const label = isToday ? 'Today' : DAYS_SHORT[start.getDay()];
+      points.push({
+        date: start,
+        label,
+        startTime: start.getTime(),
+        endTime: end.getTime(),
+      });
+    }
+  } else if (timeframe === 'week') {
+    const count = 6;
+    for (let i = count - 1; i >= 0; i--) {
+      const endTime = now.getTime() - i * 7 * 24 * 60 * 60 * 1000;
+      const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
+      const date = new Date(endTime);
+      const isCurrentWeek = i === 0;
+      const label = isCurrentWeek ? 'This Wk' : `${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`;
+      points.push({
+        date,
+        label,
+        startTime,
+        endTime,
+      });
+    }
+  } else if (timeframe === 'month') {
+    const count = 6;
+    for (let i = count - 1; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      const label = MONTHS_SHORT[start.getMonth()];
+      points.push({
+        date: start,
+        label,
+        startTime: start.getTime(),
+        endTime: end.getTime(),
+      });
+    }
+  } else {
+    // '3months' (6 intervals of 14 days, total 84 days ~ 12 weeks)
+    const count = 6;
+    for (let i = count - 1; i >= 0; i--) {
+      const endTime = now.getTime() - i * 14 * 24 * 60 * 60 * 1000;
+      const startTime = endTime - 14 * 24 * 60 * 60 * 1000;
+      const date = new Date(endTime);
+      const label = `${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`;
+      points.push({
+        date,
+        label,
+        startTime,
+        endTime,
+      });
+    }
+  }
+  return points;
+};
+
+const findPointIndex = (wDate, points) => {
+  if (!wDate || !points || points.length === 0) return -1;
+  const d = new Date(wDate);
+  if (isNaN(d.getTime())) return -1;
+  const t = d.getTime();
+
+  for (let i = 0; i < points.length; i++) {
+    if (t >= points[i].startTime && t <= points[i].endTime) {
+      return i;
+    }
+  }
+  return -1;
+};
+
+const extractWorkoutStats = (workout) => {
+  const rawDuration = Number(workout.duration || workout.stats?.duration || 0);
+  const durationHours = rawDuration > 120 ? rawDuration / 3600 : (rawDuration > 0 ? rawDuration / 60 : 0);
+
+  let volume = Number(workout.volume || workout.stats?.volume || 0);
+  let reps = Number(workout.reps || workout.stats?.reps || 0);
+
+  const logs = workout.logs || workout.exercises || workout.sessionData?.exercises || [];
+  if (Array.isArray(logs) && logs.length > 0) {
+    let logsVolume = 0;
+    let logsReps = 0;
+    logs.forEach(log => {
+      const sets = log.sets || [];
+      if (Array.isArray(sets)) {
+        sets.forEach(set => {
+          const r = Number(set.reps) || 0;
+          const w = Number(set.weight) || 0;
+          logsReps += r;
+          logsVolume += (r * w);
+        });
+      }
+    });
+    if (logsVolume > 0) volume = logsVolume;
+    if (logsReps > 0) reps = logsReps;
+  }
+
+  return { durationHours, volume, reps };
 };
 
 // --- Subcomponent: ProfileWorkoutPostItem ---
@@ -107,13 +245,25 @@ const ProfileWorkoutPostItem = ({
   loggedInUserInitials,
   onPressLikes,
   onPress,
+  onShowOptions,
 }) => {
   const [currentMediaSlide, setCurrentMediaSlide] = useState(0);
   const [failedImages, setFailedImages] = useState({});
 
   const duration = item.stats?.duration || item.duration || 0;
   const volume = item.stats?.volume || 0;
-  const calories = item.stats?.calories || item.calories || 0;
+  const workoutTitle = item.workoutName || item.workoutType || 'Workout';
+  const rawCalories = item.stats?.calories || item.calories || 0;
+  const calories = rawCalories > 0
+    ? rawCalories
+    : (duration > 0
+        ? calculateWorkoutCalories({
+            duration,
+            workoutTitle,
+            volume,
+            exercises: item.logs || item.exercises || [],
+          })
+        : 0);
   const likesCount = item.likesCount ?? item.likes ?? 0;
   const commentsCount = item.commentsCount ?? item.comments?.length ?? 0;
   const userName = getDisplayName(item.user);
@@ -123,7 +273,6 @@ const ProfileWorkoutPostItem = ({
   const isLiked = Boolean(item.isLiked);
 
   const formattedDate = getFormattedDate(item.date || item.createdAt);
-  const workoutTitle = item.workoutName || item.workoutType || 'Workout';
 
   // Parse multiple images list
   let imagesList = [];
@@ -147,8 +296,8 @@ const ProfileWorkoutPostItem = ({
       <View style={{ paddingHorizontal: 16 }}>
         {/* 1. Header (User Info & Date) */}
         <View style={styles.postHeader}>
-          {item.user?.avatar ? (
-            <Image source={{ uri: item.user.avatar }} style={styles.postAvatar} />
+          {item.user?.avatar || item.user?.profileImage || item.user?.userProfile?.profileImage ? (
+            <Image source={{ uri: item.user.avatar || item.user.profileImage || item.user.userProfile?.profileImage }} style={styles.postAvatar} />
           ) : (
             <View style={[styles.postAvatar, styles.initialsAvatar]}>
               <Text style={styles.initialsTextSmall}>{userInitials}</Text>
@@ -172,6 +321,14 @@ const ProfileWorkoutPostItem = ({
               <Text style={styles.postDateText}>{formattedDate}</Text>
             ) : null}
           </View>
+          <TouchableOpacity
+            style={styles.postOptionsBtn}
+            onPress={() => onShowOptions && onShowOptions(item)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Icon name="ellipsis-horizontal" size={20} color="#8E8E93" />
+          </TouchableOpacity>
         </View>
 
         {/* 2. Workout Title */}
@@ -447,7 +604,13 @@ const ProfileWorkoutPostItem = ({
 const UserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { userId, user: initialUser } = route.params || {};
+  const { userId, user: initialUser, fromHomeScreen } = route.params || {};
+
+  const isFromHome = Boolean(
+    fromHomeScreen ||
+    route.params?.from === 'home' ||
+    route.name === 'Profile'
+  );
 
   const { user: currentUser } = useAuth();
   const profileData = currentUser?.userProfile || currentUser?.memberProfile || currentUser || {};
@@ -458,42 +621,311 @@ const UserProfileScreen = () => {
     profileData.avatar;
   const loggedInUserInitials = getInitials(profileData);
 
+  const currentUserId =
+    currentUser?.id ||
+    currentUser?._id ||
+    currentUser?.userId ||
+    currentUser?.userProfile?.id;
+
+  const targetId =
+    userId ||
+    initialUser?.id ||
+    initialUser?._id ||
+    initialUser?.userId ||
+    currentUserId;
+
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
 
-  useEffect(() => {
-    fetchUserProfile();
-  }, [userId]);
+  // Timeframe and metric filter states
+  const [activeMetric, setActiveMetric] = useState('duration'); // 'reps' | 'volume' | 'duration'
+  const [timeframe, setTimeframe] = useState('week'); // 'day' | 'week' | 'month' | '3months'
+  const [selectedPointIdx, setSelectedPointIdx] = useState(null);
 
-  const fetchUserProfile = async () => {
+  const isOwnProfile = Boolean(
+    (!userId && !initialUser?.id && !initialUser?._id && !initialUser?.userId) ||
+    (currentUserId && targetId && String(currentUserId) === String(targetId))
+  );
+
+  const isSelf = Boolean(
+    isOwnProfile ||
+    (currentUserId && profile?.userId && String(currentUserId) === String(profile.userId)) ||
+    (currentUserId && profile?.id && String(currentUserId) === String(profile.id))
+  );
+
+  const dispatch = useDispatch();
+  const [editingPost, setEditingPost] = useState(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successPopupTitle, setSuccessPopupTitle] = useState('Post Updated! 🎉');
+
+  const timeframePoints = useMemo(() => getChartTimeframeData(timeframe), [timeframe]);
+
+  const chartData = useMemo(() => {
+    const data = timeframePoints.map(p => ({
+      date: p.date,
+      label: p.label,
+      duration: 0,
+      volume: 0,
+      reps: 0,
+    }));
+
+    let hasWorkoutData = false;
+    if (Array.isArray(workouts) && workouts.length > 0) {
+      workouts.forEach(w => {
+        const wDate = w.date || w.createdAt || w.startTime || w.endedAt;
+        const idx = findPointIndex(wDate, timeframePoints);
+        if (idx >= 0 && idx < data.length) {
+          hasWorkoutData = true;
+          const stats = extractWorkoutStats(w);
+          data[idx].duration += stats.durationHours;
+          data[idx].volume += stats.volume;
+          data[idx].reps += stats.reps;
+        }
+      });
+    }
+
+    if (!hasWorkoutData && profile?.weeklyStats && Array.isArray(profile.weeklyStats)) {
+      if (timeframe === 'week' || timeframe === '3months') {
+        profile.weeklyStats.forEach((ws, idx) => {
+          if (idx < data.length) {
+            data[idx].duration = Number(ws.hours) || 0;
+            if (ws.label && timeframe === '3months') {
+              data[idx].label = ws.label;
+            }
+          }
+        });
+      }
+    }
+
+    return data;
+  }, [workouts, timeframePoints, timeframe, profile?.weeklyStats]);
+
+  const maxVal = useMemo(() => {
+    const values = chartData.map(d => {
+      if (activeMetric === 'duration') return d.duration;
+      if (activeMetric === 'volume') return d.volume;
+      return d.reps;
+    });
+    const max = Math.max(...values, 0);
+    if (activeMetric === 'duration') {
+      return max > 0 ? Math.max(Math.ceil(max * 1.25), 6) : 6;
+    } else if (activeMetric === 'volume') {
+      return max > 0 ? Math.max(Math.ceil(max * 1.25), 1000) : 1000;
+    } else {
+      return max > 0 ? Math.max(Math.ceil(max * 1.25), 100) : 100;
+    }
+  }, [chartData, activeMetric]);
+
+  const yAxisLabels = useMemo(() => {
+    if (activeMetric === 'duration') {
+      return [
+        `${Math.round(maxVal)} hrs`,
+        `${Math.round((maxVal * 2) / 3)} hrs`,
+        `${Math.round(maxVal / 3)} hrs`,
+        `0 hrs`,
+      ];
+    } else if (activeMetric === 'volume') {
+      const formatVol = v => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${Math.round(v)}`);
+      return [
+        `${formatVol(maxVal)} kg`,
+        `${formatVol((maxVal * 2) / 3)}`,
+        `${formatVol(maxVal / 3)}`,
+        `0 kg`,
+      ];
+    } else {
+      const formatRep = v => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${Math.round(v)}`);
+      return [
+        `${formatRep(maxVal)} reps`,
+        `${formatRep((maxVal * 2) / 3)}`,
+        `${formatRep(maxVal / 3)}`,
+        `0`,
+      ];
+    }
+  }, [maxVal, activeMetric]);
+
+  const chartTitleText = useMemo(() => {
+    let timeframeLabel = 'this week';
+    if (timeframe === 'day') timeframeLabel = 'today';
+    else if (timeframe === 'week') timeframeLabel = 'this week';
+    else if (timeframe === 'month') timeframeLabel = 'this month';
+    else timeframeLabel = 'last 3 months';
+
+    if (selectedPointIdx !== null && chartData[selectedPointIdx]) {
+      const p = chartData[selectedPointIdx];
+      if (activeMetric === 'duration') {
+        const formatted = Math.round(p.duration * 10) / 10;
+        return { main: `${formatted} hours`, sub: `on ${p.label}` };
+      } else if (activeMetric === 'volume') {
+        const vol = Math.round(p.volume);
+        const formatted = vol >= 1000 ? `${(vol / 1000).toFixed(1)}k kg` : `${vol} kg`;
+        return { main: formatted, sub: `volume on ${p.label}` };
+      } else {
+        const reps = Math.round(p.reps);
+        return { main: `${reps.toLocaleString()} reps`, sub: `on ${p.label}` };
+      }
+    }
+
+    if (timeframe === '3months') {
+      if (activeMetric === 'duration') {
+        const totalDuration = chartData.reduce((sum, d) => sum + d.duration, 0);
+        const val = Math.round(totalDuration * 10) / 10;
+        return { main: `${val} hours`, sub: timeframeLabel };
+      } else if (activeMetric === 'volume') {
+        const totalVol = chartData.reduce((sum, d) => sum + d.volume, 0);
+        const formatted = totalVol >= 1000 ? `${(totalVol / 1000).toFixed(1)}k kg` : `${Math.round(totalVol)} kg`;
+        return { main: formatted, sub: `volume ${timeframeLabel}` };
+      } else {
+        const totalReps = chartData.reduce((sum, d) => sum + d.reps, 0);
+        return { main: `${Math.round(totalReps).toLocaleString()} reps`, sub: timeframeLabel };
+      }
+    }
+
+    const latest = chartData[chartData.length - 1] || { duration: 0, volume: 0, reps: 0 };
+    if (activeMetric === 'duration') {
+      const val = Math.round(latest.duration * 10) / 10;
+      return { main: `${val} hours`, sub: timeframeLabel };
+    } else if (activeMetric === 'volume') {
+      const vol = Math.round(latest.volume);
+      const formatted = vol >= 1000 ? `${(vol / 1000).toFixed(1)}k kg` : `${vol} kg`;
+      return { main: formatted, sub: `volume ${timeframeLabel}` };
+    } else {
+      const reps = Math.round(latest.reps);
+      return { main: `${reps.toLocaleString()} reps`, sub: timeframeLabel };
+    }
+  }, [selectedPointIdx, chartData, activeMetric, timeframe]);
+
+  const handleShowPostOptions = (postItem) => {
+    const loggedInId = currentUser?.id || currentUser?._id || currentUser?.userId;
+    const postUserId = postItem?.userId || postItem?.user?.id || postItem?.user?._id || postItem?.user?.userId || profile?.id;
+    const isMyPost = Boolean(loggedInId && postUserId && String(loggedInId) === String(postUserId));
+
+    if (isMyPost) {
+      Alert.alert(
+        'Workout Post Options',
+        'Manage your workout post',
+        [
+          {
+            text: 'Edit Post',
+            onPress: () => {
+              setEditingPost(postItem);
+              setIsEditModalVisible(true);
+            },
+          },
+          {
+            text: 'Delete Post',
+            style: 'destructive',
+            onPress: () => {
+              Alert.alert(
+                'Delete Post',
+                'Are you sure you want to delete this workout post? This action cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await dispatch(deleteWorkoutSession(postItem.id));
+                        setWorkouts(prev => prev.filter(p => p.id !== postItem.id));
+                        setSuccessPopupTitle('Post Deleted! 🗑️');
+                        setShowSuccessPopup(true);
+                      } catch (err) {
+                        Alert.alert('Error', err.message || 'Failed to delete post.');
+                      }
+                    },
+                  },
+                ]
+              );
+            },
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  };
+
+  const handleEditPostSuccess = (updatedPost) => {
+    setWorkouts(prev =>
+      prev.map(p => {
+        if (p.id === updatedPost.id) {
+          const mergedUser = {
+            ...(p.user || {}),
+            ...(updatedPost.user || {}),
+            avatar:
+              updatedPost.user?.avatar ||
+              updatedPost.user?.profileImage ||
+              updatedPost.user?.userProfile?.profileImage ||
+              p.user?.avatar ||
+              p.user?.profileImage ||
+              p.user?.userProfile?.profileImage ||
+              null,
+            name:
+              updatedPost.user?.name ||
+              updatedPost.user?.userProfile?.name ||
+              p.user?.name ||
+              p.user?.userProfile?.name ||
+              null,
+            username:
+              updatedPost.user?.username ||
+              updatedPost.user?.userProfile?.username ||
+              p.user?.username ||
+              p.user?.userProfile?.username ||
+              null,
+            firstName: updatedPost.user?.firstName || p.user?.firstName || null,
+            lastName: updatedPost.user?.lastName || p.user?.lastName || null,
+          };
+          return {
+            ...p,
+            ...updatedPost,
+            user: mergedUser,
+          };
+        }
+        return p;
+      })
+    );
+    setSuccessPopupTitle('Post Updated! 🎉');
+    setShowSuccessPopup(true);
+  };
+
+  const fetchUserProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const targetId = userId || initialUser?.id;
-      if (!targetId) {
+      const activeTargetId = targetId || currentUserId;
+      if (!activeTargetId) {
         Alert.alert('Error', 'User ID is missing');
         navigation.goBack();
         return;
       }
 
-      const [profileRes, workoutsRes] = await Promise.all([
-        apiClient.get(`/users/profile/${targetId}`),
-        apiClient.get(`/workouts/sessions/user/${targetId}`)
+      const [profileRes, workoutsRes] = await Promise.allSettled([
+        apiClient.get(`/users/profile/${activeTargetId}`),
+        apiClient.get(`/workouts/sessions/user/${activeTargetId}`)
       ]);
 
-      if (profileRes.data && profileRes.data.success) {
-        const data = profileRes.data.data;
+      if (profileRes.status === 'fulfilled' && profileRes.value.data?.success) {
+        const data = profileRes.value.data.data;
         setProfile(data);
-        setIsFollowing(data.isFollowing);
+        setIsFollowing(Boolean(data.isFollowing));
         setFollowersCount(data.stats?.followers || 0);
       } else {
-        throw new Error(profileRes.data?.message || 'Failed to load profile');
+        const errMsg =
+          profileRes.status === 'rejected'
+            ? profileRes.reason?.message
+            : profileRes.value?.data?.message || 'Failed to load profile';
+        throw new Error(errMsg);
       }
 
-      if (workoutsRes.data && workoutsRes.data.success) {
-        setWorkouts(workoutsRes.data.data || []);
+      if (workoutsRes.status === 'fulfilled' && workoutsRes.value.data?.success) {
+        setWorkouts(workoutsRes.value.data.data || []);
+      } else {
+        setWorkouts([]);
       }
     } catch (error) {
       console.error('Error fetching user profile details:', error);
@@ -502,16 +934,26 @@ const UserProfileScreen = () => {
     } finally {
       setLoading(false);
     }
+  }, [targetId, currentUserId, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserProfile();
+    }, [fetchUserProfile])
+  );
+
+  const handleEditProfile = () => {
+    navigation.navigate('EditPersonalInfo');
   };
 
-  const handleToggleFollow = async () => {
+  const performFollowToggle = async () => {
     try {
-      const targetId = userId || initialUser?.id;
+      const followTargetId = targetId || userId || initialUser?.id;
       const nextState = !isFollowing;
       setIsFollowing(nextState);
-      setFollowersCount(prev => prev + (nextState ? 1 : -1));
+      setFollowersCount(prev => Math.max(0, prev + (nextState ? 1 : -1)));
 
-      const response = await apiClient.post(`/users/follow/${targetId}`);
+      const response = await apiClient.post(`/users/follow/${followTargetId}`);
       if (response.data && response.data.success) {
         const backendState = response.data.data?.isFollowing;
         if (typeof backendState === 'boolean') {
@@ -523,6 +965,30 @@ const UserProfileScreen = () => {
       setIsFollowing(isFollowing);
       setFollowersCount(profile?.stats?.followers || 0);
     }
+  };
+
+  const handleToggleFollow = () => {
+    if (isSelf) return;
+
+    if (isFollowing) {
+      const targetName = profile?.name || profile?.username || 'this user';
+      Alert.alert(
+        `Unfollow ${targetName}?`,
+        `Are you sure you want to unfollow ${targetName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unfollow',
+            style: 'destructive',
+            onPress: performFollowToggle,
+          },
+        ],
+        { cancelable: true },
+      );
+      return;
+    }
+
+    performFollowToggle();
   };
 
   const handleToggleLike = async (item) => {
@@ -581,7 +1047,7 @@ const UserProfileScreen = () => {
   const [shareItemInfo, setShareItemInfo] = useState({ text: '', url: '', title: '' });
 
   const handleOpenShareProfile = (userProfile) => {
-    const username = userProfile.username || userProfile.name || 'Swapp Athlete';
+    const username = userProfile.name || userProfile.username || 'Swapp Athlete';
     const profileUrl = `https://swapp.fit/user/${userProfile.username || userProfile.id || 'profile'}`;
     const text = `Check out ${username}'s profile on Swapp! 💪🔥\n${profileUrl}`;
     setShareItemInfo({ text, url: profileUrl, title: `Share ${username}'s Profile` });
@@ -589,7 +1055,7 @@ const UserProfileScreen = () => {
   };
 
   const handleOpenSharePost = (postItem) => {
-    const authorName = getDisplayName(postItem.user) || profile.username || 'Swapp Athlete';
+    const authorName = getDisplayName(postItem.user) || profile.name || profile.username || 'Swapp Athlete';
     const workoutName = postItem.workoutName || postItem.workoutType || 'workout';
     const postUrl = `https://swapp.fit/post/${postItem.id}`;
     const text = `Check out ${authorName}'s ${workoutName} on Swapp! 💪🔥\n${postUrl}`;
@@ -657,6 +1123,28 @@ const UserProfileScreen = () => {
   };
 
   const handleShowUserOptions = () => {
+    if (isSelf) {
+      Alert.alert(
+        'Profile Options',
+        'Manage your profile',
+        [
+          {
+            text: 'Edit Profile',
+            onPress: handleEditProfile,
+          },
+          {
+            text: 'Share Profile',
+            onPress: () => handleOpenShareProfile(profile),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
     const userName = getUsername(profile, 'this athlete');
     Alert.alert(
       'Profile Options',
@@ -776,17 +1264,10 @@ const UserProfileScreen = () => {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5E5CE6" />
-      </View>
-    );
+    return <FullScreenLoader />;
   }
 
   if (!profile) return null;
-
-  const totalHoursThisWeek = profile.weeklyStats?.[profile.weeklyStats.length - 1]?.hours || 0;
-  const maxHours = Math.max(...profile.weeklyStats.map(w => w.hours), 5);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -794,45 +1275,57 @@ const UserProfileScreen = () => {
 
       {/* 1. Custom Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('MainTabs');
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Icon name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>{profile.username}</Text>
+        <Text style={styles.headerTitle}>{profile.name || profile.username}</Text>
 
         <View style={styles.headerRightActions}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => handleOpenShareProfile(profile)}
-            activeOpacity={0.7}
-          >
-            <Icon name="share-outline" size={22} color="#FFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={handleShowUserOptions}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Icon name="ellipsis-horizontal" size={22} color="#FFF" />
-          </TouchableOpacity>
+          {isFromHome ? (
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => navigation.navigate('ProfileSettings')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="settings-outline" size={23} color="#FFF" />
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.headerBtn}
+                onPress={() => handleOpenShareProfile(profile)}
+                activeOpacity={0.7}
+              >
+                <Icon name="share-outline" size={22} color="#FFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerBtn}
+                onPress={handleShowUserOptions}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="ellipsis-horizontal" size={22} color="#FFF" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {/* 2. Top Photos Grid */}
-        {profile.photos && profile.photos.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photosGrid}>
-            {profile.photos.map((url, index) => (
-              <TouchableOpacity key={index} activeOpacity={0.9} onPress={() => handlePhotoPress(url)}>
-                <Image source={{ uri: url }} style={styles.gridImage} />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
-        {/* 3. Profile details section */}
+        {/* Profile details section */}
         <View style={styles.profileDetailsRow}>
           {profile.avatar ? (
             <Image source={{ uri: profile.avatar }} style={styles.profileAvatar} />
@@ -853,15 +1346,31 @@ const UserProfileScreen = () => {
                 <Text style={styles.metricValue}>{profile.stats?.workouts || 0}</Text>
               </View>
 
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => navigation.navigate('FollowList', {
+                  type: 'followers',
+                  userId: profile?.userId || profile?.id || profile?._id || targetId,
+                  username: profile?.name || profile?.username
+                })}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Followers</Text>
                 <Text style={styles.metricValue}>{followersCount}</Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.metricBox}>
+              <TouchableOpacity
+                style={styles.metricBox}
+                onPress={() => navigation.navigate('FollowList', {
+                  type: 'following',
+                  userId: profile?.userId || profile?.id || profile?._id || targetId,
+                  username: profile?.name || profile?.username
+                })}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.metricLabel}>Following</Text>
                 <Text style={styles.metricValue}>{profile.stats?.following || 0}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -871,81 +1380,192 @@ const UserProfileScreen = () => {
           <Text style={styles.bioText}>{profile.bio}</Text>
         </View>
 
-        {/* 5. Follow / Following button */}
-        <TouchableOpacity
-          style={[styles.followButton, isFollowing && styles.followingButton]}
-          onPress={handleToggleFollow}
-        >
-          <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-            {isFollowing ? 'Following' : 'Follow'}
-          </Text>
-        </TouchableOpacity>
+        {/* 5. Follow / Following button OR Edit Profile button */}
+        {isSelf ? (
+          <TouchableOpacity
+            style={styles.editProfileButton}
+            onPress={handleEditProfile}
+            activeOpacity={0.8}
+          >
+            <Feather name="edit-2" size={16} color="#FFF" style={styles.editProfileButtonIcon} />
+            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.followButton, isFollowing && styles.followingButton]}
+            onPress={handleToggleFollow}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+              {isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* 6. Activity Chart Header */}
         <View style={styles.chartHeader}>
           <Text style={styles.chartTitle}>
-            {totalHoursThisWeek} hours <Text style={styles.chartSubtitle}>this week</Text>
+            {chartTitleText.main} <Text style={styles.chartSubtitle}>{chartTitleText.sub}</Text>
           </Text>
+        </View>
+
+        {/* Timeframe Selector Segmented Control */}
+        <View style={styles.timeframeTabsContainer}>
+          {[
+            { key: 'day', label: 'Day' },
+            { key: 'week', label: 'Week' },
+            { key: 'month', label: 'Month' },
+            { key: '3months', label: '3 Months' },
+          ].map(tab => {
+            const isActive = timeframe === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={styles.timeframeTabTouch}
+                onPress={() => {
+                  setTimeframe(tab.key);
+                  setSelectedPointIdx(null);
+                }}
+                activeOpacity={0.8}
+              >
+                {isActive ? (
+                  <LinearGradient
+                    colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                    style={styles.timeframeActiveTabGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.timeframeActiveTabLabel}>{tab.label}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.timeframeInactiveTabLabel}>{tab.label}</Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* 7. Workout Bar Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartPlotArea}>
             <View style={styles.gridLinesContainer}>
-              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>6 hrs</Text></View>
-              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>4 hrs</Text></View>
-              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>2 hrs</Text></View>
-              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>0 hrs</Text></View>
+              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>{yAxisLabels[0]}</Text></View>
+              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>{yAxisLabels[1]}</Text></View>
+              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>{yAxisLabels[2]}</Text></View>
+              <View style={styles.gridLineRow}><Text style={styles.gridLineLabel}>{yAxisLabels[3]}</Text></View>
             </View>
 
             <View style={styles.barsContainer}>
-              {profile.weeklyStats.map((item, idx) => {
-                const barHeightPct = Math.min((item.hours / maxHours) * 85, 100) + '%';
+              {chartData.map((item, idx) => {
+                const val = activeMetric === 'duration'
+                  ? item.duration
+                  : activeMetric === 'volume'
+                    ? item.volume
+                    : item.reps;
+                const barHeightPct = val > 0
+                  ? Math.max(Math.min((val / maxVal) * 85, 95), 6) + '%'
+                  : '0%';
+                const isSelected = selectedPointIdx === idx;
+                const isLatest = selectedPointIdx === null && idx === chartData.length - 1;
+                const highlight = isSelected || isLatest;
+
                 return (
-                  <View key={idx} style={styles.barCol}>
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.barCol}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedPointIdx(selectedPointIdx === idx ? null : idx)}
+                  >
                     <View style={styles.barTrack}>
-                      <View style={[styles.barFill, { height: barHeightPct }]} />
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            height: barHeightPct,
+                            backgroundColor: highlight ? '#EE822A' : 'rgba(238, 130, 42, 0.4)',
+                          },
+                        ]}
+                      />
                     </View>
-                    {idx % 2 === 0 ? (
-                      <Text style={styles.barLabel}>{item.label}</Text>
-                    ) : (
-                      <View style={styles.emptyLabelSpacer} />
-                    )}
-                  </View>
+                    <Text
+                      style={[styles.barLabel, highlight && styles.barLabelActive]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           </View>
-        </View>
 
-        {/* 8. Comparison Section */}
-        <View style={styles.comparisonHeader}>
-          <Text style={styles.comparisonTitle}>Comparison</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.compareBtn}
-          onPress={() => navigation.navigate('Comparison', {
-            currentUserProfile: profileData,
-            comparedUserProfile: profile,
-          })}
-          activeOpacity={0.8}
-        >
-          <View style={styles.compareAvatars}>
-            {profile.avatar ? (
-              <Image source={{ uri: profile.avatar }} style={[styles.compareAvatar, { zIndex: 2 }]} />
-            ) : (
-              <View style={[styles.compareAvatar, styles.compareInitials, { zIndex: 2 }]}>
-                <Text style={styles.compareInitialsText}>ST</Text>
-              </View>
-            )}
-            <View style={[styles.compareAvatar, styles.compareCat, { zIndex: 1 }]}>
-              <Text style={{ fontSize: 16 }}>🐱</Text>
-            </View>
+          {/* Metric Pills (Rep, Volume, Duration) */}
+          <View style={styles.metricFiltersRow}>
+            {[
+              { key: 'reps', label: 'Rep' },
+              { key: 'volume', label: 'Volume' },
+              { key: 'duration', label: 'Duration' },
+            ].map(m => {
+              const isActive = activeMetric === m.key;
+              return (
+                <TouchableOpacity
+                  key={m.key}
+                  style={[styles.metricPill, isActive && styles.metricPillActive]}
+                  onPress={() => {
+                    setActiveMetric(m.key);
+                    setSelectedPointIdx(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {isActive && (
+                    <LinearGradient
+                      colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    />
+                  )}
+                  <Text style={isActive ? styles.metricPillTextActive : styles.metricPillText}>
+                    {m.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          <Text style={styles.compareBtnText}>Compare</Text>
-          <Icon name="chevron-forward" size={16} color="#8E8E93" />
-        </TouchableOpacity>
+        </View>
+
+        {/* 8. Comparison Section (Only shown when viewing other athletes) */}
+        {!isSelf && (
+          <View>
+            <View style={styles.comparisonHeader}>
+              <Text style={styles.comparisonTitle}>Comparison</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.compareBtn}
+              onPress={() => navigation.navigate('Comparison', {
+                currentUserProfile: profileData,
+                comparedUserProfile: profile,
+              })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.compareAvatars}>
+                {profile.avatar ? (
+                  <Image source={{ uri: profile.avatar }} style={[styles.compareAvatar, { zIndex: 2 }]} />
+                ) : (
+                  <View style={[styles.compareAvatar, styles.compareInitials, { zIndex: 2 }]}>
+                    <Text style={styles.compareInitialsText}>ST</Text>
+                  </View>
+                )}
+                <View style={[styles.compareAvatar, styles.compareCat, { zIndex: 1 }]}>
+                  <Text style={{ fontSize: 16 }}>🐱</Text>
+                </View>
+              </View>
+              <Text style={styles.compareBtnText}>Compare</Text>
+              <Icon name="chevron-forward" size={16} color="#8E8E93" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 9. Recent Workouts Section */}
         <View style={styles.recentWorkoutsHeader}>
@@ -968,6 +1588,7 @@ const UserProfileScreen = () => {
                 console.log('[UserProfileScreen] Tapping post:', postItem.id);
                 navigation.navigate('PostDetails', { post: { ...postItem, user: postItem.user || profile } });
               }}
+              onShowOptions={handleShowPostOptions}
             />
           ))
         ) : (
@@ -1081,6 +1702,27 @@ const UserProfileScreen = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Edit Workout Post Modal */}
+      <EditWorkoutPostModal
+        visible={isEditModalVisible}
+        post={editingPost}
+        onClose={() => {
+          setIsEditModalVisible(false);
+          setTimeout(() => {
+            setEditingPost(null);
+          }, 450);
+        }}
+        onSaveSuccess={handleEditPostSuccess}
+      />
+
+      {/* Posted / Updated Success Pop Up 🎉 */}
+      <PostedSuccessPopup
+        visible={showSuccessPopup}
+        title={successPopupTitle}
+        duration={3000}
+        onDismiss={() => setShowSuccessPopup(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1211,6 +1853,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     marginBottom: 16,
+    marginTop: 14,
   },
   profileAvatar: {
     width: 80,
@@ -1274,12 +1917,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   followButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#EE822A',
     marginHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 25,
+    overflow: 'hidden',
   },
   followingButton: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -1294,6 +1938,27 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: '#CCC',
+  },
+  editProfileButton: {
+    backgroundColor: '#1E1E24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 25,
+  },
+  editProfileButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+    fontFamily: 'BRLNSR',
+  },
+  editProfileButtonIcon: {
+    marginRight: 8,
   },
   chartHeader: {
     paddingHorizontal: 20,
@@ -1339,20 +2004,98 @@ const styles = StyleSheet.create({
     height: 45,
     justifyContent: 'flex-start',
   },
+  timeframeTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#161618',
+    height: 38,
+    borderRadius: 19,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  timeframeTabTouch: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeframeActiveTabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeframeActiveTabLabel: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+  },
+  timeframeInactiveTabLabel: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metricFiltersRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 18,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    gap: 12,
+  },
+  metricPillActive: {
+    paddingVertical: 7,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderColor: 'transparent',
+  },
+  metricPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    paddingVertical: 7,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    overflow: 'hidden',
+  },
+  metricPillTextActive: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'BRLNSR',
+  },
+  metricPillText: {
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  barLabelActive: {
+    color: '#EE822A',
+    fontWeight: 'bold',
+  },
   gridLineLabel: {
-    color: '#444',
+    color: '#555',
     fontSize: 9,
     fontWeight: '600',
     position: 'absolute',
-    left: -10,
-    top: -5,
+    left: 0,
+    top: -6,
   },
   barsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: '100%',
-    paddingLeft: 30,
+    paddingLeft: 38,
     zIndex: 2,
   },
   barCol: {
@@ -1368,7 +2111,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     width: '100%',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#EE822A',
     borderRadius: 3,
   },
   barLabel: {
@@ -1459,6 +2202,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     paddingHorizontal: 16,
+  },
+  postOptionsBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   postAvatar: {
     width: 36,

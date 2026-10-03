@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Polygon, Line, Circle } from 'react-native-svg';
 import apiClient from '../../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { GlobalLoader } from '../../components/GlobalLoader';
 
 const EXERCISE_MUSCLE_MAP = {
   'bench press': 'Chest',
@@ -358,8 +359,7 @@ const ComparisonScreen = ({ route, navigation }) => {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Comparing workouts...</Text>
+          <GlobalLoader size={60} text="Comparing workouts..." />
         </View>
       </SafeAreaView>
     );

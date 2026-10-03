@@ -11,7 +11,7 @@ import { createCheckoutSession } from '../../../redux/actions/subscriptionAction
 import { useAuth } from '../../../context/AuthContext';
 import * as Clarity from '../../../utils/clarity';
 
-import { FullScreenLoader } from '../../../components/GlobalLoader';
+import { FullScreenLoader, GlobalLoader } from '../../../components/GlobalLoader';
 
 import { isOpenAccessMode } from '../../../utils/accessMode';
 
@@ -1083,7 +1083,7 @@ const ProviderDetailScreen = ({ route, navigation }) => {
               disabled={isSubmittingReview}
             >
               {isSubmittingReview ? (
-                <ActivityIndicator color="#fff" />
+                <GlobalLoader size={20} />
               ) : (
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit Review</Text>
               )}

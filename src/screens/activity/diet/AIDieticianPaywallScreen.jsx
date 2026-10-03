@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Dimensions,
   Alert,
   ActivityIndicator,
@@ -13,11 +12,13 @@ import {
   BackHandler,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { getPlans, createCheckout, activateTrial, getSubscriptionDetails, getAccessStatus } from '../../../services/aiDieticianService';
 import { useAuth } from '../../../context/AuthContext';
 import Chargebee from '@chargebee/react-native-chargebee';
+import { FullScreenLoader } from '../../../components/GlobalLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -205,28 +206,24 @@ const AIDieticianPaywallScreen = ({ navigation, route, onUnlock }) => {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#e74c3c" />
-      </View>
-    );
+    return <FullScreenLoader />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
 
       {/* Header */}
       <View style={styles.header}>
         {!onUnlock ? (
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Icon name="close" size={24} color="#FFF" />
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton} activeOpacity={0.75}>
+            <Icon name="close" size={22} color="#FFF" />
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 24 }} />
+          <View style={{ width: 36 }} />
         )}
         <Text style={styles.headerTitle}>AI Dietician Premium</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -382,12 +379,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 14 : 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   closeButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerTitle: {
     color: '#FFF',

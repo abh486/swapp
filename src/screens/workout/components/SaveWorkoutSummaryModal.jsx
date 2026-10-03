@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,13 @@ import {
   Image,
   TextInput,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useMemo } from 'react';
+import { calculateWorkoutCalories } from '../../../utils/workoutCalorieCalculator';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +42,63 @@ export const SaveWorkoutSummaryModal = ({
   totalReps,
   calories,
   handleLogWorkout,
+  isEveryExerciseCompleted,
+  exercises = [],
 }) => {
+  const [editedSeconds, setEditedSeconds] = useState(seconds || 0);
+  const [isTimeModalVisible, setIsTimeModalVisible] = useState(false);
+  const [tempHours, setTempHours] = useState('0');
+  const [tempMinutes, setTempMinutes] = useState('0');
+  const [tempSecs, setTempSecs] = useState('0');
+  const [photoBoxWidth, setPhotoBoxWidth] = useState(width - 40);
+
+  useEffect(() => {
+    if (typeof seconds === 'number') {
+      setEditedSeconds(seconds);
+    }
+  }, [seconds]);
+
+  const displayedCalories = useMemo(() => {
+    return calculateWorkoutCalories({
+      duration: editedSeconds,
+      exercises,
+      volume,
+      totalReps,
+      workoutTitle,
+    });
+  }, [editedSeconds, exercises, volume, totalReps, workoutTitle]);
+
+  const openTimeEditor = () => {
+    const s = Math.max(0, parseInt(editedSeconds, 10) || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    setTempHours(String(h));
+    setTempMinutes(String(m));
+    setTempSecs(String(sec));
+    setIsTimeModalVisible(true);
+  };
+
+  const applyTime = () => {
+    const h = parseInt(tempHours || '0', 10) || 0;
+    const m = parseInt(tempMinutes || '0', 10) || 0;
+    const s = parseInt(tempSecs || '0', 10) || 0;
+    const total = Math.max(0, h * 3600 + m * 60 + s);
+    setEditedSeconds(total);
+    setIsTimeModalVisible(false);
+  };
+
+  const formatDisplayTime = totalSecs => {
+    const s = Math.max(0, parseInt(totalSecs, 10) || 0);
+    const hours = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, '0')} Hr ${mins.toString().padStart(2, '0')} Min`;
+    }
+    return `${mins.toString().padStart(2, '0')} Min ${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Modal
       visible={visible}
@@ -70,7 +129,15 @@ export const SaveWorkoutSummaryModal = ({
           <View style={styles.modalDivider} />
 
           <View style={styles.saveSummaryContent}>
-            <View style={styles.uploadPhotoBox}>
+            <View 
+              style={styles.uploadPhotoBox}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w && Math.abs(w - photoBoxWidth) > 1) {
+                  setPhotoBoxWidth(w);
+                }
+              }}
+            >
               {progressPhotos.length > 0 ? (
                 <View style={{ width: '100%', height: '100%', position: 'relative' }}>
                   <ScrollView
@@ -81,7 +148,7 @@ export const SaveWorkoutSummaryModal = ({
                     onScroll={(event) => {
                       const slide = Math.round(
                         event.nativeEvent.contentOffset.x /
-                        event.nativeEvent.layoutMeasurement.width
+                        (photoBoxWidth || event.nativeEvent.layoutMeasurement.width || 1)
                       );
                       if (slide !== currentSlide) {
                         setCurrentSlide(slide);
@@ -94,9 +161,8 @@ export const SaveWorkoutSummaryModal = ({
                         key={index}
                         source={{ uri }}
                         style={{
-                          width: width - 80,
-                          height: 180,
-                          borderRadius: 15,
+                          width: photoBoxWidth,
+                          height: '100%',
                         }}
                         resizeMode="cover"
                       />
@@ -187,9 +253,18 @@ export const SaveWorkoutSummaryModal = ({
 
             <View style={styles.progressContainer}>
               <View style={styles.progressLabels}>
-                <Text style={styles.progressLabelLeft}>
-                  {formatTime(seconds).replace(':', ' Min ')}
-                </Text>
+                <TouchableOpacity
+                  style={styles.progressLabelLeftContainer}
+                  onPress={openTimeEditor}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.progressLabelLeft}>
+                    {formatDisplayTime(editedSeconds)}
+                  </Text>
+                  <View style={styles.editTimePencilBadge}>
+                    <Icon name="pencil" size={10} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
                 <View style={styles.progressLabelRight}>
                   <Text style={styles.progressLabelRightText}>
                     {completedExercisesCount} Exercise
@@ -249,15 +324,27 @@ export const SaveWorkoutSummaryModal = ({
                 <Text style={styles.summaryStatLabel}>Total Reps</Text>
               </View>
               <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>{calories}</Text>
+                <Text style={styles.summaryStatValue}>{displayedCalories}</Text>
                 <Text style={styles.summaryStatLabel}>Calories</Text>
               </View>
             </View>
 
             <View style={styles.logBtnContainer}>
               <TouchableOpacity
-                style={styles.saveTemplateBtn}
-                onPress={handleLogWorkout}
+                style={[
+                  styles.saveTemplateBtn,
+                  isEveryExerciseCompleted === false && { opacity: 0.6 }
+                ]}
+                onPress={() => {
+                  if (isEveryExerciseCompleted === false) {
+                    Alert.alert(
+                      'Complete All Exercises',
+                      'Please mark all sets green for every exercise before posting your workout.'
+                    );
+                    return;
+                  }
+                  handleLogWorkout(editedSeconds, displayedCalories);
+                }}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -338,6 +425,132 @@ export const SaveWorkoutSummaryModal = ({
                     </Svg>
                   )}
                 </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {isTimeModalVisible && (
+            <View style={styles.visibilityOverlay}>
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                onPress={() => setIsTimeModalVisible(false)}
+              />
+              <View style={styles.timeModalPopup}>
+                <View style={styles.timeModalHeader}>
+                  <Text style={styles.timeModalTitle}>Edit Workout Time</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsTimeModalVisible(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Icon name="close" size={20} color="#AAA" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.timeInputsRow}>
+                  <View style={styles.timeInputBox}>
+                    <TextInput
+                      style={styles.timeInputField}
+                      value={tempHours}
+                      onChangeText={t => setTempHours(t.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="0"
+                      placeholderTextColor="#555"
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.timeInputLabel}>Hours</Text>
+                  </View>
+
+                  <Text style={styles.timeInputColon}>:</Text>
+
+                  <View style={styles.timeInputBox}>
+                    <TextInput
+                      style={styles.timeInputField}
+                      value={tempMinutes}
+                      onChangeText={t => setTempMinutes(t.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="00"
+                      placeholderTextColor="#555"
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.timeInputLabel}>Mins</Text>
+                  </View>
+
+                  <Text style={styles.timeInputColon}>:</Text>
+
+                  <View style={styles.timeInputBox}>
+                    <TextInput
+                      style={styles.timeInputField}
+                      value={tempSecs}
+                      onChangeText={t => setTempSecs(t.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="00"
+                      placeholderTextColor="#555"
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.timeInputLabel}>Secs</Text>
+                  </View>
+                </View>
+
+                {/* Quick Presets */}
+                <View style={styles.timePresetRow}>
+                  {[
+                    { label: '-5m', delta: -300 },
+                    { label: '+5m', delta: 300 },
+                    { label: '15m', setVal: 900 },
+                    { label: '30m', setVal: 1800 },
+                    { label: '45m', setVal: 2700 },
+                    { label: '60m', setVal: 3600 },
+                  ].map((preset, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.timePresetChip}
+                      onPress={() => {
+                        let cur = (parseInt(tempHours || '0', 10) * 3600) +
+                                  (parseInt(tempMinutes || '0', 10) * 60) +
+                                  (parseInt(tempSecs || '0', 10));
+                        if (preset.setVal !== undefined) {
+                          cur = preset.setVal;
+                        } else if (preset.delta !== undefined) {
+                          cur = Math.max(0, cur + preset.delta);
+                        }
+                        const h = Math.floor(cur / 3600);
+                        const m = Math.floor((cur % 3600) / 60);
+                        const s = cur % 60;
+                        setTempHours(String(h));
+                        setTempMinutes(String(m));
+                        setTempSecs(String(s));
+                      }}
+                    >
+                      <Text style={styles.timePresetChipText}>{preset.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Actions */}
+                <View style={styles.timeModalActions}>
+                  <TouchableOpacity
+                    style={styles.timeCancelBtn}
+                    onPress={() => setIsTimeModalVisible(false)}
+                  >
+                    <Text style={styles.timeCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.timeSaveBtn}
+                    onPress={applyTime}
+                  >
+                    <LinearGradient
+                      colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                      style={StyleSheet.absoluteFillObject}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      borderRadius={12}
+                    />
+                    <Text style={styles.timeSaveBtnText}>Set Time</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           )}
@@ -558,6 +771,129 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#333',
     marginVertical: 5,
+  },
+  progressLabelLeftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(238, 130, 42, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(238, 130, 42, 0.4)',
+  },
+  editTimePencilBadge: {
+    marginLeft: 6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EE822A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeModalPopup: {
+    width: '88%',
+    backgroundColor: '#1E1E24',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  timeModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  timeModalTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  timeInputsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeInputBox: {
+    alignItems: 'center',
+  },
+  timeInputField: {
+    backgroundColor: '#111',
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    width: 58,
+    height: 50,
+    borderRadius: 12,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  timeInputColon: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginHorizontal: 8,
+    paddingBottom: 16,
+  },
+  timeInputLabel: {
+    color: '#888',
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  timePresetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  timePresetChip: {
+    backgroundColor: '#2A2A32',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#3A3A45',
+  },
+  timePresetChipText: {
+    color: '#EEE',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  timeModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#2A2A32',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeCancelBtnText: {
+    color: '#AAA',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timeSaveBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  timeSaveBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

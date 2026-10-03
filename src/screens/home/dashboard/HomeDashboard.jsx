@@ -13,6 +13,7 @@ import {
   FlatList,
   Platform,
   Modal,
+  Keyboard,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -37,6 +38,20 @@ import apiClient from '../../../api/apiClient';
 
 // ── Ultra-Optimized CategoryItem — strict memoization to eliminate lag ──
 const CATEGORY_ITEM_WIDTH = 85;
+
+const safeString = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val.toLowerCase();
+  if (Array.isArray(val)) return val.map(safeString).join(' ');
+  if (typeof val === 'object') {
+    try {
+      return Object.values(val).map(safeString).join(' ');
+    } catch {
+      return '';
+    }
+  }
+  return String(val).toLowerCase();
+};
 
 const getCategoryIcon = (iconName, label) => {
   if (iconName && iconName !== 'apps' && iconName !== 'apps-outline') {
@@ -439,6 +454,10 @@ export const HomeDashboard = ({ navigation }) => {
   }, [dispatch]);
 
   useEffect(() => {
+    fetchTrainersData();
+  }, [fetchTrainersData]);
+
+  useEffect(() => {
     if (activeCategory === 'trainer') {
       fetchTrainersData();
     }
@@ -470,7 +489,10 @@ export const HomeDashboard = ({ navigation }) => {
 
   const handleSelectCategory = useCallback((id, vertical) => {
     dispatch(setGlobalCategory(id, vertical));
-  }, [dispatch]);
+    if (searchQuery) {
+      setSearchQuery('');
+    }
+  }, [dispatch, searchQuery]);
 
   const renderCategory = useCallback(({ item }) => (
     <CategoryItem
@@ -480,49 +502,62 @@ export const HomeDashboard = ({ navigation }) => {
     />
   ), [activeCategory, handleSelectCategory]);
 
-  const renderOffering = useCallback(({ item }) => (
-    <TouchableOpacity
-      style={styles.offeringCard}
-      onPress={() =>
-        navigation.navigate('ProviderDetails', { id: item.provider?.id })
-      }
-    >
-      <ImageBackground
-        source={{ uri: item.image }}
-        style={styles.offeringImage}
-        imageStyle={styles.offeringImageStyle}
+  const renderOffering = useCallback(({ item }) => {
+    const gymName =
+      item.providerName ||
+      item.provider?.name ||
+      item.provider?.gym_name ||
+      item.provider?.gymName ||
+      item.gym_name ||
+      item.gymName;
+    const planName = item.title || item.name;
+    const displayName = gymName || planName;
+
+    return (
+      <TouchableOpacity
+        style={styles.offeringCard}
+        onPress={() =>
+          navigation.navigate('ProviderDetails', { id: item.provider?.id || item.providerId })
+        }
       >
-        <View style={styles.badgeContainer}>
-          {item.discount && (
-            <View style={[styles.badge, styles.discountBadge]}>
-              <Text style={styles.badgeText}>{item.discount}</Text>
-            </View>
-          )}
-          {item.badges?.is_recommended && (
-            <View style={[styles.badge, styles.recommendedBadge]}>
-              <Text style={styles.badgeText}>RECOMMENDED</Text>
-            </View>
-          )}
+        <ImageBackground
+          source={{ uri: item.image }}
+          style={styles.offeringImage}
+          imageStyle={styles.offeringImageStyle}
+        >
+          <View style={styles.badgeContainer}>
+            {item.discount && (
+              <View style={[styles.badge, styles.discountBadge]}>
+                <Text style={styles.badgeText}>{item.discount}</Text>
+              </View>
+            )}
+            {item.badges?.is_recommended && (
+              <View style={[styles.badge, styles.recommendedBadge]}>
+                <Text style={styles.badgeText}>RECOMMENDED</Text>
+              </View>
+            )}
+          </View>
+        </ImageBackground>
+        <View style={styles.offeringDetails}>
+          <Text style={styles.offeringTitle} numberOfLines={1}>
+            {displayName}
+          </Text>
+          <Text style={styles.offeringMeta} numberOfLines={1}>
+            {gymName && planName && planName !== gymName ? `${planName} • ` : ''}
+            {item.duration || '60 mins'} • {item.level || 'All Levels'}
+          </Text>
+          <View style={styles.offeringPriceRow}>
+            <Text style={styles.offeringPrice}>{item.price}</Text>
+            {item.originalPrice && (
+              <Text style={styles.offeringOriginalPrice}>
+                {item.originalPrice}
+              </Text>
+            )}
+          </View>
         </View>
-      </ImageBackground>
-      <View style={styles.offeringDetails}>
-        <Text style={styles.offeringTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.offeringMeta}>
-          {item.duration} • {item.level}
-        </Text>
-        <View style={styles.offeringPriceRow}>
-          <Text style={styles.offeringPrice}>{item.price}</Text>
-          {item.originalPrice && (
-            <Text style={styles.offeringOriginalPrice}>
-              {item.originalPrice}
-            </Text>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  ), [navigation]);
+      </TouchableOpacity>
+    );
+  }, [navigation]);
 
   const renderProvider = useCallback(({ item: provider }) => {
     if (!provider) return null;
@@ -567,6 +602,13 @@ export const HomeDashboard = ({ navigation }) => {
       verticalLabel = 'Gym';
     }
 
+    const providerDisplayName =
+      provider.gym_name ||
+      provider.gymName ||
+      provider.providerName ||
+      provider.provider?.name ||
+      provider.name;
+
     return (
       <TouchableOpacity
         style={styles.providerCard}
@@ -609,7 +651,7 @@ export const HomeDashboard = ({ navigation }) => {
         </ImageBackground>
         <View style={styles.providerDetails}>
           <Text style={styles.providerName} numberOfLines={1}>
-            {provider.name}
+            {providerDisplayName}
           </Text>
           <Text style={styles.providerDistance}>
             {verticalLabel} {distanceText ? `• ${distanceText}` : ''}
@@ -727,21 +769,161 @@ export const HomeDashboard = ({ navigation }) => {
       vertical: 'GYM',
     };
 
-    // Filter remaining categories to prevent duplicate 'all' or 'gym' items
-    const otherCategories = rawCategories.filter(c => c.id !== 'all' && !c.isGym);
+    // Filter remaining categories to prevent duplicate 'all', 'gym', or 'trainer' items
+    const otherCategories = rawCategories.filter(c => c.id !== 'all' && !c.isGym && c.id !== 'trainer');
 
     return [
       { id: 'all', label: 'All', icon: 'grid-outline', vertical: null },
       gymCategoryItem,
-      ...otherCategories,
       {
         id: 'trainer',
         label: 'Trainers',
         icon: 'people-outline',
         vertical: 'TRAINER',
       },
+      ...otherCategories,
     ];
   }, [feed?.categories]);
+
+  const categoryListRef = useRef(null);
+
+  useEffect(() => {
+    if (!activeCategory || !dashboardCategories.length) return;
+    const index = dashboardCategories.findIndex(c => c.id === activeCategory);
+    if (index >= 0 && categoryListRef.current) {
+      try {
+        categoryListRef.current.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      } catch (err) {
+        // Layout might not be ready yet
+      }
+    }
+  }, [activeCategory, dashboardCategories]);
+
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+    const q = text.trim().toLowerCase();
+    if (!q) return;
+
+    // Check if query matches "trainer", "trainers", "train"
+    if (q === 'trainer' || q === 'trainers' || q.startsWith('train')) {
+      if (activeCategory !== 'trainer') {
+        dispatch(setGlobalCategory('trainer', 'TRAINER'));
+      }
+      return;
+    }
+
+    // Check if query matches "gym"
+    if (q === 'gym' || q === 'gyms') {
+      const gymCat = dashboardCategories.find(c => c.isGym || c.id === 'gym');
+      if (gymCat && activeCategory !== gymCat.id) {
+        dispatch(setGlobalCategory(gymCat.id, gymCat.vertical));
+      }
+      return;
+    }
+
+    // Check if query matches other category labels
+    const matchedCategory = dashboardCategories.find(c => {
+      const label = (c.label || '').toLowerCase();
+      const id = (c.id || '').toLowerCase();
+      return label === q || id === q || label.includes(q) || id.includes(q);
+    });
+
+    if (matchedCategory && activeCategory !== matchedCategory.id) {
+      dispatch(setGlobalCategory(matchedCategory.id, matchedCategory.vertical));
+      return;
+    }
+
+    // If query matches a trainer's name specifically, switch to trainer tab
+    if (Array.isArray(trainers) && trainers.length > 0) {
+      const matchesTrainer = trainers.some(t => {
+        if (!t) return false;
+        const name = safeString(t.name || t.user?.name);
+        return name && name.includes(q);
+      });
+      const matchesProvider = Array.isArray(feed?.nearby_providers) && feed.nearby_providers.some(p => {
+        if (!p) return false;
+        const name = safeString(p.name || p.gym_name || p.gymName);
+        return name && name.includes(q);
+      });
+      if (matchesTrainer && !matchesProvider && activeCategory !== 'trainer') {
+        dispatch(setGlobalCategory('trainer', 'TRAINER'));
+      }
+    }
+  }, [activeCategory, dashboardCategories, dispatch, trainers, feed?.nearby_providers]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    dispatch(setGlobalCategory('all', null));
+  }, [dispatch]);
+
+  const handleSearchSubmit = useCallback(() => {
+    Keyboard.dismiss();
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+
+    if (q === 'trainer' || q === 'trainers' || q.startsWith('train')) {
+      if (activeCategory !== 'trainer') {
+        dispatch(setGlobalCategory('trainer', 'TRAINER'));
+      }
+    }
+  }, [searchQuery, activeCategory, dispatch]);
+
+  const displayedNearbyProviders = useMemo(() => {
+    const list = Array.isArray(feed?.nearby_providers) ? feed.nearby_providers : [];
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase().trim();
+    if (['gym', 'gyms', 'all', 'fitness'].includes(q)) return list;
+    return list.filter(p => {
+      if (!p) return false;
+      const name = safeString(p.name || p.gym_name || p.gymName);
+      const address = safeString(p.address || p.city);
+      const vertical = safeString(p.vertical);
+      return name.includes(q) || address.includes(q) || vertical.includes(q);
+    });
+  }, [feed?.nearby_providers, searchQuery]);
+
+  const displayedTrendingProviders = useMemo(() => {
+    const list = Array.isArray(feed?.trending_providers) ? feed.trending_providers : [];
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase().trim();
+    if (['gym', 'gyms', 'all', 'fitness'].includes(q)) return list;
+    return list.filter(p => {
+      if (!p) return false;
+      const name = safeString(p.name || p.gym_name || p.gymName);
+      const address = safeString(p.address || p.city);
+      const vertical = safeString(p.vertical);
+      return name.includes(q) || address.includes(q) || vertical.includes(q);
+    });
+  }, [feed?.trending_providers, searchQuery]);
+
+  const displayedTrainers = useMemo(() => {
+    if (!Array.isArray(trainers)) return [];
+    if (!searchQuery.trim()) return trainers;
+    const q = searchQuery.toLowerCase().trim();
+    if (['trainer', 'trainers', 'train', 'pt'].includes(q)) return trainers;
+    return trainers.filter(t => {
+      if (!t) return false;
+      const name = safeString(t.name || t.user?.name || t.user?.email);
+      const bio = safeString(t.bio || t.description);
+      const specialties = safeString(t.specialties);
+      return name.includes(q) || bio.includes(q) || specialties.includes(q);
+    });
+  }, [trainers, searchQuery]);
+
+  const displayedOfferings = useMemo(() => {
+    const list = Array.isArray(feed?.top_offerings) ? feed.top_offerings : [];
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase().trim();
+    return list.filter(item => {
+      if (!item) return false;
+      const name = safeString(item.title || item.name || item.providerName || item.gym_name || item.gymName);
+      return name.includes(q);
+    });
+  }, [feed?.top_offerings, searchQuery]);
 
   const renderActiveSubscriptionCard = (sub, index) => {
     const isBooking = sub.isBooking;
@@ -1026,7 +1208,14 @@ export const HomeDashboard = ({ navigation }) => {
           <Text style={styles.greeting}>Welcome {userName} !</Text>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={() => {
+              const currentUserId = user?.id || user?._id || user?.userId || user?.userProfile?.id;
+              navigation.navigate('UserProfile', {
+                userId: currentUserId,
+                user,
+                fromHomeScreen: true,
+              });
+            }}
           >
             {userAvatar ? (
               <Image source={{ uri: userAvatar }} style={styles.profilePic} />
@@ -1051,14 +1240,19 @@ export const HomeDashboard = ({ navigation }) => {
             placeholder="Search providers, trainers, classes..."
             placeholderTextColor="#888"
             value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={() =>
-              navigation.navigate('DiscoverProvidersMap', {
-                query: searchQuery,
-                selectedLocation: userLocation,
-              })
-            }
+            onChangeText={handleSearchChange}
+            returnKeyType="search"
+            onSubmitEditing={handleSearchSubmit}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={handleClearSearch}
+              style={styles.clearSearchButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="close-circle" size={18} color="#888" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {hasActiveSubscription && renderSubscribedTop()}
@@ -1111,6 +1305,7 @@ export const HomeDashboard = ({ navigation }) => {
 
         {/* Categories */}
         <FlatList
+          ref={categoryListRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           data={dashboardCategories}
@@ -1123,13 +1318,22 @@ export const HomeDashboard = ({ navigation }) => {
             offset: CATEGORY_ITEM_WIDTH * index,
             index,
           })}
+          onScrollToIndexFailed={info => {
+            setTimeout(() => {
+              categoryListRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            }, 100);
+          }}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={false}
         />
 
-        {feed && feed.top_offerings?.length > 0 && (
+        {feed && feed.top_offerings?.length > 0 && activeCategory !== 'trainer' && (
           <>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>TOP OFFERINGS FOR YOU</Text>
@@ -1138,7 +1342,7 @@ export const HomeDashboard = ({ navigation }) => {
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}
-              data={feed.top_offerings}
+              data={displayedOfferings}
               renderItem={renderOffering}
               keyExtractor={item => item.id}
               contentContainerStyle={styles.offeringsList}
@@ -1146,6 +1350,13 @@ export const HomeDashboard = ({ navigation }) => {
               initialNumToRender={4}
               maxToRenderPerBatch={4}
               windowSize={3}
+              ListEmptyComponent={
+                searchQuery.trim() ? (
+                  <Text style={{ color: '#888', marginLeft: 16, marginVertical: 12 }}>
+                    No offerings match "{searchQuery}"
+                  </Text>
+                ) : null
+              }
             />
           </>
         )}
@@ -1195,7 +1406,7 @@ export const HomeDashboard = ({ navigation }) => {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={activeCategory === 'trainer' ? trainers : (feed?.nearby_providers || [])}
+          data={activeCategory === 'trainer' ? displayedTrainers : displayedNearbyProviders}
           renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.providersList}
@@ -1206,7 +1417,9 @@ export const HomeDashboard = ({ navigation }) => {
           ListEmptyComponent={
             (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
               <Text style={{ color: '#888', marginLeft: 16 }}>
-                {activeCategory === 'trainer' ? 'No trainers found nearby' : 'No partners found nearby'}
+                {searchQuery.trim()
+                  ? `No ${activeCategory === 'trainer' ? 'trainers' : 'partners'} match "${searchQuery}"`
+                  : (activeCategory === 'trainer' ? 'No trainers found nearby' : 'No partners found nearby')}
               </Text>
             )
           }
@@ -1222,7 +1435,7 @@ export const HomeDashboard = ({ navigation }) => {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={activeCategory === 'trainer' ? trainers : (feed?.trending_providers || [])}
+          data={activeCategory === 'trainer' ? displayedTrainers : displayedTrendingProviders}
           renderItem={activeCategory === 'trainer' ? renderTrainerCard : renderProvider}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.providersList}
@@ -1233,7 +1446,9 @@ export const HomeDashboard = ({ navigation }) => {
           ListEmptyComponent={
             (activeCategory === 'trainer' ? isTrainersLoading : loading) ? null : (
               <Text style={{ color: '#888', marginLeft: 16 }}>
-                {activeCategory === 'trainer' ? 'No trending trainers found' : 'No trending partners found for this category'}
+                {searchQuery.trim()
+                  ? `No trending ${activeCategory === 'trainer' ? 'trainers' : 'partners'} match "${searchQuery}"`
+                  : (activeCategory === 'trainer' ? 'No trending trainers found' : 'No trending partners found for this category')}
               </Text>
             )
           }
@@ -1618,6 +1833,11 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontSize: 14,
+  },
+  clearSearchButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // ── Category pill styles (updated to match image) ──

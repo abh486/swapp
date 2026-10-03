@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Modal,
   TextInput,
@@ -17,6 +16,7 @@ import {
   Image,
   UIManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -903,7 +903,7 @@ const WeightTrackerScreen = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
 
       <ScrollView
@@ -914,11 +914,11 @@ const WeightTrackerScreen = ({ navigation }) => {
         {/* HERO — inside ScrollView so the full page scrolls */}
         <View style={styles.hero}>
           <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <Icon name="chevron-back" size={26} color="#FFF" />
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.75}>
+              <Icon name="chevron-back" size={24} color="#FFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Weight Tracker</Text>
-            <TouchableOpacity onPress={() => setGoalModalVisible(true)} style={styles.settingsBtn}>
+            <TouchableOpacity onPress={() => setGoalModalVisible(true)} style={styles.settingsBtn} activeOpacity={0.75}>
               <Icon name="settings-sharp" size={20} color="#FFF" />
             </TouchableOpacity>
           </View>
@@ -1744,8 +1744,23 @@ const WeightTrackerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: DARK_BG },
   hero: { width: '100%', backgroundColor: '#0C1410', overflow: 'hidden' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 6, paddingBottom: 2 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === 'android' ? 16 : 14,
+    paddingBottom: 8,
+  },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFF', letterSpacing: 0.2 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   settingsBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
   heroContent: { paddingHorizontal: 20, paddingTop: 14 },
   targetLabel: { fontSize: 13, fontWeight: '600', color: GREEN_BRIGHT, letterSpacing: 0.5, marginBottom: 4, opacity: 0.9 },

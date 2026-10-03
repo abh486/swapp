@@ -21,6 +21,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAuth } from '../../context/AuthContext';
 import {
   fetchEquipments,
   fetchMuscles,
@@ -33,6 +34,7 @@ import {
 } from '../../redux/actions/workoutActions';
 import { CreateFolderModal } from './components/CreateFolderModal';
 import { CustomWorkoutModal } from './components/CustomWorkoutModal';
+import { calculateWorkoutCalories } from '../../utils/workoutCalorieCalculator';
 import { WorkoutEditorScreen } from './WorkoutEditorScreen';
 
 export { WorkoutEditorScreen };
@@ -134,6 +136,10 @@ const CreateCustomWorkoutScreen = () => {
   const isFocused = useIsFocused();
 
   const [folders, setFolders] = useState([]);
+  const { user } = useAuth() || {};
+  const userId = user?.id || user?.userId || user?.user_id;
+  const foldersKey = userId ? `@cached_custom_workout_folders_${userId}` : '@cached_custom_workout_folders';
+
   const [activeFolder, setActiveFolder] = useState(null);
   const [isFolderModalVisible, setFolderModalVisible] = useState(false);
   const [isWorkoutModalVisible, setWorkoutModalVisible] = useState(false);
@@ -162,23 +168,25 @@ const CreateCustomWorkoutScreen = () => {
     if (isFocused) {
       const loadFolders = async () => {
         try {
-          const cached = await AsyncStorage.getItem('@cached_custom_workout_folders');
+          const cached = await AsyncStorage.getItem(foldersKey);
           if (cached) {
             const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               const filteredCached = parsed.filter(f => f.name && f.name.toLowerCase() !== 'highflying');
               setFolders(filteredCached);
               setActiveFolder(prev => (prev && prev.name?.toLowerCase() !== 'highflying') ? prev : filteredCached[0] || null);
             }
+          } else {
+            setFolders([]);
           }
         } catch (e) { }
 
         try {
           const backendFolders = await dispatch(getCustomWorkoutTemplates());
-          if (backendFolders && backendFolders.length > 0) {
+          if (Array.isArray(backendFolders)) {
             const filteredBackend = backendFolders.filter(f => f.name && f.name.toLowerCase() !== 'highflying');
             setFolders(filteredBackend);
-            AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(filteredBackend)).catch(() => { });
+            AsyncStorage.setItem(foldersKey, JSON.stringify(filteredBackend)).catch(() => { });
             setActiveFolder(prev => {
               if (!prev || prev.name?.toLowerCase() === 'highflying') return filteredBackend[0] || null;
               const updated = filteredBackend.find(f => f.name === prev.name || f.id === prev.id);
@@ -191,7 +199,7 @@ const CreateCustomWorkoutScreen = () => {
       };
       loadFolders();
     }
-  }, [dispatch, isFocused]);
+  }, [dispatch, isFocused, foldersKey]);
 
   const handleDeleteFolder = (folder) => {
     Alert.alert(
@@ -220,7 +228,7 @@ const CreateCustomWorkoutScreen = () => {
               const updatedFolders = folders.filter(f => f.id !== folder.id && f.name !== folder.name);
               setFolders(updatedFolders);
 
-              await AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(updatedFolders));
+              await AsyncStorage.setItem(foldersKey, JSON.stringify(updatedFolders));
 
               if (updatedFolders.length > 0) {
                 setActiveFolder(prev => {
@@ -281,7 +289,7 @@ const CreateCustomWorkoutScreen = () => {
 
       setFolders(updatedFolders);
       setActiveFolder(updatedFolder);
-      await AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(updatedFolders));
+      await AsyncStorage.setItem(foldersKey, JSON.stringify(updatedFolders));
       setRenameModalVisible(false);
     } catch (err) {
       console.error('Failed to rename folder:', err);
@@ -303,7 +311,7 @@ const CreateCustomWorkoutScreen = () => {
   const handleCreateFolder = (newFolder) => {
     setFolders(prev => {
       const updated = [...prev, newFolder];
-      AsyncStorage.setItem('@cached_custom_workout_folders', JSON.stringify(updated)).catch(() => { });
+      AsyncStorage.setItem(foldersKey, JSON.stringify(updated)).catch(() => { });
       return updated;
     });
     setActiveFolder(newFolder);
@@ -367,7 +375,14 @@ const CreateCustomWorkoutScreen = () => {
 
       const durationVal = targetFolder?.duration || '45min';
       const durationMins = parseInt(durationVal) || 45;
-      const computedCalories = `${Math.round(durationMins * 5.5)} kcal`;
+      const targetName = workoutNameInput.trim() || (editingWorkoutId ? '' : targetFolder.name);
+      const computedCalories = `${calculateWorkoutCalories({
+        duration: durationMins,
+        isMinutes: true,
+        workoutTitle: targetName,
+        exercises: formattedExercises,
+        completedSetsCount: formattedExercises.length * 3,
+      })} kcal`;
 
       const mappedMuscles = new Set();
       formattedExercises.forEach(ex => {
@@ -589,22 +604,9 @@ const CreateCustomWorkoutScreen = () => {
         {activeFolder && activeFolder.workouts.length > 0 && (
           <View style={styles.workoutsContainer}>
             {activeFolder.workouts.map((workout, idx) => (
-              <TouchableOpacity
+              <View
                 key={workout.id}
                 style={styles.workoutCardContainer}
-                activeOpacity={0.95}
-                onPress={() =>
-                  navigation.navigate('FastWorkoutActive', {
-                    level: 'Intermediate',
-                    duration: workout.duration || '45min',
-                    exercises: workout.exercises || [],
-                    workoutName: workout.name,
-                    folderName: activeFolder?.name,
-                    templateId: workout.id,
-                    source: 'custom_workout',
-                    isCustomWorkout: true,
-                  })
-                }
               >
                 <LinearGradient
                   colors={['#EE822A', '#8F5D98', '#2E4D9F']}
@@ -651,7 +653,13 @@ const CreateCustomWorkoutScreen = () => {
                     </Svg>
                     <Text style={styles.statText}>
                       {(!workout.calories || workout.calories === '60 kcal')
-                        ? `${Math.round((parseInt(workout.duration) || 45) * 5.5)} kcal`
+                        ? `${calculateWorkoutCalories({
+                            duration: parseInt(workout.duration) || 45,
+                            isMinutes: true,
+                            workoutTitle: workout.name,
+                            exercises: workout.exercises || [],
+                            completedSetsCount: (workout.exercises?.length || 3) * 3,
+                          })} kcal`
                         : workout.calories}
                     </Text>
                   </View>
@@ -693,23 +701,35 @@ const CreateCustomWorkoutScreen = () => {
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
                       style={styles.editWorkoutBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleEditWorkoutBtn(workout);
-                      }}
+                      onPress={() => handleEditWorkoutBtn(workout)}
                       activeOpacity={0.8}
                     >
                       <Icon name="create-outline" size={16} color="#FFF" />
                       <Text style={styles.editWorkoutBtnText}>Add / Edit Exercises</Text>
                     </TouchableOpacity>
 
-                    <View style={styles.startWorkoutPill}>
+                    <TouchableOpacity
+                      style={styles.startWorkoutPill}
+                      onPress={() =>
+                        navigation.navigate('FastWorkoutActive', {
+                          level: 'Intermediate',
+                          duration: workout.duration || '45min',
+                          exercises: workout.exercises || [],
+                          workoutName: workout.name,
+                          folderName: activeFolder?.name,
+                          templateId: workout.id,
+                          source: 'custom_workout',
+                          isCustomWorkout: true,
+                        })
+                      }
+                      activeOpacity={0.8}
+                    >
                       <Text style={styles.startWorkoutPillText}>Start</Text>
                       <Icon name="play-outline" size={12} color="#FFF" style={{ marginLeft: 4 }} />
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         )}

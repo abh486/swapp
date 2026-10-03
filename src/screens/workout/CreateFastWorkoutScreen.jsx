@@ -12,6 +12,14 @@ import {
   fetchMuscles,
   setSelectedFilters,
 } from '../../redux/actions/workoutActions';
+import {
+  sortExercisesByAlreadyUsed,
+  isExerciseUsed,
+  recordUsedExercises,
+  getExercisePerformanceHistory,
+  initUsedWorkouts,
+} from '../../utils/usedWorkoutsManager';
+import { useAuth } from '../../context/AuthContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { getEquipmentImageUrl, getMuscleImageUrl } from '../../utils/workoutIcons';
 import InteractiveMuscleMap from '../../components/workout/InteractiveMuscleMap';
@@ -34,6 +42,14 @@ const CreateFastWorkoutScreen = () => {
   const styles = createFastWorkoutStyles({ wp, hp, ms, sp, fs });
   const swipeWidth = wp(65);
   const sliderWidth = ms(46);
+
+  const { user } = useAuth() || {};
+
+  useEffect(() => {
+    if (user?.id) {
+      initUsedWorkouts(user.id);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!equipments || equipments.length === 0) dispatch(fetchEquipments());
@@ -63,7 +79,15 @@ const CreateFastWorkoutScreen = () => {
   };
 
   const handleAddSelectedExercises = () => {
-    navigation.navigate('FastWorkoutActive', { addedExercises: selectedExercises, source: 'fast_workout', isCustomWorkout: false });
+    if (selectedExercises && selectedExercises.length > 0) {
+      recordUsedExercises(selectedExercises, Date.now(), user?.id);
+    }
+    navigation.navigate('FastWorkoutActive', {
+      exercises: selectedExercises,
+      addedExercises: selectedExercises,
+      source: 'fast_workout',
+      isCustomWorkout: false,
+    });
   };
 
   useEffect(() => {
@@ -249,14 +273,18 @@ const CreateFastWorkoutScreen = () => {
 
       const shuffledExercises = (fetchedExercises || []).sort(() => 0.5 - Math.random());
 
-      const formattedExercises = shuffledExercises.slice(0, exerciseLimit).map(ex => ({
-        ...ex,
-        id: ex.id || ex._id,
-        gifUrl: ex.gifUrl,
-        sets: 3,
-        reps: 0,
-        weight: '0',
-      }));
+      const formattedExercises = shuffledExercises.slice(0, exerciseLimit).map(ex => {
+        const prev = getExercisePerformanceHistory(ex);
+        return {
+          ...ex,
+          id: ex.id || ex._id,
+          gifUrl: ex.gifUrl,
+          sets: prev?.sets?.length || 3,
+          reps: prev?.lastSet?.reps || 0,
+          weight: prev?.lastSet?.weight ? String(prev.lastSet.weight) : '0',
+          previousSets: prev?.sets || null,
+        };
+      });
 
       navigation.replace('FastWorkoutActive', {
         level: selectedLevel,
@@ -303,11 +331,14 @@ const CreateFastWorkoutScreen = () => {
     }),
   ).current;
 
-  const displayedExercises = (exercises || []).filter(ex =>
-    (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayedExercises = React.useMemo(() => {
+    const list = (exercises || []).filter(ex =>
+      (ex.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.equipment || (ex.equipments && ex.equipments[0]) || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ex.target || (ex.targetMuscles && ex.targetMuscles[0]) || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return sortExercisesByAlreadyUsed(list);
+  }, [exercises, searchQuery]);
 
   const formatDisplayName = (str) => {
     if (!str) return '';
@@ -326,6 +357,7 @@ const CreateFastWorkoutScreen = () => {
     const imageSource = rawImg ? { uri: rawImg } : null;
 
     const isSelected = selectedExercises.some(ex => ex.id === item.id);
+    const usedInfo = item.isAlreadyUsed ? { isUsed: true } : isExerciseUsed(item);
 
     return (
       <View
@@ -341,6 +373,11 @@ const CreateFastWorkoutScreen = () => {
             <View style={[styles.exerciseInfo, { flex: 1, marginLeft: 12 }]}>
               <Text style={styles.exerciseName}>{item.name}</Text>
               <View style={styles.badgeRow}>
+                {usedInfo?.isUsed ? (
+                  <View style={styles.recentBadge}>
+                    <Text style={styles.recentBadgeText}>RECENT</Text>
+                  </View>
+                ) : null}
                 {target ? (
                   <View style={styles.muscleBadge}>
                     <Text style={styles.badgeText}>{target}</Text>
@@ -463,15 +500,7 @@ const CreateFastWorkoutScreen = () => {
 
         <TouchableOpacity
           style={styles.filterButton}
-          onPress={() =>
-            navigation.navigate('MuscleSelection', {
-              initialSelected: selectedMuscles,
-              onSelectMuscles: (muscleIds, details) => {
-                const names = details.map((d) => d.name);
-                setSelectedMuscles(names);
-              },
-            })
-          }
+          onPress={() => setIsMuscleModalVisible(true)}
         >
           <Text style={styles.filterLabel}>Muscle Group</Text>
           <Text style={styles.filterValue} numberOfLines={1}>
@@ -517,8 +546,8 @@ const CreateFastWorkoutScreen = () => {
       </View>
 
       {/* Floating Actions at Bottom */}
-      <View style={styles.floatingButtonContainer}>
-        {selectedExercises.length > 0 ? (
+      {selectedExercises.length > 0 && (
+        <View style={styles.floatingButtonContainer}>
           <TouchableOpacity
             style={styles.addSelectedButton}
             onPress={handleAddSelectedExercises}
@@ -528,41 +557,8 @@ const CreateFastWorkoutScreen = () => {
               Add Selected Exercises ({selectedExercises.length})
             </Text>
           </TouchableOpacity>
-        ) : (
-          <View style={[styles.floatingButtonBg, { width: swipeWidth }]}>
-            <Text style={styles.floatingButtonTextBg}>Create Fast Workout</Text>
-            <Svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: 12 }}>
-              <Path d="M9 18L15 12L9 6" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M13 18L19 12L13 6" stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M17 18L23 12L17 6" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-            <Animated.View
-              style={[
-                styles.swipeThumb,
-                {
-                  transform: [{
-                    translateX: pan.x.interpolate({
-                      inputRange: [0, swipeWidth - sliderWidth],
-                      outputRange: [0, swipeWidth - sliderWidth],
-                      extrapolate: 'clamp',
-                    }),
-                  }],
-                },
-              ]}
-              {...panResponder.panHandlers}>
-              <View style={styles.floatingButtonIcon}>
-                {isCreating ? (
-                  <GlobalLoader size={50} />
-                ) : (
-                  <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <Path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#EE822A" />
-                  </Svg>
-                )}
-              </View>
-            </Animated.View>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Equipment Modal */}
       <EquipmentModal
@@ -690,6 +686,20 @@ const createFastWorkoutStyles = ({ wp, hp, ms, sp, fs }) =>
     exerciseInfo: { flex: 1, gap: 4 },
     exerciseName: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textTransform: 'capitalize' },
     badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+    recentBadge: {
+      backgroundColor: 'rgba(238, 130, 42, 0.15)',
+      borderWidth: 1,
+      borderColor: '#EE822A',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    recentBadgeText: {
+      color: '#EE822A',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
     muscleBadge: { backgroundColor: '#EE822A', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     equipmentBadge: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },

@@ -1,8 +1,34 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, Easing, StyleSheet } from 'react-native';
+import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
-export const GlobalLoader = ({ size = 70, outerWidth = 5, innerWidth = 4 }) => {
+export const GlobalLoader = ({
+  size = 70,
+  outerWidth,
+  innerWidth,
+  style,
+  text,
+  subtext,
+}) => {
+  // Normalize size if strings like 'large' or 'small' are passed
+  const numericSize =
+    typeof size === 'number'
+      ? size
+      : size === 'small'
+      ? 24
+      : size === 'large'
+      ? 50
+      : 50;
+
+  const strokeOuter =
+    outerWidth !== undefined
+      ? outerWidth
+      : Math.max(2, Math.round(numericSize * 0.075));
+  const strokeInner =
+    innerWidth !== undefined
+      ? innerWidth
+      : Math.max(1.5, Math.round(numericSize * 0.055));
+
   const spinValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -24,23 +50,23 @@ export const GlobalLoader = ({ size = 70, outerWidth = 5, innerWidth = 4 }) => {
     outputRange: ['0deg', '360deg'],
   });
 
-  const center = size / 2;
-  const outerRadius = (size / 2) - (outerWidth / 2) - 2;
-  const innerRadius = Math.max(4, outerRadius - outerWidth - (size * 0.08));
+  const center = numericSize / 2;
+  const outerRadius = Math.max(2, numericSize / 2 - strokeOuter / 2 - 2);
+  const innerRadius = Math.max(2, outerRadius - strokeOuter - numericSize * 0.08);
 
   return (
-    <View style={styles.loaderContainer}>
+    <View style={[styles.loaderContainer, style]}>
       <Animated.View
         style={[
           styles.spinner,
           {
-            width: size,
-            height: size,
+            width: numericSize,
+            height: numericSize,
             transform: [{ rotate: spinAngle }],
           },
         ]}
       >
-        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Svg width={numericSize} height={numericSize} viewBox={`0 0 ${numericSize} ${numericSize}`}>
           <Defs>
             {/* Outer circle gradient */}
             <LinearGradient id="outerGrad" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -61,7 +87,7 @@ export const GlobalLoader = ({ size = 70, outerWidth = 5, innerWidth = 4 }) => {
             cy={center}
             r={outerRadius}
             stroke="url(#outerGrad)"
-            strokeWidth={outerWidth}
+            strokeWidth={strokeOuter}
             fill="none"
           />
           {/* Inner Ring */}
@@ -70,19 +96,35 @@ export const GlobalLoader = ({ size = 70, outerWidth = 5, innerWidth = 4 }) => {
             cy={center}
             r={innerRadius}
             stroke="url(#innerGrad)"
-            strokeWidth={innerWidth}
+            strokeWidth={strokeInner}
             fill="none"
           />
         </Svg>
       </Animated.View>
+      {Boolean(text) && <Text style={styles.loaderText}>{text}</Text>}
+      {Boolean(subtext) && <Text style={styles.loaderSubtext}>{subtext}</Text>}
     </View>
   );
 };
 
-export const FullScreenLoader = ({ size = 70, outerWidth = 5, innerWidth = 4 }) => {
+export const FullScreenLoader = ({
+  size = 70,
+  outerWidth,
+  innerWidth,
+  style,
+  text,
+  subtext,
+  backgroundColor = '#000000',
+}) => {
   return (
-    <View style={styles.fullScreen}>
-      <GlobalLoader size={size} outerWidth={outerWidth} innerWidth={innerWidth} />
+    <View style={[styles.fullScreen, { backgroundColor }, style]}>
+      <GlobalLoader
+        size={size}
+        outerWidth={outerWidth}
+        innerWidth={innerWidth}
+        text={text}
+        subtext={subtext}
+      />
     </View>
   );
 };
@@ -98,10 +140,23 @@ const styles = StyleSheet.create({
   },
   fullScreen: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#050505',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
+  },
+  loaderText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loaderSubtext: {
+    color: '#8E8E93',
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: 'center',
   },
 });
 

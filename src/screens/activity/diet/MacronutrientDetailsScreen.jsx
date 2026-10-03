@@ -5,15 +5,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   Platform,
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path, Defs, Circle, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import apiClient from '../../../api/apiClient';
@@ -325,10 +326,10 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
   const currentPaths = getChartPaths();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Top Header Actions */}
       <View style={styles.topHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.75}>
           <Icon name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
 
@@ -339,10 +340,18 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
             return (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tabBtn, isActive && styles.activeTabBtn]}
+                style={styles.tabBtn}
                 onPress={() => setActiveTab(tab)}
                 activeOpacity={0.8}
               >
+                {isActive && (
+                  <LinearGradient
+                    colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                )}
                 <Text style={[styles.tabBtnText, isActive && styles.activeTabBtnText]}>
                   {tab}
                 </Text>
@@ -385,7 +394,14 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
                 <TouchableOpacity 
                   style={styles.datePickerDoneBtn} 
                   onPress={() => setShowDatePicker(false)}
+                  activeOpacity={0.8}
                 >
+                  <LinearGradient
+                    colors={['#EE822A', '#8F5D98', '#2E4D9F']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
                   <Text style={styles.datePickerDoneBtnText}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -420,8 +436,13 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
           <Svg width={width - 40} height={160} viewBox="0 0 360 160">
             <Defs>
               <SvgLinearGradient id="chartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <Stop offset="0%" stopColor="#7C4DFF" stopOpacity="0.45" />
-                <Stop offset="100%" stopColor="#7C4DFF" stopOpacity="0.0" />
+                <Stop offset="0%" stopColor="#EE822A" stopOpacity="0.35" />
+                <Stop offset="100%" stopColor="#EE822A" stopOpacity="0.0" />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="chartStrokeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <Stop offset="0%" stopColor="#EE822A" />
+                <Stop offset="50%" stopColor="#8F5D98" />
+                <Stop offset="100%" stopColor="#2E4D9F" />
               </SvgLinearGradient>
             </Defs>
 
@@ -434,7 +455,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
             <Path d={currentPaths.fill} fill="url(#chartGrad)" />
 
             {/* Bezier Stroke Path */}
-            <Path d={currentPaths.line} fill="none" stroke="#7C4DFF" strokeWidth="3.5" />
+            <Path d={currentPaths.line} fill="none" stroke="url(#chartStrokeGrad)" strokeWidth="3.5" strokeLinecap="round" />
           </Svg>
 
           {/* X Axis Labels */}
@@ -474,7 +495,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.macroValText}>{consumedProt}g / {targetProt}g ({protPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
-              <View style={[styles.macroBar, { width: `${protPct}%` }]} />
+              <View style={[styles.macroBar, styles.proteinBar, { width: `${protPct}%` }]} />
             </View>
           </View>
 
@@ -485,7 +506,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.macroValText}>{consumedFats}g / {targetFats}g ({fatsPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
-              <View style={[styles.macroBar, { width: `${fatsPct}%` }]} />
+              <View style={[styles.macroBar, styles.fatBar, { width: `${fatsPct}%` }]} />
             </View>
           </View>
 
@@ -496,7 +517,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.macroValText}>{consumedCarbs}g / {targetCarbs}g ({carbsPct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
-              <View style={[styles.macroBar, { width: `${carbsPct}%` }]} />
+              <View style={[styles.macroBar, styles.carbBar, { width: `${carbsPct}%` }]} />
             </View>
           </View>
 
@@ -507,7 +528,7 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
               <Text style={styles.macroValText}>{consumedFibre}g / {targetFibre}g ({fibrePct}%)</Text>
             </View>
             <View style={styles.macroTrack}>
-              <View style={[styles.macroBar, { width: `${fibrePct}%` }]} />
+              <View style={[styles.macroBar, styles.fibreBar, { width: `${fibrePct}%` }]} />
             </View>
           </View>
         </View>
@@ -517,7 +538,14 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
           <View style={styles.premiumHeaderRow}>
             {/* Custom equalizer bar icon in SVG */}
             <Svg width={32} height={32} viewBox="0 0 36 36">
-              <Circle cx="18" cy="18" r="18" fill="rgba(255, 255, 255, 0.15)" />
+              <Defs>
+                <SvgLinearGradient id="equalizerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#EE822A" />
+                  <Stop offset="50%" stopColor="#8F5D98" />
+                  <Stop offset="100%" stopColor="#2E4D9F" />
+                </SvgLinearGradient>
+              </Defs>
+              <Circle cx="18" cy="18" r="18" fill="url(#equalizerGrad)" />
               <Rect x="11" y="12" width="3.5" height="12" rx="1.75" fill="#FFF" />
               <Rect x="16.5" y="8" width="3.5" height="20" rx="1.75" fill="#FFF" />
               <Rect x="22" y="14" width="3.5" height="8" rx="1.75" fill="#FFF" />
@@ -564,19 +592,21 @@ const MacronutrientDetailsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#050505',
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 14,
+    paddingBottom: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -593,10 +623,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  activeTabBtn: {
-    backgroundColor: '#7C4DFF',
-  },
+  activeTabBtn: {},
   tabBtnText: {
     color: 'rgba(255, 255, 255, 0.45)',
     fontSize: 13,
@@ -604,6 +634,7 @@ const styles = StyleSheet.create({
   },
   activeTabBtnText: {
     color: '#FFF',
+    fontWeight: '800',
   },
   scrollContent: {
     paddingBottom: 40,
@@ -654,7 +685,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   leftLabel: {
-    color: '#00E676',
+    color: '#4ADE80',
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -706,8 +737,19 @@ const styles = StyleSheet.create({
   },
   macroBar: {
     height: '100%',
-    backgroundColor: '#FFF',
     borderRadius: 2,
+  },
+  proteinBar: {
+    backgroundColor: '#EE822A',
+  },
+  fatBar: {
+    backgroundColor: '#FFB800',
+  },
+  carbBar: {
+    backgroundColor: '#38BDF8',
+  },
+  fibreBar: {
+    backgroundColor: '#34D399',
   },
   // Detailed Premium Analysis CSS
   premiumAnalysisContainer: {
@@ -732,11 +774,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   microAnalysisCard: {
-    backgroundColor: '#000',
+    backgroundColor: '#101014',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: BORDER_COLOR,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   microCardTitle: {
     fontSize: 17,
@@ -763,7 +805,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   microStatusDotFilled: {
-    backgroundColor: '#3B72FF',
+    backgroundColor: '#EE822A',
   },
   microLabel: {
     flex: 1,
@@ -802,12 +844,13 @@ const styles = StyleSheet.create({
   },
   datePickerDoneBtn: {
     marginTop: 16,
-    backgroundColor: '#7C4DFF',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 20,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   datePickerDoneBtnText: {
     color: '#FFF',
