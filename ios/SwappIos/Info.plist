@@ -76,13 +76,6 @@
 			<dict>
 				<key>NSIncludesSubdomains</key>
 				<false/>
-				<key>NSPinnedLeafIdentities</key>
-				<array>
-					<dict>
-						<key>SPKI-SHA256-BASE64</key>
-						<string>li99NRRj8pe0j/o0URlEp3+HfyoHZ9Lxo6s/ADNA+R0=</string>
-					</dict>
-				</array>
 				<key>NSPinnedCAIdentities</key>
 				<array>
 					<dict>
@@ -92,6 +85,13 @@
 					<dict>
 						<key>SPKI-SHA256-BASE64</key>
 						<string>mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=</string>
+					</dict>
+				</array>
+				<key>NSPinnedLeafIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>li99NRRj8pe0j/o0URlEp3+HfyoHZ9Lxo6s/ADNA+R0=</string>
 					</dict>
 				</array>
 			</dict>
@@ -99,13 +99,6 @@
 			<dict>
 				<key>NSIncludesSubdomains</key>
 				<false/>
-				<key>NSPinnedLeafIdentities</key>
-				<array>
-					<dict>
-						<key>SPKI-SHA256-BASE64</key>
-						<string>li99NRRj8pe0j/o0URlEp3+HfyoHZ9Lxo6s/ADNA+R0=</string>
-					</dict>
-				</array>
 				<key>NSPinnedCAIdentities</key>
 				<array>
 					<dict>
@@ -115,6 +108,13 @@
 					<dict>
 						<key>SPKI-SHA256-BASE64</key>
 						<string>mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=</string>
+					</dict>
+				</array>
+				<key>NSPinnedLeafIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>li99NRRj8pe0j/o0URlEp3+HfyoHZ9Lxo6s/ADNA+R0=</string>
 					</dict>
 				</array>
 			</dict>
@@ -138,10 +138,6 @@
 	<string>SwappFit needs access to your photo library to upload profile pictures and gym content.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>SwappFit uses your device data to track app performance, measure diagnostic analytics, and provide a personalized experience.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -168,6 +164,10 @@
 		<string>BRLNSR.TTF</string>
 		<string>BRLNSB.TTF</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -187,5 +187,22 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>
